@@ -1,0 +1,9 @@
+.cache/clangd/index
+build
+AGENTS.md
+CLAUDE.md
+README_SIMD.md
+compile_commands.json
+test_simd_alignment.c
+test_simd_alignment
+docs
