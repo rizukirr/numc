@@ -2,6 +2,16 @@
 
 A lightweight, NumPy-inspired N-dimensional array library written in C. Designed for scientific computing and numerical applications.
 
+> [!WARNING]
+> **This project is under heavy development and the API is not stable.**
+> 
+> - Breaking changes may occur between commits
+> - Not recommended for production use yet
+> - APIs, data structures, and function signatures are subject to change
+> - Use at your own risk or pin to a specific commit
+> 
+> Contributions, testing, and feedback are welcome! See [Contributing](#contributing) section.
+
 ## Features
 
 - N-dimensional arrays with flexible stride-based memory layout
