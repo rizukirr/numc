@@ -21,7 +21,8 @@
  * @param ndim      Number of dimensions.
  * @param elem_size Size of each element in bytes.
  * @param size      Total number of elements.
- * @param capacity  Allocated capacity in number of elements (for dynamic growth).
+ * @param capacity  Allocated capacity in number of elements (for dynamic
+ * growth).
  * @param owns_data Non-zero if this array owns its data buffer.
  */
 typedef struct {
@@ -57,8 +58,8 @@ Array *array_create(size_t ndim, const size_t *shape, size_t elem_size);
  * @param data      Pointer to contiguous source data to copy.
  * @return Pointer to the new array, or NULL on failure.
  */
-Array *array_from_data(size_t ndim, const size_t *shape, size_t elem_size,
-                       const void *data);
+Array *array_batch(size_t ndim, const size_t *shape, size_t elem_size,
+                   const void *data);
 
 /**
  * @brief Free an array and its associated memory.
@@ -99,9 +100,6 @@ size_t array_offset(const Array *array, const size_t *indices);
  */
 void *array_at(const Array *array, const size_t *indices);
 
-// Deprecated: use array_at() instead
-#define array_get_ptr(arr, indices) array_at(arr, indices)
-
 /**
  * @brief Reshape an array to a new shape.
  *
@@ -122,9 +120,6 @@ int array_reshape(Array *array, size_t ndim, const size_t *shape);
  * @return Total number of elements.
  */
 size_t array_size(const Array *array);
-
-// Deprecated: use array_size() instead
-#define array_numof_elem(arr) array_size(arr)
 
 /**
  * @brief Create a slice (view) of an array.
@@ -148,9 +143,6 @@ Array *array_slice(Array *base, const size_t *start, const size_t *stop,
  */
 int array_is_contiguous(const Array *array);
 
-// Deprecated: use array_is_contiguous() instead
-#define array_contiguous(arr) array_is_contiguous(arr)
-
 /**
  * @brief Create a contiguous copy of an array.
  *
@@ -158,9 +150,6 @@ int array_is_contiguous(const Array *array);
  * @return Pointer to a new contiguous array, or NULL on failure.
  */
 Array *array_copy(const Array *src);
-
-// Deprecated: use array_copy() instead
-#define array_copy_contiguous(src) array_copy(src)
 
 /**
  * @brief Append a single element to a 1D array.
@@ -187,5 +176,15 @@ int array_append(Array *array, const void *elem);
  * @return Pointer to a new concatenated array, or NULL on failure.
  */
 Array *array_concat(const Array *a, const Array *b, size_t axis);
+
+/**
+ * Create an array filled with zeros.
+ *
+ * @param ndim Number of dimensions.
+ * @param shape Shape of the array.
+ * @param elem_size Size of each element in bytes.
+ * @return Pointer to a new array, or NULL on failure.
+ */
+Array *array_zeros(size_t ndim, const size_t *shape, size_t elem_size);
 
 #endif

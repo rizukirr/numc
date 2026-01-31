@@ -58,8 +58,8 @@ Array *array_create(size_t ndim, const size_t *shape, size_t elem_size) {
   return array;
 }
 
-Array *array_from_data(size_t ndim, const size_t *shape, size_t elem_size,
-                       const void *data) {
+Array *array_batch(size_t ndim, const size_t *shape, size_t elem_size,
+                   const void *data) {
   if (!data)
     return NULL;
 
@@ -395,4 +395,13 @@ fail:
     free(dst_indices);
   array_free(result);
   return NULL;
+}
+
+Array *array_zeros(size_t ndim, const size_t *shape, size_t elem_size) {
+  Array *arr = array_create(ndim, shape, elem_size);
+  if (!arr)
+    return NULL;
+
+  memset(arr->data, 0, arr->size * arr->elem_size);
+  return arr;
 }

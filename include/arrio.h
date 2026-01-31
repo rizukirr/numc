@@ -8,15 +8,18 @@
 #ifndef ARRIO_H
 #define ARRIO_H
 
-#include "array.h"
+#include <stddef.h>
 
 /**
- * @brief Print an array to standard output.
+ * Prints the contents of an array.
  *
- * Displays the array contents in a human-readable format.
- *
- * @param array Pointer to the array to print.
+ * @param data The array data.
+ * @param shape The array shape.
+ * @param ndim The number of dimensions.
+ * @param dim The current dimension.
+ * @param offset The current offset.
  */
-void array_print(const Array *array);
+void array_print(const float *data, const size_t *shape, size_t ndim,
+                 size_t dim, size_t *offset);
 
 #endif
