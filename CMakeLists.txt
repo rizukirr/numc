@@ -19,9 +19,9 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 option(BUILD_SHARED "Build shared library" OFF)
 
 if(BUILD_SHARED)
-    add_library(numc_src SHARED src/array.c src/arrio.c)
+    add_library(numc_src SHARED src/array.c src/arrio.c src/memory.c)
 else()
-    add_library(numc_src STATIC src/array.c src/arrio.c)
+    add_library(numc_src STATIC src/array.c src/arrio.c src/memory.c)
 endif()
 
 target_include_directories(numc_src PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -29,3 +29,10 @@ target_link_libraries(numc_src PUBLIC m)
 
 add_executable(numc main.c)
 target_link_libraries(numc numc_src)
+
+# Test suite
+option(BUILD_TESTS "Build test suite" ON)
+if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

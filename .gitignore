@@ -7,3 +7,4 @@ compile_commands.json
 test_simd_alignment.c
 test_simd_alignment
 docs
+Testing/Temporary

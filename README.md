@@ -8,8 +8,10 @@ A lightweight, NumPy-inspired N-dimensional array library written in C. Designed
 - NumPy-like API for familiar usage
 - Zero-copy views and slicing
 - Contiguous memory optimization for SIMD operations
-- Type-agnostic design supporting any data type
+- Type-safe DType system for numeric types (int8 to int64, float, double)
+- 16-byte aligned memory allocation for SIMD compatibility
 - Geometric growth for efficient dynamic arrays
+- Comprehensive test suite with CTest integration
 
 ## Building
 
@@ -20,8 +22,11 @@ cmake -B build
 # Build
 cd build && make
 
-# Run tests
+# Run the main executable
 ./bin/numc
+
+# Run tests
+ctest
 ```
 
 ### Build Options
@@ -34,20 +39,45 @@ cmake -B build -DBUILD_SHARED=ON            # Build shared library
 
 ## API Reference
 
+### Data Types (DType)
+
+The library uses a type-safe `DType` enum to distinguish between numeric types:
+
+```c
+DTYPE_BYTE      // int8_t
+DTYPE_UBYTE     // uint8_t
+DTYPE_SHORT     // int16_t
+DTYPE_USHORT    // uint16_t
+DTYPE_INT       // int32_t
+DTYPE_UINT      // uint32_t
+DTYPE_LONG      // int64_t
+DTYPE_ULONG     // uint64_t
+DTYPE_FLOAT     // float
+DTYPE_DOUBLE    // double
+```
+
+Corresponding type definitions are available:
+```c
+NUMC_INT        // int32_t
+NUMC_FLOAT      // float
+NUMC_DOUBLE     // double
+// ... etc
+```
+
 ### Array Creation
 
 **Implemented:**
-- `Array *array_create(size_t ndim, const size_t *shape, size_t elem_size)` - Create uninitialized array
-- `Array *array_from_data(size_t ndim, const size_t *shape, size_t elem_size, const void *data)` - Create from existing data
+- `Array *array_create(size_t ndim, const size_t *shape, DType dtype)` - Create uninitialized array
+- `Array *array_batch(size_t ndim, const size_t *shape, DType dtype, const void *data)` - Create from existing data
+- `Array *array_zeros(size_t ndim, const size_t *shape, DType dtype)` - Create array filled with zeros
+- `Array *array_ones(size_t ndim, const size_t *shape, DType dtype)` - Create array filled with ones
+- `Array *array_fill(size_t ndim, const size_t *shape, DType dtype, const void *value)` - Create array filled with value
 - `void array_free(Array *array)` - Free array memory
 
 **Not Yet Implemented:**
-- [ ] `Array *array_zeros(size_t ndim, const size_t *shape, size_t elem_size)` - Create array filled with zeros
-- [ ] `Array *array_ones(size_t ndim, const size_t *shape, size_t elem_size)` - Create array filled with ones
-- [ ] `Array *array_fill(size_t ndim, const size_t *shape, size_t elem_size, const void *value)` - Create array filled with value
 - [ ] `Array *array_arange(double start, double stop, double step)` - Create range of values
 - [ ] `Array *array_linspace(double start, double stop, size_t num)` - Create linearly spaced values
-- [ ] `Array *array_eye(size_t n, size_t m, size_t elem_size)` - Create identity matrix
+- [ ] `Array *array_eye(size_t n, size_t m, DType dtype)` - Create identity matrix
 
 ### Array Access
 
@@ -152,16 +182,26 @@ cmake -B build -DBUILD_SHARED=ON            # Build shared library
 ### Creating Arrays
 
 ```c
+#include "array.h"
+#include "dtype.h"
+
 // Create empty array
 size_t shape[] = {2, 3, 4};
-Array *arr = array_create(3, shape, sizeof(double));
+Array *arr = array_create(3, shape, DTYPE_DOUBLE);
 
 // Create from static array
 int data[2][3] = {{1, 2, 3}, {4, 5, 6}};
-Array *arr2 = array_from_data(2, (size_t[]){2, 3}, sizeof(int), data);
+Array *arr2 = array_batch(2, (size_t[]){2, 3}, DTYPE_INT, data);
 
-// Create zeros (when implemented)
-// Array *zeros = array_zeros(2, shape, sizeof(float));
+// Create zeros
+Array *zeros = array_zeros(2, (size_t[]){3, 4}, DTYPE_FLOAT);
+
+// Create ones
+Array *ones = array_ones(1, (size_t[]){10}, DTYPE_INT);
+
+// Create filled with specific value
+int fill_val = 42;
+Array *filled = array_fill(2, (size_t[]){5, 5}, DTYPE_INT, &fill_val);
 ```
 
 ### Accessing Elements
@@ -192,15 +232,15 @@ Array *sliced = array_slice(arr,
 
 ```c
 // Reshape [2, 6] -> [3, 4]
-Array *arr = array_create(2, (size_t[]){2, 6}, sizeof(int));
+Array *arr = array_create(2, (size_t[]){2, 6}, DTYPE_INT);
 array_reshape(arr, 2, (size_t[]){3, 4});
 ```
 
 ### Concatenation
 
 ```c
-Array *a = array_create(2, (size_t[]){3, 4}, sizeof(float));
-Array *b = array_create(2, (size_t[]){2, 4}, sizeof(float));
+Array *a = array_create(2, (size_t[]){3, 4}, DTYPE_FLOAT);
+Array *b = array_create(2, (size_t[]){2, 4}, DTYPE_FLOAT);
 
 // Concatenate along axis 0 (rows)
 Array *result = array_concat(a, b, 0);  // Shape: [5, 4]
@@ -233,7 +273,7 @@ See `UNDERSTANDING_SIMD.md` for details.
 
 `array_append()` uses geometric growth (2x capacity) for O(n) amortized performance:
 ```c
-Array *arr = array_create(1, (size_t[]){0}, sizeof(int));
+Array *arr = array_create(1, (size_t[]){0}, DTYPE_INT);
 for (int i = 0; i < 10000; i++) {
     array_append(arr, &i);  // Efficient: only ~14 reallocations
 }
@@ -250,9 +290,40 @@ for (int i = 0; i < 10000; i++) {
 When adding new functions:
 1. Follow NumPy naming conventions when possible
 2. Document with Doxygen comments
-3. Add examples to `main.c`
+3. Add unit tests in `tests/` directory
 4. Update this README
 5. Ensure memory safety (no leaks, use AddressSanitizer)
+
+Run tests with:
+```bash
+cd build && ctest --verbose
+```
+
+## Roadmap / Next Steps
+
+### DType System Enhancements
+- [ ] Type checking in operations - `array_add()` can verify both arrays have compatible dtypes
+- [ ] Type casting - `array_astype(arr, DTYPE_DOUBLE)` to convert between types
+- [ ] Dtype introspection - Print array info including dtype
+- [ ] Optimized operations - Different SIMD code paths for int vs float
+
+### SIMD Optimizations
+- [ ] Implement vectorized `array_add()` with SSE2/NEON
+- [ ] Implement vectorized `array_multiply()` with SSE2/NEON  
+- [ ] Implement vectorized `array_dot()` for matrix multiplication
+- [ ] Add SIMD detection at runtime (SSE2, AVX2, AVX-512, NEON)
+- [ ] Benchmark SIMD vs scalar performance
+
+### Core Functionality
+- [ ] Broadcasting support (NumPy-style automatic shape expansion)
+- [ ] More array operations (transpose, reduce, etc.)
+- [ ] Better error handling and validation
+- [x] Comprehensive test suite
+
+### Performance & Memory
+- [ ] Arena allocator for temporary arrays (optional, for performance-critical code)
+- [ ] Object pooling for common array sizes
+- [ ] Memory usage profiling and optimization
 
 ## License
 

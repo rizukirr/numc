@@ -1,4 +1,6 @@
-#include <array.h>
+#include "array.h"
+#include "dtype.h"
+#include "memory.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,7 +17,8 @@ static inline void *array_get_unchecked(const Array *array,
   return (char *)array->data + offset;
 }
 
-Array *array_create(size_t ndim, const size_t *shape, size_t elem_size) {
+Array *array_create(size_t ndim, const size_t *shape, DType dtype) {
+  size_t elem_size = dtype_size(dtype);
   if (ndim == 0 || elem_size == 0 || !shape)
     return NULL;
 
@@ -24,6 +27,7 @@ Array *array_create(size_t ndim, const size_t *shape, size_t elem_size) {
     return NULL;
 
   array->ndim = ndim;
+  array->dtype = dtype;
   array->elem_size = elem_size;
 
   // Combined allocation for shape and strides
@@ -48,7 +52,7 @@ Array *array_create(size_t ndim, const size_t *shape, size_t elem_size) {
 
   // Initialize capacity equal to size (no over-allocation initially)
   array->capacity = array->size;
-  array->data = calloc(array->size, elem_size);
+  array->data = aligned_calloc(NUMC_ALIGN, array->size * elem_size);
   if (!array->data) {
     free(array->shape);
     free(array);
@@ -58,13 +62,15 @@ Array *array_create(size_t ndim, const size_t *shape, size_t elem_size) {
   return array;
 }
 
-Array *array_batch(size_t ndim, const size_t *shape, size_t elem_size,
+Array *array_batch(size_t ndim, const size_t *shape, DType dtype,
                    const void *data) {
   if (!data)
     return NULL;
 
+  size_t elem_size = dtype_size(dtype);
+
   // Create array structure with same shape
-  Array *array = array_create(ndim, shape, elem_size);
+  Array *array = array_create(ndim, shape, dtype);
   if (!array)
     return NULL;
 
@@ -79,7 +85,7 @@ void array_free(Array *array) {
     return;
 
   if (array->owns_data)
-    free(array->data);
+    aligned_free(array->data);
 
   free(array->shape);
   free(array);
@@ -192,6 +198,7 @@ Array *array_slice(Array *base, const size_t *start, const size_t *stop,
     return NULL;
 
   view->ndim = base->ndim;
+  view->dtype = base->dtype;
   view->elem_size = base->elem_size;
 
   // Combined allocation for shape and strides
@@ -249,7 +256,7 @@ Array *array_copy(const Array *src) {
   if (!src)
     return NULL;
 
-  Array *dst = array_create(src->ndim, src->shape, src->elem_size);
+  Array *dst = array_create(src->ndim, src->shape, src->dtype);
   if (!dst)
     return NULL;
 
@@ -296,7 +303,9 @@ int array_append(Array *array, const void *elem) {
   if (array->size >= array->capacity) {
     // Geometric growth: double capacity (or start with 8 if capacity is 0)
     size_t new_capacity = array->capacity == 0 ? 8 : array->capacity * 2;
-    void *new_data = realloc(array->data, new_capacity * array->elem_size);
+    void *new_data = aligned_realloc(array->data, NUMC_ALIGN,
+                                     array->capacity * array->elem_size,
+                                     new_capacity * array->elem_size);
     if (!new_data)
       return -1;
 
@@ -340,7 +349,7 @@ Array *array_concat(const Array *a, const Array *b, size_t axis) {
     new_shape[i] = a->shape[i];
   new_shape[axis] = a->shape[axis] + b->shape[axis];
 
-  Array *result = array_create(a->ndim, new_shape, a->elem_size);
+  Array *result = array_create(a->ndim, new_shape, a->dtype);
   free(new_shape);
   if (!result)
     return NULL;
@@ -397,11 +406,167 @@ fail:
   return NULL;
 }
 
-Array *array_zeros(size_t ndim, const size_t *shape, size_t elem_size) {
-  Array *arr = array_create(ndim, shape, elem_size);
+Array *array_zeros(size_t ndim, const size_t *shape, DType dtype) {
+  Array *arr = array_create(ndim, shape, dtype);
   if (!arr)
     return NULL;
 
+  // memset with 0 is safe for all types (all bits zero = 0)
   memset(arr->data, 0, arr->size * arr->elem_size);
+  return arr;
+}
+
+Array *array_fill(size_t ndim, const size_t *shape, DType dtype,
+                  const void *elem) {
+  Array *arr = array_create(ndim, shape, dtype);
+  if (!arr)
+    return NULL;
+
+  // Now we can use dtype to determine the correct fill value!
+  switch (dtype) {
+  case DTYPE_BYTE: {
+    NUMC_BYTE *data = (NUMC_BYTE *)arr->data;
+    NUMC_BYTE value = *((const NUMC_BYTE *)elem);
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = value;
+    break;
+  }
+  case DTYPE_UBYTE: {
+    NUMC_UBYTE *data = (NUMC_UBYTE *)arr->data;
+    NUMC_UBYTE value = *((const NUMC_UBYTE *)elem);
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = value;
+    break;
+  }
+  case DTYPE_SHORT: {
+    NUMC_SHORT *data = (NUMC_SHORT *)arr->data;
+    NUMC_SHORT value = *((const NUMC_SHORT *)elem);
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = value;
+    break;
+  }
+  case DTYPE_USHORT: {
+    NUMC_USHORT *data = (NUMC_USHORT *)arr->data;
+    NUMC_USHORT value = *((const NUMC_USHORT *)elem);
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = value;
+    break;
+  }
+  case DTYPE_INT: {
+    NUMC_INT *data = (NUMC_INT *)arr->data;
+    NUMC_INT value = *((const NUMC_INT *)elem);
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = value;
+    break;
+  }
+  case DTYPE_UINT: {
+    NUMC_UINT *data = (NUMC_UINT *)arr->data;
+    NUMC_UINT value = *((const NUMC_UINT *)elem);
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = value;
+    break;
+  }
+  case DTYPE_LONG: {
+    NUMC_LONG *data = (NUMC_LONG *)arr->data;
+    NUMC_LONG value = *((const NUMC_LONG *)elem);
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = value;
+    break;
+  }
+  case DTYPE_ULONG: {
+    NUMC_ULONG *data = (NUMC_ULONG *)arr->data;
+    NUMC_ULONG value = *((const NUMC_ULONG *)elem);
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = value;
+    break;
+  }
+  case DTYPE_FLOAT: {
+    NUMC_FLOAT *data = (NUMC_FLOAT *)arr->data;
+    NUMC_FLOAT value = *((const NUMC_FLOAT *)elem);
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = value;
+    break;
+  }
+  case DTYPE_DOUBLE: {
+    NUMC_DOUBLE *data = (NUMC_DOUBLE *)arr->data;
+    NUMC_DOUBLE value = *((const NUMC_DOUBLE *)elem);
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = value;
+    break;
+  }
+  }
+
+  return arr;
+}
+
+Array *array_ones(size_t ndim, const size_t *shape, DType dtype) {
+  Array *arr = array_create(ndim, shape, dtype);
+  if (!arr)
+    return NULL;
+
+  // Now we can use dtype to determine the correct fill value!
+  switch (dtype) {
+  case DTYPE_BYTE: {
+    NUMC_BYTE *data = (NUMC_BYTE *)arr->data;
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = 1;
+    break;
+  }
+  case DTYPE_UBYTE: {
+    NUMC_UBYTE *data = (NUMC_UBYTE *)arr->data;
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = 1;
+    break;
+  }
+  case DTYPE_SHORT: {
+    NUMC_SHORT *data = (NUMC_SHORT *)arr->data;
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = 1;
+    break;
+  }
+  case DTYPE_USHORT: {
+    NUMC_USHORT *data = (NUMC_USHORT *)arr->data;
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = 1;
+    break;
+  }
+  case DTYPE_INT: {
+    NUMC_INT *data = (NUMC_INT *)arr->data;
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = 1;
+    break;
+  }
+  case DTYPE_UINT: {
+    NUMC_UINT *data = (NUMC_UINT *)arr->data;
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = 1;
+    break;
+  }
+  case DTYPE_LONG: {
+    NUMC_LONG *data = (NUMC_LONG *)arr->data;
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = 1;
+    break;
+  }
+  case DTYPE_ULONG: {
+    NUMC_ULONG *data = (NUMC_ULONG *)arr->data;
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = 1;
+    break;
+  }
+  case DTYPE_FLOAT: {
+    NUMC_FLOAT *data = (NUMC_FLOAT *)arr->data;
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = 1.0f; // ✓ Now we can use 1.0f for float!
+    break;
+  }
+  case DTYPE_DOUBLE: {
+    NUMC_DOUBLE *data = (NUMC_DOUBLE *)arr->data;
+    for (size_t i = 0; i < arr->size; i++)
+      data[i] = 1.0; // ✓ And 1.0 for double!
+    break;
+  }
+  }
+
   return arr;
 }

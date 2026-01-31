@@ -10,6 +10,7 @@
 #ifndef ARRAY_H
 #define ARRAY_H
 
+#include "dtype.h"
 #include <stddef.h>
 
 /**
@@ -19,6 +20,7 @@
  * @param shape     Array of dimension sizes (length = ndim).
  * @param strides   Array of byte strides for each dimension (length = ndim).
  * @param ndim      Number of dimensions.
+ * @param dtype     Data type of array elements.
  * @param elem_size Size of each element in bytes.
  * @param size      Total number of elements.
  * @param capacity  Allocated capacity in number of elements (for dynamic
@@ -30,6 +32,7 @@ typedef struct {
   size_t *shape;
   size_t *strides;
   size_t ndim;
+  DType dtype;
   size_t elem_size;
   size_t size;
   size_t capacity;
@@ -37,14 +40,14 @@ typedef struct {
 } Array;
 
 /**
- * @brief Create a new array with the specified shape and element size.
+ * @brief Create a new array with the specified shape and data type.
  *
- * @param ndim      Number of dimensions.
- * @param shape     Array of dimension sizes.
- * @param elem_size Size of each element in bytes.
+ * @param ndim  Number of dimensions.
+ * @param shape Array of dimension sizes.
+ * @param dtype Data type of array elements.
  * @return Pointer to the new array, or NULL on failure.
  */
-Array *array_create(size_t ndim, const size_t *shape, size_t elem_size);
+Array *array_create(size_t ndim, const size_t *shape, DType dtype);
 
 /**
  * @brief Create a new array from existing contiguous data.
@@ -52,13 +55,13 @@ Array *array_create(size_t ndim, const size_t *shape, size_t elem_size);
  * Copies data from a contiguous buffer (like a C array) into a new Array.
  * The data is assumed to be in row-major (C) order.
  *
- * @param ndim      Number of dimensions.
- * @param shape     Array of dimension sizes.
- * @param elem_size Size of each element in bytes.
- * @param data      Pointer to contiguous source data to copy.
+ * @param ndim  Number of dimensions.
+ * @param shape Array of dimension sizes.
+ * @param dtype Data type of array elements.
+ * @param data  Pointer to contiguous source data to copy.
  * @return Pointer to the new array, or NULL on failure.
  */
-Array *array_batch(size_t ndim, const size_t *shape, size_t elem_size,
+Array *array_batch(size_t ndim, const size_t *shape, DType dtype,
                    const void *data);
 
 /**
@@ -178,13 +181,34 @@ int array_append(Array *array, const void *elem);
 Array *array_concat(const Array *a, const Array *b, size_t axis);
 
 /**
- * Create an array filled with zeros.
+ * @brief Create an array filled with zeros.
  *
- * @param ndim Number of dimensions.
+ * @param ndim  Number of dimensions.
  * @param shape Shape of the array.
- * @param elem_size Size of each element in bytes.
+ * @param dtype Data type of array elements.
  * @return Pointer to a new array, or NULL on failure.
  */
-Array *array_zeros(size_t ndim, const size_t *shape, size_t elem_size);
+Array *array_zeros(size_t ndim, const size_t *shape, DType dtype);
+
+/**
+ * @brief Create an array filled with ones.
+ *
+ * @param ndim  Number of dimensions.
+ * @param shape Shape of the array.
+ * @param dtype Data type of array elements.
+ * @return Pointer to a new array, or NULL on failure.
+ */
+Array *array_ones(size_t ndim, const size_t *shape, DType dtype);
+
+/**
+ * @brief Create an array filled with a single value.
+ *
+ * @param ndim  Number of dimensions.
+ * @param shape Shape of the array.
+ * @param dtype Data type of array elements.
+ * @param elem  Pointer to the element to fill with.
+ * @return Pointer to a new array, or NULL on failure.
+ */
+Array *array_fill(size_t ndim, const size_t *shape, DType dtype, const void *elem);
 
 #endif

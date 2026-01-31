@@ -23,12 +23,17 @@ case $args in
         elapsed=$(awk "BEGIN { printf \"%.3f\", ($build_end - $build_start)/1000 }")
         echo "Build took ${elapsed} seconds"
         ;;
+    "test")
+        echo "Running tests..."
+        ctest --test-dir build
+        exit 0;
+        ;;
     "")
         echo "Running without building..."
         ;;
     *)
         echo "Unknown argument: $args"
-        echo "Usage: $0 [debug|release]"
+        echo "Usage: $0 [debug|release|test]"
         exit 1
         ;;
 esac
