@@ -19,11 +19,15 @@ endfunction()
 # Add individual test files
 add_numc_test(test_dtype test_dtype.c)
 add_numc_test(test_array_create test_array_create.c)
+add_numc_test(test_array_core test_array_core.c)
 add_numc_test(test_array_fill test_array_fill.c)
 add_numc_test(test_array_slice test_array_slice.c)
 add_numc_test(test_array_reshape test_array_reshape.c)
 add_numc_test(test_array_copy test_array_copy.c)
+add_numc_test(test_array_concat test_array_concat.c)
+add_numc_test(test_array_transpose test_array_transpose.c)
 add_numc_test(test_memory_alignment test_memory_alignment.c)
+add_numc_test(test_array_add test_array_add.c)
 
 # Print message
 message(STATUS "Configured numc tests")

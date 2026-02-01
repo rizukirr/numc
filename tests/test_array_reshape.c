@@ -11,7 +11,7 @@
 void test_reshape_2d_to_1d(void) {
   printf("Testing reshape [2, 6] -> [12]...\n");
   
-  Array *arr = array_create(2, (size_t[]){2, 6}, DTYPE_INT);
+  Array *arr = array_create(2, (size_t[]){2, 6}, DTYPE_INT, NULL);
   int *data = (int *)arr->data;
   for (int i = 0; i < 12; i++) {
     data[i] = i;
@@ -35,7 +35,7 @@ void test_reshape_2d_to_1d(void) {
 void test_reshape_1d_to_2d(void) {
   printf("Testing reshape [12] -> [3, 4]...\n");
   
-  Array *arr = array_create(1, (size_t[]){12}, DTYPE_INT);
+  Array *arr = array_create(1, (size_t[]){12}, DTYPE_INT, NULL);
   int *data = (int *)arr->data;
   for (int i = 0; i < 12; i++) {
     data[i] = i;
@@ -55,7 +55,7 @@ void test_reshape_1d_to_2d(void) {
 void test_reshape_invalid_size(void) {
   printf("Testing reshape with mismatched size...\n");
   
-  Array *arr = array_create(1, (size_t[]){12}, DTYPE_INT);
+  Array *arr = array_create(1, (size_t[]){12}, DTYPE_INT, NULL);
   
   // Try to reshape to different size (should fail)
   int result = array_reshape(arr, 2, (size_t[]){2, 5});

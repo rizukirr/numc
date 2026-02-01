@@ -11,7 +11,10 @@
 #define ARRAY_H
 
 #include "dtype.h"
+#include <assert.h>
 #include <stddef.h>
+
+#define MAX_STACK_NDIM 8
 
 /**
  * @brief Multi-dimensional array structure.
@@ -39,21 +42,12 @@ typedef struct {
   int owns_data;
 } Array;
 
-/**
- * @brief Create a new array with the specified shape and data type.
- *
- * @param ndim  Number of dimensions.
- * @param shape Array of dimension sizes.
- * @param dtype Data type of array elements.
- * @return Pointer to the new array, or NULL on failure.
- */
-Array *array_create(size_t ndim, const size_t *shape, DType dtype);
+// -----------------------------------------------------------------------------
+//                              Array Creation
+// -----------------------------------------------------------------------------
 
 /**
- * @brief Create a new array from existing contiguous data.
- *
- * Copies data from a contiguous buffer (like a C array) into a new Array.
- * The data is assumed to be in row-major (C) order.
+ * @brief Create a new array with the specified shape and data type.
  *
  * @param ndim  Number of dimensions.
  * @param shape Array of dimension sizes.
@@ -61,8 +55,40 @@ Array *array_create(size_t ndim, const size_t *shape, DType dtype);
  * @param data  Pointer to contiguous source data to copy.
  * @return Pointer to the new array, or NULL on failure.
  */
-Array *array_batch(size_t ndim, const size_t *shape, DType dtype,
-                   const void *data);
+Array *array_create(size_t ndim, const size_t *shape, DType dtype,
+                    const void *data);
+
+/**
+ * @brief Create an array filled with zeros.
+ *
+ * @param ndim  Number of dimensions.
+ * @param shape Shape of the array.
+ * @param dtype Data type of array elements.
+ * @return Pointer to a new array, or NULL on failure.
+ */
+Array *array_zeros(size_t ndim, const size_t *shape, DType dtype);
+
+/**
+ * @brief Create an array filled with ones.
+ *
+ * @param ndim      Number of dimensions.
+ * @param shape     Shape of the array.
+ * @param dtype     Data type of array elements.
+ * @return Pointer to a new array, or NULL on failure.
+ */
+Array *array_ones(size_t ndim, const size_t *shape, DType dtype);
+
+/**
+ * @brief Create an array filled with a single value.
+ *
+ * @param ndim  Number of dimensions.
+ * @param shape Shape of the array.
+ * @param dtype Data type of array elements.
+ * @param elem  Pointer to the element to fill with.
+ * @return Pointer to a new array, or NULL on failure.
+ */
+Array *array_fill(size_t ndim, const size_t *shape, DType dtype,
+                  const void *elem);
 
 /**
  * @brief Free an array and its associated memory.
@@ -73,17 +99,9 @@ Array *array_batch(size_t ndim, const size_t *shape, DType dtype,
  */
 void array_free(Array *array);
 
-/**
- * @brief Get a pointer to an element using variadic indices.
- *
- * @warning This function has overhead from variadic argument processing.
- *          Use array_get_ptr() in performance-critical loops.
- *
- * @param array Pointer to the array.
- * @param ...   Indices for each dimension (as size_t values).
- * @return Pointer to the element, or NULL on error.
- */
-void *array_get(Array *array, ...);
+// -----------------------------------------------------------------------------
+//                              Array Access
+// -----------------------------------------------------------------------------
 
 /**
  * @brief Compute the byte offset for the given indices.
@@ -95,13 +113,96 @@ void *array_get(Array *array, ...);
 size_t array_offset(const Array *array, const size_t *indices);
 
 /**
+ * @brief Bounds check for array indices.
+ *
+ * @param array   Pointer to the array.
+ * @param indices Array of indices for each dimension.
+ * @return 0 on success, -1 on failure.
+ */
+int array_bounds_check(const Array *array, const size_t *indices);
+
+/**
  * @brief Get a pointer to an element at the specified indices.
  *
  * @param array   Pointer to the array.
  * @param indices Array of indices for each dimension.
  * @return Pointer to the element.
  */
-void *array_at(const Array *array, const size_t *indices);
+void *array_get(const Array *array, const size_t *indices);
+
+/**
+ * @brief Type-safe helpers for array element access.
+ *
+ * These macros check the array dtype and return the appropriate pointer type.
+ * They are only available when the array dtype is known at compile time.
+ */
+
+static inline NUMC_FLOAT *array_getf(const Array *array,
+                                     const size_t *indices) {
+  assert(array->dtype == DTYPE_FLOAT);
+  return (NUMC_FLOAT *)array_get(array, indices);
+}
+
+static inline NUMC_INT *array_geti(const Array *array, const size_t *indices) {
+  assert(array->dtype == DTYPE_INT);
+  return (NUMC_INT *)array_get(array, indices);
+}
+
+static inline NUMC_UINT *array_getui(const Array *array,
+                                     const size_t *indices) {
+  assert(array->dtype == DTYPE_UINT);
+  return (NUMC_UINT *)array_get(array, indices);
+}
+
+static inline NUMC_LONG *array_getl(const Array *array, const size_t *indices) {
+  assert(array->dtype == DTYPE_LONG);
+  return (NUMC_LONG *)array_get(array, indices);
+}
+
+static inline NUMC_ULONG *array_getul(const Array *array,
+                                      const size_t *indices) {
+  assert(array->dtype == DTYPE_ULONG);
+  return (NUMC_ULONG *)array_get(array, indices);
+}
+
+static inline NUMC_SHORT *array_gets(const Array *array,
+                                     const size_t *indices) {
+  assert(array->dtype == DTYPE_SHORT);
+  return (NUMC_SHORT *)array_get(array, indices);
+}
+
+static inline NUMC_USHORT *array_getus(const Array *array,
+                                       const size_t *indices) {
+  assert(array->dtype == DTYPE_USHORT);
+  return (NUMC_USHORT *)array_get(array, indices);
+}
+
+static inline NUMC_BYTE *array_getb(const Array *array, const size_t *indices) {
+  assert(array->dtype == DTYPE_BYTE);
+  return (NUMC_BYTE *)array_get(array, indices);
+}
+
+static inline NUMC_UBYTE *array_getub(const Array *array,
+                                      const size_t *indices) {
+  assert(array->dtype == DTYPE_UBYTE);
+  return (NUMC_UBYTE *)array_get(array, indices);
+}
+
+// -----------------------------------------------------------------------------
+//                              Array Properties
+// -----------------------------------------------------------------------------
+
+/**
+ * @brief Check if an array is contiguous in memory.
+ *
+ * @param array Pointer to the array.
+ * @return Non-zero if contiguous, 0 otherwise.
+ */
+int array_is_contiguous(const Array *array);
+
+// -----------------------------------------------------------------------------
+//                              Array Manipulation
+// -----------------------------------------------------------------------------
 
 /**
  * @brief Reshape an array to a new shape.
@@ -115,14 +216,6 @@ void *array_at(const Array *array, const size_t *indices);
  * @return 0 on success, ERROR or ERROR_DIM on failure.
  */
 int array_reshape(Array *array, size_t ndim, const size_t *shape);
-
-/**
- * @brief Get the total number of elements in an array.
- *
- * @param array Pointer to the array.
- * @return Total number of elements.
- */
-size_t array_size(const Array *array);
 
 /**
  * @brief Create a slice (view) of an array.
@@ -139,32 +232,12 @@ Array *array_slice(Array *base, const size_t *start, const size_t *stop,
                    const size_t *step);
 
 /**
- * @brief Check if an array is contiguous in memory.
- *
- * @param array Pointer to the array.
- * @return Non-zero if contiguous, 0 otherwise.
- */
-int array_is_contiguous(const Array *array);
-
-/**
  * @brief Create a contiguous copy of an array.
  *
  * @param src Pointer to the source array.
  * @return Pointer to a new contiguous array, or NULL on failure.
  */
 Array *array_copy(const Array *src);
-
-/**
- * @brief Append a single element to a 1D array.
- *
- * Reallocates the array to accommodate the new element.
- * Only works on 1D contiguous arrays that own their data.
- *
- * @param array Pointer to the array.
- * @param elem  Pointer to the element to append.
- * @return 0 on success, ERROR on failure.
- */
-int array_append(Array *array, const void *elem);
 
 /**
  * @brief Concatenate two arrays along a specified axis.
@@ -181,34 +254,28 @@ int array_append(Array *array, const void *elem);
 Array *array_concat(const Array *a, const Array *b, size_t axis);
 
 /**
- * @brief Create an array filled with zeros.
+ * @brief Transpose an array in place.
  *
- * @param ndim  Number of dimensions.
- * @param shape Shape of the array.
- * @param dtype Data type of array elements.
- * @return Pointer to a new array, or NULL on failure.
+ * Changes the order of the array dimensions.
+ *
+ * @param array Pointer to the array.
+ *
+ * @return 0 on success, ERROR or ERROR_DIM on failure.
  */
-Array *array_zeros(size_t ndim, const size_t *shape, DType dtype);
+int array_transpose(Array *array, size_t *axes);
+
+// -----------------------------------------------------------------------------
+//                          Mathematical Operations
+// -----------------------------------------------------------------------------
 
 /**
- * @brief Create an array filled with ones.
+ * @brief Element-wise addition.
  *
- * @param ndim  Number of dimensions.
- * @param shape Shape of the array.
- * @param dtype Data type of array elements.
+ * @param a Pointer to the first array.
+ * @param b Pointer to the second array.
+ *
  * @return Pointer to a new array, or NULL on failure.
  */
-Array *array_ones(size_t ndim, const size_t *shape, DType dtype);
-
-/**
- * @brief Create an array filled with a single value.
- *
- * @param ndim  Number of dimensions.
- * @param shape Shape of the array.
- * @param dtype Data type of array elements.
- * @param elem  Pointer to the element to fill with.
- * @return Pointer to a new array, or NULL on failure.
- */
-Array *array_fill(size_t ndim, const size_t *shape, DType dtype, const void *elem);
+Array *array_add(const Array *a, const Array *b);
 
 #endif

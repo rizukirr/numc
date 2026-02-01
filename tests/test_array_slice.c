@@ -12,7 +12,7 @@ void test_basic_slice(void) {
   printf("Testing basic array slice...\n");
   
   // Create 1D array [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-  Array *arr = array_create(1, (size_t[]){10}, DTYPE_INT);
+  Array *arr = array_create(1, (size_t[]){10}, DTYPE_INT, NULL);
   int *data = (int *)arr->data;
   for (int i = 0; i < 10; i++) {
     data[i] = i;
@@ -38,7 +38,7 @@ void test_slice_with_step(void) {
   printf("Testing slice with step...\n");
   
   // Create 1D array [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-  Array *arr = array_create(1, (size_t[]){10}, DTYPE_INT);
+  Array *arr = array_create(1, (size_t[]){10}, DTYPE_INT, NULL);
   int *data = (int *)arr->data;
   for (int i = 0; i < 10; i++) {
     data[i] = i;
@@ -49,9 +49,9 @@ void test_slice_with_step(void) {
   assert(sliced != NULL);
   assert(sliced->size == 5);
   
-  // Use array_at for proper stride-aware access
+  // Use array_get for proper stride-aware access
   for (int i = 0; i < 5; i++) {
-    int *ptr = (int *)array_at(sliced, (size_t[]){i});
+    int *ptr = (int *)array_get(sliced, (size_t[]){i});
     assert(*ptr == i * 2);
   }
   
@@ -64,7 +64,7 @@ void test_2d_slice(void) {
   printf("Testing 2D array slice...\n");
   
   // Create 2D array [4, 5]
-  Array *arr = array_create(2, (size_t[]){4, 5}, DTYPE_INT);
+  Array *arr = array_create(2, (size_t[]){4, 5}, DTYPE_INT, NULL);
   int *data = (int *)arr->data;
   for (int i = 0; i < 20; i++) {
     data[i] = i;

@@ -17,6 +17,19 @@
 #define NUMC_ALIGN 16
 
 /**
+ * @brief Allocate aligned memory without initialization.
+ *
+ * Cross-platform wrapper for aligned allocation. Uses aligned_alloc()
+ * on POSIX systems and _aligned_malloc() on Windows MSVC.
+ * Memory is NOT zeroed - use numc_calloc() for zero-initialized memory.
+ *
+ * @param alignment Alignment in bytes (must be power of 2).
+ * @param size      Size in bytes (must be multiple of alignment).
+ * @return Pointer to aligned memory, or NULL on failure.
+ */
+void *numc_malloc(size_t alignment, size_t size);
+
+/**
  * @brief Allocate aligned memory with zero initialization.
  *
  * Cross-platform wrapper for aligned allocation. Uses aligned_alloc()
@@ -26,16 +39,16 @@
  * @param size      Size in bytes (must be multiple of alignment).
  * @return Pointer to aligned memory, or NULL on failure.
  */
-void *aligned_calloc(size_t alignment, size_t size);
+void *numc_calloc(size_t alignment, size_t size);
 
 /**
- * @brief Free memory allocated by aligned_calloc().
+ * @brief Free memory allocated by numc_calloc().
  *
  * Cross-platform wrapper for freeing aligned memory.
  *
- * @param ptr Pointer to memory allocated by aligned_calloc().
+ * @param ptr Pointer to memory allocated by numc_calloc().
  */
-void aligned_free(void *ptr);
+void numc_free(void *ptr);
 
 /**
  * @brief Reallocate aligned memory while preserving alignment.
@@ -49,7 +62,7 @@ void aligned_free(void *ptr);
  * @param new_size  Size of new allocation in bytes.
  * @return Pointer to new aligned memory, or NULL on failure.
  */
-void *aligned_realloc(void *ptr, size_t alignment, size_t old_size,
+void *numc_realloc(void *ptr, size_t alignment, size_t old_size,
                       size_t new_size);
 
 #endif

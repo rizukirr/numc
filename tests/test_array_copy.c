@@ -11,7 +11,7 @@
 void test_copy_contiguous(void) {
   printf("Testing copy of contiguous array...\n");
   
-  Array *arr = array_create(2, (size_t[]){3, 4}, DTYPE_INT);
+  Array *arr = array_create(2, (size_t[]){3, 4}, DTYPE_INT, NULL);
   int *data = (int *)arr->data;
   for (int i = 0; i < 12; i++) {
     data[i] = i;
@@ -44,7 +44,7 @@ void test_copy_slice(void) {
   printf("Testing copy of sliced array...\n");
   
   // Create array and slice it
-  Array *arr = array_create(1, (size_t[]){10}, DTYPE_INT);
+  Array *arr = array_create(1, (size_t[]){10}, DTYPE_INT, NULL);
   int *data = (int *)arr->data;
   for (int i = 0; i < 10; i++) {
     data[i] = i;
@@ -74,7 +74,7 @@ void test_is_contiguous(void) {
   printf("Testing array_is_contiguous...\n");
   
   // Contiguous array
-  Array *arr = array_create(2, (size_t[]){3, 4}, DTYPE_INT);
+  Array *arr = array_create(2, (size_t[]){3, 4}, DTYPE_INT, NULL);
   assert(array_is_contiguous(arr) != 0);
   
   // Non-contiguous slice

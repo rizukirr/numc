@@ -25,7 +25,12 @@ case $args in
         ;;
     "test")
         echo "Running tests..."
-        ctest --test-dir build
+        build_start=$(date +%s%3N)
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+        cmake --build build --target test
+        build_end=$(date +%s%3N)
+        elapsed=$(awk "BEGIN { printf \"%.3f\", ($build_end - $build_start)/1000 }")
+        ctest --rerun-failed --output-on-failure --test-dir build 
         exit 0;
         ;;
     "")
