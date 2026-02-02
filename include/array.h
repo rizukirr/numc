@@ -232,12 +232,30 @@ Array *array_slice(Array *base, const size_t *start, const size_t *stop,
                    const size_t *step);
 
 /**
- * @brief Create a contiguous copy of an array.
+ * @brief Create a copy of an array.
  *
- * @param src Pointer to the source array.
+ * If the source array is contiguous, uses fast memcpy.
+ * If the source array is non-contiguous (e.g., sliced or transposed),
+ * creates a new contiguous array with all elements copied.
+ *
+ * @param src Pointer to the source array (may be contiguous or non-contiguous).
  * @return Pointer to a new contiguous array, or NULL on failure.
  */
 Array *array_copy(const Array *src);
+
+/**
+ * @brief Convert a non-contiguous array to a contiguous array.
+ *
+ * If the source array is already contiguous, creates a contiguous copy.
+ * If the source array is non-contiguous (e.g., sliced or transposed),
+ * creates a new contiguous array with all elements copied in memory order.
+ *
+ * This function is equivalent to array_copy() and exists for API clarity.
+ *
+ * @param src Pointer to the source array (may be contiguous or non-contiguous).
+ * @return Pointer to a new contiguous array, or NULL on failure.
+ */
+Array *array_to_contiguous(const Array *src);
 
 /**
  * @brief Concatenate two arrays along a specified axis.
@@ -245,6 +263,9 @@ Array *array_copy(const Array *src);
  * Creates a new array containing the elements of both arrays
  * joined along the given axis. Both arrays must have the same
  * shape except in the concatenation axis.
+ *
+ * Uses fast memcpy when both arrays are contiguous and axis is 0.
+ * Otherwise, uses strided copy for non-contiguous arrays or other axes.
  *
  * @param a    Pointer to the first array.
  * @param b    Pointer to the second array.

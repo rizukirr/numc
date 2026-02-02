@@ -7,6 +7,28 @@
 #include <string.h>
 #include <sys/types.h>
 
+// =============================================================================
+//                          X-Macro Type Definitions
+// =============================================================================
+
+/**
+ * @brief X-Macro: Define all data types in one place
+ *
+ * This macro is used to generate type-specific functions automatically,
+ * eliminating code duplication and switch statements.
+ */
+#define FOREACH_DTYPE(X)                                                       \
+  X(BYTE, NUMC_BYTE)                                                           \
+  X(UBYTE, NUMC_UBYTE)                                                         \
+  X(SHORT, NUMC_SHORT)                                                         \
+  X(USHORT, NUMC_USHORT)                                                       \
+  X(INT, NUMC_INT)                                                             \
+  X(UINT, NUMC_UINT)                                                           \
+  X(LONG, NUMC_LONG)                                                           \
+  X(ULONG, NUMC_ULONG)                                                         \
+  X(FLOAT, NUMC_FLOAT)                                                         \
+  X(DOUBLE, NUMC_DOUBLE)
+
 // -----------------------------------------------------------------------------
 //                              Static Functions
 // -----------------------------------------------------------------------------
@@ -27,127 +49,41 @@ static inline void *array_get_unchecked(const Array *array,
   return (char *)array->data + offset;
 }
 
-// -----------------------------------------------------------------------------
-// Type-specific addition kernels for contiguous arrays.
-// These simple loops allow compiler auto-vectorization with -O3.
-// -----------------------------------------------------------------------------
-
-static inline void add_byte(const NUMC_BYTE *a, const NUMC_BYTE *b,
-                            NUMC_BYTE *out, size_t n) {
-  for (size_t i = 0; i < n; i++) {
-    out[i] = a[i] + b[i];
-  }
-}
-
-static inline void add_ubyte(const NUMC_UBYTE *a, const NUMC_UBYTE *b,
-                             NUMC_UBYTE *out, size_t n) {
-  for (size_t i = 0; i < n; i++) {
-    out[i] = a[i] + b[i];
-  }
-}
-
-static inline void add_short(const NUMC_SHORT *a, const NUMC_SHORT *b,
-                             NUMC_SHORT *out, size_t n) {
-  for (size_t i = 0; i < n; i++) {
-    out[i] = a[i] + b[i];
-  }
-}
-
-static inline void add_ushort(const NUMC_USHORT *a, const NUMC_USHORT *b,
-                              NUMC_USHORT *out, size_t n) {
-  for (size_t i = 0; i < n; i++) {
-    out[i] = a[i] + b[i];
-  }
-}
-
-static inline void add_int(const NUMC_INT *a, const NUMC_INT *b, NUMC_INT *out,
-                           size_t n) {
-  for (size_t i = 0; i < n; i++) {
-    out[i] = a[i] + b[i];
-  }
-}
-
-static inline void add_uint(const NUMC_UINT *a, const NUMC_UINT *b,
-                            NUMC_UINT *out, size_t n) {
-  for (size_t i = 0; i < n; i++) {
-    out[i] = a[i] + b[i];
-  }
-}
-
-static inline void add_long(const NUMC_LONG *a, const NUMC_LONG *b,
-                            NUMC_LONG *out, size_t n) {
-  for (size_t i = 0; i < n; i++) {
-    out[i] = a[i] + b[i];
-  }
-}
-
-static inline void add_ulong(const NUMC_ULONG *a, const NUMC_ULONG *b,
-                             NUMC_ULONG *out, size_t n) {
-  for (size_t i = 0; i < n; i++) {
-    out[i] = a[i] + b[i];
-  }
-}
-
-static inline void add_float(const NUMC_FLOAT *a, const NUMC_FLOAT *b,
-                             NUMC_FLOAT *out, size_t n) {
-  for (size_t i = 0; i < n; i++) {
-    out[i] = a[i] + b[i];
-  }
-}
-
-static inline void add_double(const NUMC_DOUBLE *a, const NUMC_DOUBLE *b,
-                              NUMC_DOUBLE *out, size_t n) {
-  for (size_t i = 0; i < n; i++) {
-    out[i] = a[i] + b[i];
-  }
-}
+// =============================================================================
+// Type-specific addition kernels (generated via X-Macro)
+// Compiler auto-vectorizes these simple loops with -O3
+// =============================================================================
 
 /**
- * @brief Add element-wise for contiguous arrays (fast path).
+ * @brief Generate type-specific addition function
  *
- * Switch outside loop enables compiler auto-vectorization.
- *
- * @param a Pointer to the first array.
- * @param b Pointer to the second array.
- * @param dest Pointer to the destination array.
+ * Each function is a simple loop that the compiler can auto-vectorize.
+ * The function signature uses void* for generic handling, but internally
+ * we cast to the specific type for type safety and SIMD optimization.
  */
-static inline void array_add_contiguous(const Array *a, const Array *b,
-                                        Array *dest) {
-  size_t n = a->size;
-
-  switch (a->dtype) {
-  case DTYPE_BYTE:
-    add_byte(a->data, b->data, dest->data, n);
-    break;
-  case DTYPE_UBYTE:
-    add_ubyte(a->data, b->data, dest->data, n);
-    break;
-  case DTYPE_SHORT:
-    add_short(a->data, b->data, dest->data, n);
-    break;
-  case DTYPE_USHORT:
-    add_ushort(a->data, b->data, dest->data, n);
-    break;
-  case DTYPE_INT:
-    add_int(a->data, b->data, dest->data, n);
-    break;
-  case DTYPE_UINT:
-    add_uint(a->data, b->data, dest->data, n);
-    break;
-  case DTYPE_LONG:
-    add_long(a->data, b->data, dest->data, n);
-    break;
-  case DTYPE_ULONG:
-    add_ulong(a->data, b->data, dest->data, n);
-    break;
-  case DTYPE_FLOAT:
-    add_float(a->data, b->data, dest->data, n);
-    break;
-  case DTYPE_DOUBLE:
-    add_double(a->data, b->data, dest->data, n);
-    break;
+#define GENERATE_ADD_FUNC(dtype_name, c_type)                                  \
+  static inline void add_##dtype_name(const void *a, const void *b, void *out, \
+                                      size_t n) {                              \
+    const c_type *pa = (const c_type *)a;                                      \
+    const c_type *pb = (const c_type *)b;                                      \
+    c_type *pout = (c_type *)out;                                              \
+    for (size_t i = 0; i < n; i++) {                                           \
+      pout[i] = pa[i] + pb[i];                                                 \
+    }                                                                          \
   }
-}
+
+// Generate all add functions: add_BYTE, add_UBYTE, add_SHORT, etc.
+FOREACH_DTYPE(GENERATE_ADD_FUNC)
+#undef GENERATE_ADD_FUNC
+
+// Function pointer type for binary operations
+typedef void (*binary_op_func)(const void *, const void *, void *, size_t);
+
+// Function pointer table indexed by DType enum
+#define ADD_FUNC_ENTRY(dtype_name, c_type)                                     \
+  [DTYPE_##dtype_name] = add_##dtype_name,
+static const binary_op_func add_funcs[] = {FOREACH_DTYPE(ADD_FUNC_ENTRY)};
+#undef ADD_FUNC_ENTRY
 
 /**
  * @brief Increment multi-dimensional indices (row-major order).
@@ -521,112 +457,7 @@ static void array_strided_copy(const Array *src, size_t *src_indices,
   }
 }
 
-/**
- * @brief Add element-wise for non-contiguous arrays (slow path).
- *
- * Uses stride-based access for sliced/transposed arrays.
- *
- * @param a Pointer to the first array.
- * @param b Pointer to the second array.
- * @param dest Pointer to the destination array.
- */
-static inline void array_add_uncontiguous(const Array *a, const Array *b,
-                                          Array *dest) {
-  size_t indices_buf[MAX_STACK_NDIM] = {0};
-  size_t *indices = (a->ndim <= MAX_STACK_NDIM)
-                        ? indices_buf
-                        : calloc(a->ndim, sizeof(size_t));
-  if (a->ndim > MAX_STACK_NDIM && !indices)
-    return;
-
-  switch (a->dtype) {
-  case DTYPE_BYTE:
-    for (size_t i = 0; i < a->size; i++) {
-      NUMC_BYTE *a_elem = (NUMC_BYTE *)array_get_unchecked(a, indices);
-      NUMC_BYTE *b_elem = (NUMC_BYTE *)array_get_unchecked(b, indices);
-      ((NUMC_BYTE *)dest->data)[i] = *a_elem + *b_elem;
-      increment_indices(indices, a->shape, a->ndim);
-    }
-    break;
-  case DTYPE_UBYTE:
-    for (size_t i = 0; i < a->size; i++) {
-      NUMC_UBYTE *a_elem = (NUMC_UBYTE *)array_get_unchecked(a, indices);
-      NUMC_UBYTE *b_elem = (NUMC_UBYTE *)array_get_unchecked(b, indices);
-      ((NUMC_UBYTE *)dest->data)[i] = *a_elem + *b_elem;
-      increment_indices(indices, a->shape, a->ndim);
-    }
-    break;
-  case DTYPE_SHORT:
-    for (size_t i = 0; i < a->size; i++) {
-      NUMC_SHORT *a_elem = (NUMC_SHORT *)array_get_unchecked(a, indices);
-      NUMC_SHORT *b_elem = (NUMC_SHORT *)array_get_unchecked(b, indices);
-      ((NUMC_SHORT *)dest->data)[i] = *a_elem + *b_elem;
-      increment_indices(indices, a->shape, a->ndim);
-    }
-    break;
-  case DTYPE_USHORT:
-    for (size_t i = 0; i < a->size; i++) {
-      NUMC_USHORT *a_elem = (NUMC_USHORT *)array_get_unchecked(a, indices);
-      NUMC_USHORT *b_elem = (NUMC_USHORT *)array_get_unchecked(b, indices);
-      ((NUMC_USHORT *)dest->data)[i] = *a_elem + *b_elem;
-      increment_indices(indices, a->shape, a->ndim);
-    }
-    break;
-  case DTYPE_INT:
-    for (size_t i = 0; i < a->size; i++) {
-      NUMC_INT *a_elem = (NUMC_INT *)array_get_unchecked(a, indices);
-      NUMC_INT *b_elem = (NUMC_INT *)array_get_unchecked(b, indices);
-      ((NUMC_INT *)dest->data)[i] = *a_elem + *b_elem;
-      increment_indices(indices, a->shape, a->ndim);
-    }
-    break;
-  case DTYPE_UINT:
-    for (size_t i = 0; i < a->size; i++) {
-      NUMC_UINT *a_elem = (NUMC_UINT *)array_get_unchecked(a, indices);
-      NUMC_UINT *b_elem = (NUMC_UINT *)array_get_unchecked(b, indices);
-      ((NUMC_UINT *)dest->data)[i] = *a_elem + *b_elem;
-      increment_indices(indices, a->shape, a->ndim);
-    }
-    break;
-  case DTYPE_LONG:
-    for (size_t i = 0; i < a->size; i++) {
-      NUMC_LONG *a_elem = (NUMC_LONG *)array_get_unchecked(a, indices);
-      NUMC_LONG *b_elem = (NUMC_LONG *)array_get_unchecked(b, indices);
-      ((NUMC_LONG *)dest->data)[i] = *a_elem + *b_elem;
-      increment_indices(indices, a->shape, a->ndim);
-    }
-    break;
-  case DTYPE_ULONG:
-    for (size_t i = 0; i < a->size; i++) {
-      NUMC_ULONG *a_elem = (NUMC_ULONG *)array_get_unchecked(a, indices);
-      NUMC_ULONG *b_elem = (NUMC_ULONG *)array_get_unchecked(b, indices);
-      ((NUMC_ULONG *)dest->data)[i] = *a_elem + *b_elem;
-      increment_indices(indices, a->shape, a->ndim);
-    }
-    break;
-  case DTYPE_FLOAT:
-    for (size_t i = 0; i < a->size; i++) {
-      NUMC_FLOAT *a_elem = (NUMC_FLOAT *)array_get_unchecked(a, indices);
-      NUMC_FLOAT *b_elem = (NUMC_FLOAT *)array_get_unchecked(b, indices);
-      ((NUMC_FLOAT *)dest->data)[i] = *a_elem + *b_elem;
-      increment_indices(indices, a->shape, a->ndim);
-    }
-    break;
-  case DTYPE_DOUBLE:
-    for (size_t i = 0; i < a->size; i++) {
-      NUMC_DOUBLE *a_elem = (NUMC_DOUBLE *)array_get_unchecked(a, indices);
-      NUMC_DOUBLE *b_elem = (NUMC_DOUBLE *)array_get_unchecked(b, indices);
-      ((NUMC_DOUBLE *)dest->data)[i] = *a_elem + *b_elem;
-      increment_indices(indices, a->shape, a->ndim);
-    }
-    break;
-  }
-
-  if (a->ndim > MAX_STACK_NDIM)
-    free(indices);
-}
-
-static void array_fill_with(const Array *arr, const void *elem) {
+static inline void array_fill_with(const Array *arr, const void *elem) {
   switch (arr->dtype) {
   case DTYPE_BYTE:
     // memset works for byte types with any value
@@ -794,7 +625,8 @@ int array_reshape(Array *array, size_t ndim, const size_t *shape) {
     return -1;
 
   if (!array_is_contiguous(array)) {
-    fprintf(stderr, "array_reshape: array is not contiguous\n");
+    fprintf(stderr, "array_reshape: array is not contiguous. "
+                    "Use array_to_contiguous() first.\n");
     abort();
   }
 
@@ -897,15 +729,26 @@ Array *array_copy(const Array *src) {
   if (!src)
     return NULL;
 
-  Array *dst = NULL;
-
-  // Fast path: if source is contiguous, use memcpy
-  if (array_is_contiguous(src)) {
-    dst = array_create(src->ndim, src->shape, src->dtype, src->data);
-    return dst;
+  // If contiguous, use fast memcpy path
+  if (!array_is_contiguous(src)) {
+    fprintf(stderr, "[ERROR] array_copy: array is not contiguous, "
+                    "use array_to_contiguous() first\n");
+    abort();
   }
 
-  // Slow path: element-by-element copy using unchecked access
+  return array_create(src->ndim, src->shape, src->dtype, src->data);
+}
+
+Array *array_to_contiguous(const Array *src) {
+  if (!src)
+    return NULL;
+
+  // If already contiguous, just create a copy
+  if (array_is_contiguous(src)) {
+    return array_create(src->ndim, src->shape, src->dtype, src->data);
+  }
+
+  // Non-contiguous: use strided copy
   size_t indices_buf[MAX_STACK_NDIM] = {0};
   size_t *indices = (src->ndim <= MAX_STACK_NDIM)
                         ? indices_buf
@@ -913,7 +756,7 @@ Array *array_copy(const Array *src) {
   if (src->ndim > MAX_STACK_NDIM && !indices)
     return NULL;
 
-  dst = array_create(src->ndim, src->shape, src->dtype, NULL);
+  Array *dst = array_create(src->ndim, src->shape, src->dtype, NULL);
   if (!dst) {
     if (src->ndim > MAX_STACK_NDIM)
       free(indices);
@@ -959,17 +802,15 @@ Array *array_concat(const Array *a, const Array *b, size_t axis) {
   if (!result)
     return NULL;
 
-  // Fast path: bulk both arrays contiguous and concatenating along axis 0
+  // Fast path: both contiguous and concatenating along axis 0
   if (array_is_contiguous(a) && array_is_contiguous(b) && axis == 0) {
     memcpy(result->data, a->data, a->size * a->elem_size);
     memcpy((char *)result->data + (a->size * a->elem_size), b->data,
            b->size * b->elem_size);
-
     return result;
   }
 
-  // Slow path: non-contiguous arrays or concatenating along non-zero axis
-  // Need element-by-element copy with stride calculations
+  // Slow path: use strided copy for non-contiguous or non-axis-0
   size_t indices_buf[MAX_STACK_NDIM] = {0};
   size_t dst_indices_buf[MAX_STACK_NDIM] = {0};
   size_t *indices = (a->ndim <= MAX_STACK_NDIM)
@@ -1033,7 +874,6 @@ Array *array_ones(size_t ndim, const size_t *shape, DType dtype) {
 
   switch (arr->dtype) {
   case DTYPE_BYTE:
-    // memset works for byte types with any value
     memset(arr->data, 1, arr->size);
     break;
   case DTYPE_UBYTE:
@@ -1124,13 +964,24 @@ Array *array_add(const Array *a, const Array *b) {
   if (!a || !b)
     return NULL;
 
+  if (!array_is_contiguous(a)) {
+    fprintf(stderr, "[ERROR] array_add: array a is not contiguous, "
+                    "use array_to_contiguous() first\n");
+    abort();
+  }
+
+  if (!array_is_contiguous(b)) {
+    fprintf(stderr, "[ERROR] array_add: array b is not contiguous, "
+                    "use array_to_contiguous() first\n");
+    abort();
+  }
+
   if (a->dtype != b->dtype)
     return NULL;
 
   if (a->ndim != b->ndim)
     return NULL;
 
-  // Validate shapes match
   for (size_t i = 0; i < a->ndim; i++) {
     if (a->shape[i] != b->shape[i])
       return NULL;
@@ -1140,11 +991,6 @@ Array *array_add(const Array *a, const Array *b) {
   if (!result)
     return NULL;
 
-  if (array_is_contiguous(a) && array_is_contiguous(b)) {
-    array_add_contiguous(a, b, result);
-  } else {
-    array_add_uncontiguous(a, b, result);
-  }
-
+  add_funcs[a->dtype](a->data, b->data, result->data, a->size);
   return result;
 }

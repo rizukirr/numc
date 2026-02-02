@@ -206,7 +206,7 @@ void demo_array_copy(void) {
   print_int_array(slice);
 
   // Copy the slice to make it contiguous
-  Array *copied = array_copy(slice);
+  Array *copied = array_to_contiguous(slice);
   printf("\nCopied array (now contiguous):\n");
   print_array_info(copied, "copied");
   print_int_array(copied);
@@ -263,7 +263,7 @@ void demo_performance(void) {
   double create_sec = (double)(create_time - start) / CLOCKS_PER_SEC;
   double add_sec = (double)(add_time - create_time) / CLOCKS_PER_SEC;
   double total_sec = (double)(add_time - start) / CLOCKS_PER_SEC;
-  
+
   printf("  Array creation time: %.9f s\n", create_sec);
   printf("  Addition time: %.9f s\n", add_sec);
   printf("  Total time: %.9f s\n", total_sec);
@@ -283,14 +283,14 @@ void demo_performance(void) {
   Array *a2 = array_ones(1, medium_shape, DTYPE_INT);
   Array *b2 = array_ones(1, medium_shape, DTYPE_INT);
   create_time = clock();
-  
+
   Array *sum2 = array_add(a2, b2);
   add_time = clock();
-  
+
   double create_sec2 = (double)(create_time - start) / CLOCKS_PER_SEC;
   double add_sec2 = (double)(add_time - create_time) / CLOCKS_PER_SEC;
   double total_sec2 = (double)(add_time - start) / CLOCKS_PER_SEC;
-  
+
   printf("  Array creation time: %.9f s\n", create_sec2);
   printf("  Addition time: %.9f s\n", add_sec2);
   printf("  Total time: %.9f s\n", total_sec2);
@@ -310,14 +310,14 @@ void demo_performance(void) {
   Array *a3 = array_ones(1, large_shape, DTYPE_INT);
   Array *b3 = array_ones(1, large_shape, DTYPE_INT);
   create_time = clock();
-  
+
   Array *sum3 = array_add(a3, b3);
   add_time = clock();
-  
+
   double create_sec3 = (double)(create_time - start) / CLOCKS_PER_SEC;
   double add_sec3 = (double)(add_time - create_time) / CLOCKS_PER_SEC;
   double total_sec3 = (double)(add_time - start) / CLOCKS_PER_SEC;
-  
+
   printf("  Array creation time: %.9f s\n", create_sec3);
   printf("  Addition time: %.9f s\n", add_sec3);
   printf("  Total time: %.9f s\n", total_sec3);

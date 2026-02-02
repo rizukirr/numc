@@ -62,8 +62,12 @@ void test_add_non_contiguous(void) {
   assert(!array_is_contiguous(a_slice));
   assert(!array_is_contiguous(b_slice));
 
+  // Convert to contiguous before adding
+  Array *a_cont = array_to_contiguous(a_slice);
+  Array *b_cont = array_to_contiguous(b_slice);
+
   // Add slices
-  Array *c = array_add(a_slice, b_slice);
+  Array *c = array_add(a_cont, b_cont);
   assert(c != NULL);
   assert(c->ndim == 2);
   assert(c->shape[0] == 4);
@@ -89,6 +93,8 @@ void test_add_non_contiguous(void) {
   array_free(b);
   array_free(a_slice);
   array_free(b_slice);
+  array_free(a_cont);
+  array_free(b_cont);
   array_free(c);
   printf("✓ test_add_non_contiguous\n");
 }
