@@ -1,12 +1,12 @@
 /**
- * @file arrio.h
+ * @file io.h
  * @brief Input/Output operations for the Array library.
  *
  * Provides functions for printing and displaying array contents.
  */
 
-#ifndef ARRIO_H
-#define ARRIO_H
+#ifndef IO_H
+#define IO_H
 
 #include <stddef.h>
 

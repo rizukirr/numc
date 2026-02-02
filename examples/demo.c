@@ -1,5 +1,5 @@
 #include "array.h"
-#include "dtype.h"
+#include "types.h"
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -69,15 +69,15 @@ void demo_array_creation(void) {
 void demo_array_operations(void) {
   printf("\n=== Array Operations Demo ===\n\n");
 
-  // Element-wise addition
-  printf("1. Element-wise addition:\n");
-  int data_a[] = {1, 2, 3, 4, 5, 6};
+  // Element-wise math operations
+  printf("1. Element-wise math operations:\n");
+  int data_a[] = {10, 20, 30, 40, 50, 60};
   size_t shape_a[] = {6};
   Array *a = array_create(1, shape_a, DTYPE_INT, data_a);
   printf("   a = ");
   print_int_array(a);
 
-  int data_b[] = {10, 20, 30, 40, 50, 60};
+  int data_b[] = {1, 2, 3, 4, 5, 6};
   size_t shape_b[] = {6};
   Array *b = array_create(1, shape_b, DTYPE_INT, data_b);
   printf("   b = ");
@@ -87,9 +87,24 @@ void demo_array_operations(void) {
   printf("   a + b = ");
   print_int_array(sum);
 
+  Array *diff = array_sub(a, b);
+  printf("   a - b = ");
+  print_int_array(diff);
+
+  Array *prod = array_mul(a, b);
+  printf("   a * b = ");
+  print_int_array(prod);
+
+  Array *quot = array_div(a, b);
+  printf("   a / b = ");
+  print_int_array(quot);
+
   array_free(a);
   array_free(b);
   array_free(sum);
+  array_free(diff);
+  array_free(prod);
+  array_free(quot);
 
   // Array concatenation
   printf("\n2. Array concatenation (axis 0):\n");
@@ -351,7 +366,7 @@ int main(void) {
   printf("║                                                          ║\n");
   printf("║  Features Demonstrated:                                  ║\n");
   printf("║  ✓ Array creation (zeros, ones, from data)               ║\n");
-  printf("║  ✓ Element-wise operations (add)                         ║\n");
+  printf("║  ✓ Element-wise operations (add, sub, mul, div)          ║\n");
   printf("║  ✓ Concatenation                                         ║\n");
   printf("║  ✓ Slicing & views                                       ║\n");
   printf("║  ✓ Reshaping                                             ║\n");

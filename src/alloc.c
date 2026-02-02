@@ -3,7 +3,7 @@
  * @brief Implementation of cross-platform aligned memory allocation.
  */
 
-#include "memory.h"
+#include "alloc.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -39,7 +39,7 @@ void *numc_calloc(size_t alignment, size_t size) {
 
   void *ptr = numc_malloc(alignment, size);
   if (ptr != NULL) {
-    memset(ptr, 0, aligned_size);  // Zero the full aligned size
+    memset(ptr, 0, aligned_size); // Zero the full aligned size
   }
   return ptr;
 }
@@ -62,8 +62,9 @@ void *numc_realloc(void *ptr, size_t alignment, size_t old_size,
     return NULL; // Alignment must be power of 2
   }
 
-  // Allocate new aligned memory
-  void *new_ptr = numc_calloc(alignment, new_size);
+  // Allocate new aligned memory (use malloc instead of calloc - we'll
+  // overwrite)
+  void *new_ptr = numc_malloc(alignment, new_size);
   if (new_ptr == NULL) {
     return NULL;
   }

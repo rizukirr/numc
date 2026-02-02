@@ -3,7 +3,7 @@
  * @brief Test DType system functionality
  */
 
-#include "dtype.h"
+#include "types.h"
 #include <assert.h>
 #include <stdio.h>
 

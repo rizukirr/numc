@@ -9,3 +9,4 @@ test_simd_alignment
 docs
 Testing/Temporary
 .github/copilot-instructions.md
+*.s

@@ -1,13 +1,13 @@
 /**
- * @file memory.h
+ * @file alloc.h
  * @brief Cross-platform aligned memory allocation for SIMD optimization.
  *
  * Provides portable wrappers for aligned memory allocation to ensure
  * data buffers meet SIMD alignment requirements (16-byte for SSE/NEON).
  */
 
-#ifndef MEMORY_H
-#define MEMORY_H
+#ifndef ALLOC_H
+#define ALLOC_H
 
 #include <stddef.h>
 
@@ -63,6 +63,6 @@ void numc_free(void *ptr);
  * @return Pointer to new aligned memory, or NULL on failure.
  */
 void *numc_realloc(void *ptr, size_t alignment, size_t old_size,
-                      size_t new_size);
+                   size_t new_size);
 
 #endif

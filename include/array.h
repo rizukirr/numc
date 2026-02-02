@@ -10,7 +10,7 @@
 #ifndef ARRAY_H
 #define ARRAY_H
 
-#include "dtype.h"
+#include "types.h"
 #include <assert.h>
 #include <stddef.h>
 
@@ -42,9 +42,9 @@ typedef struct {
   int owns_data;
 } Array;
 
-// -----------------------------------------------------------------------------
-//                              Array Creation
-// -----------------------------------------------------------------------------
+// =============================================================================
+//                          Array Creation & Destruction
+// =============================================================================
 
 /**
  * @brief Create a new array with the specified shape and data type.
@@ -99,9 +99,9 @@ Array *array_fill(size_t ndim, const size_t *shape, DType dtype,
  */
 void array_free(Array *array);
 
-// -----------------------------------------------------------------------------
-//                              Array Access
-// -----------------------------------------------------------------------------
+// =============================================================================
+//                          Element Access
+// =============================================================================
 
 /**
  * @brief Compute the byte offset for the given indices.
@@ -130,17 +130,28 @@ int array_bounds_check(const Array *array, const size_t *indices);
  */
 void *array_get(const Array *array, const size_t *indices);
 
+// =============================================================================
+//                      Type-safe Array Access Helpers
+// =============================================================================
+
 /**
  * @brief Type-safe helpers for array element access.
  *
- * These macros check the array dtype and return the appropriate pointer type.
- * They are only available when the array dtype is known at compile time.
+ * These inline functions check the array dtype and return the appropriate
+ * pointer type. They are only available when the array dtype is known at
+ * compile time.
  */
 
 static inline NUMC_FLOAT *array_getf(const Array *array,
                                      const size_t *indices) {
   assert(array->dtype == DTYPE_FLOAT);
   return (NUMC_FLOAT *)array_get(array, indices);
+}
+
+static inline NUMC_DOUBLE *array_getd(const Array *array,
+                                      const size_t *indices) {
+  assert(array->dtype == DTYPE_DOUBLE);
+  return (NUMC_DOUBLE *)array_get(array, indices);
 }
 
 static inline NUMC_INT *array_geti(const Array *array, const size_t *indices) {
@@ -188,9 +199,9 @@ static inline NUMC_UBYTE *array_getub(const Array *array,
   return (NUMC_UBYTE *)array_get(array, indices);
 }
 
-// -----------------------------------------------------------------------------
-//                              Array Properties
-// -----------------------------------------------------------------------------
+// =============================================================================
+//                          Array Properties
+// =============================================================================
 
 /**
  * @brief Check if an array is contiguous in memory.
@@ -200,22 +211,9 @@ static inline NUMC_UBYTE *array_getub(const Array *array,
  */
 int array_is_contiguous(const Array *array);
 
-// -----------------------------------------------------------------------------
-//                              Array Manipulation
-// -----------------------------------------------------------------------------
-
-/**
- * @brief Reshape an array to a new shape.
- *
- * The total number of elements must remain unchanged.
- * Only works on contiguous arrays.
- *
- * @param array Pointer to the array.
- * @param ndim  New number of dimensions.
- * @param shape New dimension sizes.
- * @return 0 on success, ERROR or ERROR_DIM on failure.
- */
-int array_reshape(Array *array, size_t ndim, const size_t *shape);
+// =============================================================================
+//                          Array Views & Slicing
+// =============================================================================
 
 /**
  * @brief Create a slice (view) of an array.
@@ -230,6 +228,10 @@ int array_reshape(Array *array, size_t ndim, const size_t *shape);
  */
 Array *array_slice(Array *base, const size_t *start, const size_t *stop,
                    const size_t *step);
+
+// =============================================================================
+//                          Array Copying
+// =============================================================================
 
 /**
  * @brief Create a copy of an array.
@@ -257,6 +259,35 @@ Array *array_copy(const Array *src);
  */
 Array *array_to_contiguous(const Array *src);
 
+// =============================================================================
+//                          Array Manipulation
+// =============================================================================
+
+/**
+ * @brief Reshape an array to a new shape.
+ *
+ * The total number of elements must remain unchanged.
+ * Only works on contiguous arrays.
+ *
+ * @param array Pointer to the array.
+ * @param ndim  New number of dimensions.
+ * @param shape New dimension sizes.
+ * @return 0 on success, ERROR or ERROR_DIM on failure.
+ */
+int array_reshape(Array *array, size_t ndim, const size_t *shape);
+
+/**
+ * @brief Transpose an array in place.
+ *
+ * Changes the order of the array dimensions.
+ *
+ * @param array Pointer to the array.
+ * @param axes  Array of axis indices specifying the new order.
+ *
+ * @return 0 on success, ERROR or ERROR_DIM on failure.
+ */
+int array_transpose(Array *array, size_t *axes);
+
 /**
  * @brief Concatenate two arrays along a specified axis.
  *
@@ -274,29 +305,58 @@ Array *array_to_contiguous(const Array *src);
  */
 Array *array_concat(const Array *a, const Array *b, size_t axis);
 
-/**
- * @brief Transpose an array in place.
- *
- * Changes the order of the array dimensions.
- *
- * @param array Pointer to the array.
- *
- * @return 0 on success, ERROR or ERROR_DIM on failure.
- */
-int array_transpose(Array *array, size_t *axes);
-
-// -----------------------------------------------------------------------------
+// =============================================================================
 //                          Mathematical Operations
-// -----------------------------------------------------------------------------
+// =============================================================================
 
 /**
- * @brief Element-wise addition.
+ * @brief Element-wise addition of two arrays.
+ *
+ * Both arrays must be contiguous, have the same dtype, same shape, and same
+ * number of dimensions. Creates a new array with the result.
  *
  * @param a Pointer to the first array.
  * @param b Pointer to the second array.
- *
- * @return Pointer to a new array, or NULL on failure.
+ * @return Pointer to a new array containing a + b, or NULL on failure.
  */
 Array *array_add(const Array *a, const Array *b);
+
+/**
+ * @brief Element-wise subtraction of two arrays.
+ *
+ * Both arrays must be contiguous, have the same dtype, same shape, and same
+ * number of dimensions. Creates a new array with the result.
+ *
+ * @param a Pointer to the first array.
+ * @param b Pointer to the second array.
+ * @return Pointer to a new array containing a - b, or NULL on failure.
+ */
+Array *array_sub(const Array *a, const Array *b);
+
+/**
+ * @brief Element-wise multiplication of two arrays.
+ *
+ * Both arrays must be contiguous, have the same dtype, same shape, and same
+ * number of dimensions. Creates a new array with the result.
+ *
+ * @param a Pointer to the first array.
+ * @param b Pointer to the second array.
+ * @return Pointer to a new array containing a * b, or NULL on failure.
+ */
+Array *array_mul(const Array *a, const Array *b);
+
+/**
+ * @brief Element-wise division of two arrays.
+ *
+ * Both arrays must be contiguous, have the same dtype, same shape, and same
+ * number of dimensions. Creates a new array with the result.
+ *
+ * @warning Division by zero is undefined behavior and may cause crashes.
+ *
+ * @param a Pointer to the first array.
+ * @param b Pointer to the second array.
+ * @return Pointer to a new array containing a / b, or NULL on failure.
+ */
+Array *array_div(const Array *a, const Array *b);
 
 #endif

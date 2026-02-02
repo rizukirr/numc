@@ -1,36 +1,54 @@
 /**
- * @file dtype.h
+ * @file types.h
  * @brief Data type enumeration for numc arrays.
  *
  * Provides type identifiers to distinguish between numeric types
  * of the same size (e.g., float vs int32_t).
  */
 
-#ifndef DTYPE_H
-#define DTYPE_H
+#ifndef TYPES_H
+#define TYPES_H
 
 #include <stddef.h>
 #include <stdint.h>
 
-// Floating-point types (best SIMD support)
+// Floating-point types
 #define NUMC_FLOAT float
 #define NUMC_DOUBLE double
 
-// 32-bit integers (excellent SIMD support)
+// 32-bit integers
 #define NUMC_INT int32_t
 #define NUMC_UINT uint32_t
 
-// 64-bit integers (good SIMD support)
+// 64-bit integers
 #define NUMC_LONG int64_t
 #define NUMC_ULONG uint64_t
 
-// 16-bit integers (very good SIMD support)
+// 16-bit integers
 #define NUMC_SHORT int16_t
 #define NUMC_USHORT uint16_t
 
-// 8-bit integers (excellent SIMD support - 16 elements per SSE register)
+// 8-bit integers
 #define NUMC_BYTE int8_t
 #define NUMC_UBYTE uint8_t
+
+/**
+ * @brief X-Macro: Define all data types in one place
+ *
+ * This macro is used to generate type-specific functions automatically,
+ * eliminating code duplication and switch statements.
+ */
+#define FOREACH_DTYPE(X)                                                       \
+  X(BYTE, NUMC_BYTE)                                                           \
+  X(UBYTE, NUMC_UBYTE)                                                         \
+  X(SHORT, NUMC_SHORT)                                                         \
+  X(USHORT, NUMC_USHORT)                                                       \
+  X(INT, NUMC_INT)                                                             \
+  X(UINT, NUMC_UINT)                                                           \
+  X(LONG, NUMC_LONG)                                                           \
+  X(ULONG, NUMC_ULONG)                                                         \
+  X(FLOAT, NUMC_FLOAT)                                                         \
+  X(DOUBLE, NUMC_DOUBLE)
 
 /**
  * @brief Enumeration of supported data types.
@@ -54,28 +72,7 @@ typedef enum {
  * @param dtype The data type.
  * @return Size in bytes, or 0 for invalid type.
  */
-static inline size_t dtype_size(DType dtype) {
-  switch (dtype) {
-  case DTYPE_BYTE:
-  case DTYPE_UBYTE:
-    return sizeof(NUMC_BYTE);
-  case DTYPE_SHORT:
-  case DTYPE_USHORT:
-    return sizeof(NUMC_SHORT);
-  case DTYPE_INT:
-  case DTYPE_UINT:
-    return sizeof(NUMC_INT);
-  case DTYPE_LONG:
-  case DTYPE_ULONG:
-    return sizeof(NUMC_LONG);
-  case DTYPE_FLOAT:
-    return sizeof(NUMC_FLOAT);
-  case DTYPE_DOUBLE:
-    return sizeof(NUMC_DOUBLE);
-  default:
-    return 0;
-  }
-}
+size_t dtype_size(DType dtype);
 
 /**
  * @brief Check if a data type is floating-point.

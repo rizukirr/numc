@@ -4,8 +4,8 @@
  */
 
 #include "array.h"
-#include "dtype.h"
-#include "memory.h"
+#include "types.h"
+#include "alloc.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>

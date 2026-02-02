@@ -181,7 +181,7 @@ NUMC_DOUBLE     // double
 ### I/O Operations
 
 **Implemented:**
-- `void array_print(const Array *array)` - Print array to stdout
+- `void array_io.const Array *array)` - Print array to stdout
 
 **Not Yet Implemented:**
 - [ ] `int array_save(const Array *array, const char *filename)` - Save array to binary file (.npy)
@@ -225,7 +225,7 @@ The demo showcases:
 
 ```c
 #include "array.h"
-#include "dtype.h"
+#include "types.h"
 
 // Create empty array
 size_t shape[] = {2, 3, 4};

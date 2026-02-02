@@ -4,7 +4,7 @@
 # Helper function to add a test
 function(add_numc_test test_name source_file)
     add_executable(${test_name} ${source_file})
-    target_link_libraries(${test_name} numc_src m)
+    target_link_libraries(${test_name} numc m)
     
     # Add AddressSanitizer for debug builds
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -16,18 +16,18 @@ function(add_numc_test test_name source_file)
     add_test(NAME ${test_name} COMMAND ${test_name})
 endfunction()
 
-# Add individual test files
-add_numc_test(test_dtype test_dtype.c)
-add_numc_test(test_array_create test_array_create.c)
-add_numc_test(test_array_core test_array_core.c)
-add_numc_test(test_array_fill test_array_fill.c)
-add_numc_test(test_array_slice test_array_slice.c)
-add_numc_test(test_array_reshape test_array_reshape.c)
-add_numc_test(test_array_copy test_array_copy.c)
-add_numc_test(test_array_concat test_array_concat.c)
-add_numc_test(test_array_transpose test_array_transpose.c)
-add_numc_test(test_memory_alignment test_memory_alignment.c)
-add_numc_test(test_array_add test_array_add.c)
+# Unit tests
+add_numc_test(test_dtype unit/test_dtype.c)
+add_numc_test(test_create unit/test_create.c)
+add_numc_test(test_core unit/test_core.c)
+add_numc_test(test_fill unit/test_fill.c)
+add_numc_test(test_slice unit/test_slice.c)
+add_numc_test(test_reshape unit/test_reshape.c)
+add_numc_test(test_copy unit/test_copy.c)
+add_numc_test(test_concat unit/test_concat.c)
+add_numc_test(test_transpose unit/test_transpose.c)
+add_numc_test(test_memory unit/test_memory.c)
+add_numc_test(test_add unit/test_add.c)
 
 # Print message
 message(STATUS "Configured numc tests")
