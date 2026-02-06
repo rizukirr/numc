@@ -11,7 +11,7 @@
 void test_copy_contiguous(void) {
   printf("Testing copy of contiguous array...\n");
 
-  Array *arr = array_create(2, (size_t[]){3, 4}, DTYPE_INT, NULL);
+  Array *arr = array_create(&(ArrayCreate){.ndim = 2, .shape = (size_t[]){3, 4}, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
   int *data = (int *)arr->data;
   for (int i = 0; i < 12; i++) {
     data[i] = i;
@@ -44,7 +44,7 @@ void test_copy_slice(void) {
   printf("Testing copy of sliced array...\n");
 
   // Create array and slice it
-  Array *arr = array_create(1, (size_t[]){10}, DTYPE_INT, NULL);
+  Array *arr = array_create(&(ArrayCreate){.ndim = 1, .shape = (size_t[]){10}, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
   int *data = (int *)arr->data;
   for (int i = 0; i < 10; i++) {
     data[i] = i;
@@ -53,7 +53,7 @@ void test_copy_slice(void) {
   Array *slice = array_slice(arr, (size_t[]){2}, (size_t[]){8}, (size_t[]){2});
   // Slice should be [2, 4, 6]
 
-  Array *copy = array_to_contiguous(slice);
+  Array *copy = array_ascontiguousarray(slice);
   assert(copy != NULL);
   assert(copy->size == slice->size);
   assert(array_is_contiguous(copy)); // Copy should be contiguous
@@ -74,7 +74,7 @@ void test_is_contiguous(void) {
   printf("Testing array_is_contiguous...\n");
 
   // Contiguous array
-  Array *arr = array_create(2, (size_t[]){3, 4}, DTYPE_INT, NULL);
+  Array *arr = array_create(&(ArrayCreate){.ndim = 2, .shape = (size_t[]){3, 4}, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
   assert(array_is_contiguous(arr) != 0);
 
   // Non-contiguous slice

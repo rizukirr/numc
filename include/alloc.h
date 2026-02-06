@@ -14,7 +14,7 @@
 /**
  * @brief Default alignment for array data buffers (16 bytes for SSE/NEON).
  */
-#define NUMC_ALIGN 16
+#define NUMC_ALIGN 32
 
 /**
  * @brief Allocate aligned memory without initialization.

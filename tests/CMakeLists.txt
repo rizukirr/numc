@@ -17,7 +17,7 @@ function(add_numc_test test_name source_file)
 endfunction()
 
 # Unit tests
-add_numc_test(test_dtype unit/test_dtype.c)
+add_numc_test(test_numc_type unit/test_numc_type.c)
 add_numc_test(test_create unit/test_create.c)
 add_numc_test(test_core unit/test_core.c)
 add_numc_test(test_fill unit/test_fill.c)
@@ -28,6 +28,8 @@ add_numc_test(test_concat unit/test_concat.c)
 add_numc_test(test_transpose unit/test_transpose.c)
 add_numc_test(test_memory unit/test_memory.c)
 add_numc_test(test_add unit/test_add.c)
+add_numc_test(test_reduce unit/test_reduce.c)
+add_numc_test(test_scalar unit/test_scalar.c)
 
 # Print message
 message(STATUS "Configured numc tests")

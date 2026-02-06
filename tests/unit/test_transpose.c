@@ -12,7 +12,7 @@ void test_transpose_2d(void) {
   printf("Testing 2D array transpose...\n");
   
   // Create 3×4 array
-  Array *arr = array_create(2, (size_t[]){3, 4}, DTYPE_INT, NULL);
+  Array *arr = array_create(&(ArrayCreate){.ndim = 2, .shape = (size_t[]){3, 4}, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
   int *data = (int *)arr->data;
   
   // Fill: [[0,1,2,3], [4,5,6,7], [8,9,10,11]]
@@ -43,13 +43,13 @@ void test_transpose_2d(void) {
   
   // Verify element access through strides
   // Original [0,0] = 0 -> Transposed [0,0] = 0
-  assert(*array_geti(arr, (size_t[]){0, 0}) == 0);
+  assert(*array_get_int32(arr, (size_t[]){0, 0}) == 0);
   // Original [0,1] = 1 -> Transposed [1,0] = 1
-  assert(*array_geti(arr, (size_t[]){1, 0}) == 1);
+  assert(*array_get_int32(arr, (size_t[]){1, 0}) == 1);
   // Original [1,0] = 4 -> Transposed [0,1] = 4
-  assert(*array_geti(arr, (size_t[]){0, 1}) == 4);
+  assert(*array_get_int32(arr, (size_t[]){0, 1}) == 4);
   // Original [2,3] = 11 -> Transposed [3,2] = 11
-  assert(*array_geti(arr, (size_t[]){3, 2}) == 11);
+  assert(*array_get_int32(arr, (size_t[]){3, 2}) == 11);
   
   array_free(arr);
   printf("  ✓ 2D transpose works\n");
@@ -59,7 +59,7 @@ void test_transpose_3d(void) {
   printf("Testing 3D array transpose...\n");
   
   // Create 2×3×4 array
-  Array *arr = array_create(3, (size_t[]){2, 3, 4}, DTYPE_INT, NULL);
+  Array *arr = array_create(&(ArrayCreate){.ndim = 3, .shape = (size_t[]){2, 3, 4}, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
   int *data = (int *)arr->data;
   
   // Fill with sequential values
@@ -89,11 +89,11 @@ void test_transpose_3d(void) {
   
   // Verify specific element access
   // Original [0,0,0] = 0 -> Transposed [0,0,0] = 0
-  assert(*array_geti(arr, (size_t[]){0, 0, 0}) == 0);
+  assert(*array_get_int32(arr, (size_t[]){0, 0, 0}) == 0);
   // Original [0,0,1] = 1 -> Transposed [1,0,0] = 1
-  assert(*array_geti(arr, (size_t[]){1, 0, 0}) == 1);
+  assert(*array_get_int32(arr, (size_t[]){1, 0, 0}) == 1);
   // Original [1,2,3] = 23 -> Transposed [3,2,1] = 23
-  assert(*array_geti(arr, (size_t[]){3, 2, 1}) == 23);
+  assert(*array_get_int32(arr, (size_t[]){3, 2, 1}) == 23);
   
   array_free(arr);
   printf("  ✓ 3D transpose works\n");
@@ -103,7 +103,7 @@ void test_transpose_3d_partial(void) {
   printf("Testing 3D partial transpose...\n");
   
   // Create 2×3×4 array
-  Array *arr = array_create(3, (size_t[]){2, 3, 4}, DTYPE_FLOAT, NULL);
+  Array *arr = array_create(&(ArrayCreate){.ndim = 3, .shape = (size_t[]){2, 3, 4}, .numc_type = NUMC_TYPE_FLOAT, .data = NULL, .owns_data = true});
   float *data = (float *)arr->data;
   
   // Fill with sequential values
@@ -132,9 +132,9 @@ void test_transpose_3d_partial(void) {
   
   // Verify element access
   // Original [0,0,0] = 0.0 -> Transposed [0,0,0] = 0.0
-  assert(*array_getf(arr, (size_t[]){0, 0, 0}) == 0.0f);
+  assert(*array_get_float32(arr, (size_t[]){0, 0, 0}) == 0.0f);
   // Original [0,1,2] = 6.0 -> Transposed [2,0,1] = 6.0
-  assert(*array_getf(arr, (size_t[]){2, 0, 1}) == 6.0f);
+  assert(*array_get_float32(arr, (size_t[]){2, 0, 1}) == 6.0f);
   
   array_free(arr);
   printf("  ✓ 3D partial transpose works\n");
@@ -144,7 +144,7 @@ void test_transpose_identity(void) {
   printf("Testing identity transpose (no change)...\n");
   
   // Create 2×3 array
-  Array *arr = array_create(2, (size_t[]){2, 3}, DTYPE_INT, NULL);
+  Array *arr = array_create(&(ArrayCreate){.ndim = 2, .shape = (size_t[]){2, 3}, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
   int *data = (int *)arr->data;
   for (int i = 0; i < 6; i++) {
     data[i] = i;
@@ -174,7 +174,7 @@ void test_transpose_1d(void) {
   printf("Testing 1D array transpose...\n");
   
   // Create 1D array [0, 1, 2, 3, 4]
-  Array *arr = array_create(1, (size_t[]){5}, DTYPE_INT, NULL);
+  Array *arr = array_create(&(ArrayCreate){.ndim = 1, .shape = (size_t[]){5}, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
   int *data = (int *)arr->data;
   for (int i = 0; i < 5; i++) {
     data[i] = i;
@@ -209,7 +209,7 @@ void test_transpose_data_sharing(void) {
   printf("Testing transpose shares data (view behavior)...\n");
   
   // Create 2×3 array
-  Array *arr = array_create(2, (size_t[]){2, 3}, DTYPE_INT, NULL);
+  Array *arr = array_create(&(ArrayCreate){.ndim = 2, .shape = (size_t[]){2, 3}, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
   int *data = (int *)arr->data;
   data[0] = 100;
   data[5] = 200;
@@ -224,7 +224,7 @@ void test_transpose_data_sharing(void) {
   assert(arr->data == orig_data);
   
   // Modify through transposed view
-  *array_geti(arr, (size_t[]){0, 0}) = 999;
+  *array_get_int32(arr, (size_t[]){0, 0}) = 999;
   
   // Verify change visible in original data buffer
   assert(((int *)arr->data)[0] == 999);
@@ -237,7 +237,7 @@ void test_transpose_4d(void) {
   printf("Testing 4D array transpose...\n");
   
   // Create 2×2×2×2 array
-  Array *arr = array_create(4, (size_t[]){2, 2, 2, 2}, DTYPE_INT, NULL);
+  Array *arr = array_create(&(ArrayCreate){.ndim = 4, .shape = (size_t[]){2, 2, 2, 2}, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
   int *data = (int *)arr->data;
   
   // Fill with sequential values
@@ -257,8 +257,8 @@ void test_transpose_4d(void) {
   assert(arr->shape[3] == 2);
   
   // Verify element access
-  assert(*array_geti(arr, (size_t[]){0, 0, 0, 0}) == 0);
-  assert(*array_geti(arr, (size_t[]){1, 1, 1, 1}) == 15);
+  assert(*array_get_int32(arr, (size_t[]){0, 0, 0, 0}) == 0);
+  assert(*array_get_int32(arr, (size_t[]){1, 1, 1, 1}) == 15);
   
   array_free(arr);
   printf("  ✓ 4D transpose works\n");

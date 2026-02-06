@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(numc
-        VERSION 0.2.0
+        VERSION 0.0.0
         DESCRIPTION "N Dimensional Array in C"
         LANGUAGES C)
 
@@ -25,7 +25,6 @@ set(NUMC_SOURCES
     src/array.c
     src/utils.c
     src/math.c
-    src/types.c
     src/alloc.c
     src/io.c
 )
@@ -53,12 +52,9 @@ set_target_properties(numc PROPERTIES
 if(BUILD_EXAMPLES)
     add_executable(numc_demo examples/demo.c)
     target_link_libraries(numc_demo numc)
-    
-    add_executable(simd_benchmark examples/simd_benchmark.c)
-    target_link_libraries(simd_benchmark numc)
-    
-    add_executable(benchmark_fill examples/benchmark_fill.c)
-    target_link_libraries(benchmark_fill numc)
+
+    add_executable(comprehensive_benchmark examples/comprehensive_benchmark.c)
+    target_link_libraries(comprehensive_benchmark numc)
 endif()
 
 # Test suite

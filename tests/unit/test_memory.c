@@ -14,10 +14,10 @@ void test_array_alignment(void) {
   printf("Testing array data alignment...\n");
   
   // Test different types
-  Array *arr_int = array_create(1, (size_t[]){100}, DTYPE_INT, NULL);
-  Array *arr_float = array_create(1, (size_t[]){100}, DTYPE_FLOAT, NULL);
-  Array *arr_double = array_create(2, (size_t[]){10, 10}, DTYPE_DOUBLE, NULL);
-  Array *arr_long = array_create(3, (size_t[]){5, 5, 4}, DTYPE_LONG, NULL);
+  Array *arr_int = array_create(&(ArrayCreate){.ndim = 1, .shape = (size_t[]){100}, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
+  Array *arr_float = array_create(&(ArrayCreate){.ndim = 1, .shape = (size_t[]){100}, .numc_type = NUMC_TYPE_FLOAT, .data = NULL, .owns_data = true});
+  Array *arr_double = array_create(&(ArrayCreate){.ndim = 2, .shape = (size_t[]){10, 10}, .numc_type = NUMC_TYPE_DOUBLE, .data = NULL, .owns_data = true});
+  Array *arr_long = array_create(&(ArrayCreate){.ndim = 3, .shape = (size_t[]){5, 5, 4}, .numc_type = NUMC_TYPE_LONG, .data = NULL, .owns_data = true});
   
   // All should be 16-byte aligned for SIMD
   assert(((uintptr_t)arr_int->data % NUMC_ALIGN) == 0);

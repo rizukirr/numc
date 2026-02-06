@@ -1,435 +1,265 @@
-# numc - N-Dimensional Array Library for C
+# numc
 
-A lightweight, NumPy-inspired N-dimensional array library written in C. Designed for scientific computing and numerical applications.
+A lightweight, NumPy-inspired N-dimensional array library written in C.
 
 > [!WARNING]
 > **This project is under heavy development and the API is not stable.**
-> 
-> - Breaking changes may occur between commits
-> - Not recommended for production use yet
-> - APIs, data structures, and function signatures are subject to change
-> - Use at your own risk or pin to a specific commit
-> 
-> Contributions, testing, and feedback are welcome! See [Contributing](#contributing) section.
-
-## Features
-
-- N-dimensional arrays with flexible stride-based memory layout
-- NumPy-like API for familiar usage
-- Zero-copy views and slicing
-- **Optimized performance** with type-specific kernels (10-50x faster)
-- **SIMD-ready** with 16-byte aligned memory allocation
-- Type-safe DType system for numeric types (int8 to int64, float, double)
-- Contiguous memory fast paths for operations
-- Geometric growth for efficient dynamic arrays
-- Comprehensive test suite with CTest integration (11 tests, all passing)
+> Breaking changes may occur between commits. Not recommended for production use yet.
 
 ## Building
 
+### Using run.sh
+
 ```bash
-# Configure
-cmake -B build
+./run.sh debug       # Build debug mode (with AddressSanitizer) and run demo
+./run.sh release     # Build release mode (with -O3 -march=native) and run demo
+./run.sh test        # Build and run all tests
+./run.sh benchmark   # Build release and run benchmarks
+./run.sh clean       # Remove build directory
+./run.sh rebuild     # Clean and rebuild in debug mode
+./run.sh help        # Show all commands
+```
 
-# Build
-cd build && make
+### Manual
 
-# Run the demo (showcases all features)
-./bin/numc
+```bash
+# Configure and build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+
+# Run demo
+./build/bin/numc_demo
 
 # Run tests
-ctest
+ctest --test-dir build
+
+# Build options
+cmake -B build -DCMAKE_BUILD_TYPE=Debug      # Debug with AddressSanitizer
+cmake -B build -DBUILD_SHARED=ON             # Shared library (.so)
+cmake -B build -DBUILD_TESTS=OFF             # Disable tests
+cmake -B build -DBUILD_EXAMPLES=OFF          # Disable examples
 ```
 
-### Build Options
+## Benchmark Report (v0.0.0-RC01)
 
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release   # Optimized build
-cmake -B build -DCMAKE_BUILD_TYPE=Debug     # Debug with AddressSanitizer
-cmake -B build -DBUILD_SHARED=ON            # Build shared library
-```
+System: Intel Core i7-13620H | AVX2 | Clang -O3 -march=native | 1M elements
 
-## Detailed API Reference
+### Element-wise Binary Operations (Mops/sec)
 
-### Data Types (DType)
+| Type   | Add    | Sub    | Mul    | Div    | Avg Improvement |
+|--------|--------|--------|--------|--------|-----------------|
+| INT32  | 3,888  | 3,956  | 3,832  | 626    | 32% faster      |
+| INT64  | 1,355  | 1,311  | 1,205  | 588    | 14% faster      |
+| FLOAT  | 3,831  | 3,811  | 3,943  | 3,562  | 36% faster      |
+| DOUBLE | 1,255  | 1,130  | 1,109  | 1,109  | 1% faster       |
 
-The library uses a type-safe `DType` enum to distinguish between numeric types:
+### Scalar Operations (Mops/sec)
 
+| Type   | Add    | Sub    | Mul    | Div    |
+|--------|--------|--------|--------|--------|
+| INT32  | 5,100  | 5,200  | 5,500  | 6,000  |
+| INT64  | 2,600  | 2,700  | 2,800  | 2,900  |
+| FLOAT  | 5,500  | 5,700  | 5,900  | 6,200  |
+| DOUBLE | 1,600  | 1,800  | 2,200  | 2,700  |
+
+### Reduction Operations (Mops/sec)
+
+| Type   | Sum    | Min    | Max    | Dot    |
+|--------|--------|--------|--------|--------|
+| INT32  | 14,400 | 7,800  | 8,200  | 9,100  |
+| INT64  | 7,000  | 2,900  | 3,100  | 4,200  |
+| FLOAT  | 1,900  | 900    | 1,000  | 1,500  |
+| DOUBLE | 1,750  | 850    | 900    | 1,200  |
+
+### Theoretical Efficiency
+
+| Type  | Achieved   | Peak       | Efficiency | Bottleneck     |
+|-------|------------|------------|------------|----------------|
+| INT32 | 3.9 Gops/s | 8.0 Gops/s | 49%        | Memory/cache   |
+| FLOAT | 3.9 Gops/s | 4.0 Gops/s | 97%        | Near-optimal   |
+| INT64 | 1.4 Gops/s | 8.0 Gops/s | 17%        | DRAM bandwidth |
+| DOUBLE| 1.3 Gops/s | 4.0 Gops/s | 32%        | DRAM bandwidth |
+
+## Performance Characteristics
+
+### Memory Hierarchy Impact
+
+NUMC performance is highly dependent on whether data fits in CPU cache:
+
+| Array Size | Memory   | Cache Level   | Add Performance | Performance Drop |
+|------------|----------|---------------|-----------------|------------------|
+| 1K elems   | 0.004 MB | L1 Cache      | ~8,300 Mops/s   | baseline         |
+| 65K elems  | 0.256 MB | L2 Cache      | ~10,400 Mops/s  | ✅ +25%          |
+| 524K elems | 2 MB     | L3 Cache      | ~10,100 Mops/s  | ✅ similar       |
+| 4M elems   | 16 MB    | **Main Memory** | ~1,600 Mops/s | ⚠️ **-84% cliff** |
+
+**Why this happens:**
+- **L3 Cache** (18 MB): ~40 cycle latency, 200 GB/s bandwidth → Fast ✅
+- **Main Memory** (DDR4): ~300 cycle latency, 50 GB/s bandwidth → Slow ⚠️
+
+When working set exceeds cache size (~18 MB on i7-13620H), the system becomes **memory-bound** rather than compute-bound. This is fundamental to all high-performance libraries (NumPy, BLAS, TensorFlow) and is not a bug.
+
+### 32-bit vs 64-bit Performance
+
+**INT32/FLOAT (4 bytes):**
+- 1M elements × 3 arrays = **12 MB total** → Fits in L3 cache ✅
+- Achieves ~3,900 Mops/s (excellent performance)
+- 8 elements per 256-bit AVX2 vector
+- Cache-resident, compute-bound
+
+**INT64/DOUBLE (8 bytes):**
+- 1M elements × 3 arrays = **24 MB total** → Exceeds L3 cache ⚠️
+- Achieves ~1,300 Mops/s (memory-bound)
+- 4 elements per 256-bit AVX2 vector
+- Main memory access required
+
+This explains why 32-bit types are ~3× faster than 64-bit types for large arrays.
+
+### Planned Optimizations for Memory-Bound Workloads
+
+The following optimizations are planned to improve performance when data exceeds cache:
+
+#### 1. **Cache Blocking (Tiling)**
+Process large arrays in cache-sized chunks to maintain L3 residency:
 ```c
-DTYPE_BYTE      // int8_t
-DTYPE_UBYTE     // uint8_t
-DTYPE_SHORT     // int16_t
-DTYPE_USHORT    // uint16_t
-DTYPE_INT       // int32_t
-DTYPE_UINT      // uint32_t
-DTYPE_LONG      // int64_t
-DTYPE_ULONG     // uint64_t
-DTYPE_FLOAT     // float
-DTYPE_DOUBLE    // double
+// Future API
+array_add_blocked(a, b, out, block_size);  // Process in cache-friendly chunks
 ```
 
-Corresponding type definitions are available:
+#### 2. **Explicit SIMD Intrinsics**
+Use AVX2/AVX-512 intrinsics for better control over memory access patterns:
+- Software prefetching (`_mm_prefetch`)
+- Non-temporal stores for write-only data (`_mm_stream_si256`)
+- Aligned vs unaligned load optimization
+
+#### 3. **Multithreading**
+Parallelize operations across CPU cores to increase effective memory bandwidth:
 ```c
-NUMC_INT        // int32_t
-NUMC_FLOAT      // float
-NUMC_DOUBLE     // double
-// ... etc
+// Future API with OpenMP
+#pragma omp parallel for
+for (size_t i = 0; i < n; i += block_size) {
+    process_block(data + i, block_size);
+}
 ```
+
+#### 4. **Algorithm Fusion**
+Combine multiple operations to reduce memory traffic:
+```c
+// Instead of: temp = a + b; result = temp * c;  (2 memory passes)
+// Do: result = (a + b) * c;  (1 memory pass)
+```
+
+#### 5. **Compressed Data Formats**
+Use lower-precision types when appropriate (FLOAT vs DOUBLE, INT16 vs INT32)
+
+### Learning Resources
+
+**Academic Papers:**
+- [What Every Programmer Should Know About Memory](https://people.freebsd.org/~lstewart/articles/cpumemory.pdf) (Ulrich Drepper, 2007)
+  - Comprehensive guide to memory hierarchy, cache behavior, and optimization strategies
+
+- [Cache-Oblivious Algorithms](https://erikdemaine.org/papers/BRICS2002/paper.pdf) (Frigo et al., 1999)
+  - Optimal cache-aware algorithms without knowing cache sizes
+
+- [Anatomy of High-Performance Matrix Multiplication](https://www.cs.utexas.edu/~flame/pubs/GotoTOMS_revision.pdf) (Goto & van de Geijn, 2008)
+  - Industry-standard techniques for blocking and tiling
+
+- [Software Prefetching](https://dl.acm.org/doi/10.1145/384286.264207) (Mowry et al., 1992)
+  - Cache miss reduction through prefetch instructions
+
+**Books:**
+- *Computer Architecture: A Quantitative Approach* (Hennessy & Patterson)
+- *Optimizing Software in C++* (Agner Fog) - [Free PDF](https://www.agner.org/optimize/)
+- *Systems Performance* (Brendan Gregg)
+
+**Online Resources:**
+- [Intel Optimization Manual](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html)
+- [Agner Fog's Optimization Guides](https://www.agner.org/optimize/)
+- [Gallery of Processor Cache Effects](http://igoro.com/archive/gallery-of-processor-cache-effects/)
+
+**Current Status:**
+- ✅ SIMD auto-vectorization working (AVX2)
+- ✅ Cache-friendly for typical workloads (<10 MB)
+- ✅ Competitive with NumPy/BLAS for cache-resident data
+- 🔄 Memory-bound path optimizations planned (see roadmap above)
+
+## Progress
 
 ### Array Creation
+- [x] `array_create` - Create array from specification
+- [x] `array_zeros` - Zero-filled array
+- [x] `array_ones` - Ones-filled array
+- [x] `array_full` - Fill with value
+- [x] `array_free` - Free array memory
+- [ ] `array_arange` - Range of values
+- [ ] `array_linspace` - Linearly spaced values
+- [ ] `array_eye` - Identity matrix
+- [ ] `array_empty` - Uninitialized array
 
-**Implemented:**
-- `Array *array_create(size_t ndim, const size_t *shape, DType dtype)` - Create uninitialized array
-- `Array *array_zeros(size_t ndim, const size_t *shape, DType dtype)` - Create array filled with zeros
-- `Array *array_ones(size_t ndim, const size_t *shape, DType dtype)` - Create array filled with ones
-- `Array *array_fill(size_t ndim, const size_t *shape, DType dtype, const void *value)` - Create array filled with value
-- `void array_free(Array *array)` - Free array memory
-
-**Not Yet Implemented:**
-- [ ] `Array *array_arange(double start, double stop, double step, DType dtype)` - Create range of values
-- [ ] `Array *array_linspace(double start, double stop, size_t num, DType dtype)` - Create linearly spaced values
-- [ ] `Array *array_eye(size_t n, size_t m, DType dtype)` - Create identity matrix
-- [ ] `Array *array_empty(size_t ndim, const size_t *shape, DType dtype)` - Alias for array_create
-
-### Array Access
-
-**Implemented:**
-- `void *array_get(const Array *array, const size_t *indices)` - Get pointer to element
-- `NUMC_TYPE *array_getX(const Array *array, const size_t *indices)` - Type-safe accessors (getf, geti, getl, etc.)
-- `size_t array_offset(const Array *array, const size_t *indices)` - Compute byte offset
-- `int array_bounds_check(const Array *array, const size_t *indices)` - Bounds checking
-
-**Not Yet Implemented:**
-- [ ] `void *array_get_1d(const Array *array, size_t i)` - Fast 1D access
-- [ ] `void *array_get_2d(const Array *array, size_t i, size_t j)` - Fast 2D access
-- [ ] `void *array_get_3d(const Array *array, size_t i, size_t j, size_t k)` - Fast 3D access
+### Element Access
+- [x] `array_get` / type-safe accessors - Get element pointer
+- [x] `array_offset` - Compute byte offset
+- [x] `array_bounds_check` - Bounds checking
+- [ ] `array_get_1d` / `_2d` / `_3d` - Fast dimensional access
 - [ ] Boolean/conditional indexing
 
-### Array Properties
+### Manipulation
+- [x] `array_reshape` - Reshape in-place (contiguous only)
+- [x] `array_slice` - Zero-copy view
+- [x] `array_copy` - Contiguous copy
+- [x] `array_concat` - Concatenate along axis
+- [x] `array_transpose` - Transpose
+- [x] `array_is_contiguous` - Contiguity check
+- [ ] `array_astype` - Type conversion
+- [ ] `array_flatten` / `array_ravel` - Flatten to 1D
+- [ ] `array_squeeze` / `array_expand_dims` - Dimension manipulation
+- [ ] `array_flip` - Reverse along axis
+- [ ] `array_broadcast_to` - Broadcasting
+- [ ] `array_vstack` / `array_hstack` / `array_hsplit` - Stack/split
 
-**Implemented:**
-- `int array_is_contiguous(const Array *array)` - Check if array is contiguous
+### Math Operations
+- [x] `array_add` / `sub` / `mul` / `div` - Element-wise binary ops
+- [x] `array_add_scalar` / `sub` / `mul` / `div` - Scalar ops
+- [ ] `array_matmul` - Matrix multiplication
+- [ ] `array_power` - Element-wise power
+- [ ] Broadcasting support
 
-**Not Yet Implemented:**
-- [ ] `int array_is_c_contiguous(const Array *array)` - Check C-contiguous (row-major)
-- [ ] `int array_is_f_contiguous(const Array *array)` - Check Fortran-contiguous (column-major)
-- [ ] `int array_is_square(const Array *array)` - Check if matrix is square
-
-### Array Manipulation
-
-**Implemented:**
-- `int array_reshape(Array *array, size_t ndim, const size_t *shape)` - Reshape array in-place
-- `Array *array_slice(Array *base, const size_t *start, const size_t *stop, const size_t *step)` - Create view slice
-- `Array *array_copy(const Array *src)` - Create contiguous copy (optimized)
-- `Array *array_concat(const Array *a, const Array *b, size_t axis)` - Concatenate arrays (optimized)
-- `int array_transpose(Array *array, const size_t *axes)` - Transpose array
-
-**Not Yet Implemented:**
-- [ ] `Array *array_astype(const Array *array, DType new_dtype)` - Convert element type
-- [ ] `Array *array_flatten(const Array *array)` - Flatten to 1D array (copy)
-- [ ] `Array *array_ravel(const Array *array)` - Flatten to 1D view (no copy if possible)
-- [ ] `Array *array_squeeze(const Array *array)` - Remove single-dimensional entries
-- [ ] `Array *array_expand_dims(const Array *array, size_t axis)` - Add dimension
-- [ ] `Array *array_flip(const Array *array, int axis)` - Reverse array along axis
-- [ ] `Array *array_broadcast_to(const Array *array, size_t ndim, const size_t *shape)` - Broadcast to shape
-- [ ] `int array_resize(Array *array, size_t ndim, const size_t *shape)` - Resize array (may reallocate)
-- [ ] `Array *array_vstack(const Array **arrays, size_t n)` - Stack arrays vertically
-- [ ] `Array *array_hstack(const Array **arrays, size_t n)` - Stack arrays horizontally
-- [ ] `Array **array_hsplit(const Array *array, size_t sections)` - Split array horizontally
-
-### Mathematical Operations
-
-**Implemented:**
-- `Array *array_add(const Array *a, const Array *b)` - Element-wise addition (optimized with type-specific kernels)
-
-**Not Yet Implemented:**
-- [ ] `Array *array_subtract(const Array *a, const Array *b)` - Element-wise subtraction
-- [ ] `Array *array_multiply(const Array *a, const Array *b)` - Element-wise multiplication
-- [ ] `Array *array_divide(const Array *a, const Array *b)` - Element-wise division
-- [ ] `Array *array_dot(const Array *a, const Array *b)` - Matrix/dot product
-- [ ] `Array *array_matmul(const Array *a, const Array *b)` - Matrix multiplication (alias)
-- [ ] Broadcasting support for operations on different shaped arrays
-
-### Reduction/Aggregation Operations
-
-**Not Yet Implemented:**
-- [ ] `void array_sum(const Array *array, void *result)` - Sum all elements
-- [ ] `Array *array_sum_axis(const Array *array, int axis)` - Sum along axis
-- [ ] `void array_mean(const Array *array, void *result)` - Mean of all elements
-- [ ] `Array *array_mean_axis(const Array *array, int axis)` - Mean along axis
-- [ ] `void array_min(const Array *array, void *result)` - Minimum element
-- [ ] `void array_max(const Array *array, void *result)` - Maximum element
-- [ ] `size_t array_argmin(const Array *array)` - Index of minimum
-- [ ] `size_t array_argmax(const Array *array)` - Index of maximum
-- [ ] `void array_prod(const Array *array, void *result)` - Product of elements
-- [ ] `void array_std(const Array *array, void *result)` - Standard deviation
+### Reduction Operations
+- [x] `array_sum` / `array_min` / `array_max` / `array_dot`
+- [ ] Axis-based reductions (`sum_axis`, `mean_axis`)
+- [ ] `array_mean` / `array_prod` / `array_std`
+- [ ] `array_argmin` / `array_argmax`
 
 ### Sorting & Searching
-
-**Not Yet Implemented:**
-- [ ] `Array *array_sort(const Array *array, int axis)` - Sort array
-- [ ] `Array *array_argsort(const Array *array, int axis)` - Indices of sorted array
-- [ ] `Array *array_unique(const Array *array, int *return_counts, int *return_index)` - Get unique elements
-
-### Comparison & Conditional Operations
-
-**Not Yet Implemented:**
-- [ ] `int array_equal(const Array *a, const Array *b)` - Check if arrays are equal
-- [ ] `int array_allclose(const Array *a, const Array *b, double rtol, double atol)` - Check if approximately equal
-- [ ] `Array *array_where(const Array *condition, const Array *x, const Array *y)` - Conditional selection
-- [ ] `Array *array_nonzero(const Array *array)` - Find indices of non-zero elements
-
-### I/O Operations
-
-**Implemented:**
-- `void array_io.const Array *array)` - Print array to stdout
-
-**Not Yet Implemented:**
-- [ ] `int array_save(const Array *array, const char *filename)` - Save array to binary file (.npy)
-- [ ] `Array *array_load(const char *filename)` - Load array from binary file (.npy)
-- [ ] `int array_savez(const char *filename, ...)` - Save multiple arrays (.npz)
-- [ ] `int array_savetxt(const Array *array, const char *filename)` - Save as text (CSV/TXT)
-- [ ] `Array *array_loadtxt(const char *filename, DType dtype)` - Load from text file
-- [ ] `char *array_tostring(const Array *array)` - Convert to string representation
-
-### Random Number Generation
-
-**Not Yet Implemented:**
-- [ ] `Array *array_random(size_t ndim, const size_t *shape, DType dtype)` - Random floats [0, 1)
-- [ ] `Array *array_randint(int low, int high, size_t ndim, const size_t *shape)` - Random integers
-
-### Utility Functions
-
-**Not Yet Implemented:**
-- [ ] `int array_can_broadcast(const Array *a, const Array *b)` - Check if arrays can broadcast
-
-## Examples
-
-### Quick Demo
-
-Run the included demo to see all features in action:
-```bash
-./build/bin/numc
-```
-
-The demo showcases:
-- Array creation (zeros, ones, from data)
-- Element-wise operations (optimized addition)
-- Concatenation along axes
-- Slicing with different step sizes
-- Reshaping arrays
-- Copy vs view behavior
-- Fill operations
-- Performance with large arrays
-
-### Creating Arrays
-
-```c
-#include "array.h"
-#include "types.h"
-
-// Create empty array
-size_t shape[] = {2, 3, 4};
-Array *arr = array_create(3, shape, DTYPE_DOUBLE, NULL);
-
-// Create from data
-int data[2][3] = {{1, 2, 3}, {4, 5, 6}};
-Array *arr2 = array_create(2, (size_t[]){2, 3}, DTYPE_INT, data);
-
-// Create zeros
-Array *zeros = array_zeros(2, (size_t[]){3, 4}, DTYPE_FLOAT);
-
-// Create ones
-Array *ones = array_ones(1, (size_t[]){10}, DTYPE_INT);
-
-// Create filled with specific value
-int fill_val = 42;
-Array *filled = array_fill(2, (size_t[]){5, 5}, DTYPE_INT, &fill_val);
-```
-
-### Element-Wise Operations
-
-```c
-// Create two arrays
-Array *a = array_create(1, (size_t[]){6}, DTYPE_INT,
-                        (int[]){1, 2, 3, 4, 5, 6});
-Array *b = array_create(1, (size_t[]){6}, DTYPE_INT,
-                        (int[]){10, 20, 30, 40, 50, 60});
-
-// Add arrays (optimized with type-specific kernels)
-Array *sum = array_add(a, b);  // Result: [11, 22, 33, 44, 55, 66]
-
-// Contiguous arrays use fast path (10-50x faster)
-// Non-contiguous arrays use optimized strided access (15-25x faster)
-```
-
-### Accessing Elements
-
-```c
-// Get element at [1, 2]
-float *elem = array_get(arr, (size_t[]){1, 2});
-printf("Value: %f\n", *elem);
-
-// Modify element
-*elem = 99.0f;
-```
-
-### Slicing
-
-```c
-// Original array shape: [10, 20]
-// Slice: rows 2-8, columns 5-15, step 2
-Array *sliced = array_slice(arr,
-    (size_t[]){2, 5},     // start
-    (size_t[]){8, 15},    // stop (exclusive)
-    (size_t[]){2, 1}      // step
-);
-// Result shape: [3, 10]
-```
-
-### Reshaping
-
-```c
-// Reshape [2, 6] -> [3, 4]
-Array *arr = array_create(2, (size_t[]){2, 6}, DTYPE_INT);
-array_reshape(arr, 2, (size_t[]){3, 4});
-```
-
-### Concatenation
-
-```c
-Array *a = array_create(2, (size_t[]){3, 4}, DTYPE_FLOAT, NULL);
-Array *b = array_create(2, (size_t[]){2, 4}, DTYPE_FLOAT, NULL);
-
-// Concatenate along axis 0 (rows) - optimized
-Array *result = array_concat(a, b, 0);  // Shape: [5, 4]
-
-// Concatenate along axis 1 (columns)
-Array *c = array_create(2, (size_t[]){3, 2}, DTYPE_FLOAT, NULL);
-Array *result2 = array_concat(a, c, 1);  // Shape: [3, 6]
-```
-
-### Transpose
-
-```c
-// Transpose 2D array
-Array *matrix = array_create(2, (size_t[]){3, 4}, DTYPE_INT, NULL);
-array_transpose(matrix, (size_t[]){1, 0});  // Shape: [4, 3]
-
-// Transpose 3D array
-Array *tensor = array_create(3, (size_t[]){2, 3, 4}, DTYPE_FLOAT, NULL);
-array_transpose(tensor, (size_t[]){2, 0, 1});  // Shape: [4, 2, 3]
-```
-
-## Performance Considerations
-
-### Optimizations Implemented
-
-The library includes several performance optimizations:
-
-**Type-Specific Kernels** (20-25x faster):
-- Switch outside loops to enable compiler auto-vectorization
-- Direct assignment instead of memcpy for small elements
-- SIMD-ready code that compiles to paddd, addps, addpd instructions with -O3
-
-**Contiguous Fast Paths** (10-50x faster):
-- Bulk memcpy for contiguous concatenation
-- Sequential access patterns for better cache utilization
-- Automatic contiguous detection
-
-**Memory Optimizations**:
-- Stack allocation for small dimensions (ndim ≤ 8)
-- Separate zeroed (`numc_calloc`) vs non-zeroed (`numc_malloc`) allocation
-- 16-byte aligned memory for SIMD compatibility
-
-**Code Organization**:
-- Refactored helper functions to eliminate ~160 lines of duplication
-- Maintainable strided copy patterns
-
-### Contiguous vs Non-Contiguous Arrays
-
-- **Contiguous arrays**: All elements packed in memory, enables fast operations
-- **Non-contiguous arrays**: Created by slicing with step > 1, slower operations
-
-Check contiguity:
-```c
-if (array_is_contiguous(arr)) {
-    // Can use fast SIMD operations and contiguous fast paths
-}
-```
-
-### Memory Alignment
-
-All arrays use 16-byte aligned memory allocation for SIMD compatibility:
-- SSE/NEON: 16-byte alignment (current)
-- AVX2: 32-byte alignment (future)
-- AVX-512: 64-byte alignment (future)
-
-The library is SIMD-ready and can be extended with explicit SIMD intrinsics.
-
-### Dynamic Arrays
-
-`array_append()` uses geometric growth (2x capacity) for O(n) amortized performance:
-```c
-Array *arr = array_create(1, (size_t[]){0}, DTYPE_INT);
-for (int i = 0; i < 10000; i++) {
-    array_append(arr, &i);  // Efficient: only ~14 reallocations
-}
-```
-
-## Compatibility
-
-- **C Standard**: C11
-- **Compiler**: clang (primary), gcc (compatible)
-- **Platforms**: Linux, macOS, Windows (with appropriate compiler)
-
-## Contributing
-
-When adding new functions:
-1. Follow NumPy naming conventions when possible
-2. Document with Doxygen comments
-3. Add unit tests in `tests/` directory
-4. Update this README
-5. Ensure memory safety (no leaks, use AddressSanitizer)
-
-Run tests with:
-```bash
-cd build && ctest --verbose
-```
-
-## Development Priorities
-
-Based on the NumPy feature comparison above, the next priority features are:
-
-### High Priority (Core NumPy Functionality)
-1. ~~**Transpose operations**~~ ✅ Implemented
-2. ~~**Element-wise arithmetic**~~ - ✅ Add implemented, subtract/multiply/divide next
-3. **Aggregation functions** - Sum, min, max, mean with axis support
-4. **Flatten/ravel** - Convert to 1D arrays
-5. **Arange/linspace** - Generate sequences of values
-6. **Broadcasting** - Automatic shape expansion for operations
-
-### Medium Priority (Common Operations)
-6. **Sorting** - Sort arrays and argsort for indices
-7. **Unique values** - Find unique elements with counts
-8. **Stack/split operations** - vstack, hstack, hsplit
-9. **File I/O** - Save/load binary (.npy) and text (CSV) formats
-10. **Boolean indexing** - Conditional array access
-
-### Lower Priority (Advanced Features)
-11. **Random number generation** - Random floats and integers
-12. **Matrix multiplication (dot)** - Optimized matmul with SIMD
-13. **Comparison operations** - array_equal, array_where, array_nonzero
-
-### Performance Enhancements (Ongoing)
-- [x] Type-specific kernels for operations (20-25x faster)
-- [x] Contiguous fast paths (10-50x faster)
-- [x] Stack allocation for small arrays
-- [x] Refactored strided copy helpers
+- [ ] `array_sort` / `array_argsort`
+- [ ] `array_unique`
+
+### Comparison
+- [ ] `array_equal` / `array_allclose`
+- [ ] `array_where` / `array_nonzero`
+
+### I/O
+- [x] `array_print` - Print to stdout
+- [ ] Binary file I/O (`.npy` / `.npz`)
+- [ ] Text file I/O (CSV/TXT)
+
+### Random
+- [ ] `array_random` / `array_randint`
+
+### Performance
+- [x] Type-specific SIMD-ready kernels
+- [x] Auto-vectorization (AVX2/SSE)
+- [x] Separate 32-bit / 64-bit optimization strategies
+- [x] Cache-friendly memory access patterns
+- [x] Contiguous fast paths
+- [x] 16-byte aligned allocation
+- [x] Stack allocation for small arrays (ndim <= 8)
+- [x] Comprehensive benchmark suite
 - [ ] Explicit SIMD intrinsics (SSE2/AVX2/NEON)
 - [ ] Runtime SIMD detection and dispatch
-- [ ] Benchmark suite comparing scalar vs SIMD performance
-- [ ] Arena allocator for temporary arrays (reduce malloc overhead)
+- [ ] Arena allocator for temporary arrays
+- [ ] Multithreading (OpenMP/pthreads)
 
 ## License
 
-Licensed under the MIT License.
+MIT License - See [LICENSE](LICENSE) for details.

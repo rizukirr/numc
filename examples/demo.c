@@ -11,7 +11,7 @@ void print_array_info(const Array *arr, const char *name) {
     if (i < arr->ndim - 1)
       printf(", ");
   }
-  printf("], size=%zu, dtype=%d, contiguous=%s\n", arr->size, arr->dtype,
+  printf("], size=%zu, numc_type=%d, contiguous=%s\n", arr->size, arr->numc_type,
          array_is_contiguous(arr) ? "yes" : "no");
 }
 
@@ -43,7 +43,7 @@ void demo_array_creation(void) {
   // Create zeros array
   printf("1. Creating 2x3 zeros array (INT):\n");
   size_t zeros_shape[] = {2, 3};
-  Array *zeros = array_zeros(2, zeros_shape, DTYPE_INT);
+  Array *zeros = array_zeros(2, zeros_shape, NUMC_TYPE_INT);
   print_array_info(zeros, "zeros");
   print_int_array(zeros);
   array_free(zeros);
@@ -51,7 +51,7 @@ void demo_array_creation(void) {
   // Create ones array
   printf("\n2. Creating 1x5 ones array (FLOAT):\n");
   size_t ones_shape[] = {5};
-  Array *ones = array_ones(1, ones_shape, DTYPE_FLOAT);
+  Array *ones = array_ones(1, ones_shape, NUMC_TYPE_FLOAT);
   print_array_info(ones, "ones");
   print_float_array(ones);
   array_free(ones);
@@ -60,7 +60,14 @@ void demo_array_creation(void) {
   printf("\n3. Creating array from existing data:\n");
   int init_data[] = {1, 2, 3, 4, 5, 6};
   size_t arr_shape[] = {2, 3};
-  Array *arr = array_create(2, arr_shape, DTYPE_INT, init_data);
+  ArrayCreate arr_create = {
+      .ndim = 2,
+      .shape = arr_shape,
+      .numc_type = NUMC_TYPE_INT,
+      .data = init_data,
+      .owns_data = true,
+  };
+  Array *arr = array_create(&arr_create);
   print_array_info(arr, "arr");
   print_int_array(arr);
   array_free(arr);
@@ -73,29 +80,56 @@ void demo_array_operations(void) {
   printf("1. Element-wise math operations:\n");
   int data_a[] = {10, 20, 30, 40, 50, 60};
   size_t shape_a[] = {6};
-  Array *a = array_create(1, shape_a, DTYPE_INT, data_a);
+  ArrayCreate a_create = {
+      .ndim = 1,
+      .shape = shape_a,
+      .numc_type = NUMC_TYPE_INT,
+      .data = data_a,
+      .owns_data = true,
+  };
+  Array *a = array_create(&a_create);
   printf("   a = ");
   print_int_array(a);
 
   int data_b[] = {1, 2, 3, 4, 5, 6};
   size_t shape_b[] = {6};
-  Array *b = array_create(1, shape_b, DTYPE_INT, data_b);
+  ArrayCreate b_create = {
+      .ndim = 1,
+      .shape = shape_b,
+      .numc_type = NUMC_TYPE_INT,
+      .data = data_b,
+      .owns_data = true,
+  };
+  Array *b = array_create(&b_create);
   printf("   b = ");
   print_int_array(b);
 
-  Array *sum = array_add(a, b);
+  // Pre-allocate output arrays for all operations
+  ArrayCreate create = {
+      .ndim = 1,
+      .shape = shape_a,
+      .numc_type = NUMC_TYPE_INT,
+      .data = NULL,
+      .owns_data = true,
+  };
+  Array *sum = array_create(&create);
+  Array *diff = array_create(&create);
+  Array *prod = array_create(&create);
+  Array *quot = array_create(&create);
+
+  array_add(a, b, sum);
   printf("   a + b = ");
   print_int_array(sum);
 
-  Array *diff = array_sub(a, b);
+  array_subtract(a, b, diff);
   printf("   a - b = ");
   print_int_array(diff);
 
-  Array *prod = array_mul(a, b);
+  array_multiply(a, b, prod);
   printf("   a * b = ");
   print_int_array(prod);
 
-  Array *quot = array_div(a, b);
+  array_divide(a, b, quot);
   printf("   a / b = ");
   print_int_array(quot);
 
@@ -110,17 +144,31 @@ void demo_array_operations(void) {
   printf("\n2. Array concatenation (axis 0):\n");
   float data_x[] = {1.0f, 2.0f, 3.0f};
   size_t shape_x[] = {3};
-  Array *x = array_create(1, shape_x, DTYPE_FLOAT, data_x);
+  ArrayCreate x_create = {
+      .ndim = 1,
+      .shape = shape_x,
+      .numc_type = NUMC_TYPE_FLOAT,
+      .data = data_x,
+      .owns_data = true,
+  };
+  Array *x = array_create(&x_create);
   printf("   x = ");
   print_float_array(x);
 
   float data_y[] = {4.0f, 5.0f};
   size_t shape_y[] = {2};
-  Array *y = array_create(1, shape_y, DTYPE_FLOAT, data_y);
+  ArrayCreate y_create = {
+      .ndim = 1,
+      .shape = shape_y,
+      .numc_type = NUMC_TYPE_FLOAT,
+      .data = data_y,
+      .owns_data = true,
+  };
+  Array *y = array_create(&y_create);
   printf("   y = ");
   print_float_array(y);
 
-  Array *concat = array_concat(x, y, 0);
+  Array *concat = array_concatenate(x, y, 0);
   printf("   concat(x, y) = ");
   print_float_array(concat);
 
@@ -134,7 +182,7 @@ void demo_array_slicing(void) {
 
   // Create array [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
   size_t arr_shape[] = {10};
-  Array *arr = array_zeros(1, arr_shape, DTYPE_INT);
+  Array *arr = array_zeros(1, arr_shape, NUMC_TYPE_INT);
   int *data = (int *)arr->data;
   for (int i = 0; i < 10; i++) {
     data[i] = i;
@@ -178,7 +226,14 @@ void demo_array_reshape(void) {
   // Create 1D array
   int data[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
   size_t shape_1d[] = {12};
-  Array *arr = array_create(1, shape_1d, DTYPE_INT, data);
+  ArrayCreate arr_create = {
+      .ndim = 1,
+      .shape = shape_1d,
+      .numc_type = NUMC_TYPE_INT,
+      .data = data,
+      .owns_data = true,
+  };
+  Array *arr = array_create(&arr_create);
   printf("Original shape [12]:\n");
   print_array_info(arr, "arr");
   print_int_array(arr);
@@ -206,7 +261,14 @@ void demo_array_copy(void) {
   // Create original array
   int data[] = {1, 2, 3, 4, 5, 6};
   size_t shape[] = {6};
-  Array *original = array_create(1, shape, DTYPE_INT, data);
+  ArrayCreate arr_create = {
+      .ndim = 1,
+      .shape = shape,
+      .numc_type = NUMC_TYPE_INT,
+      .data = data,
+      .owns_data = true,
+  };
+  Array *original = array_create(&arr_create);
   printf("Original array:\n");
   print_array_info(original, "original");
   print_int_array(original);
@@ -221,7 +283,7 @@ void demo_array_copy(void) {
   print_int_array(slice);
 
   // Copy the slice to make it contiguous
-  Array *copied = array_to_contiguous(slice);
+  Array *copied = array_ascontiguousarray(slice);
   printf("\nCopied array (now contiguous):\n");
   print_array_info(copied, "copied");
   print_int_array(copied);
@@ -241,18 +303,25 @@ void demo_array_copy(void) {
   array_free(copied);
 }
 
-void demo_array_fill(void) {
+void demo_array_full(void) {
   printf("\n=== Array Fill Demo ===\n\n");
 
   // Create empty array and fill
   size_t shape[] = {8};
-  Array *arr = array_zeros(1, shape, DTYPE_INT);
+  Array *arr = array_zeros(1, shape, NUMC_TYPE_INT);
   printf("Zeros array: ");
   print_int_array(arr);
 
   // Fill with specific value using array_fill
+  ArrayCreate src = {
+      .ndim = 1,
+      .shape = shape,
+      .numc_type = NUMC_TYPE_INT,
+      .data = NULL,
+      .owns_data = true,
+  };
   int value = 42;
-  Array *filled = array_fill(1, shape, DTYPE_INT, &value);
+  Array *filled = array_full(&src, &value);
   printf("New array filled with 42: ");
   print_int_array(filled);
 
@@ -268,11 +337,19 @@ void demo_performance(void) {
   size_t small_shape[] = {1000};
 
   clock_t start = clock();
-  Array *a1 = array_ones(1, small_shape, DTYPE_INT);
-  Array *b1 = array_ones(1, small_shape, DTYPE_INT);
+  Array *a1 = array_ones(1, small_shape, NUMC_TYPE_INT);
+  Array *b1 = array_ones(1, small_shape, NUMC_TYPE_INT);
+  ArrayCreate sum1_create = {
+      .ndim = 1,
+      .shape = small_shape,
+      .numc_type = NUMC_TYPE_INT,
+      .data = NULL,
+      .owns_data = true,
+  };
+  Array *sum1 = array_create(&sum1_create);
   clock_t create_time = clock();
 
-  Array *sum1 = array_add(a1, b1);
+  array_add(a1, b1, sum1);
   clock_t add_time = clock();
 
   double create_sec = (double)(create_time - start) / CLOCKS_PER_SEC;
@@ -295,11 +372,19 @@ void demo_performance(void) {
   size_t medium_shape[] = {100000};
 
   start = clock();
-  Array *a2 = array_ones(1, medium_shape, DTYPE_INT);
-  Array *b2 = array_ones(1, medium_shape, DTYPE_INT);
+  Array *a2 = array_ones(1, medium_shape, NUMC_TYPE_INT);
+  Array *b2 = array_ones(1, medium_shape, NUMC_TYPE_INT);
+  ArrayCreate sum2_create = {
+      .ndim = 1,
+      .shape = medium_shape,
+      .numc_type = NUMC_TYPE_INT,
+      .data = NULL,
+      .owns_data = true,
+  };
+  Array *sum2 = array_create(&sum2_create);
   create_time = clock();
 
-  Array *sum2 = array_add(a2, b2);
+  array_add(a2, b2, sum2);
   add_time = clock();
 
   double create_sec2 = (double)(create_time - start) / CLOCKS_PER_SEC;
@@ -322,11 +407,19 @@ void demo_performance(void) {
   size_t large_shape[] = {1000000};
 
   start = clock();
-  Array *a3 = array_ones(1, large_shape, DTYPE_INT);
-  Array *b3 = array_ones(1, large_shape, DTYPE_INT);
+  Array *a3 = array_ones(1, large_shape, NUMC_TYPE_INT);
+  Array *b3 = array_ones(1, large_shape, NUMC_TYPE_INT);
+  ArrayCreate sum3_create = {
+      .ndim = 1,
+      .shape = large_shape,
+      .numc_type = NUMC_TYPE_INT,
+      .data = NULL,
+      .owns_data = true,
+  };
+  Array *sum3 = array_create(&sum3_create);
   create_time = clock();
 
-  Array *sum3 = array_add(a3, b3);
+  array_add(a3, b3, sum3);
   add_time = clock();
 
   double create_sec3 = (double)(create_time - start) / CLOCKS_PER_SEC;
@@ -357,7 +450,7 @@ int main(void) {
   demo_array_slicing();
   demo_array_reshape();
   demo_array_copy();
-  demo_array_fill();
+  demo_array_full();
   demo_performance();
 
   printf("\n");

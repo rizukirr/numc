@@ -7,6 +7,7 @@
 #include "alloc.h"
 #include "types.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,43 +19,21 @@
 
 // Optimized fill for BYTE types using memset
 static inline void array_fill_BYTE(Array *arr, const void *elem) {
-  const int8_t value = *((const int8_t *)elem);
+  const NUMC_BYTE value = *((const NUMC_BYTE *)elem);
   memset(arr->data, (unsigned char)value, arr->size);
 }
 
 static inline void array_fill_UBYTE(Array *arr, const void *elem) {
-  const uint8_t value = *((const uint8_t *)elem);
+  const NUMC_UBYTE value = *((const NUMC_UBYTE *)elem);
   memset(arr->data, value, arr->size);
 }
 
-// Optimized fill for LONG types with vectorization hints
-static inline void array_fill_LONG(Array *arr, const void *elem) {
-  const int64_t value = *((const int64_t *)elem);
-  int64_t *data = (int64_t *)arr->data;
-  const size_t size = arr->size;
-  
-#pragma clang loop vectorize(enable) interleave(enable)
-  for (size_t i = 0; i < size; i++) {
-    data[i] = value;
-  }
-}
-
-static inline void array_fill_ULONG(Array *arr, const void *elem) {
-  const uint64_t value = *((const uint64_t *)elem);
-  uint64_t *data = (uint64_t *)arr->data;
-  const size_t size = arr->size;
-  
-#pragma clang loop vectorize(enable) interleave(enable)
-  for (size_t i = 0; i < size; i++) {
-    data[i] = value;
-  }
-}
-
-// Generate fill functions for remaining dtypes
-#define GEN_FILL_FUNC(dtype, ctype)                                            \
-  static inline void array_fill_##dtype(Array *arr, const void *elem) {        \
+// Generate fill functions for remaining numc_types
+#define GEN_FILL_FUNC(numc_type, ctype)                                            \
+  static inline void array_fill_##numc_type(Array *restrict arr,                   \
+                                        const void *elem) {                    \
     const ctype value = *((const ctype *)elem);                                \
-    ctype *data = (ctype *)arr->data;                                          \
+    ctype *restrict data = __builtin_assume_aligned(arr->data, NUMC_ALIGN);    \
     for (size_t i = 0; i < arr->size; i++) {                                   \
       data[i] = value;                                                         \
     }                                                                          \
@@ -67,119 +46,140 @@ GEN_FILL_FUNC(INT, NUMC_INT)
 GEN_FILL_FUNC(UINT, NUMC_UINT)
 GEN_FILL_FUNC(FLOAT, NUMC_FLOAT)
 GEN_FILL_FUNC(DOUBLE, NUMC_DOUBLE)
+GEN_FILL_FUNC(LONG, NUMC_LONG)
+GEN_FILL_FUNC(ULONG, NUMC_ULONG)
 #undef GEN_FILL_FUNC
 
 // Generate constants for "1" value for each type
-#define GEN_ONE_CONSTANT(dtype, ctype)                                         \
-  static const ctype one_##dtype = (ctype)1;
-FOREACH_DTYPE(GEN_ONE_CONSTANT)
+#define GEN_ONE_CONSTANT(numc_type, ctype)                                         \
+  static const ctype one_##numc_type = (ctype)1;
+FOREACH_NUMC_TYPE(GEN_ONE_CONSTANT)
 #undef GEN_ONE_CONSTANT
 
 // Dispatch tables
 typedef void (*fill_func)(Array *, const void *);
 
-#define FILL_ENTRY(dtype, ctype) [DTYPE_##dtype] = array_fill_##dtype,
-static const fill_func fill_funcs[] = {FOREACH_DTYPE(FILL_ENTRY)};
+#define FILL_ENTRY(numc_type, ctype) [NUMC_TYPE_##numc_type] = array_fill_##numc_type,
+static const fill_func fill_funcs[] = {FOREACH_NUMC_TYPE(FILL_ENTRY)};
 #undef FILL_ENTRY
 
-#define ONE_PTR_ENTRY(dtype, ctype) [DTYPE_##dtype] = &one_##dtype,
-static const void *const one_ptrs[] = {FOREACH_DTYPE(ONE_PTR_ENTRY)};
+#define ONE_PTR_ENTRY(numc_type, ctype) [NUMC_TYPE_##numc_type] = &one_##numc_type,
+static const void *const one_ptrs[] = {FOREACH_NUMC_TYPE(ONE_PTR_ENTRY)};
 #undef ONE_PTR_ENTRY
 
 // =============================================================================
 //                          Internal Helper Functions
 // =============================================================================
 
-/**
- * @brief Fill array with a specific value (type-aware).
- */
-static inline void array_fill_with(Array *arr, const void *elem) {
-  fill_funcs[arr->dtype](arr, elem);
-}
-
 // =============================================================================
 //                          Array Creation Functions
 // =============================================================================
 
-Array *array_create(size_t ndim, const size_t *shape, DType dtype,
-                    const void *data) {
-  size_t elem_size = dtype_size(dtype);
-  if (ndim == 0 || elem_size == 0 || !shape)
+Array *array_create(const ArrayCreate *src) {
+  if (!src || src->ndim == 0 || !src->shape)
     return NULL;
+
+  size_t elem_size = numc_type_size(src->numc_type);
 
   Array *array = malloc(sizeof(Array));
   if (!array)
     return NULL;
 
-  array->ndim = ndim;
-  array->dtype = dtype;
+  array->ndim = src->ndim;
+  array->numc_type = src->numc_type;
   array->elem_size = elem_size;
+  array->is_contiguous = true;
 
-  array->shape = malloc(2 * ndim * sizeof(size_t));
-  if (!array->shape) {
-    free(array);
-    return NULL;
-  }
-  array->strides = array->shape + ndim;
-
-  array->owns_data = 1;
-
-  array->size = 1;
-  for (size_t i = 0; i < ndim; i++) {
-    array->shape[i] = shape[i];
-    // Check for overflow before multiplication
-    if (shape[i] > 0 && array->size > SIZE_MAX / shape[i]) {
-      free(array->shape);
+  bool use_stack = src->ndim <= MAX_STACK_NDIM;
+  if (use_stack) {
+    array->shape = array->_shape_buff;
+    array->strides = array->_strides_buff;
+  } else {
+    array->shape = malloc(2 * src->ndim * sizeof(size_t));
+    array->strides = array->shape + src->ndim;
+    if (!array->shape) {
       free(array);
       return NULL;
     }
-    array->size *= shape[i];
   }
 
-  array->strides[ndim - 1] = elem_size;
-  for (ssize_t i = ndim - 2; i >= 0; i--)
-    array->strides[i] = array->strides[i + 1] * shape[i + 1];
+  array->owns_data = src->owns_data;
+
+  array->size = 1;
+  for (size_t i = 0; i < src->ndim; i++) {
+    array->shape[i] = src->shape[i];
+    // Check for overflow before multiplication
+    if (src->shape[i] > 0 && array->size > SIZE_MAX / src->shape[i]) {
+      if (!use_stack)
+        free(array->shape);
+      free(array);
+      return NULL;
+    }
+    array->size *= src->shape[i];
+  }
+
+  array->strides[src->ndim - 1] = elem_size;
+  for (ssize_t i = src->ndim - 2; i >= 0; i--)
+    array->strides[i] = array->strides[i + 1] * src->shape[i + 1];
 
   array->capacity = array->size;
-  array->data = numc_calloc(NUMC_ALIGN, array->size * elem_size);
-  if (!array->data) {
-    free(array->shape);
-    free(array);
-    return NULL;
-  }
+  if (src->owns_data) {
+    array->data = !src->data ? numc_calloc(NUMC_ALIGN, array->size * elem_size)
+                             : numc_malloc(NUMC_ALIGN, array->size * elem_size);
 
-  if (data != NULL)
-    memcpy(array->data, data, array->size * elem_size);
+    if (!array->data) {
+      if (!use_stack)
+        free(array->shape);
+      free(array);
+      return NULL;
+    }
+
+    if (src->data != NULL)
+      memcpy(array->data, src->data, array->size * elem_size);
+
+  } else {
+    array->data = (void *)src->data;
+  }
 
   return array;
 }
 
-Array *array_zeros(size_t ndim, const size_t *shape, DType dtype) {
-  Array *arr = array_create(ndim, shape, dtype, NULL);
+Array *array_zeros(size_t ndim, const size_t *shape, NUMC_TYPE numc_type) {
+  ArrayCreate src = {
+      .ndim = ndim,
+      .shape = shape,
+      .numc_type = numc_type,
+      .data = NULL,
+      .owns_data = true,
+  };
+
+  return array_create(&src);
+}
+
+Array *array_full(ArrayCreate *spec, const void *elem) {
+  Array *arr = array_create(spec);
   if (!arr)
     return NULL;
 
-  memset(arr->data, 0, arr->size * arr->elem_size);
+  fill_funcs[arr->numc_type](arr, elem);
+
   return arr;
 }
 
-Array *array_fill(size_t ndim, const size_t *shape, DType dtype,
-                  const void *elem) {
-  Array *arr = array_create(ndim, shape, dtype, NULL);
+Array *array_ones(size_t ndim, const size_t *shape, NUMC_TYPE numc_type) {
+  ArrayCreate src = {
+      .ndim = ndim,
+      .shape = shape,
+      .numc_type = numc_type,
+      .data = NULL,
+      .owns_data = true,
+  };
+
+  Array *arr = array_create(&src);
   if (!arr)
     return NULL;
 
-  array_fill_with(arr, elem);
-
-  return arr;
-}
-
-Array *array_ones(size_t ndim, const size_t *shape, DType dtype) {
-  Array *arr = array_create(ndim, shape, dtype, NULL);
-  if (!arr)
-    return NULL;
-
-  fill_funcs[arr->dtype](arr, one_ptrs[arr->dtype]);
+  fill_funcs[arr->numc_type](arr, one_ptrs[arr->numc_type]);
   return arr;
 }
 
@@ -190,7 +190,8 @@ void array_free(Array *array) {
   if (array->owns_data)
     numc_free(array->data);
 
-  free(array->shape);
+  if (array->ndim > MAX_STACK_NDIM)
+    free(array->shape);
   free(array);
 }
 
@@ -257,35 +258,39 @@ Array *array_slice(Array *base, const size_t *start, const size_t *stop,
   if (!base || !start || !stop || !step)
     return NULL;
 
+  // Lightweight view allocation — skip array_create overhead
   Array *view = malloc(sizeof(Array));
   if (!view)
     return NULL;
 
   view->ndim = base->ndim;
-  view->dtype = base->dtype;
-  view->elem_size = base->elem_size;
-
-  view->shape = malloc(2 * view->ndim * sizeof(size_t));
-  if (!view->shape) {
-    free(view);
-    return NULL;
+  bool use_stack = base->ndim <= MAX_STACK_NDIM;
+  if (use_stack) {
+    view->shape = view->_shape_buff;
+    view->strides = view->_strides_buff;
+  } else {
+    view->shape = malloc(2 * base->ndim * sizeof(size_t));
+    if (!view->shape) {
+      free(view);
+      return NULL;
+    }
+    view->strides = view->shape + base->ndim;
   }
-  view->strides = view->shape + view->ndim;
-
-  // view does NOT own data, base keeps ownership
-  view->owns_data = 0;
-  view->capacity = 0;
+  view->numc_type = base->numc_type;
+  view->elem_size = base->elem_size;
+  view->owns_data = false;
 
   size_t offset = 0;
   view->size = 1;
-  for (size_t i = 0; i < view->ndim; i++) {
+  for (size_t i = 0; i < base->ndim; i++) {
     if (start[i] >= base->shape[i] || stop[i] > base->shape[i] ||
         start[i] >= stop[i] || step[i] == 0) {
       fprintf(stderr,
               "array_slice: invalid slice at dimension %zu "
               "(start=%zu, stop=%zu, step=%zu, shape=%zu)\n",
               i, start[i], stop[i], step[i], base->shape[i]);
-      free(view->shape);
+      if (!use_stack)
+        free(view->shape);
       free(view);
       abort();
     }
@@ -297,6 +302,8 @@ Array *array_slice(Array *base, const size_t *start, const size_t *stop,
     offset += start[i] * base->strides[i];
   }
 
+  view->is_contiguous = array_is_contiguous(view);
+  view->capacity = view->size;
   view->data = (char *)base->data + offset;
   return view;
 }
@@ -304,18 +311,6 @@ Array *array_slice(Array *base, const size_t *start, const size_t *stop,
 // =============================================================================
 //                    Strided Copy Helpers (Static Functions)
 // =============================================================================
-
-/**
- * @brief Unchecked element access for internal use (no bounds checking).
- */
-static inline void *array_get_unchecked(const Array *array,
-                                        const size_t *indices) {
-  size_t offset = 0;
-  for (size_t i = 0; i < array->ndim; i++) {
-    offset += indices[i] * array->strides[i];
-  }
-  return (char *)array->data + offset;
-}
 
 /**
  * @brief Increment multi-dimensional indices (row-major order).
@@ -330,83 +325,112 @@ static inline void increment_indices(size_t *indices, const size_t *shape,
   }
 }
 
-// Generate strided-to-contiguous copy functions for each dtype
-#define GEN_STRIDED_TO_CONTIGUOUS_COPY_FUNC(dtype, ctype)                      \
-  static inline void array_strided_to_contiguous_copy_##dtype(                 \
-      const Array *src, size_t *src_indices, void *dest_data,                  \
-      size_t dest_offset, size_t count) {                                      \
-    ctype *restrict dest = (ctype *)dest_data + dest_offset;                   \
-    const size_t ndim = src->ndim;                                             \
-    const size_t *restrict shape = src->shape;                                 \
+#define GET_DEST_DATA(numc_type, ctype)                                            \
+  static inline void *get_dest_data_##numc_type(void *data, size_t dest_offset) {  \
+    return (ctype *)data + dest_offset;                                        \
+  }
+
+#define MOVE_DEST_DATA(numc_type, ctype)                                           \
+  static inline void *move_dest_data_##numc_type(void *data, size_t chunk) {       \
+    return (ctype *)data + chunk;                                              \
+  }
+
+#define STRIDED_TO_CONTIGUOUS_COPY_GENERAL(numc_type, ctype)                       \
+  static inline void strided_to_contiguous_copy_##numc_type(                       \
+      size_t *src_indices, const Array *src, size_t count, void *dest) {       \
+                                                                               \
     const size_t *restrict strides = src->strides;                             \
     const char *restrict src_data = (const char *)src->data;                   \
+    ctype *restrict ddest = (ctype *)dest;                                     \
                                                                                \
-    /* Fast path: Contiguous array - use memcpy */                             \
-    if (ndim == 1 && strides[0] == sizeof(ctype)) {                            \
-      memcpy(dest, src_data + src_indices[0] * strides[0],                     \
-             count * sizeof(ctype));                                           \
-      src_indices[0] += count;                                                 \
-      return;                                                                  \
-    }                                                                          \
-                                                                               \
-    /* Fast path: 2D contiguous (row-major) */                                 \
-    if (ndim == 2 && strides[1] == sizeof(ctype) &&                            \
-        strides[0] == shape[1] * sizeof(ctype)) {                              \
-      size_t remaining = count;                                                \
-      while (remaining > 0) {                                                  \
-        size_t row = src_indices[0];                                           \
-        size_t col = src_indices[1];                                           \
-        size_t row_remaining = shape[1] - col;                                 \
-        size_t chunk =                                                         \
-            (remaining < row_remaining) ? remaining : row_remaining;           \
-        memcpy(dest, src_data + row * strides[0] + col * strides[1],           \
-               chunk * sizeof(ctype));                                         \
-        dest += chunk;                                                         \
-        remaining -= chunk;                                                    \
-        col += chunk;                                                          \
-        if (col >= shape[1]) {                                                 \
-          col = 0;                                                             \
-          row++;                                                               \
-        }                                                                      \
-        src_indices[0] = row;                                                  \
-        src_indices[1] = col;                                                  \
-      }                                                                        \
-      return;                                                                  \
-    }                                                                          \
-                                                                               \
-    /* General case: strided access */                                         \
     for (size_t i = 0; i < count; i++) {                                       \
       size_t offset = 0;                                                       \
-      for (size_t d = 0; d < ndim; d++) {                                      \
+      for (size_t d = 0; d < src->ndim; d++) {                                 \
         offset += src_indices[d] * strides[d];                                 \
       }                                                                        \
-      dest[i] = *((const ctype *)(src_data + offset));                         \
-                                                                               \
-      increment_indices(src_indices, shape, ndim);                             \
+      ddest[i] = *((const ctype *)(src_data + offset));                        \
+      increment_indices(src_indices, src->shape, src->ndim);                   \
     }                                                                          \
   }
 
-FOREACH_DTYPE(GEN_STRIDED_TO_CONTIGUOUS_COPY_FUNC)
-#undef GEN_STRIDED_TO_CONTIGUOUS_COPY_FUNC
+FOREACH_NUMC_TYPE(GET_DEST_DATA)
+FOREACH_NUMC_TYPE(MOVE_DEST_DATA)
+FOREACH_NUMC_TYPE(STRIDED_TO_CONTIGUOUS_COPY_GENERAL)
 
-typedef void (*strided_to_contiguous_copy_func)(const Array *, size_t *, void *,
-                                                size_t, size_t);
+#undef GET_DEST_DATA
+#undef MOVE_DEST_DATA
+#undef STRIDED_TO_CONTIGUOUS_COPY_GENERAL
 
-#define STRIDED_TO_CONTIGUOUS_COPY_ENTRY(dtype, ctype)                         \
-  [DTYPE_##dtype] = array_strided_to_contiguous_copy_##dtype,
+typedef void *(*get_dest_data_func)(void *, size_t);
+typedef void *(*move_dest_data_func)(void *, size_t);
+typedef void (*strided_to_contiguous_copy_func)(size_t *, const Array *, size_t,
+                                                void *);
+
+#define GET_DEST_DATA_ENTRY(numc_type, ctype)                                      \
+  [NUMC_TYPE_##numc_type] = (get_dest_data_func)get_dest_data_##numc_type,
+
+static const get_dest_data_func get_dest_data_funcs[] = {
+    FOREACH_NUMC_TYPE(GET_DEST_DATA_ENTRY)};
+
+#define MOVE_DEST_DATA_ENTRY(numc_type, ctype)                                     \
+  [NUMC_TYPE_##numc_type] = (move_dest_data_func)move_dest_data_##numc_type,
+
+static const move_dest_data_func move_dest_data_funcs[] = {
+    FOREACH_NUMC_TYPE(MOVE_DEST_DATA_ENTRY)};
+
+#define STRIDED_TO_CONTIGUOUS_COPY_ENTRY(numc_type, ctype)                         \
+  [NUMC_TYPE_##numc_type] =                                                            \
+      (strided_to_contiguous_copy_func)strided_to_contiguous_copy_##numc_type,
 
 static const strided_to_contiguous_copy_func
     strided_to_contiguous_copy_funcs[] = {
-        FOREACH_DTYPE(STRIDED_TO_CONTIGUOUS_COPY_ENTRY)};
-#undef STRIDED_TO_CONTIGUOUS_COPY_ENTRY
+        FOREACH_NUMC_TYPE(STRIDED_TO_CONTIGUOUS_COPY_ENTRY)};
 
-static inline void array_strided_copy_to_contiguous(const Array *src,
-                                                    size_t *src_indices,
-                                                    void *dest_data,
-                                                    size_t dest_offset,
-                                                    size_t count) {
-  strided_to_contiguous_copy_funcs[src->dtype](src, src_indices, dest_data,
-                                               dest_offset, count);
+#undef GET_ARRAY_DATA_ENTRY
+#undef GET_DATA_ENTRY
+#undef GET_DEST_DATA_ENTRY
+#undef MOVE_DEST_DATA_ENTRY
+
+static inline void
+strided_to_contiguous_copy(const Array *src, size_t *src_indices,
+                           void *dest_data, size_t dest_offset, size_t count) {
+
+  const char *restrict src_data = (const char *)src->data;
+  const size_t esize = src->elem_size;
+  void *dest = get_dest_data_funcs[src->numc_type](dest_data, dest_offset);
+  if (src->ndim == 1 && src->strides[0] == esize) {
+    memcpy(dest, src_data + src_indices[0] * src->strides[0], count * esize);
+    src_indices[0] += count;
+    return;
+  }
+
+  // Inner-dimension contiguous: copy row-by-row with memcpy.
+  // This handles sliced 2D arrays where rows are contiguous but may have gaps.
+  bool is_2d_inner_contig = src->ndim == 2 && src->strides[1] == esize;
+
+  if (is_2d_inner_contig) {
+    size_t remaining = count;
+    while (remaining > 0) {
+      size_t row = src_indices[0];
+      size_t col = src_indices[1];
+      size_t row_remaining = src->shape[1] - col;
+      size_t chunk = (remaining < row_remaining) ? remaining : row_remaining;
+      memcpy(dest, src_data + row * src->strides[0] + col * src->strides[1],
+             chunk * esize);
+      dest = move_dest_data_funcs[src->numc_type](dest, chunk);
+      remaining -= chunk;
+      col += chunk;
+      if (col >= src->shape[1]) {
+        col = 0;
+        row++;
+      }
+      src_indices[0] = row;
+      src_indices[1] = col;
+    }
+    return;
+  }
+
+  strided_to_contiguous_copy_funcs[src->numc_type](src_indices, src, count, dest);
 }
 
 // =============================================================================
@@ -418,22 +442,45 @@ Array *array_copy(const Array *src) {
     return NULL;
 
   // If contiguous, use fast memcpy path
-  if (!array_is_contiguous(src)) {
+  if (!src->is_contiguous) {
     fprintf(stderr, "[ERROR] array_copy: array is not contiguous, "
-                    "use array_to_contiguous() first\n");
+                    "use array_ascontiguousarray() first\n");
     abort();
   }
 
-  return array_create(src->ndim, src->shape, src->dtype, src->data);
+  ArrayCreate d = {
+      .ndim = src->ndim,
+      .shape = src->shape,
+      .numc_type = src->numc_type,
+      .data = src->data,
+      .owns_data = true,
+  };
+
+  Array *arr = array_create(&d);
+  if (!arr)
+    return NULL;
+
+  return arr;
 }
 
-Array *array_to_contiguous(const Array *src) {
+Array *array_ascontiguousarray(const Array *src) {
   if (!src)
     return NULL;
 
+  ArrayCreate d = {
+      .ndim = src->ndim,
+      .shape = src->shape,
+      .numc_type = src->numc_type,
+      .data = src->data,
+      .owns_data = true,
+  };
+
   // If already contiguous, just create a copy
-  if (array_is_contiguous(src)) {
-    return array_create(src->ndim, src->shape, src->dtype, src->data);
+  if (src->is_contiguous) {
+    Array *arr = array_create(&d);
+    if (!arr)
+      return NULL;
+    return arr;
   }
 
   // Non-contiguous: use strided copy
@@ -444,14 +491,23 @@ Array *array_to_contiguous(const Array *src) {
   if (src->ndim > MAX_STACK_NDIM && !indices)
     return NULL;
 
-  Array *dst = array_create(src->ndim, src->shape, src->dtype, NULL);
+  // Don't pass src->data — it would be memcpy'd incorrectly for
+  // non-contiguous arrays. strided_to_contiguous_copy handles the copy.
+  ArrayCreate d_nodata = {
+      .ndim = src->ndim,
+      .shape = src->shape,
+      .numc_type = src->numc_type,
+      .data = NULL,
+      .owns_data = true,
+  };
+  Array *dst = array_create(&d_nodata);
   if (!dst) {
     if (src->ndim > MAX_STACK_NDIM)
       free(indices);
     return NULL;
   }
 
-  array_strided_copy_to_contiguous(src, indices, dst->data, 0, src->size);
+  strided_to_contiguous_copy(src, indices, dst->data, 0, src->size);
 
   if (src->ndim > MAX_STACK_NDIM)
     free(indices);

@@ -12,6 +12,7 @@
 
 #include "types.h"
 #include <assert.h>
+#include <stdbool.h>
 #include <stddef.h>
 
 #define MAX_STACK_NDIM 8
@@ -23,7 +24,7 @@
  * @param shape     Array of dimension sizes (length = ndim).
  * @param strides   Array of byte strides for each dimension (length = ndim).
  * @param ndim      Number of dimensions.
- * @param dtype     Data type of array elements.
+ * @param numc_type     Data type of array elements.
  * @param elem_size Size of each element in bytes.
  * @param size      Total number of elements.
  * @param capacity  Allocated capacity in number of elements (for dynamic
@@ -35,12 +36,23 @@ typedef struct {
   size_t *shape;
   size_t *strides;
   size_t ndim;
-  DType dtype;
+  NUMC_TYPE numc_type;
   size_t elem_size;
   size_t size;
   size_t capacity;
-  int owns_data;
+  bool is_contiguous;
+  bool owns_data;
+  size_t _shape_buff[MAX_STACK_NDIM];
+  size_t _strides_buff[MAX_STACK_NDIM];
 } Array;
+
+typedef struct {
+  const size_t ndim;
+  const size_t *shape;
+  const NUMC_TYPE numc_type;
+  const void *data;
+  const bool owns_data;
+} ArrayCreate;
 
 // =============================================================================
 //                          Array Creation & Destruction
@@ -51,44 +63,40 @@ typedef struct {
  *
  * @param ndim  Number of dimensions.
  * @param shape Array of dimension sizes.
- * @param dtype Data type of array elements.
+ * @param numc_type Data type of array elements.
  * @param data  Pointer to contiguous source data to copy.
  * @return Pointer to the new array, or NULL on failure.
  */
-Array *array_create(size_t ndim, const size_t *shape, DType dtype,
-                    const void *data);
+Array *array_create(const ArrayCreate *src);
 
 /**
  * @brief Create an array filled with zeros.
  *
  * @param ndim  Number of dimensions.
  * @param shape Shape of the array.
- * @param dtype Data type of array elements.
+ * @param numc_type Data type of array elements.
  * @return Pointer to a new array, or NULL on failure.
  */
-Array *array_zeros(size_t ndim, const size_t *shape, DType dtype);
+Array *array_zeros(size_t ndim, const size_t *shape, NUMC_TYPE numc_type);
 
 /**
  * @brief Create an array filled with ones.
  *
  * @param ndim      Number of dimensions.
  * @param shape     Shape of the array.
- * @param dtype     Data type of array elements.
+ * @param numc_type     Data type of array elements.
  * @return Pointer to a new array, or NULL on failure.
  */
-Array *array_ones(size_t ndim, const size_t *shape, DType dtype);
+Array *array_ones(size_t ndim, const size_t *shape, NUMC_TYPE numc_type);
 
 /**
  * @brief Create an array filled with a single value.
  *
- * @param ndim  Number of dimensions.
- * @param shape Shape of the array.
- * @param dtype Data type of array elements.
+ * @param spec  Array specification (ndim, shape, numc_type).
  * @param elem  Pointer to the element to fill with.
  * @return Pointer to a new array, or NULL on failure.
  */
-Array *array_fill(size_t ndim, const size_t *shape, DType dtype,
-                  const void *elem);
+Array *array_full(ArrayCreate *spec, const void *elem);
 
 /**
  * @brief Free an array and its associated memory.
@@ -137,65 +145,68 @@ void *array_get(const Array *array, const size_t *indices);
 /**
  * @brief Type-safe helpers for array element access.
  *
- * These inline functions check the array dtype and return the appropriate
- * pointer type. They are only available when the array dtype is known at
+ * These inline functions check the array numc_type and return the appropriate
+ * pointer type. They are only available when the array numc_type is known at
  * compile time.
  */
 
-static inline NUMC_FLOAT *array_getf(const Array *array,
-                                     const size_t *indices) {
-  assert(array->dtype == DTYPE_FLOAT);
+static inline NUMC_FLOAT *array_get_float32(const Array *array,
+                                             const size_t *indices) {
+  assert(array->numc_type == NUMC_TYPE_FLOAT);
   return (NUMC_FLOAT *)array_get(array, indices);
 }
 
-static inline NUMC_DOUBLE *array_getd(const Array *array,
-                                      const size_t *indices) {
-  assert(array->dtype == DTYPE_DOUBLE);
+static inline NUMC_DOUBLE *array_get_float64(const Array *array,
+                                              const size_t *indices) {
+  assert(array->numc_type == NUMC_TYPE_DOUBLE);
   return (NUMC_DOUBLE *)array_get(array, indices);
 }
 
-static inline NUMC_INT *array_geti(const Array *array, const size_t *indices) {
-  assert(array->dtype == DTYPE_INT);
+static inline NUMC_INT *array_get_int32(const Array *array,
+                                        const size_t *indices) {
+  assert(array->numc_type == NUMC_TYPE_INT);
   return (NUMC_INT *)array_get(array, indices);
 }
 
-static inline NUMC_UINT *array_getui(const Array *array,
-                                     const size_t *indices) {
-  assert(array->dtype == DTYPE_UINT);
+static inline NUMC_UINT *array_get_uint32(const Array *array,
+                                          const size_t *indices) {
+  assert(array->numc_type == NUMC_TYPE_UINT);
   return (NUMC_UINT *)array_get(array, indices);
 }
 
-static inline NUMC_LONG *array_getl(const Array *array, const size_t *indices) {
-  assert(array->dtype == DTYPE_LONG);
+static inline NUMC_LONG *array_get_int64(const Array *array,
+                                         const size_t *indices) {
+  assert(array->numc_type == NUMC_TYPE_LONG);
   return (NUMC_LONG *)array_get(array, indices);
 }
 
-static inline NUMC_ULONG *array_getul(const Array *array,
-                                      const size_t *indices) {
-  assert(array->dtype == DTYPE_ULONG);
+static inline NUMC_ULONG *array_get_uint64(const Array *array,
+                                           const size_t *indices) {
+  assert(array->numc_type == NUMC_TYPE_ULONG);
   return (NUMC_ULONG *)array_get(array, indices);
 }
 
-static inline NUMC_SHORT *array_gets(const Array *array,
-                                     const size_t *indices) {
-  assert(array->dtype == DTYPE_SHORT);
+static inline NUMC_SHORT *array_get_int16(const Array *array,
+                                          const size_t *indices) {
+  assert(array->numc_type == NUMC_TYPE_SHORT);
   return (NUMC_SHORT *)array_get(array, indices);
 }
 
-static inline NUMC_USHORT *array_getus(const Array *array,
-                                       const size_t *indices) {
-  assert(array->dtype == DTYPE_USHORT);
+static inline NUMC_USHORT *array_get_uint16(const Array *array,
+                                            const size_t *indices) {
+  assert(array->numc_type == NUMC_TYPE_USHORT);
   return (NUMC_USHORT *)array_get(array, indices);
 }
 
-static inline NUMC_BYTE *array_getb(const Array *array, const size_t *indices) {
-  assert(array->dtype == DTYPE_BYTE);
+static inline NUMC_BYTE *array_get_int8(const Array *array,
+                                        const size_t *indices) {
+  assert(array->numc_type == NUMC_TYPE_BYTE);
   return (NUMC_BYTE *)array_get(array, indices);
 }
 
-static inline NUMC_UBYTE *array_getub(const Array *array,
-                                      const size_t *indices) {
-  assert(array->dtype == DTYPE_UBYTE);
+static inline NUMC_UBYTE *array_get_uint8(const Array *array,
+                                          const size_t *indices) {
+  assert(array->numc_type == NUMC_TYPE_UBYTE);
   return (NUMC_UBYTE *)array_get(array, indices);
 }
 
@@ -257,7 +268,7 @@ Array *array_copy(const Array *src);
  * @param src Pointer to the source array (may be contiguous or non-contiguous).
  * @return Pointer to a new contiguous array, or NULL on failure.
  */
-Array *array_to_contiguous(const Array *src);
+Array *array_ascontiguousarray(const Array *src);
 
 // =============================================================================
 //                          Array Manipulation
@@ -303,60 +314,142 @@ int array_transpose(Array *array, size_t *axes);
  * @param axis Axis along which to concatenate.
  * @return Pointer to a new concatenated array, or NULL on failure.
  */
-Array *array_concat(const Array *a, const Array *b, size_t axis);
+Array *array_concatenate(const Array *a, const Array *b, size_t axis);
 
 // =============================================================================
 //                          Mathematical Operations
 // =============================================================================
 
 /**
- * @brief Element-wise addition of two arrays.
+ * @brief Element-wise addition with pre-allocated output (no allocation).
  *
- * Both arrays must be contiguous, have the same dtype, same shape, and same
- * number of dimensions. Creates a new array with the result.
+ * All arrays must be contiguous, have the same numc_type, shape, and ndim.
+ * This function avoids memory allocation by writing to a pre-allocated array.
  *
- * @param a Pointer to the first array.
- * @param b Pointer to the second array.
- * @return Pointer to a new array containing a + b, or NULL on failure.
+ * @param a   Pointer to the first input array.
+ * @param b   Pointer to the second input array.
+ * @param out Pointer to the output array (must be pre-allocated).
+ * @return 0 on success, -1 on failure.
  */
-Array *array_add(const Array *a, const Array *b);
+int array_add(const Array *a, const Array *b, Array *out);
 
 /**
- * @brief Element-wise subtraction of two arrays.
+ * @brief Element-wise subtraction with pre-allocated output (no allocation).
  *
- * Both arrays must be contiguous, have the same dtype, same shape, and same
- * number of dimensions. Creates a new array with the result.
+ * All arrays must be contiguous, have the same numc_type, shape, and ndim.
+ * This function avoids memory allocation by writing to a pre-allocated array.
  *
- * @param a Pointer to the first array.
- * @param b Pointer to the second array.
- * @return Pointer to a new array containing a - b, or NULL on failure.
+ * @param a   Pointer to the first input array.
+ * @param b   Pointer to the second input array.
+ * @param out Pointer to the output array (must be pre-allocated).
+ * @return 0 on success, -1 on failure.
  */
-Array *array_sub(const Array *a, const Array *b);
+int array_subtract(const Array *a, const Array *b, Array *out);
 
 /**
- * @brief Element-wise multiplication of two arrays.
+ * @brief Element-wise multiplication with pre-allocated output (no allocation).
  *
- * Both arrays must be contiguous, have the same dtype, same shape, and same
- * number of dimensions. Creates a new array with the result.
+ * All arrays must be contiguous, have the same numc_type, shape, and ndim.
+ * This function avoids memory allocation by writing to a pre-allocated array.
  *
- * @param a Pointer to the first array.
- * @param b Pointer to the second array.
- * @return Pointer to a new array containing a * b, or NULL on failure.
+ * @param a   Pointer to the first input array.
+ * @param b   Pointer to the second input array.
+ * @param out Pointer to the output array (must be pre-allocated).
+ * @return 0 on success, -1 on failure.
  */
-Array *array_mul(const Array *a, const Array *b);
+int array_multiply(const Array *a, const Array *b, Array *out);
 
 /**
- * @brief Element-wise division of two arrays.
+ * @brief Element-wise division with pre-allocated output (no allocation).
  *
- * Both arrays must be contiguous, have the same dtype, same shape, and same
- * number of dimensions. Creates a new array with the result.
+ * All arrays must be contiguous, have the same numc_type, shape, and ndim.
+ * This function avoids memory allocation by writing to a pre-allocated array.
  *
  * @warning Division by zero is undefined behavior and may cause crashes.
  *
- * @param a Pointer to the first array.
- * @param b Pointer to the second array.
- * @return Pointer to a new array containing a / b, or NULL on failure.
+ * @param a   Pointer to the first input array.
+ * @param b   Pointer to the second input array.
+ * @param out Pointer to the output array (must be pre-allocated).
+ * @return 0 on success, -1 on failure.
  */
-Array *array_div(const Array *a, const Array *b);
+int array_divide(const Array *a, const Array *b, Array *out);
+
+// =============================================================================
+//                          Reduction Operations
+// =============================================================================
+
+/**
+ * @brief Compute the sum of all elements. Requires contiguous input.
+ * @param a   Pointer to the input array.
+ * @param out Pointer to store the result (must match array numc_type).
+ * @return 0 on success, -1 on failure.
+ */
+int array_sum(const Array *a, void *out);
+
+/**
+ * @brief Find the minimum element. Requires contiguous input.
+ * @param a   Pointer to the input array.
+ * @param out Pointer to store the result (must match array numc_type).
+ * @return 0 on success, -1 on failure.
+ */
+int array_min(const Array *a, void *out);
+
+/**
+ * @brief Find the maximum element. Requires contiguous input.
+ * @param a   Pointer to the input array.
+ * @param out Pointer to store the result (must match array numc_type).
+ * @return 0 on success, -1 on failure.
+ */
+int array_max(const Array *a, void *out);
+
+/**
+ * @brief Compute the dot product of two arrays. Requires contiguous inputs
+ *        with same numc_type and size.
+ * @param a   Pointer to the first input array.
+ * @param b   Pointer to the second input array.
+ * @param out Pointer to store the result (must match array numc_type).
+ * @return 0 on success, -1 on failure.
+ */
+int array_dot(const Array *a, const Array *b, void *out);
+
+// =============================================================================
+//                          Scalar-Array Operations
+// =============================================================================
+
+/**
+ * @brief Element-wise add scalar with pre-allocated output.
+ * @param a      Pointer to the input array (contiguous).
+ * @param scalar Pointer to a single element of matching numc_type.
+ * @param out    Pointer to the output array (contiguous, same shape/numc_type).
+ * @return 0 on success, -1 on failure.
+ */
+int array_add_scalar(const Array *a, const void *scalar, Array *out);
+
+/**
+ * @brief Element-wise subtract scalar with pre-allocated output.
+ * @param a      Pointer to the input array (contiguous).
+ * @param scalar Pointer to a single element of matching numc_type.
+ * @param out    Pointer to the output array (contiguous, same shape/numc_type).
+ * @return 0 on success, -1 on failure.
+ */
+int array_subtract_scalar(const Array *a, const void *scalar, Array *out);
+
+/**
+ * @brief Element-wise multiply by scalar with pre-allocated output.
+ * @param a      Pointer to the input array (contiguous).
+ * @param scalar Pointer to a single element of matching numc_type.
+ * @param out    Pointer to the output array (contiguous, same shape/numc_type).
+ * @return 0 on success, -1 on failure.
+ */
+int array_multiply_scalar(const Array *a, const void *scalar, Array *out);
+
+/**
+ * @brief Element-wise divide by scalar with pre-allocated output.
+ * @param a      Pointer to the input array (contiguous).
+ * @param scalar Pointer to a single element of matching numc_type.
+ * @param out    Pointer to the output array (contiguous, same shape/numc_type).
+ * @return 0 on success, -1 on failure.
+ */
+int array_divide_scalar(const Array *a, const void *scalar, Array *out);
 
 #endif

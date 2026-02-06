@@ -12,7 +12,7 @@ void test_basic_slice(void) {
   printf("Testing basic array slice...\n");
   
   // Create 1D array [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-  Array *arr = array_create(1, (size_t[]){10}, DTYPE_INT, NULL);
+  Array *arr = array_create(&(ArrayCreate){.ndim = 1, .shape = (size_t[]){10}, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
   int *data = (int *)arr->data;
   for (int i = 0; i < 10; i++) {
     data[i] = i;
@@ -38,7 +38,7 @@ void test_slice_with_step(void) {
   printf("Testing slice with step...\n");
   
   // Create 1D array [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-  Array *arr = array_create(1, (size_t[]){10}, DTYPE_INT, NULL);
+  Array *arr = array_create(&(ArrayCreate){.ndim = 1, .shape = (size_t[]){10}, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
   int *data = (int *)arr->data;
   for (int i = 0; i < 10; i++) {
     data[i] = i;
@@ -64,7 +64,7 @@ void test_2d_slice(void) {
   printf("Testing 2D array slice...\n");
   
   // Create 2D array [4, 5]
-  Array *arr = array_create(2, (size_t[]){4, 5}, DTYPE_INT, NULL);
+  Array *arr = array_create(&(ArrayCreate){.ndim = 2, .shape = (size_t[]){4, 5}, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
   int *data = (int *)arr->data;
   for (int i = 0; i < 20; i++) {
     data[i] = i;

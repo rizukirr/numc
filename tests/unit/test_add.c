@@ -12,8 +12,8 @@
 
 void test_add_contiguous(void) {
   size_t shape[] = {3, 4};
-  Array *a = array_zeros(2, shape, DTYPE_INT);
-  Array *b = array_zeros(2, shape, DTYPE_INT);
+  Array *a = array_zeros(2, shape, NUMC_TYPE_INT);
+  Array *b = array_zeros(2, shape, NUMC_TYPE_INT);
 
   // Fill arrays
   for (size_t i = 0; i < a->size; i++) {
@@ -22,8 +22,9 @@ void test_add_contiguous(void) {
   }
 
   // Add arrays
-  Array *c = array_add(a, b);
-  assert(c != NULL);
+  Array *c = array_create(&(ArrayCreate){.ndim = 2, .shape = shape, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
+  int result = array_add(a, b, c);
+  assert(result == 0);
   assert(c->ndim == 2);
   assert(c->shape[0] == 3);
   assert(c->shape[1] == 4);
@@ -43,8 +44,8 @@ void test_add_contiguous(void) {
 
 void test_add_non_contiguous(void) {
   size_t shape[] = {4, 6};
-  Array *a = array_zeros(2, shape, DTYPE_FLOAT);
-  Array *b = array_zeros(2, shape, DTYPE_FLOAT);
+  Array *a = array_zeros(2, shape, NUMC_TYPE_FLOAT);
+  Array *b = array_zeros(2, shape, NUMC_TYPE_FLOAT);
 
   // Fill arrays
   for (size_t i = 0; i < a->size; i++) {
@@ -64,12 +65,14 @@ void test_add_non_contiguous(void) {
   assert(!array_is_contiguous(b_slice));
 
   // Convert to contiguous before adding
-  Array *a_cont = array_to_contiguous(a_slice);
-  Array *b_cont = array_to_contiguous(b_slice);
+  Array *a_cont = array_ascontiguousarray(a_slice);
+  Array *b_cont = array_ascontiguousarray(b_slice);
 
   // Add slices
-  Array *c = array_add(a_cont, b_cont);
-  assert(c != NULL);
+  size_t result_shape[] = {4, 3};
+  Array *c = array_create(&(ArrayCreate){.ndim = 2, .shape = result_shape, .numc_type = NUMC_TYPE_FLOAT, .data = NULL, .owns_data = true});
+  int result = array_add(a_cont, b_cont, c);
+  assert(result == 0);
   assert(c->ndim == 2);
   assert(c->shape[0] == 4);
   assert(c->shape[1] == 3);
@@ -103,51 +106,56 @@ void test_add_non_contiguous(void) {
 void test_add_mismatched_shapes(void) {
   size_t shape1[] = {3, 4};
   size_t shape2[] = {3, 5};
-  Array *a = array_zeros(2, shape1, DTYPE_INT);
-  Array *b = array_zeros(2, shape2, DTYPE_INT);
+  Array *a = array_zeros(2, shape1, NUMC_TYPE_INT);
+  Array *b = array_zeros(2, shape2, NUMC_TYPE_INT);
+  Array *c = array_zeros(2, shape1, NUMC_TYPE_INT);
 
-  Array *c = array_add(a, b);
-  assert(c == NULL); // Should fail
+  int result = array_add(a, b, c);
+  assert(result == -1); // Should fail
 
   array_free(a);
   array_free(b);
+  array_free(c);
   printf("✓ test_add_mismatched_shapes\n");
 }
 
 void test_add_mismatched_types(void) {
   size_t shape[] = {3, 4};
-  Array *a = array_zeros(2, shape, DTYPE_INT);
-  Array *b = array_zeros(2, shape, DTYPE_FLOAT);
+  Array *a = array_zeros(2, shape, NUMC_TYPE_INT);
+  Array *b = array_zeros(2, shape, NUMC_TYPE_FLOAT);
+  Array *c = array_zeros(2, shape, NUMC_TYPE_INT);
 
-  Array *c = array_add(a, b);
-  assert(c == NULL); // Should fail
+  int result = array_add(a, b, c);
+  assert(result == -1); // Should fail
 
   array_free(a);
   array_free(b);
+  array_free(c);
   printf("✓ test_add_mismatched_types\n");
 }
 
-void test_add_all_dtypes(void) {
+void test_add_all_numc_types(void) {
   size_t shape[] = {10};
 
-  DType types[] = {DTYPE_BYTE,  DTYPE_UBYTE, DTYPE_SHORT, DTYPE_USHORT,
-                   DTYPE_INT,   DTYPE_UINT,  DTYPE_LONG,  DTYPE_ULONG,
-                   DTYPE_FLOAT, DTYPE_DOUBLE};
+  NUMC_TYPE types[] = {NUMC_TYPE_BYTE,  NUMC_TYPE_UBYTE, NUMC_TYPE_SHORT, NUMC_TYPE_USHORT,
+                   NUMC_TYPE_INT,   NUMC_TYPE_UINT,  NUMC_TYPE_LONG,  NUMC_TYPE_ULONG,
+                   NUMC_TYPE_FLOAT, NUMC_TYPE_DOUBLE};
 
-  for (size_t t = 0; t < sizeof(types) / sizeof(DType); t++) {
+  for (size_t t = 0; t < sizeof(types) / sizeof(NUMC_TYPE); t++) {
     Array *a = array_zeros(1, shape, types[t]);
     Array *b = array_zeros(1, shape, types[t]);
+    Array *c = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = types[t], .data = NULL, .owns_data = true});
 
-    Array *c = array_add(a, b);
-    assert(c != NULL);
-    assert(c->dtype == types[t]);
+    int result = array_add(a, b, c);
+    assert(result == 0);
+    assert(c->numc_type == types[t]);
 
     array_free(a);
     array_free(b);
     array_free(c);
   }
 
-  printf("✓ test_add_all_dtypes\n");
+  printf("✓ test_add_all_numc_types\n");
 }
 
 // =============================================================================
@@ -156,8 +164,8 @@ void test_add_all_dtypes(void) {
 
 void test_sub_contiguous(void) {
   size_t shape[] = {3, 4};
-  Array *a = array_zeros(2, shape, DTYPE_INT);
-  Array *b = array_zeros(2, shape, DTYPE_INT);
+  Array *a = array_zeros(2, shape, NUMC_TYPE_INT);
+  Array *b = array_zeros(2, shape, NUMC_TYPE_INT);
 
   // Fill arrays
   for (size_t i = 0; i < a->size; i++) {
@@ -166,8 +174,9 @@ void test_sub_contiguous(void) {
   }
 
   // Subtract arrays
-  Array *c = array_sub(a, b);
-  assert(c != NULL);
+  Array *c = array_create(&(ArrayCreate){.ndim = 2, .shape = shape, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
+  int result = array_subtract(a, b, c);
+  assert(result == 0);
   assert(c->ndim == 2);
   assert(c->shape[0] == 3);
   assert(c->shape[1] == 4);
@@ -187,8 +196,8 @@ void test_sub_contiguous(void) {
 
 void test_sub_float(void) {
   size_t shape[] = {5};
-  Array *a = array_zeros(1, shape, DTYPE_FLOAT);
-  Array *b = array_zeros(1, shape, DTYPE_FLOAT);
+  Array *a = array_zeros(1, shape, NUMC_TYPE_FLOAT);
+  Array *b = array_zeros(1, shape, NUMC_TYPE_FLOAT);
 
   // Fill arrays
   for (size_t i = 0; i < a->size; i++) {
@@ -197,8 +206,9 @@ void test_sub_float(void) {
   }
 
   // Subtract arrays
-  Array *c = array_sub(a, b);
-  assert(c != NULL);
+  Array *c = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = NUMC_TYPE_FLOAT, .data = NULL, .owns_data = true});
+  int result = array_subtract(a, b, c);
+  assert(result == 0);
 
   // Check results
   for (size_t i = 0; i < c->size; i++) {
@@ -219,8 +229,8 @@ void test_sub_float(void) {
 
 void test_mul_contiguous(void) {
   size_t shape[] = {3, 3};
-  Array *a = array_zeros(2, shape, DTYPE_INT);
-  Array *b = array_zeros(2, shape, DTYPE_INT);
+  Array *a = array_zeros(2, shape, NUMC_TYPE_INT);
+  Array *b = array_zeros(2, shape, NUMC_TYPE_INT);
 
   // Fill arrays
   for (size_t i = 0; i < a->size; i++) {
@@ -229,8 +239,9 @@ void test_mul_contiguous(void) {
   }
 
   // Multiply arrays
-  Array *c = array_mul(a, b);
-  assert(c != NULL);
+  Array *c = array_create(&(ArrayCreate){.ndim = 2, .shape = shape, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
+  int result = array_multiply(a, b, c);
+  assert(result == 0);
   assert(c->ndim == 2);
   assert(c->shape[0] == 3);
   assert(c->shape[1] == 3);
@@ -250,8 +261,8 @@ void test_mul_contiguous(void) {
 
 void test_mul_double(void) {
   size_t shape[] = {4};
-  Array *a = array_zeros(1, shape, DTYPE_DOUBLE);
-  Array *b = array_zeros(1, shape, DTYPE_DOUBLE);
+  Array *a = array_zeros(1, shape, NUMC_TYPE_DOUBLE);
+  Array *b = array_zeros(1, shape, NUMC_TYPE_DOUBLE);
 
   // Fill arrays
   for (size_t i = 0; i < a->size; i++) {
@@ -260,8 +271,9 @@ void test_mul_double(void) {
   }
 
   // Multiply arrays
-  Array *c = array_mul(a, b);
-  assert(c != NULL);
+  Array *c = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = NUMC_TYPE_DOUBLE, .data = NULL, .owns_data = true});
+  int result = array_multiply(a, b, c);
+  assert(result == 0);
 
   // Check results
   for (size_t i = 0; i < c->size; i++) {
@@ -282,8 +294,8 @@ void test_mul_double(void) {
 
 void test_div_contiguous(void) {
   size_t shape[] = {4, 2};
-  Array *a = array_zeros(2, shape, DTYPE_INT);
-  Array *b = array_zeros(2, shape, DTYPE_INT);
+  Array *a = array_zeros(2, shape, NUMC_TYPE_INT);
+  Array *b = array_zeros(2, shape, NUMC_TYPE_INT);
 
   // Fill arrays (avoid division by zero)
   for (size_t i = 0; i < a->size; i++) {
@@ -292,8 +304,9 @@ void test_div_contiguous(void) {
   }
 
   // Divide arrays
-  Array *c = array_div(a, b);
-  assert(c != NULL);
+  Array *c = array_create(&(ArrayCreate){.ndim = 2, .shape = shape, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
+  int result = array_divide(a, b, c);
+  assert(result == 0);
   assert(c->ndim == 2);
   assert(c->shape[0] == 4);
   assert(c->shape[1] == 2);
@@ -313,8 +326,8 @@ void test_div_contiguous(void) {
 
 void test_div_float(void) {
   size_t shape[] = {6};
-  Array *a = array_zeros(1, shape, DTYPE_FLOAT);
-  Array *b = array_zeros(1, shape, DTYPE_FLOAT);
+  Array *a = array_zeros(1, shape, NUMC_TYPE_FLOAT);
+  Array *b = array_zeros(1, shape, NUMC_TYPE_FLOAT);
 
   // Fill arrays
   for (size_t i = 0; i < a->size; i++) {
@@ -323,8 +336,9 @@ void test_div_float(void) {
   }
 
   // Divide arrays
-  Array *c = array_div(a, b);
-  assert(c != NULL);
+  Array *c = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = NUMC_TYPE_FLOAT, .data = NULL, .owns_data = true});
+  int result = array_divide(a, b, c);
+  assert(result == 0);
 
   // Check results
   for (size_t i = 0; i < c->size; i++) {
@@ -343,46 +357,50 @@ void test_div_float(void) {
 //                          Combined Operations Tests
 // =============================================================================
 
-void test_all_ops_with_dtypes(void) {
+void test_all_ops_with_numc_types(void) {
   size_t shape[] = {8};
 
-  DType types[] = {DTYPE_BYTE,  DTYPE_UBYTE, DTYPE_SHORT, DTYPE_USHORT,
-                   DTYPE_INT,   DTYPE_UINT,  DTYPE_LONG,  DTYPE_ULONG,
-                   DTYPE_FLOAT, DTYPE_DOUBLE};
+  NUMC_TYPE types[] = {NUMC_TYPE_BYTE,  NUMC_TYPE_UBYTE, NUMC_TYPE_SHORT, NUMC_TYPE_USHORT,
+                   NUMC_TYPE_INT,   NUMC_TYPE_UINT,  NUMC_TYPE_LONG,  NUMC_TYPE_ULONG,
+                   NUMC_TYPE_FLOAT, NUMC_TYPE_DOUBLE};
 
-  for (size_t t = 0; t < sizeof(types) / sizeof(DType); t++) {
+  for (size_t t = 0; t < sizeof(types) / sizeof(NUMC_TYPE); t++) {
     Array *a = array_ones(1, shape, types[t]);
     Array *b = array_ones(1, shape, types[t]);
 
     // Test add
-    Array *result_add = array_add(a, b);
-    assert(result_add != NULL);
-    assert(result_add->dtype == types[t]);
+    Array *result_add = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = types[t], .data = NULL, .owns_data = true});
+    int res_add = array_add(a, b, result_add);
+    assert(res_add == 0);
+    assert(result_add->numc_type == types[t]);
     array_free(result_add);
 
     // Test sub
-    Array *result_sub = array_sub(a, b);
-    assert(result_sub != NULL);
-    assert(result_sub->dtype == types[t]);
+    Array *result_sub = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = types[t], .data = NULL, .owns_data = true});
+    int res_sub = array_subtract(a, b, result_sub);
+    assert(res_sub == 0);
+    assert(result_sub->numc_type == types[t]);
     array_free(result_sub);
 
     // Test mul
-    Array *result_mul = array_mul(a, b);
-    assert(result_mul != NULL);
-    assert(result_mul->dtype == types[t]);
+    Array *result_mul = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = types[t], .data = NULL, .owns_data = true});
+    int res_mul = array_multiply(a, b, result_mul);
+    assert(res_mul == 0);
+    assert(result_mul->numc_type == types[t]);
     array_free(result_mul);
 
     // Test div (use ones to avoid division by zero)
-    Array *result_div = array_div(a, b);
-    assert(result_div != NULL);
-    assert(result_div->dtype == types[t]);
+    Array *result_div = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = types[t], .data = NULL, .owns_data = true});
+    int res_div = array_divide(a, b, result_div);
+    assert(res_div == 0);
+    assert(result_div->numc_type == types[t]);
     array_free(result_div);
 
     array_free(a);
     array_free(b);
   }
 
-  printf("✓ test_all_ops_with_dtypes\n");
+  printf("✓ test_all_ops_with_numc_types\n");
 }
 
 int main(void) {
@@ -391,7 +409,7 @@ int main(void) {
   test_add_non_contiguous();
   test_add_mismatched_shapes();
   test_add_mismatched_types();
-  test_add_all_dtypes();
+  test_add_all_numc_types();
 
   // Subtraction tests
   test_sub_contiguous();
@@ -406,7 +424,7 @@ int main(void) {
   test_div_float();
 
   // Combined tests
-  test_all_ops_with_dtypes();
+  test_all_ops_with_numc_types();
 
   printf("\n✓ All mathematical operation tests passed\n");
   return 0;

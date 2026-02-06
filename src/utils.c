@@ -11,20 +11,8 @@
 #include <sys/types.h>
 
 // =============================================================================
-//                    Strided Copy Helpers (Static Functions)
+//                    Strided Copy Helpers
 // =============================================================================
-
-/**
- * @brief Unchecked element access for internal use (no bounds checking).
- */
-static inline void *array_get_unchecked(const Array *array,
-                                        const size_t *indices) {
-  size_t offset = 0;
-  for (size_t i = 0; i < array->ndim; i++) {
-    offset += indices[i] * array->strides[i];
-  }
-  return (char *)array->data + offset;
-}
 
 /**
  * @brief Increment multi-dimensional indices (row-major order).
@@ -39,113 +27,143 @@ static inline void increment_indices(size_t *indices, const size_t *shape,
   }
 }
 
-// Generate strided-to-strided copy functions with axis offset
-#define GEN_STRIDED_TO_STRIDED_COPY_WITH_OFFSET_FUNC(dtype, ctype)             \
-  static inline void array_strided_to_strided_copy_with_offset_##dtype(        \
-      const Array *src, size_t *src_indices, Array *dst, size_t axis,          \
-      size_t axis_offset, size_t count) {                                      \
-    const size_t ndim = src->ndim;                                             \
-    const size_t *restrict src_shape = src->shape;                             \
-    const size_t *restrict src_strides = src->strides;                         \
-    const size_t *restrict dst_strides = dst->strides;                         \
-    const char *restrict src_data = (const char *)src->data;                   \
-    char *restrict dst_data = (char *)dst->data;                               \
-                                                                               \
-    for (size_t i = 0; i < count; i++) {                                       \
-      /* Calculate source offset */                                            \
-      size_t src_offset = 0;                                                   \
-      for (size_t d = 0; d < ndim; d++) {                                      \
-        src_offset += src_indices[d] * src_strides[d];                         \
-      }                                                                        \
-                                                                               \
-      /* Calculate destination offset (copy indices + adjust axis) */          \
-      size_t dst_offset = 0;                                                   \
-      for (size_t d = 0; d < ndim; d++) {                                      \
-        size_t idx = src_indices[d];                                           \
-        if (d == axis)                                                         \
-          idx += axis_offset;                                                  \
-        dst_offset += idx * dst_strides[d];                                    \
-      }                                                                        \
-                                                                               \
-      /* Copy element */                                                       \
-      *((ctype *)(dst_data + dst_offset)) =                                    \
-          *((const ctype *)(src_data + src_offset));                           \
-                                                                               \
-      /* Increment source indices */                                           \
-      increment_indices(src_indices, src_shape, ndim);                         \
-    }                                                                          \
-  }
-
-FOREACH_DTYPE(GEN_STRIDED_TO_STRIDED_COPY_WITH_OFFSET_FUNC)
-#undef GEN_STRIDED_TO_STRIDED_COPY_WITH_OFFSET_FUNC
-
-typedef void (*strided_to_strided_copy_with_offset_func)(const Array *,
-                                                         size_t *, Array *,
-                                                         size_t, size_t,
-                                                         size_t);
-
-#define STRIDED_TO_STRIDED_COPY_WITH_OFFSET_ENTRY(dtype, ctype)                \
-  [DTYPE_##dtype] = array_strided_to_strided_copy_with_offset_##dtype,
-
-static const strided_to_strided_copy_with_offset_func
-    strided_to_strided_copy_with_offset_funcs[] = {
-        FOREACH_DTYPE(STRIDED_TO_STRIDED_COPY_WITH_OFFSET_ENTRY)};
-#undef STRIDED_TO_STRIDED_COPY_WITH_OFFSET_ENTRY
-
+/**
+ * @brief Strided element copy with destination axis offset.
+ *
+ * Copies elements one-by-one from src to dst, applying an axis offset to
+ * destination indices. Used by array_concat for the second array.
+ * memcpy with elem_size handles all types — the compiler optimizes
+ * small fixed-size copies (1/2/4/8 bytes) into single load/store.
+ */
 static inline void array_strided_copy_with_offset(const Array *src,
                                                   size_t *src_indices,
                                                   Array *dst, size_t axis,
                                                   size_t axis_offset,
                                                   size_t count) {
-  strided_to_strided_copy_with_offset_funcs[src->dtype](
-      src, src_indices, dst, axis, axis_offset, count);
-}
+  const size_t ndim = src->ndim;
+  const size_t esize = src->elem_size;
+  const size_t *restrict src_shape = src->shape;
+  const size_t *restrict src_strides = src->strides;
+  const size_t *restrict dst_strides = dst->strides;
+  const char *restrict src_data = (const char *)src->data;
+  char *restrict dst_data = (char *)dst->data;
 
-// Generate strided-to-strided copy functions (same indices)
-#define GEN_STRIDED_TO_STRIDED_COPY_FUNC(dtype, ctype)                         \
-  static inline void array_strided_to_strided_copy_##dtype(                    \
-      const Array *src, size_t *src_indices, Array *dst, size_t count) {       \
-    const size_t ndim = src->ndim;                                             \
-    const size_t *restrict shape = src->shape;                                 \
-    const size_t *restrict src_strides = src->strides;                         \
-    const size_t *restrict dst_strides = dst->strides;                         \
-    const char *restrict src_data = (const char *)src->data;                   \
-    char *restrict dst_data = (char *)dst->data;                               \
-                                                                               \
-    for (size_t i = 0; i < count; i++) {                                       \
-      /* Calculate offsets for both src and dst using same indices */          \
-      size_t src_offset = 0, dst_offset = 0;                                   \
-      for (size_t d = 0; d < ndim; d++) {                                      \
-        size_t idx = src_indices[d];                                           \
-        src_offset += idx * src_strides[d];                                    \
-        dst_offset += idx * dst_strides[d];                                    \
-      }                                                                        \
-                                                                               \
-      /* Copy element */                                                       \
-      *((ctype *)(dst_data + dst_offset)) =                                    \
-          *((const ctype *)(src_data + src_offset));                           \
-                                                                               \
-      /* Increment indices */                                                  \
-      increment_indices(src_indices, shape, ndim);                             \
-    }                                                                          \
+  // Inner-dimension contiguous fast path (only when axis != last dim)
+  if (ndim >= 1 && axis != ndim - 1 && src_strides[ndim - 1] == esize &&
+      dst_strides[ndim - 1] == esize) {
+    size_t remaining = count;
+    while (remaining > 0) {
+      size_t inner_idx = src_indices[ndim - 1];
+      size_t row_remaining = src_shape[ndim - 1] - inner_idx;
+      size_t chunk = (remaining < row_remaining) ? remaining : row_remaining;
+
+      size_t src_offset = 0;
+      for (size_t d = 0; d < ndim; d++)
+        src_offset += src_indices[d] * src_strides[d];
+
+      size_t dst_offset = 0;
+      for (size_t d = 0; d < ndim; d++) {
+        size_t idx = src_indices[d];
+        if (d == axis)
+          idx += axis_offset;
+        dst_offset += idx * dst_strides[d];
+      }
+
+      memcpy(dst_data + dst_offset, src_data + src_offset, chunk * esize);
+      remaining -= chunk;
+
+      src_indices[ndim - 1] += chunk;
+      if (src_indices[ndim - 1] >= src_shape[ndim - 1]) {
+        src_indices[ndim - 1] = 0;
+        for (ssize_t d = ndim - 2; d >= 0; d--) {
+          src_indices[d]++;
+          if (src_indices[d] < src_shape[d])
+            break;
+          src_indices[d] = 0;
+        }
+      }
+    }
+    return;
   }
 
-FOREACH_DTYPE(GEN_STRIDED_TO_STRIDED_COPY_FUNC)
-#undef GEN_STRIDED_TO_STRIDED_COPY_FUNC
+  for (size_t i = 0; i < count; i++) {
+    size_t src_offset = 0;
+    for (size_t d = 0; d < ndim; d++)
+      src_offset += src_indices[d] * src_strides[d];
 
-typedef void (*strided_to_strided_copy_func)(const Array *, size_t *, Array *,
-                                             size_t);
+    size_t dst_offset = 0;
+    for (size_t d = 0; d < ndim; d++) {
+      size_t idx = src_indices[d];
+      if (d == axis)
+        idx += axis_offset;
+      dst_offset += idx * dst_strides[d];
+    }
 
-#define STRIDED_TO_STRIDED_COPY_ENTRY(dtype, ctype)                            \
-  [DTYPE_##dtype] = array_strided_to_strided_copy_##dtype,
+    memcpy(dst_data + dst_offset, src_data + src_offset, esize);
+    increment_indices(src_indices, src_shape, ndim);
+  }
+}
 
-static const strided_to_strided_copy_func strided_to_strided_copy_funcs[] = {
-    FOREACH_DTYPE(STRIDED_TO_STRIDED_COPY_ENTRY)};
-#undef STRIDED_TO_STRIDED_COPY_ENTRY
-
+/**
+ * @brief Strided element copy (same indices for src and dst).
+ *
+ * Copies elements one-by-one from src to dst using the same logical indices.
+ * Used by array_concat for the first array.
+ */
 static inline void array_strided_copy(const Array *src, size_t *src_indices,
                                       Array *dst, size_t count) {
-  strided_to_strided_copy_funcs[src->dtype](src, src_indices, dst, count);
+  const size_t ndim = src->ndim;
+  const size_t esize = src->elem_size;
+  const size_t *restrict shape = src->shape;
+  const size_t *restrict src_strides = src->strides;
+  const size_t *restrict dst_strides = dst->strides;
+  const char *restrict src_data = (const char *)src->data;
+  char *restrict dst_data = (char *)dst->data;
+
+  // Inner-dimension contiguous fast path: copy rows with memcpy
+  if (ndim >= 1 && src_strides[ndim - 1] == esize &&
+      dst_strides[ndim - 1] == esize) {
+    size_t remaining = count;
+    while (remaining > 0) {
+      size_t inner_idx = src_indices[ndim - 1];
+      size_t row_remaining = shape[ndim - 1] - inner_idx;
+      size_t chunk = (remaining < row_remaining) ? remaining : row_remaining;
+
+      size_t src_offset = 0, dst_offset = 0;
+      for (size_t d = 0; d < ndim; d++) {
+        src_offset += src_indices[d] * src_strides[d];
+        dst_offset += src_indices[d] * dst_strides[d];
+      }
+
+      memcpy(dst_data + dst_offset, src_data + src_offset, chunk * esize);
+      remaining -= chunk;
+
+      // Advance indices past the chunk
+      src_indices[ndim - 1] += chunk;
+      if (src_indices[ndim - 1] >= shape[ndim - 1]) {
+        src_indices[ndim - 1] = 0;
+        for (ssize_t d = ndim - 2; d >= 0; d--) {
+          src_indices[d]++;
+          if (src_indices[d] < shape[d])
+            break;
+          src_indices[d] = 0;
+        }
+      }
+    }
+    return;
+  }
+
+  for (size_t i = 0; i < count; i++) {
+    size_t src_offset = 0, dst_offset = 0;
+    for (size_t d = 0; d < ndim; d++) {
+      size_t idx = src_indices[d];
+      src_offset += idx * src_strides[d];
+      dst_offset += idx * dst_strides[d];
+    }
+
+    memcpy(dst_data + dst_offset, src_data + src_offset, esize);
+    increment_indices(src_indices, shape, ndim);
+  }
 }
 
 // =============================================================================
@@ -156,9 +174,9 @@ int array_reshape(Array *array, size_t ndim, const size_t *shape) {
   if (!array || !shape || ndim == 0)
     return -1;
 
-  if (!array_is_contiguous(array)) {
+  if (!array->is_contiguous) {
     fprintf(stderr, "array_reshape: array is not contiguous. "
-                    "Use array_to_contiguous() first.\n");
+                    "Use array_ascontiguousarray() first.\n");
     abort();
   }
 
@@ -177,22 +195,49 @@ int array_reshape(Array *array, size_t ndim, const size_t *shape) {
   if (new_size != array->size)
     return -1;
 
-  size_t *new_shape = malloc(2 * ndim * sizeof(size_t));
-  if (!new_shape)
-    return -1;
-  size_t *new_strides = new_shape + ndim;
+  bool old_on_heap = array->ndim > MAX_STACK_NDIM;
+  bool new_use_stack = ndim <= MAX_STACK_NDIM;
 
-  for (size_t i = 0; i < ndim; i++)
-    new_shape[i] = shape[i];
+  if (new_use_stack) {
+    // New shape fits in embedded buffers
+    size_t tmp_shape[MAX_STACK_NDIM];
+    size_t tmp_strides[MAX_STACK_NDIM];
 
-  new_strides[ndim - 1] = array->elem_size;
-  for (ssize_t j = ndim - 2; j >= 0; j--)
-    new_strides[j] = new_strides[j + 1] * new_shape[j + 1];
+    for (size_t i = 0; i < ndim; i++)
+      tmp_shape[i] = shape[i];
 
-  free(array->shape); // frees both old shape and strides
+    tmp_strides[ndim - 1] = array->elem_size;
+    for (ssize_t j = ndim - 2; j >= 0; j--)
+      tmp_strides[j] = tmp_strides[j + 1] * tmp_shape[j + 1];
 
-  array->shape = new_shape;
-  array->strides = new_strides;
+    if (old_on_heap)
+      free(array->shape);
+
+    array->shape = array->_shape_buff;
+    array->strides = array->_strides_buff;
+    memcpy(array->shape, tmp_shape, ndim * sizeof(size_t));
+    memcpy(array->strides, tmp_strides, ndim * sizeof(size_t));
+  } else {
+    // New shape needs heap allocation
+    size_t *new_shape = malloc(2 * ndim * sizeof(size_t));
+    if (!new_shape)
+      return -1;
+    size_t *new_strides = new_shape + ndim;
+
+    for (size_t i = 0; i < ndim; i++)
+      new_shape[i] = shape[i];
+
+    new_strides[ndim - 1] = array->elem_size;
+    for (ssize_t j = ndim - 2; j >= 0; j--)
+      new_strides[j] = new_strides[j + 1] * new_shape[j + 1];
+
+    if (old_on_heap)
+      free(array->shape);
+
+    array->shape = new_shape;
+    array->strides = new_strides;
+  }
+
   array->ndim = ndim;
 
   return 0;
@@ -206,10 +251,15 @@ int array_transpose(Array *array, size_t *axes) {
   if (!array)
     return -1;
 
-  size_t *new_shape = malloc(array->ndim * sizeof(size_t));
-  size_t *new_strides = malloc(array->ndim * sizeof(size_t));
+  size_t new_shape_buf[MAX_STACK_NDIM] = {0};
+  size_t new_strides_buf[MAX_STACK_NDIM] = {0};
+  bool use_stack = array->ndim <= MAX_STACK_NDIM;
+  size_t *new_shape =
+      use_stack ? new_shape_buf : malloc(array->ndim * sizeof(size_t));
+  size_t *new_strides =
+      use_stack ? new_strides_buf : malloc(array->ndim * sizeof(size_t));
 
-  if (!new_shape || !new_strides) {
+  if ((!new_shape || !new_strides) && !use_stack) {
     free(new_shape);
     free(new_strides);
     return -1;
@@ -223,8 +273,12 @@ int array_transpose(Array *array, size_t *axes) {
   memcpy(array->shape, new_shape, array->ndim * sizeof(size_t));
   memcpy(array->strides, new_strides, array->ndim * sizeof(size_t));
 
-  free(new_shape);
-  free(new_strides);
+  if (!use_stack) {
+    free(new_shape);
+    free(new_strides);
+  }
+
+  array->is_contiguous = array_is_contiguous(array);
 
   return 0;
 }
@@ -233,7 +287,7 @@ int array_transpose(Array *array, size_t *axes) {
 //                          Concatenation Function
 // =============================================================================
 
-Array *array_concat(const Array *a, const Array *b, size_t axis) {
+Array *array_concatenate(const Array *a, const Array *b, size_t axis) {
   if (!a || !b)
     return NULL;
 
@@ -251,24 +305,62 @@ Array *array_concat(const Array *a, const Array *b, size_t axis) {
       return NULL;
   }
 
-  size_t *new_shape = malloc(a->ndim * sizeof(size_t));
-  if (!new_shape)
+  size_t new_shape_buf[MAX_STACK_NDIM] = {0};
+  bool use_stack = a->ndim <= MAX_STACK_NDIM;
+  size_t *new_shape =
+      use_stack ? new_shape_buf : malloc(a->ndim * sizeof(size_t));
+  if (!new_shape && !use_stack)
     return NULL;
 
   for (size_t i = 0; i < a->ndim; i++)
     new_shape[i] = a->shape[i];
   new_shape[axis] = a->shape[axis] + b->shape[axis];
 
-  Array *result = array_create(a->ndim, new_shape, a->dtype, NULL);
-  free(new_shape);
+  ArrayCreate result_create = {
+      .ndim = a->ndim,
+      .shape = new_shape,
+      .numc_type = a->numc_type,
+      .data = NULL,
+      .owns_data = true,
+  };
+  Array *result = array_create(&result_create);
+  if (!use_stack)
+    free(new_shape);
+
   if (!result)
     return NULL;
 
-  // Fast path: both contiguous and concatenating along axis 0
-  if (array_is_contiguous(a) && array_is_contiguous(b) && axis == 0) {
-    memcpy(result->data, a->data, a->size * a->elem_size);
-    memcpy((char *)result->data + (a->size * a->elem_size), b->data,
-           b->size * b->elem_size);
+  // Fast path: both contiguous — generalized memcpy for any axis
+  if (a->is_contiguous && b->is_contiguous) {
+    size_t outer = 1;
+    for (size_t i = 0; i < axis; i++)
+      outer *= a->shape[i];
+
+    size_t a_inner = 1;
+    for (size_t i = axis; i < a->ndim; i++)
+      a_inner *= a->shape[i];
+
+    size_t b_inner = 1;
+    for (size_t i = axis; i < b->ndim; i++)
+      b_inner *= b->shape[i];
+
+    const size_t elem = a->elem_size;
+    const size_t a_bytes = a_inner * elem;
+    const size_t b_bytes = b_inner * elem;
+    const size_t dst_stride = a_bytes + b_bytes;
+
+    const char *a_ptr = (const char *)a->data;
+    const char *b_ptr = (const char *)b->data;
+    char *dst = (char *)result->data;
+
+    for (size_t i = 0; i < outer; i++) {
+      memcpy(dst, a_ptr, a_bytes);
+      memcpy(dst + a_bytes, b_ptr, b_bytes);
+      a_ptr += a_bytes;
+      b_ptr += b_bytes;
+      dst += dst_stride;
+    }
+
     return result;
   }
 
@@ -276,7 +368,7 @@ Array *array_concat(const Array *a, const Array *b, size_t axis) {
   size_t indices_buf[MAX_STACK_NDIM] = {0};
   size_t *indices = (a->ndim <= MAX_STACK_NDIM)
                         ? indices_buf
-                        : calloc(a->ndim, sizeof(size_t));
+                        : malloc(a->ndim * sizeof(size_t));
 
   if (a->ndim > MAX_STACK_NDIM && !indices)
     goto fail;

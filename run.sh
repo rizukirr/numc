@@ -63,18 +63,13 @@ case $args in
         echo "╚═══════════════════════════════════════════════════════════════════╝"
         echo ""
         
-        if [ -f "./build/bin/benchmark_fill" ]; then
-            echo "▶ Fill Operations Benchmark"
+        if [ -f "./build/bin/comprehensive_benchmark" ]; then
+            echo "Comprehensive Benchmark"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            ./build/bin/benchmark_fill
+            ./build/bin/comprehensive_benchmark
             echo ""
-        fi
-        
-        if [ -f "./build/bin/simd_benchmark" ]; then
-            echo "▶ SIMD Operations Benchmark"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            ./build/bin/simd_benchmark
-            echo ""
+        else
+            echo "Comprehensive benchmark not found."
         fi
         
         exit 0
