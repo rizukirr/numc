@@ -65,8 +65,8 @@ void test_add_non_contiguous(void) {
   assert(!array_is_contiguous(b_slice));
 
   // Convert to contiguous before adding
-  Array *a_cont = array_ascontiguousarray(a_slice);
-  Array *b_cont = array_ascontiguousarray(b_slice);
+  Array *a_cont = array_copy(a_slice);
+  Array *b_cont = array_copy(b_slice);
 
   // Add slices
   size_t result_shape[] = {4, 3};

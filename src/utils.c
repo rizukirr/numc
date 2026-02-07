@@ -5,7 +5,6 @@
 
 #include "array.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -13,19 +12,6 @@
 // =============================================================================
 //                    Strided Copy Helpers
 // =============================================================================
-
-/**
- * @brief Increment multi-dimensional indices (row-major order).
- */
-static inline void increment_indices(size_t *indices, const size_t *shape,
-                                     size_t ndim) {
-  for (ssize_t i = ndim - 1; i >= 0; i--) {
-    indices[i]++;
-    if (indices[i] < shape[i])
-      break;
-    indices[i] = 0;
-  }
-}
 
 /**
  * @brief Strided element copy with destination axis offset.
@@ -174,11 +160,8 @@ int array_reshape(Array *array, size_t ndim, const size_t *shape) {
   if (!array || !shape || ndim == 0)
     return -1;
 
-  if (!array->is_contiguous) {
-    fprintf(stderr, "array_reshape: array is not contiguous. "
-                    "Use array_ascontiguousarray() first.\n");
-    abort();
-  }
+  if (!array->is_contiguous)
+    return -1;
 
   size_t new_size = 1;
   for (size_t i = 0; i < ndim; i++) {
@@ -248,8 +231,27 @@ int array_reshape(Array *array, size_t ndim, const size_t *shape) {
 // =============================================================================
 
 int array_transpose(Array *array, size_t *axes) {
-  if (!array)
+  if (!array || !axes)
     return -1;
+
+  // Validate axes: each value must be < ndim and no duplicates
+  size_t seen_buf[MAX_STACK_NDIM] = {0};
+  size_t *seen = (array->ndim <= MAX_STACK_NDIM)
+                     ? seen_buf
+                     : calloc(array->ndim, sizeof(size_t));
+  if (array->ndim > MAX_STACK_NDIM && !seen)
+    return -1;
+
+  for (size_t i = 0; i < array->ndim; i++) {
+    if (axes[i] >= array->ndim || seen[axes[i]]) {
+      if (array->ndim > MAX_STACK_NDIM)
+        free(seen);
+      return -1;
+    }
+    seen[axes[i]] = 1;
+  }
+  if (array->ndim > MAX_STACK_NDIM)
+    free(seen);
 
   size_t new_shape_buf[MAX_STACK_NDIM] = {0};
   size_t new_strides_buf[MAX_STACK_NDIM] = {0};
@@ -297,7 +299,7 @@ Array *array_concatenate(const Array *a, const Array *b, size_t axis) {
   if (axis >= a->ndim)
     return NULL;
 
-  if (a->elem_size != b->elem_size)
+  if (a->elem_size != b->elem_size || a->numc_type != b->numc_type)
     return NULL;
 
   for (size_t i = 0; i < a->ndim; i++) {

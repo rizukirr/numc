@@ -8,18 +8,19 @@
 #ifndef IO_H
 #define IO_H
 
-#include <stddef.h>
+#include "array.h"
 
 /**
- * Prints the contents of an array.
+ * @brief Print an array to stdout.
  *
- * @param data The array data.
- * @param shape The array shape.
- * @param ndim The number of dimensions.
- * @param dim The current dimension.
- * @param offset The current offset.
+ * Prints the contents of any Array in a nested bracket format, e.g.:
+ *   [[1, 2, 3], [4, 5, 6]]
+ *
+ * Supports all 10 NUMC_TYPE types and handles non-contiguous arrays
+ * (slices, transposes) correctly via stride-based indexing.
+ *
+ * @param array Pointer to the array to print.
  */
-void array_print(const float *data, const size_t *shape, size_t ndim,
-                 size_t dim, size_t *offset);
+void array_print(const Array *array);
 
 #endif

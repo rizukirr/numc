@@ -53,7 +53,7 @@ void test_copy_slice(void) {
   Array *slice = array_slice(arr, (size_t[]){2}, (size_t[]){8}, (size_t[]){2});
   // Slice should be [2, 4, 6]
 
-  Array *copy = array_ascontiguousarray(slice);
+  Array *copy = array_copy(slice);
   assert(copy != NULL);
   assert(copy->size == slice->size);
   assert(array_is_contiguous(copy)); // Copy should be contiguous

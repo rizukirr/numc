@@ -37,7 +37,7 @@ void *numc_calloc(size_t alignment, size_t size) {
   // Round size up to multiple of alignment (required by aligned_alloc)
   size_t aligned_size = (size + alignment - 1) & ~(alignment - 1);
 
-  void *ptr = numc_malloc(alignment, size);
+  void *ptr = numc_malloc(alignment, aligned_size);
   if (ptr != NULL) {
     memset(ptr, 0, aligned_size); // Zero the full aligned size
   }

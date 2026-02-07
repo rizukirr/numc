@@ -151,13 +151,13 @@ void *array_get(const Array *array, const size_t *indices);
  */
 
 static inline NUMC_FLOAT *array_get_float32(const Array *array,
-                                             const size_t *indices) {
+                                            const size_t *indices) {
   assert(array->numc_type == NUMC_TYPE_FLOAT);
   return (NUMC_FLOAT *)array_get(array, indices);
 }
 
 static inline NUMC_DOUBLE *array_get_float64(const Array *array,
-                                              const size_t *indices) {
+                                             const size_t *indices) {
   assert(array->numc_type == NUMC_TYPE_DOUBLE);
   return (NUMC_DOUBLE *)array_get(array, indices);
 }
@@ -210,6 +210,11 @@ static inline NUMC_UBYTE *array_get_uint8(const Array *array,
   return (NUMC_UBYTE *)array_get(array, indices);
 }
 
+/**
+ * @brief Increment multi-dimensional indices (row-major order).
+ */
+void increment_indices(size_t *indices, const size_t *shape, size_t ndim);
+
 // =============================================================================
 //                          Array Properties
 // =============================================================================
@@ -259,16 +264,14 @@ Array *array_copy(const Array *src);
 /**
  * @brief Convert a non-contiguous array to a contiguous array.
  *
- * If the source array is already contiguous, creates a contiguous copy.
+ * If the source array is already contiguous, does nothing.
  * If the source array is non-contiguous (e.g., sliced or transposed),
- * creates a new contiguous array with all elements copied in memory order.
+ * transform to contiguous array with all elements copied in memory order.
  *
- * This function is equivalent to array_copy() and exists for API clarity.
- *
- * @param src Pointer to the source array (may be contiguous or non-contiguous).
- * @return Pointer to a new contiguous array, or NULL on failure.
+ * @param arr Pointer to the array to convert in-place.
+ * @return 0 on success, -1 on failure.
  */
-Array *array_ascontiguousarray(const Array *src);
+int array_ascontiguousarray(Array *arr);
 
 // =============================================================================
 //                          Array Manipulation

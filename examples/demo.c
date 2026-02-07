@@ -283,7 +283,7 @@ void demo_array_copy(void) {
   print_int_array(slice);
 
   // Copy the slice to make it contiguous
-  Array *copied = array_ascontiguousarray(slice);
+  Array *copied = array_copy(slice);
   printf("\nCopied array (now contiguous):\n");
   print_array_info(copied, "copied");
   print_int_array(copied);

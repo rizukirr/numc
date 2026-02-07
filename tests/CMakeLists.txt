@@ -12,8 +12,10 @@ function(add_numc_test test_name source_file)
         target_link_options(${test_name} PRIVATE -fsanitize=address)
     endif()
     
-    # Add test to CTest
+    # Add test to CTest (suppress known OpenMP thread pool leak in LSAN)
     add_test(NAME ${test_name} COMMAND ${test_name})
+    set_tests_properties(${test_name} PROPERTIES
+        ENVIRONMENT "LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/lsan_suppressions.txt")
 endfunction()
 
 # Unit tests

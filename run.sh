@@ -2,38 +2,33 @@
 
 set -e
 
-args=$1
+CC="${CC:-clang}"
+CMAKE_OPTS="-DCMAKE_C_COMPILER=$CC"
 
-case $args in
+build() {
+    local build_type=$1
+    echo "Building in $build_type mode (compiler: $CC)"
+    build_start=$(date +%s%3N)
+    cmake -S . -B build -DCMAKE_BUILD_TYPE="$build_type" $CMAKE_OPTS
+    cmake --build build
+    build_end=$(date +%s%3N)
+    elapsed=$(awk "BEGIN { printf \"%.3f\", ($build_end - $build_start)/1000 }")
+    echo "Build took ${elapsed} seconds"
+}
+
+case $1 in
     "debug")
-        echo "Building in debug mode"
-        build_start=$(date +%s%3N)
-        cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-        cmake --build build
-        build_end=$(date +%s%3N)
-        elapsed=$(awk "BEGIN { printf \"%.3f\", ($build_end - $build_start)/1000 }")
-        echo "Build took ${elapsed} seconds"
+        build Debug
         ;;
     "release")
-        echo "Building in release mode"
-        build_start=$(date +%s%3N)
-        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-        cmake --build build
-        build_end=$(date +%s%3N)
-        elapsed=$(awk "BEGIN { printf \"%.3f\", ($build_end - $build_start)/1000 }")
-        echo "Build took ${elapsed} seconds"
+        build Release
         ;;
     "test")
         echo "Running tests..."
-        build_start=$(date +%s%3N)
-        cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-        cmake --build build
-        build_end=$(date +%s%3N)
-        elapsed=$(awk "BEGIN { printf \"%.3f\", ($build_end - $build_start)/1000 }")
-        echo "Build took ${elapsed} seconds"
+        build Debug
         echo ""
-        ctest --test-dir build 
-        exit 0;
+        ctest --test-dir build
+        exit 0
         ;;
     "clean")
         echo "Cleaning build directory..."
@@ -49,20 +44,14 @@ case $args in
         ;;
     "benchmark")
         echo "Building in release mode and running benchmarks..."
-        build_start=$(date +%s%3N)
-        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-        cmake --build build
-        build_end=$(date +%s%3N)
-        elapsed=$(awk "BEGIN { printf \"%.3f\", ($build_end - $build_start)/1000 }")
-        echo "Build took ${elapsed} seconds"
+        build Release
         echo ""
-        
-        # Run all benchmarks
+
         echo "╔═══════════════════════════════════════════════════════════════════╗"
         echo "║                    Running All Benchmarks                         ║"
         echo "╚═══════════════════════════════════════════════════════════════════╝"
         echo ""
-        
+
         if [ -f "./build/bin/comprehensive_benchmark" ]; then
             echo "Comprehensive Benchmark"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -71,7 +60,7 @@ case $args in
         else
             echo "Comprehensive benchmark not found."
         fi
-        
+
         exit 0
         ;;
     "help")
@@ -86,13 +75,16 @@ case $args in
         echo "  rebuild     Clean and rebuild in debug mode"
         echo "  help        Show this help message"
         echo "  (no args)   Run demo without rebuilding"
+        echo ""
+        echo "Environment:"
+        echo "  CC=gcc ./run.sh release   Use GCC instead of Clang"
         exit 0
         ;;
     "")
         echo "Running demo without building..."
         ;;
     *)
-        echo "Unknown argument: $args"
+        echo "Unknown argument: $1"
         echo "Usage: $0 [debug|release|test|benchmark|clean|rebuild|help]"
         echo "Run '$0 help' for more information"
         exit 1
@@ -103,6 +95,9 @@ if [ ! -f "./build/bin/numc_demo" ]; then
     echo "Error: ./build/bin/numc_demo not found. Please build first."
     exit 1
 fi
+
+# Suppress known OpenMP thread pool leak in LeakSanitizer
+export LSAN_OPTIONS="suppressions=$(pwd)/tests/lsan_suppressions.txt"
 
 start=$(date +%s%3N)
 ./build/bin/numc_demo

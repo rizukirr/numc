@@ -1,9 +1,39 @@
 /**
  * @file types.h
- * @brief Data type enumeration for numc arrays.
+ * @brief Data type system for numc arrays.
  *
- * Provides type identifiers to distinguish between numeric types
- * of the same size (e.g., float vs int32_t).
+ * This header defines the type system used throughout numc:
+ *
+ * 1. **Type aliases** (NUMC_BYTE, NUMC_INT, etc.) — portable C type names
+ * 2. **NUMC_TYPE enum** — runtime type identifier stored in each Array
+ * 3. **FOREACH_NUMC_TYPE(X)** — X-Macro for generating type-generic code
+ * 4. **numc_type_size()** — runtime sizeof() lookup by enum value
+ *
+ * ## X-Macro Pattern
+ *
+ * The FOREACH_NUMC_TYPE(X) macro calls X(name, c_type) for each type.
+ * This is the foundation for all type-generic code generation in numc.
+ *
+ * Example — generating a function for every type:
+ *
+ *   #define MAKE_FUNC(name, c_type)  void process_##name(c_type *data) { ... }
+ *   FOREACH_NUMC_TYPE(MAKE_FUNC)
+ *   #undef MAKE_FUNC
+ *
+ * Expands to: process_BYTE(int8_t*), process_UBYTE(uint8_t*), ...,
+ *             process_DOUBLE(double*)
+ *
+ * Example — building a lookup table:
+ *
+ *   #define ENTRY(name, c_type)  [NUMC_TYPE_##name] = process_##name,
+ *   func_ptr table[] = { FOREACH_NUMC_TYPE(ENTRY) };
+ *   #undef ENTRY
+ *
+ * This produces: table[NUMC_TYPE_BYTE] = process_BYTE, etc.
+ * At runtime, table[array->numc_type](...) dispatches to the right function.
+ *
+ * See math.c for the full pattern: template macros → adapter macros →
+ * lookup tables → public API.
  */
 
 #ifndef TYPES_H
@@ -12,31 +42,34 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// Floating-point types
+// =============================================================================
+//  Type Aliases — maps numc names to C standard types
+// =============================================================================
+
+#define NUMC_BYTE int8_t
+#define NUMC_UBYTE uint8_t
+#define NUMC_SHORT int16_t
+#define NUMC_USHORT uint16_t
+#define NUMC_INT int32_t
+#define NUMC_UINT uint32_t
+#define NUMC_LONG int64_t
+#define NUMC_ULONG uint64_t
 #define NUMC_FLOAT float
 #define NUMC_DOUBLE double
 
-// 32-bit integers
-#define NUMC_INT int32_t
-#define NUMC_UINT uint32_t
-
-// 64-bit integers
-#define NUMC_LONG int64_t
-#define NUMC_ULONG uint64_t
-
-// 16-bit integers
-#define NUMC_SHORT int16_t
-#define NUMC_USHORT uint16_t
-
-// 8-bit integers
-#define NUMC_BYTE int8_t
-#define NUMC_UBYTE uint8_t
+// =============================================================================
+//  X-Macro — iterates X(numc_name, c_type) over all 10 supported types
+// =============================================================================
 
 /**
- * @brief X-Macro: Define all data types in one place
+ * @brief Master X-Macro: invokes X(numc_name, c_type) for all 10 types.
  *
- * This macro is used to generate type-specific functions automatically,
- * eliminating code duplication and switch statements.
+ * @param X  A macro that accepts two arguments: (numc_name, c_type).
+ *           - numc_name: type suffix used in function names (BYTE, INT, etc.)
+ *           - c_type:    actual C type (NUMC_BYTE → int8_t, NUMC_INT → int32_t)
+ *
+ * Used throughout numc to generate type-specific functions and lookup tables
+ * without writing 10 copies of each function by hand.
  */
 #define FOREACH_NUMC_TYPE(X)                                                   \
   X(BYTE, NUMC_BYTE)                                                           \
@@ -50,22 +83,34 @@
   X(FLOAT, NUMC_FLOAT)                                                         \
   X(DOUBLE, NUMC_DOUBLE)
 
+// =============================================================================
+//  Enum — runtime type identifier (stored in Array.numc_type)
+// =============================================================================
+
 /**
- * @brief Enumeration of supported data types.
+ * @brief Runtime type identifier for array elements.
+ *
+ * Enum values are used as indices into lookup tables (e.g., add_funcs[],
+ * sum_funcs[]). The order must match FOREACH_NUMC_TYPE iteration order.
  */
 typedef enum {
-  NUMC_TYPE_BYTE,   // int8_t
-  NUMC_TYPE_UBYTE,  // uint8_t
-  NUMC_TYPE_SHORT,  // int16_t
-  NUMC_TYPE_USHORT, // uint16_t
-  NUMC_TYPE_INT,    // int32_t
-  NUMC_TYPE_UINT,   // uint32_t
-  NUMC_TYPE_LONG,   // int64_t
-  NUMC_TYPE_ULONG,  // uint64_t
-  NUMC_TYPE_FLOAT,  // float
-  NUMC_TYPE_DOUBLE  // double
+  NUMC_TYPE_BYTE,   // int8_t    (1 byte)
+  NUMC_TYPE_UBYTE,  // uint8_t   (1 byte)
+  NUMC_TYPE_SHORT,  // int16_t   (2 bytes)
+  NUMC_TYPE_USHORT, // uint16_t  (2 bytes)
+  NUMC_TYPE_INT,    // int32_t   (4 bytes)
+  NUMC_TYPE_UINT,   // uint32_t  (4 bytes)
+  NUMC_TYPE_LONG,   // int64_t   (8 bytes)
+  NUMC_TYPE_ULONG,  // uint64_t  (8 bytes)
+  NUMC_TYPE_FLOAT,  // float     (4 bytes)
+  NUMC_TYPE_DOUBLE  // double    (8 bytes)
 } NUMC_TYPE;
 
+// =============================================================================
+//  Type Size Lookup — sizeof() by enum value at runtime
+// =============================================================================
+
+/** @brief Lookup table: numc_type_sizes[NUMC_TYPE_X] = sizeof(X). */
 static const size_t numc_type_sizes[] = {
     [NUMC_TYPE_BYTE] = sizeof(NUMC_BYTE),
     [NUMC_TYPE_UBYTE] = sizeof(NUMC_UBYTE),
@@ -82,10 +127,9 @@ static const size_t numc_type_sizes[] = {
 /**
  * @brief Get the size in bytes for a given data type.
  *
- * @param numc_type The data type.
- * @return Size in bytes, or 0 for invalid type.
+ * @param numc_type The data type enum value.
+ * @return Size in bytes (1, 2, 4, or 8).
  */
-
 static inline size_t numc_type_size(NUMC_TYPE numc_type) {
   return numc_type_sizes[numc_type];
 }
