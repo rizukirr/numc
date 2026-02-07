@@ -77,7 +77,7 @@ static const void *const one_ptrs[] = {FOREACH_NUMC_TYPE(ONE_PTR_ENTRY)};
 
 // clang-format off
 #define GEN_ARRAY_ARRANGE(numc_type, ctype)                                   \
-  static void array_arrange_##numc_type(const int start, const int stop,      \
+  static void array_arange_##numc_type(const int start, const int stop,      \
                                         const int step, void *restrict ret) { \
     ctype *restrict arr = (ctype *)ret;                                       \
     const int n = (stop - start + step - 1) / step;                           \
@@ -91,12 +91,12 @@ static const void *const one_ptrs[] = {FOREACH_NUMC_TYPE(ONE_PTR_ENTRY)};
 FOREACH_NUMC_TYPE(GEN_ARRAY_ARRANGE)
 #undef GEN_ARRAY_ARRANGE
 
-typedef void (*array_arrange_func)(const int start, const int stop,
+typedef void (*array_arange_func)(const int start, const int stop,
                                    const int step, void *ret);
 
 #define ARRAY_ARRANGE_ENTRY(numc_type, ctype) \
-  [NUMC_TYPE_##numc_type] = array_arrange_##numc_type,
-static const array_arrange_func array_arrange_funcs[] = {
+  [NUMC_TYPE_##numc_type] = array_arange_##numc_type,
+static const array_arange_func array_arange_funcs[] = {
     FOREACH_NUMC_TYPE(ARRAY_ARRANGE_ENTRY)};
 #undef ARRAY_ARRANGE_ENTRY
 
@@ -251,26 +251,26 @@ Array *array_ones(size_t ndim, const size_t *shape, NUMC_TYPE numc_type) {
   return arr;
 }
 
-Array *array_arrange(const int start, const int stop, const int step,
+Array *array_arange(const int start, const int stop, const int step,
                      const NUMC_TYPE type) {
   // Validate step
   if (step == 0) {
     numc_set_error(NUMC_ERR_INVALID,
-                   "numc: array_arrange: step cannot be zero");
+                   "numc: array_arange: step cannot be zero");
     return NULL;
   }
 
   // Validate range based on step direction
   if (step > 0 && start >= stop) {
     numc_set_error(NUMC_ERR_INVALID,
-                   "numc: array_arrange: start must be less than stop for "
+                   "numc: array_arange: start must be less than stop for "
                    "positive step");
     return NULL;
   }
 
   if (step < 0 && start <= stop) {
     numc_set_error(NUMC_ERR_INVALID,
-                   "numc: array_arrange: start must be greater than stop for "
+                   "numc: array_arange: start must be greater than stop for "
                    "negative step");
     return NULL;
   }
@@ -297,7 +297,7 @@ Array *array_arrange(const int start, const int stop, const int step,
     return NULL;
 
   // Fill array using type-specific function
-  array_arrange_funcs[arr->numc_type](start, stop, step, arr->data);
+  array_arange_funcs[arr->numc_type](start, stop, step, arr->data);
   return arr;
 }
 

@@ -223,9 +223,7 @@ FOREACH_NUMC_TYPE_32BIT(GENERATE_MUL_FUNC)
 // Generates: mul_LONG, mul_ULONG, mul_DOUBLE
 #define GENERATE_MUL_FUNC_64BIT(numc_type_name, c_type)                        \
   GENERATE_BINARY_OP_FUNC_64BIT(mul, numc_type_name, c_type, *)
-GENERATE_MUL_FUNC_64BIT(LONG, NUMC_LONG)
-GENERATE_MUL_FUNC_64BIT(ULONG, NUMC_ULONG)
-GENERATE_MUL_FUNC_64BIT(DOUBLE, NUMC_DOUBLE)
+FOREACH_NUMC_TYPE_64BIT(GENERATE_MUL_FUNC_64BIT)
 #undef GENERATE_MUL_FUNC_64BIT
 
 // --------------- DIV: out[i] = a[i] / b[i] ---------------
@@ -441,31 +439,26 @@ int array_divide(const Array *a, const Array *b, Array *out) {
 // #                                                                           #
 // #  Reductions collapse an array to a single value.                          #
 // #                                                                           #
-// #  Two strategies:                                                          #
+// #  Two tiers (matching binary ops):                                         #
 // #                                                                           #
-// #    Integer types (BYTE..UINT, LONG, ULONG):                               #
-// #      Single accumulator — compiler auto-vectorizes because integer # #
-// addition IS associative (can reorder freely).                         # #
-// Compiles to: paddd, pminsw, pmaxsd, etc.                             # # # #
-// FP types (FLOAT, DOUBLE):                                              # # 4
-// independent accumulators — compiler CANNOT auto-vectorize FP        # #
-// reductions because FP addition is NOT associative and FP comparisons  # #
-// have NaN semantics. Manual unrolling breaks the serial dependency     # #
-// chain, giving ~4x speedup via instruction-level parallelism.          # # #
+// #    32-bit types (BYTE..UINT, FLOAT):                                      #
+// #      Uses __builtin_assume_aligned for SIMD hints.                        #
+// #      Compiler auto-vectorizes to paddd/addps/pminsd/maxps etc.            #
+// #                                                                           #
+// #    64-bit types (LONG, ULONG, DOUBLE):                                    #
+// #      Plain casts only (no alignment hints — see Section 1).               #
+// #                                                                           #
 // #############################################################################
 
 // ========================== SUM: acc += a[i] ==========================
 
 /**
- * @brief [Template] Integer sum with single accumulator.
+ * @brief [Template] Sum with single accumulator (32-bit types).
  *
- * The compiler auto-vectorizes this to paddb/paddw/paddd SIMD instructions
- * because integer addition is associative (reordering doesn't change result).
- *
- * @param numc_type_name Type suffix (BYTE, UBYTE, SHORT, USHORT, INT, UINT)
- * @param c_type         C type (int8_t, uint8_t, ..., uint32_t)
+ * Uses __builtin_assume_aligned for SIMD hints. Compiler auto-vectorizes
+ * integer types to paddb/paddw/paddd. FLOAT uses addps with OpenMP reduction.
  */
-#define GENERATE_SUM_FUNC_INT(numc_type_name, c_type)                          \
+#define GENERATE_SUM_FUNC(numc_type_name, c_type)                              \
   static inline void sum_##numc_type_name(const void *restrict a, void *out,   \
                                           size_t n) {                          \
     const c_type *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);       \
@@ -476,39 +469,16 @@ int array_divide(const Array *a, const Array *b, Array *out) {
     }                                                                          \
     *(c_type *)out = acc;                                                      \
   }
-// Generates: sum_BYTE, sum_UBYTE, sum_SHORT, sum_USHORT, sum_INT, sum_UINT
-GENERATE_SUM_FUNC_INT(BYTE, NUMC_BYTE)
-GENERATE_SUM_FUNC_INT(UBYTE, NUMC_UBYTE)
-GENERATE_SUM_FUNC_INT(SHORT, NUMC_SHORT)
-GENERATE_SUM_FUNC_INT(USHORT, NUMC_USHORT)
-GENERATE_SUM_FUNC_INT(INT, NUMC_INT)
-GENERATE_SUM_FUNC_INT(UINT, NUMC_UINT)
-#undef GENERATE_SUM_FUNC_INT
+// Generates: sum_BYTE, sum_UBYTE, sum_SHORT, sum_USHORT, sum_INT, sum_UINT,
+//            sum_FLOAT
+FOREACH_NUMC_TYPE_32BIT(GENERATE_SUM_FUNC)
+#undef GENERATE_SUM_FUNC
 
 /**
- * @brief Float sum with 4 accumulators for instruction-level parallelism.
- *
- * FP addition is NOT associative (a+b+c != c+a+b due to rounding), so the
- * compiler cannot reorder iterations → cannot vectorize a single-accumulator
- * loop. Using 4 independent accumulators gives the CPU 4 parallel dependency
- * chains, achieving ~4x speedup.
+ * @brief [Template] Sum with single accumulator (64-bit types, no alignment
+ * hints).
  */
-static inline void sum_FLOAT(const void *restrict a, void *out, size_t n) {
-  const NUMC_FLOAT *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);
-  NUMC_FLOAT acc = 0;
-  NUMC_OMP_REDUCE_SUM
-  for (size_t i = 0; i < n; i++) {
-    acc += pa[i];
-  }
-  *(NUMC_FLOAT *)out = acc;
-}
-
-/**
- * @brief [Template] 64-bit integer sum with single accumulator.
- *
- * Same as GENERATE_SUM_FUNC_INT but without alignment hints (64-bit types).
- */
-#define GENERATE_SUM_FUNC_64BIT_INT(numc_type_name, c_type)                    \
+#define GENERATE_SUM_FUNC_64BIT(numc_type_name, c_type)                        \
   static inline void sum_##numc_type_name(const void *restrict a, void *out,   \
                                           size_t n) {                          \
     const c_type *restrict pa = (const c_type *)a;                             \
@@ -519,30 +489,19 @@ static inline void sum_FLOAT(const void *restrict a, void *out, size_t n) {
     }                                                                          \
     *(c_type *)out = acc;                                                      \
   }
-// Generates: sum_LONG, sum_ULONG
-GENERATE_SUM_FUNC_64BIT_INT(LONG, NUMC_LONG)
-GENERATE_SUM_FUNC_64BIT_INT(ULONG, NUMC_ULONG)
-#undef GENERATE_SUM_FUNC_64BIT_INT
-
-/** @brief Double sum with OpenMP reduction. */
-static inline void sum_DOUBLE(const void *restrict a, void *out, size_t n) {
-  const NUMC_DOUBLE *restrict pa = (const NUMC_DOUBLE *)a;
-  NUMC_DOUBLE acc = 0;
-  NUMC_OMP_REDUCE_SUM
-  for (size_t i = 0; i < n; i++) {
-    acc += pa[i];
-  }
-  *(NUMC_DOUBLE *)out = acc;
-}
+// Generates: sum_LONG, sum_ULONG, sum_DOUBLE
+FOREACH_NUMC_TYPE_64BIT(GENERATE_SUM_FUNC_64BIT)
+#undef GENERATE_SUM_FUNC_64BIT
 
 // ========================== MIN: m = min(m, a[i]) ==========================
 
 /**
- * @brief [Template] Integer min with single accumulator.
+ * @brief [Template] Min with single accumulator (32-bit types).
  *
- * Compiler auto-vectorizes to pminsb/pminsw/pminsd SIMD instructions.
+ * Compiler auto-vectorizes integer types to pminsb/pminsw/pminsd.
+ * FLOAT uses minps with OpenMP reduction.
  */
-#define GENERATE_MIN_FUNC_INT(numc_type_name, c_type)                          \
+#define GENERATE_MIN_FUNC(numc_type_name, c_type)                              \
   static inline void min_##numc_type_name(const void *restrict a, void *out,   \
                                           size_t n) {                          \
     const c_type *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);       \
@@ -554,31 +513,16 @@ static inline void sum_DOUBLE(const void *restrict a, void *out, size_t n) {
     }                                                                          \
     *(c_type *)out = m;                                                        \
   }
-// Generates: min_BYTE, min_UBYTE, min_SHORT, min_USHORT, min_INT, min_UINT
-GENERATE_MIN_FUNC_INT(BYTE, NUMC_BYTE)
-GENERATE_MIN_FUNC_INT(UBYTE, NUMC_UBYTE)
-GENERATE_MIN_FUNC_INT(SHORT, NUMC_SHORT)
-GENERATE_MIN_FUNC_INT(USHORT, NUMC_USHORT)
-GENERATE_MIN_FUNC_INT(INT, NUMC_INT)
-GENERATE_MIN_FUNC_INT(UINT, NUMC_UINT)
-#undef GENERATE_MIN_FUNC_INT
-
-/** @brief Float min with OpenMP reduction. */
-static inline void min_FLOAT(const void *restrict a, void *out, size_t n) {
-  const NUMC_FLOAT *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);
-  NUMC_FLOAT m = pa[0];
-  NUMC_OMP_REDUCE_MIN
-  for (size_t i = 1; i < n; i++) {
-    if (pa[i] < m)
-      m = pa[i];
-  }
-  *(NUMC_FLOAT *)out = m;
-}
+// Generates: min_BYTE, min_UBYTE, min_SHORT, min_USHORT, min_INT, min_UINT,
+//            min_FLOAT
+FOREACH_NUMC_TYPE_32BIT(GENERATE_MIN_FUNC)
+#undef GENERATE_MIN_FUNC
 
 /**
- * @brief [Template] 64-bit integer min (no alignment hints).
+ * @brief [Template] Min with single accumulator (64-bit types, no alignment
+ * hints).
  */
-#define GENERATE_MIN_FUNC_64BIT_INT(numc_type_name, c_type)                    \
+#define GENERATE_MIN_FUNC_64BIT(numc_type_name, c_type)                        \
   static inline void min_##numc_type_name(const void *restrict a, void *out,   \
                                           size_t n) {                          \
     const c_type *restrict pa = (const c_type *)a;                             \
@@ -590,31 +534,19 @@ static inline void min_FLOAT(const void *restrict a, void *out, size_t n) {
     }                                                                          \
     *(c_type *)out = m;                                                        \
   }
-// Generates: min_LONG, min_ULONG
-GENERATE_MIN_FUNC_64BIT_INT(LONG, NUMC_LONG)
-GENERATE_MIN_FUNC_64BIT_INT(ULONG, NUMC_ULONG)
-#undef GENERATE_MIN_FUNC_64BIT_INT
-
-/** @brief Double min with OpenMP reduction. */
-static inline void min_DOUBLE(const void *restrict a, void *out, size_t n) {
-  const NUMC_DOUBLE *restrict pa = (const NUMC_DOUBLE *)a;
-  NUMC_DOUBLE m = pa[0];
-  NUMC_OMP_REDUCE_MIN
-  for (size_t i = 1; i < n; i++) {
-    if (pa[i] < m)
-      m = pa[i];
-  }
-  *(NUMC_DOUBLE *)out = m;
-}
+// Generates: min_LONG, min_ULONG, min_DOUBLE
+FOREACH_NUMC_TYPE_64BIT(GENERATE_MIN_FUNC_64BIT)
+#undef GENERATE_MIN_FUNC_64BIT
 
 // ========================== MAX: m = max(m, a[i]) ==========================
 
 /**
- * @brief [Template] Integer max with single accumulator.
+ * @brief [Template] Max with single accumulator (32-bit types).
  *
- * Compiler auto-vectorizes to pmaxsb/pmaxsw/pmaxsd SIMD instructions.
+ * Compiler auto-vectorizes integer types to pmaxsb/pmaxsw/pmaxsd.
+ * FLOAT uses maxps with OpenMP reduction.
  */
-#define GENERATE_MAX_FUNC_INT(numc_type_name, c_type)                          \
+#define GENERATE_MAX_FUNC(numc_type_name, c_type)                              \
   static inline void max_##numc_type_name(const void *restrict a, void *out,   \
                                           size_t n) {                          \
     const c_type *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);       \
@@ -626,31 +558,16 @@ static inline void min_DOUBLE(const void *restrict a, void *out, size_t n) {
     }                                                                          \
     *(c_type *)out = m;                                                        \
   }
-// Generates: max_BYTE, max_UBYTE, max_SHORT, max_USHORT, max_INT, max_UINT
-GENERATE_MAX_FUNC_INT(BYTE, NUMC_BYTE)
-GENERATE_MAX_FUNC_INT(UBYTE, NUMC_UBYTE)
-GENERATE_MAX_FUNC_INT(SHORT, NUMC_SHORT)
-GENERATE_MAX_FUNC_INT(USHORT, NUMC_USHORT)
-GENERATE_MAX_FUNC_INT(INT, NUMC_INT)
-GENERATE_MAX_FUNC_INT(UINT, NUMC_UINT)
-#undef GENERATE_MAX_FUNC_INT
-
-/** @brief Float max with OpenMP reduction. */
-static inline void max_FLOAT(const void *restrict a, void *out, size_t n) {
-  const NUMC_FLOAT *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);
-  NUMC_FLOAT m = pa[0];
-  NUMC_OMP_REDUCE_MAX
-  for (size_t i = 1; i < n; i++) {
-    if (pa[i] > m)
-      m = pa[i];
-  }
-  *(NUMC_FLOAT *)out = m;
-}
+// Generates: max_BYTE, max_UBYTE, max_SHORT, max_USHORT, max_INT, max_UINT,
+//            max_FLOAT
+FOREACH_NUMC_TYPE_32BIT(GENERATE_MAX_FUNC)
+#undef GENERATE_MAX_FUNC
 
 /**
- * @brief [Template] 64-bit integer max (no alignment hints).
+ * @brief [Template] Max with single accumulator (64-bit types, no alignment
+ * hints).
  */
-#define GENERATE_MAX_FUNC_64BIT_INT(numc_type_name, c_type)                    \
+#define GENERATE_MAX_FUNC_64BIT(numc_type_name, c_type)                        \
   static inline void max_##numc_type_name(const void *restrict a, void *out,   \
                                           size_t n) {                          \
     const c_type *restrict pa = (const c_type *)a;                             \
@@ -662,31 +579,19 @@ static inline void max_FLOAT(const void *restrict a, void *out, size_t n) {
     }                                                                          \
     *(c_type *)out = m;                                                        \
   }
-// Generates: max_LONG, max_ULONG
-GENERATE_MAX_FUNC_64BIT_INT(LONG, NUMC_LONG)
-GENERATE_MAX_FUNC_64BIT_INT(ULONG, NUMC_ULONG)
-#undef GENERATE_MAX_FUNC_64BIT_INT
-
-/** @brief Double max with OpenMP reduction. */
-static inline void max_DOUBLE(const void *restrict a, void *out, size_t n) {
-  const NUMC_DOUBLE *restrict pa = (const NUMC_DOUBLE *)a;
-  NUMC_DOUBLE m = pa[0];
-  NUMC_OMP_REDUCE_MAX
-  for (size_t i = 1; i < n; i++) {
-    if (pa[i] > m)
-      m = pa[i];
-  }
-  *(NUMC_DOUBLE *)out = m;
-}
+// Generates: max_LONG, max_ULONG, max_DOUBLE
+FOREACH_NUMC_TYPE_64BIT(GENERATE_MAX_FUNC_64BIT)
+#undef GENERATE_MAX_FUNC_64BIT
 
 // ========================== DOT: acc += a[i] * b[i] ==========================
 
 /**
- * @brief [Template] Integer dot product with single accumulator.
+ * @brief [Template] Dot product with single accumulator (32-bit types).
  *
- * Compiler auto-vectorizes: multiply (pmulld) then accumulate (paddd).
+ * Compiler auto-vectorizes integer types: multiply (pmulld) then accumulate
+ * (paddd). FLOAT uses mulps + addps with OpenMP reduction.
  */
-#define GENERATE_DOT_FUNC_INT(numc_type_name, c_type)                          \
+#define GENERATE_DOT_FUNC(numc_type_name, c_type)                              \
   static inline void dot_##numc_type_name(                                     \
       const void *restrict a, const void *restrict b, void *out, size_t n) {   \
     const c_type *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);       \
@@ -698,32 +603,16 @@ static inline void max_DOUBLE(const void *restrict a, void *out, size_t n) {
     }                                                                          \
     *(c_type *)out = acc;                                                      \
   }
-// Generates: dot_BYTE, dot_UBYTE, dot_SHORT, dot_USHORT, dot_INT, dot_UINT
-GENERATE_DOT_FUNC_INT(BYTE, NUMC_BYTE)
-GENERATE_DOT_FUNC_INT(UBYTE, NUMC_UBYTE)
-GENERATE_DOT_FUNC_INT(SHORT, NUMC_SHORT)
-GENERATE_DOT_FUNC_INT(USHORT, NUMC_USHORT)
-GENERATE_DOT_FUNC_INT(INT, NUMC_INT)
-GENERATE_DOT_FUNC_INT(UINT, NUMC_UINT)
-#undef GENERATE_DOT_FUNC_INT
-
-/** @brief Float dot product with OpenMP reduction. */
-static inline void dot_FLOAT(const void *restrict a, const void *restrict b,
-                             void *out, size_t n) {
-  const NUMC_FLOAT *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);
-  const NUMC_FLOAT *restrict pb = __builtin_assume_aligned(b, NUMC_ALIGN);
-  NUMC_FLOAT acc = 0;
-  NUMC_OMP_REDUCE_SUM
-  for (size_t i = 0; i < n; i++) {
-    acc += pa[i] * pb[i];
-  }
-  *(NUMC_FLOAT *)out = acc;
-}
+// Generates: dot_BYTE, dot_UBYTE, dot_SHORT, dot_USHORT, dot_INT, dot_UINT,
+//            dot_FLOAT
+FOREACH_NUMC_TYPE_32BIT(GENERATE_DOT_FUNC)
+#undef GENERATE_DOT_FUNC
 
 /**
- * @brief [Template] 64-bit integer dot product (no alignment hints).
+ * @brief [Template] Dot product with single accumulator (64-bit types, no
+ * alignment hints).
  */
-#define GENERATE_DOT_FUNC_64BIT_INT(numc_type_name, c_type)                    \
+#define GENERATE_DOT_FUNC_64BIT(numc_type_name, c_type)                        \
   static inline void dot_##numc_type_name(                                     \
       const void *restrict a, const void *restrict b, void *out, size_t n) {   \
     const c_type *restrict pa = (const c_type *)a;                             \
@@ -735,23 +624,9 @@ static inline void dot_FLOAT(const void *restrict a, const void *restrict b,
     }                                                                          \
     *(c_type *)out = acc;                                                      \
   }
-// Generates: dot_LONG, dot_ULONG
-GENERATE_DOT_FUNC_64BIT_INT(LONG, NUMC_LONG)
-GENERATE_DOT_FUNC_64BIT_INT(ULONG, NUMC_ULONG)
-#undef GENERATE_DOT_FUNC_64BIT_INT
-
-/** @brief Double dot product with OpenMP reduction. */
-static inline void dot_DOUBLE(const void *restrict a, const void *restrict b,
-                              void *out, size_t n) {
-  const NUMC_DOUBLE *restrict pa = (const NUMC_DOUBLE *)a;
-  const NUMC_DOUBLE *restrict pb = (const NUMC_DOUBLE *)b;
-  NUMC_DOUBLE acc = 0;
-  NUMC_OMP_REDUCE_SUM
-  for (size_t i = 0; i < n; i++) {
-    acc += pa[i] * pb[i];
-  }
-  *(NUMC_DOUBLE *)out = acc;
-}
+// Generates: dot_LONG, dot_ULONG, dot_DOUBLE
+FOREACH_NUMC_TYPE_64BIT(GENERATE_DOT_FUNC_64BIT)
+#undef GENERATE_DOT_FUNC_64BIT
 
 // #############################################################################
 // #                                                                           #
@@ -948,33 +823,25 @@ static inline void divs_UINT(const void *restrict a,
 // Generates: adds_LONG, adds_ULONG, adds_DOUBLE
 #define GENERATE_ADDS_FUNC_64BIT(numc_type_name, c_type)                       \
   GENERATE_SCALAR_OP_FUNC_64BIT(add, numc_type_name, c_type, +)
-GENERATE_ADDS_FUNC_64BIT(LONG, NUMC_LONG)
-GENERATE_ADDS_FUNC_64BIT(ULONG, NUMC_ULONG)
-GENERATE_ADDS_FUNC_64BIT(DOUBLE, NUMC_DOUBLE)
+FOREACH_NUMC_TYPE_64BIT(GENERATE_ADDS_FUNC_64BIT)
 #undef GENERATE_ADDS_FUNC_64BIT
 
 // Generates: subs_LONG, subs_ULONG, subs_DOUBLE
 #define GENERATE_SUBS_FUNC_64BIT(numc_type_name, c_type)                       \
   GENERATE_SCALAR_OP_FUNC_64BIT(sub, numc_type_name, c_type, -)
-GENERATE_SUBS_FUNC_64BIT(LONG, NUMC_LONG)
-GENERATE_SUBS_FUNC_64BIT(ULONG, NUMC_ULONG)
-GENERATE_SUBS_FUNC_64BIT(DOUBLE, NUMC_DOUBLE)
+FOREACH_NUMC_TYPE_64BIT(GENERATE_SUBS_FUNC_64BIT)
 #undef GENERATE_SUBS_FUNC_64BIT
 
 // Generates: muls_LONG, muls_ULONG, muls_DOUBLE
 #define GENERATE_MULS_FUNC_64BIT(numc_type_name, c_type)                       \
   GENERATE_SCALAR_OP_FUNC_64BIT(mul, numc_type_name, c_type, *)
-GENERATE_MULS_FUNC_64BIT(LONG, NUMC_LONG)
-GENERATE_MULS_FUNC_64BIT(ULONG, NUMC_ULONG)
-GENERATE_MULS_FUNC_64BIT(DOUBLE, NUMC_DOUBLE)
+FOREACH_NUMC_TYPE_64BIT(GENERATE_MULS_FUNC_64BIT)
 #undef GENERATE_MULS_FUNC_64BIT
 
 // Generates: divs_LONG, divs_ULONG (scalar idiv), divs_DOUBLE (SIMD divpd)
 #define GENERATE_DIVS_FUNC_64BIT(numc_type_name, c_type)                       \
   GENERATE_SCALAR_OP_FUNC_64BIT(div, numc_type_name, c_type, /)
-GENERATE_DIVS_FUNC_64BIT(LONG, NUMC_LONG)
-GENERATE_DIVS_FUNC_64BIT(ULONG, NUMC_ULONG)
-GENERATE_DIVS_FUNC_64BIT(DOUBLE, NUMC_DOUBLE)
+FOREACH_NUMC_TYPE_64BIT(GENERATE_DIVS_FUNC_64BIT)
 #undef GENERATE_DIVS_FUNC_64BIT
 
 #undef GENERATE_SCALAR_OP_FUNC_64BIT

@@ -117,7 +117,7 @@ Array *array_full(ArrayCreate *spec, const void *elem);
  *
  * @return Pointer to a new array, or NULL on failure.
  */
-Array *array_arrange(const int start, const int stop, const int step,
+Array *array_arange(const int start, const int stop, const int step,
                      const NUMC_TYPE type);
 
 /**

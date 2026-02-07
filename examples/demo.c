@@ -343,12 +343,12 @@ void demo_array_full(void) {
   array_free(filled);
 }
 
-void demo_array_arrange(void) {
+void demo_array_arange(void) {
   printf("\n=== Array Arrange Demo ===\n\n");
 
   // Create array with range [0, 10) step 1
-  printf("1. array_arrange(0, 10, 1, INT):\n");
-  Array *arr1 = array_arrange(0, 10, 1, NUMC_TYPE_INT);
+  printf("1. array_arange(0, 10, 1, INT):\n");
+  Array *arr1 = array_arange(0, 10, 1, NUMC_TYPE_INT);
   if (arr1) {
     printf("   Result: ");
     print_int_array(arr1);
@@ -358,8 +358,8 @@ void demo_array_arrange(void) {
   }
 
   // Create array with range [5, 20) step 2
-  printf("\n2. array_arrange(5, 20, 2, INT):\n");
-  Array *arr2 = array_arrange(5, 20, 2, NUMC_TYPE_INT);
+  printf("\n2. array_arange(5, 20, 2, INT):\n");
+  Array *arr2 = array_arange(5, 20, 2, NUMC_TYPE_INT);
   if (arr2) {
     printf("   Result: ");
     print_int_array(arr2);
@@ -369,8 +369,8 @@ void demo_array_arrange(void) {
   }
 
   // Create array with range [0, 100) step 10
-  printf("\n3. array_arrange(0, 100, 10, INT):\n");
-  Array *arr3 = array_arrange(0, 100, 10, NUMC_TYPE_INT);
+  printf("\n3. array_arange(0, 100, 10, INT):\n");
+  Array *arr3 = array_arange(0, 100, 10, NUMC_TYPE_INT);
   if (arr3) {
     printf("   Result: ");
     print_int_array(arr3);
@@ -380,8 +380,8 @@ void demo_array_arrange(void) {
   }
 
   // Create array with range [1, 6) step 1
-  printf("\n4. array_arrange(1, 6, 1, INT):\n");
-  Array *arr4 = array_arrange(1, 6, 1, NUMC_TYPE_INT);
+  printf("\n4. array_arange(1, 6, 1, INT):\n");
+  Array *arr4 = array_arange(1, 6, 1, NUMC_TYPE_INT);
   if (arr4) {
     printf("   Result: ");
     print_int_array(arr4);
@@ -391,8 +391,8 @@ void demo_array_arrange(void) {
   }
 
   // Test with FLOAT type
-  printf("\n5. array_arrange(0, 5, 1, FLOAT):\n");
-  Array *arr5 = array_arrange(0, 5, 1, NUMC_TYPE_FLOAT);
+  printf("\n5. array_arange(0, 5, 1, FLOAT):\n");
+  Array *arr5 = array_arange(0, 5, 1, NUMC_TYPE_FLOAT);
   if (arr5) {
     printf("   Result: ");
     print_float_array(arr5);
@@ -524,7 +524,7 @@ int main(void) {
   demo_array_reshape();
   demo_array_copy();
   demo_array_full();
-  demo_array_arrange();
+  demo_array_arange();
   demo_performance();
 
   printf("\n");
