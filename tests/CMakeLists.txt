@@ -32,6 +32,8 @@ add_numc_test(test_memory unit/test_memory.c)
 add_numc_test(test_add unit/test_add.c)
 add_numc_test(test_reduce unit/test_reduce.c)
 add_numc_test(test_scalar unit/test_scalar.c)
+add_numc_test(test_arange unit/test_arange.c)
+add_numc_test(test_linspace unit/test_linspace.c)
 
 # Print message
 message(STATUS "Configured numc tests")

@@ -1,4 +1,5 @@
 #include "array.h"
+#include "shape.h"
 #include "types.h"
 #include <stdio.h>
 #include <string.h>
@@ -400,6 +401,109 @@ void demo_array_arange(void) {
   } else {
     printf("   Failed to create array\n");
   }
+
+  // Test with negative step
+  printf("\n6. array_arange(10, 0, -1, INT) (negative step):\n");
+  Array *arr6 = array_arange(10, 0, -1, NUMC_TYPE_INT);
+  if (arr6) {
+    printf("   Result: ");
+    print_int_array(arr6);
+    array_free(arr6);
+  } else {
+    printf("   Failed to create array\n");
+  }
+
+  // Test with negative step and larger interval
+  printf("\n7. array_arange(20, 5, -2, INT) (negative step):\n");
+  Array *arr7 = array_arange(20, 5, -2, NUMC_TYPE_INT);
+  if (arr7) {
+    printf("   Result: ");
+    print_int_array(arr7);
+    array_free(arr7);
+  } else {
+    printf("   Failed to create array\n");
+  }
+
+  // Test with range from 0 to negative
+  printf("\n8. array_arange(0, -10, -1, INT) (0 to negative):\n");
+  Array *arr8 = array_arange(0, -10, -1, NUMC_TYPE_INT);
+  if (arr8) {
+    printf("   Result: ");
+    print_int_array(arr8);
+    array_free(arr8);
+  } else {
+    printf("   Failed to create array\n");
+  }
+
+  // Test with range from negative to more negative
+  printf("\n9. array_arange(-5, -15, -2, INT) (negative to more negative):\n");
+  Array *arr9 = array_arange(-5, -15, -2, NUMC_TYPE_INT);
+  if (arr9) {
+    printf("   Result: ");
+    print_int_array(arr9);
+    array_free(arr9);
+  } else {
+    printf("   Failed to create array\n");
+  }
+}
+
+void demo_array_linspace(void) {
+  printf("\n=== Array Linspace Demo ===\n\n");
+
+  // linspace(0, 10, 5) with FLOAT
+  printf("1. array_linspace(0, 10, 5, FLOAT):\n");
+  Array *arr1 = array_linspace(0, 10, 5, NUMC_TYPE_FLOAT);
+  if (arr1) {
+    printf("   Result: ");
+    print_float_array(arr1);
+    array_free(arr1);
+  } else {
+    printf("   Failed to create array\n");
+  }
+
+  // linspace(0, 100, 11) with INT
+  printf("\n2. array_linspace(0, 100, 11, INT):\n");
+  Array *arr2 = array_linspace(0, 100, 11, NUMC_TYPE_INT);
+  if (arr2) {
+    printf("   Result: ");
+    print_int_array(arr2);
+    array_free(arr2);
+  } else {
+    printf("   Failed to create array\n");
+  }
+
+  // linspace with single element
+  printf("\n3. array_linspace(5, 5, 1, INT):\n");
+  Array *arr3 = array_linspace(5, 5, 1, NUMC_TYPE_INT);
+  if (arr3) {
+    printf("   Result: ");
+    print_int_array(arr3);
+    array_free(arr3);
+  } else {
+    printf("   Failed to create array\n");
+  }
+
+  // linspace negative direction
+  printf("\n4. array_linspace(10, 0, 5, FLOAT) (descending):\n");
+  Array *arr4 = array_linspace(10, 0, 5, NUMC_TYPE_FLOAT);
+  if (arr4) {
+    printf("   Result: ");
+    print_float_array(arr4);
+    array_free(arr4);
+  } else {
+    printf("   Failed to create array\n");
+  }
+
+  // linspace with negative range
+  printf("\n5. array_linspace(-10, 10, 5, FLOAT):\n");
+  Array *arr5 = array_linspace(-10, 10, 5, NUMC_TYPE_FLOAT);
+  if (arr5) {
+    printf("   Result: ");
+    print_float_array(arr5);
+    array_free(arr5);
+  } else {
+    printf("   Failed to create array\n");
+  }
 }
 
 void demo_performance(void) {
@@ -525,6 +629,7 @@ int main(void) {
   demo_array_copy();
   demo_array_full();
   demo_array_arange();
+  demo_array_linspace();
   demo_performance();
 
   printf("\n");
@@ -540,6 +645,7 @@ int main(void) {
   printf("║  ✓ Copying (contiguous conversion)                       ║\n");
   printf("║  ✓ Fill operations                                       ║\n");
   printf("║  ✓ Arrange (range generation)                            ║\n");
+  printf("║  ✓ Linspace (linear spacing)                             ║\n");
   printf("║  ✓ Optimized performance (type-specific kernels)         ║\n");
   printf("╚══════════════════════════════════════════════════════════╝\n");
   printf("\n");

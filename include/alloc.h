@@ -6,8 +6,8 @@
  * data buffers meet SIMD alignment requirements (16-byte for SSE/NEON).
  */
 
-#ifndef ALLOC_H
-#define ALLOC_H
+#ifndef NUMC_ALLOC_H
+#define NUMC_ALLOC_H
 
 #include <stddef.h>
 
@@ -42,11 +42,11 @@ void *numc_malloc(size_t alignment, size_t size);
 void *numc_calloc(size_t alignment, size_t size);
 
 /**
- * @brief Free memory allocated by numc_calloc().
+ * @brief Free memory allocated by numc_malloc() or numc_calloc().
  *
  * Cross-platform wrapper for freeing aligned memory.
  *
- * @param ptr Pointer to memory allocated by numc_calloc().
+ * @param ptr Pointer to memory allocated by numc_malloc() or numc_calloc().
  */
 void numc_free(void *ptr);
 

@@ -5,8 +5,8 @@
  * Provides functions for printing and displaying array contents.
  */
 
-#ifndef IO_H
-#define IO_H
+#ifndef NUMC_IO_H
+#define NUMC_IO_H
 
 #include "array.h"
 

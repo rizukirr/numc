@@ -24,7 +24,7 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 
 # --- Per-build-type flags ---
 set(CMAKE_C_FLAGS_DEBUG "-g -O0 -fsanitize=address -fno-omit-frame-pointer")
-set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native")
+set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -Wno-pass-failed")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
 
 # --- OpenMP ---
@@ -33,7 +33,8 @@ find_package(OpenMP)
 # --- Library ---
 set(NUMC_SOURCES
     src/array.c
-    src/utils.c
+    src/shape.c
+    src/create.c
     src/math.c
     src/alloc.c
     src/error.c

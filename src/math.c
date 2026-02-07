@@ -43,9 +43,9 @@
  *     → Safe because all 8/16-bit values fit exactly in float's 23-bit mantissa
  *
  *   Reductions (FLOAT/DOUBLE sum, min, max, dot):
- *     → Hand-written 4-accumulator loops for instruction-level parallelism
- *     → Compiler can't auto-vectorize FP reductions (non-associative addition,
- *       NaN-aware comparisons), so we manually break the dependency chain
+ *     → Uses `omp simd reduction` to permit SIMD vectorization of FP reductions
+ *     → Without `simd`, compiler can't auto-vectorize FP reductions (non-associative
+ *       addition, NaN-aware comparisons) and emits scalar instructions
  *
  *   Reductions (all integer types):
  *     → Simple single-accumulator loops (compiler auto-vectorizes these with
@@ -61,7 +61,7 @@
 
 // #############################################################################
 // #                                                                           #
-// #  SECTION 1: TYPE ITERATOR MACROS                                          #
+// #  TYPE ITERATOR MACROS                                          #
 // #                                                                           #
 // #  Subsets of FOREACH_NUMC_TYPE for different optimization strategies. # # #
 // #############################################################################
@@ -105,10 +105,10 @@
 
 // #############################################################################
 // #                                                                           #
-// #  SECTION 2: KERNEL TEMPLATE MACROS                                        #
+// #  KERNEL TEMPLATE MACROS                                        #
 // #                                                                           #
 // #  These macros define the shape of a kernel function. They are NOT called #
-// #  directly — adapter macros (Section 3) bind them to a specific operator. #
+// #  directly — adapter macros  bind them to a specific operator. #
 // #                                                                           #
 // #############################################################################
 
@@ -171,9 +171,9 @@
 
 // #############################################################################
 // #                                                                           #
-// #  SECTION 3: BINARY OPERATION GENERATION                                   #
+// #  BINARY OPERATION GENERATION                                   #
 // #                                                                           #
-// #  Adapter macros bind a template (Section 2) to a specific operator,       #
+// #  Adapter macros bind a template to a specific operator,       #
 // #  then iterate over types to produce all 10 kernel functions.              #
 // #                                                                           #
 // #  Each block follows the same pattern:                                     #
@@ -323,7 +323,7 @@ FOREACH_NUMC_TYPE_64BIT(GENERATE_DIV_FUNC_64BIT)
 
 // #############################################################################
 // #                                                                           #
-// #  SECTION 4: BINARY OPERATION DISPATCH TABLES                              #
+// #  BINARY OPERATION DISPATCH TABLES                              #
 // #                                                                           #
 // #  Each table maps NUMC_TYPE enum → kernel function pointer.                #
 // #  Used by the public API: add_funcs[a->numc_type](a->data, b->data, ...)   #
@@ -362,7 +362,7 @@ static const binary_op_func div_funcs[] = {FOREACH_NUMC_TYPE(DIV_FUNC_ENTRY)};
 
 // #############################################################################
 // #                                                                           #
-// #  SECTION 5: BINARY OPERATION PUBLIC API                                   #
+// #  BINARY OPERATION PUBLIC API                                   #
 // #                                                                           #
 // #  All public functions share the same validation logic via # #
 // array_binary_op_out(), then dispatch through the lookup table.            #
@@ -435,7 +435,7 @@ int array_divide(const Array *a, const Array *b, Array *out) {
 
 // #############################################################################
 // #                                                                           #
-// #  SECTION 6: REDUCTION KERNELS (sum, min, max, dot)                        #
+// #  REDUCTION KERNELS (sum, min, max, dot)                        #
 // #                                                                           #
 // #  Reductions collapse an array to a single value.                          #
 // #                                                                           #
@@ -446,7 +446,7 @@ int array_divide(const Array *a, const Array *b, Array *out) {
 // #      Compiler auto-vectorizes to paddd/addps/pminsd/maxps etc.            #
 // #                                                                           #
 // #    64-bit types (LONG, ULONG, DOUBLE):                                    #
-// #      Plain casts only (no alignment hints — see Section 1).               #
+// #      Plain casts only (no alignment hints).               #
 // #                                                                           #
 // #############################################################################
 
@@ -630,9 +630,7 @@ FOREACH_NUMC_TYPE_64BIT(GENERATE_DOT_FUNC_64BIT)
 
 // #############################################################################
 // #                                                                           #
-// #  SECTION 7: REDUCTION DISPATCH TABLES                                     #
-// #                                                                           #
-// #  Same pattern as Section 4: NUMC_TYPE enum → kernel function pointer.     #
+// #  REDUCTION DISPATCH TABLES                                     #
 // #                                                                           #
 // #############################################################################
 
@@ -668,7 +666,7 @@ static const dot_func dot_funcs[] = {FOREACH_NUMC_TYPE(DOT_ENTRY)};
 
 // #############################################################################
 // #                                                                           #
-// #  SECTION 8: SCALAR OPERATION KERNELS                                      #
+// #  SCALAR OPERATION KERNELS                                      #
 // #                                                                           #
 // #  Scalar ops: out[i] = a[i] OP scalar                                      #
 // #  Same 3-tier pattern as binary ops (template → adapter → dispatch).       #
@@ -731,7 +729,7 @@ FOREACH_NUMC_TYPE_32BIT(GENERATE_MULS_FUNC)
 #undef GENERATE_MULS_FUNC
 
 // --------------- SCALAR DIV: out[i] = a[i] / scalar ---------------
-// Same 3-strategy split as binary division (Section 3).
+// Same 3-strategy split as binary division .
 
 /**
  * @brief [Template] Narrow integer scalar division via float promotion.
@@ -848,7 +846,7 @@ FOREACH_NUMC_TYPE_64BIT(GENERATE_DIVS_FUNC_64BIT)
 
 // #############################################################################
 // #                                                                           #
-// #  SECTION 9: SCALAR OPERATION DISPATCH TABLES                              #
+// #  SCALAR OPERATION DISPATCH TABLES                              #
 // #                                                                           #
 // #############################################################################
 
@@ -881,7 +879,7 @@ static const scalar_op_func divs_funcs[] = {FOREACH_NUMC_TYPE(DIVS_ENTRY)};
 
 // #############################################################################
 // #                                                                           #
-// #  SECTION 10: REDUCTION & SCALAR PUBLIC API                                #
+// #  REDUCTION & SCALAR PUBLIC API                                #
 // #                                                                           #
 // #############################################################################
 

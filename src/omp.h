@@ -29,11 +29,11 @@
 #define NUMC_OMP_FOR \
   NUMC_PRAGMA(omp parallel for schedule(static) if(n > NUMC_OMP_THRESHOLD))
 #define NUMC_OMP_REDUCE_SUM \
-  NUMC_PRAGMA(omp parallel for reduction(+:acc) schedule(static) if(n > NUMC_OMP_THRESHOLD))
+  NUMC_PRAGMA(omp parallel for simd reduction(+:acc) schedule(static) if(n > NUMC_OMP_THRESHOLD))
 #define NUMC_OMP_REDUCE_MIN \
-  NUMC_PRAGMA(omp parallel for reduction(min:m) schedule(static) if(n > NUMC_OMP_THRESHOLD))
+  NUMC_PRAGMA(omp parallel for simd reduction(min:m) schedule(static) if(n > NUMC_OMP_THRESHOLD))
 #define NUMC_OMP_REDUCE_MAX \
-  NUMC_PRAGMA(omp parallel for reduction(max:m) schedule(static) if(n > NUMC_OMP_THRESHOLD))
+  NUMC_PRAGMA(omp parallel for simd reduction(max:m) schedule(static) if(n > NUMC_OMP_THRESHOLD))
 // clang-format on
 
 #endif /* NUMC_OMP_H */

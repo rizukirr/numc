@@ -1,18 +1,9 @@
-/**
- * @file utils.c
- * @brief Array manipulation: reshape, transpose, concatenation.
- */
-
-#include "array.h"
+#include "shape.h"
 #include "error.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-
-// =============================================================================
-//                    Strided Copy Helpers
-// =============================================================================
 
 /**
  * @brief Strided element copy with destination axis offset.
@@ -153,9 +144,67 @@ static inline void array_strided_copy(const Array *src, size_t *src_indices,
   }
 }
 
-// =============================================================================
-//                          Reshape Function
-// =============================================================================
+int array_transpose(Array *array, size_t *axes) {
+  if (!array || !axes) {
+    numc_set_error(NUMC_ERR_NULL, "array_transpose: NULL argument");
+    return NUMC_ERR_NULL;
+  }
+
+  // Validate axes: each value must be < ndim and no duplicates
+  size_t seen_buf[MAX_STACK_NDIM] = {0};
+  size_t *seen = (array->ndim <= MAX_STACK_NDIM)
+                     ? seen_buf
+                     : calloc(array->ndim, sizeof(size_t));
+  if (array->ndim > MAX_STACK_NDIM && !seen) {
+    numc_set_error(NUMC_ERR_ALLOC, "array_transpose: allocation failed");
+    return NUMC_ERR_ALLOC;
+  }
+
+  for (size_t i = 0; i < array->ndim; i++) {
+    if (axes[i] >= array->ndim || seen[axes[i]]) {
+      if (array->ndim > MAX_STACK_NDIM)
+        free(seen);
+      numc_set_error(NUMC_ERR_AXIS,
+                     "array_transpose: invalid or duplicate axis");
+      return NUMC_ERR_AXIS;
+    }
+    seen[axes[i]] = 1;
+  }
+  if (array->ndim > MAX_STACK_NDIM)
+    free(seen);
+
+  size_t new_shape_buf[MAX_STACK_NDIM] = {0};
+  size_t new_strides_buf[MAX_STACK_NDIM] = {0};
+  bool use_stack = array->ndim <= MAX_STACK_NDIM;
+  size_t *new_shape =
+      use_stack ? new_shape_buf : malloc(array->ndim * sizeof(size_t));
+  size_t *new_strides =
+      use_stack ? new_strides_buf : malloc(array->ndim * sizeof(size_t));
+
+  if ((!new_shape || !new_strides) && !use_stack) {
+    free(new_shape);
+    free(new_strides);
+    numc_set_error(NUMC_ERR_ALLOC, "array_transpose: allocation failed");
+    return NUMC_ERR_ALLOC;
+  }
+
+  for (size_t i = 0; i < array->ndim; i++) {
+    new_shape[i] = array->shape[axes[i]];
+    new_strides[i] = array->strides[axes[i]];
+  }
+
+  memcpy(array->shape, new_shape, array->ndim * sizeof(size_t));
+  memcpy(array->strides, new_strides, array->ndim * sizeof(size_t));
+
+  if (!use_stack) {
+    free(new_shape);
+    free(new_strides);
+  }
+
+  array->is_contiguous = array_is_contiguous(array);
+
+  return NUMC_OK;
+}
 
 int array_reshape(Array *array, size_t ndim, const size_t *shape) {
   if (!array || !shape) {
@@ -245,76 +294,6 @@ int array_reshape(Array *array, size_t ndim, const size_t *shape) {
 
   return NUMC_OK;
 }
-
-// =============================================================================
-//                          Transpose Function
-// =============================================================================
-
-int array_transpose(Array *array, size_t *axes) {
-  if (!array || !axes) {
-    numc_set_error(NUMC_ERR_NULL, "array_transpose: NULL argument");
-    return NUMC_ERR_NULL;
-  }
-
-  // Validate axes: each value must be < ndim and no duplicates
-  size_t seen_buf[MAX_STACK_NDIM] = {0};
-  size_t *seen = (array->ndim <= MAX_STACK_NDIM)
-                     ? seen_buf
-                     : calloc(array->ndim, sizeof(size_t));
-  if (array->ndim > MAX_STACK_NDIM && !seen) {
-    numc_set_error(NUMC_ERR_ALLOC, "array_transpose: allocation failed");
-    return NUMC_ERR_ALLOC;
-  }
-
-  for (size_t i = 0; i < array->ndim; i++) {
-    if (axes[i] >= array->ndim || seen[axes[i]]) {
-      if (array->ndim > MAX_STACK_NDIM)
-        free(seen);
-      numc_set_error(NUMC_ERR_AXIS,
-                     "array_transpose: invalid or duplicate axis");
-      return NUMC_ERR_AXIS;
-    }
-    seen[axes[i]] = 1;
-  }
-  if (array->ndim > MAX_STACK_NDIM)
-    free(seen);
-
-  size_t new_shape_buf[MAX_STACK_NDIM] = {0};
-  size_t new_strides_buf[MAX_STACK_NDIM] = {0};
-  bool use_stack = array->ndim <= MAX_STACK_NDIM;
-  size_t *new_shape =
-      use_stack ? new_shape_buf : malloc(array->ndim * sizeof(size_t));
-  size_t *new_strides =
-      use_stack ? new_strides_buf : malloc(array->ndim * sizeof(size_t));
-
-  if ((!new_shape || !new_strides) && !use_stack) {
-    free(new_shape);
-    free(new_strides);
-    numc_set_error(NUMC_ERR_ALLOC, "array_transpose: allocation failed");
-    return NUMC_ERR_ALLOC;
-  }
-
-  for (size_t i = 0; i < array->ndim; i++) {
-    new_shape[i] = array->shape[axes[i]];
-    new_strides[i] = array->strides[axes[i]];
-  }
-
-  memcpy(array->shape, new_shape, array->ndim * sizeof(size_t));
-  memcpy(array->strides, new_strides, array->ndim * sizeof(size_t));
-
-  if (!use_stack) {
-    free(new_shape);
-    free(new_strides);
-  }
-
-  array->is_contiguous = array_is_contiguous(array);
-
-  return NUMC_OK;
-}
-
-// =============================================================================
-//                          Concatenation Function
-// =============================================================================
 
 Array *array_concatenate(const Array *a, const Array *b, size_t axis) {
   if (!a || !b)

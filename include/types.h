@@ -36,9 +36,10 @@
  * lookup tables → public API.
  */
 
-#ifndef TYPES_H
-#define TYPES_H
+#ifndef NUMC_TYPES_H
+#define NUMC_TYPES_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -123,6 +124,16 @@ static const size_t numc_type_sizes[] = {
     [NUMC_TYPE_FLOAT] = sizeof(NUMC_FLOAT),
     [NUMC_TYPE_DOUBLE] = sizeof(NUMC_DOUBLE),
 };
+
+/**
+ * @brief Check if a type is unsigned.
+ *
+ * @param numc_type The data type enum value.
+ * @return true if the type is unsigned (UBYTE, USHORT, UINT, ULONG), false otherwise.
+ */
+static inline bool numc_type_is_unsigned(NUMC_TYPE numc_type) {
+  return numc_type >= NUMC_TYPE_UBYTE && numc_type <= NUMC_TYPE_ULONG;
+}
 
 /**
  * @brief Get the size in bytes for a given data type.

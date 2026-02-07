@@ -4,6 +4,7 @@
  */
 
 #include "array.h"
+#include "shape.h"
 #include "types.h"
 #include <assert.h>
 #include <stdio.h>
