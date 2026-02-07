@@ -1,4 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
+
+# --- Compiler ---
+set(CMAKE_C_COMPILER "clang" CACHE STRING "C compiler")
+
 project(numc
         VERSION 0.0.0
         DESCRIPTION "N Dimensional Array in C"
@@ -24,7 +28,7 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 
 # --- Per-build-type flags ---
 set(CMAKE_C_FLAGS_DEBUG "-g -O0 -fsanitize=address -fno-omit-frame-pointer")
-set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -Wno-pass-failed")
+set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -ffast-math -Wno-pass-failed")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
 
 # --- OpenMP ---

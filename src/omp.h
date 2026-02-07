@@ -24,16 +24,23 @@
 #define NUMC_STR(x) NUMC_STR_(x)
 #define NUMC_PRAGMA(x) _Pragma(NUMC_STR(x))
 
-// clang-format off
-/** @brief OpenMP convenience macros — single-string _Pragma wrappers. */
-#define NUMC_OMP_FOR \
-  NUMC_PRAGMA(omp parallel for schedule(static) if(n > NUMC_OMP_THRESHOLD))
-#define NUMC_OMP_REDUCE_SUM \
-  NUMC_PRAGMA(omp parallel for simd reduction(+:acc) schedule(static) if(n > NUMC_OMP_THRESHOLD))
-#define NUMC_OMP_REDUCE_MIN \
-  NUMC_PRAGMA(omp parallel for simd reduction(min:m) schedule(static) if(n > NUMC_OMP_THRESHOLD))
-#define NUMC_OMP_REDUCE_MAX \
-  NUMC_PRAGMA(omp parallel for simd reduction(max:m) schedule(static) if(n > NUMC_OMP_THRESHOLD))
-// clang-format on
+/**
+ * @brief OpenMP parallel for with C-level size guard.
+ *
+ * OpenMP's if() clause still outlines the loop body into a separate function,
+ * adding ~30 instructions of overhead (register saves, stack canary, runtime
+ * calls) even when parallelism is skipped at runtime. This macro uses a
+ * C-level if/else so the small-array path compiles to a direct inline loop
+ * with zero OMP overhead.
+ *
+ * Usage:  NUMC_OMP_FOR(n, for (...) { body })
+ */
+#define NUMC_OMP_FOR(n, loop)                                                  \
+  if ((n) > NUMC_OMP_THRESHOLD) {                                             \
+    NUMC_PRAGMA(omp parallel for schedule(static))                             \
+    loop                                                                       \
+  } else {                                                                     \
+    loop                                                                       \
+  }
 
 #endif /* NUMC_OMP_H */

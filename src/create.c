@@ -27,10 +27,9 @@ static inline void array_fill_UBYTE(Array *arr, const void *elem) {
     const ctype value = *((const ctype *)elem);                             \
     ctype *restrict data = __builtin_assume_aligned(arr->data, NUMC_ALIGN); \
     const size_t n = arr->size;                                             \
-    NUMC_OMP_FOR                                                               \
-    for (size_t i = 0; i < n; i++) {                                        \
+    NUMC_OMP_FOR(n, for (size_t i = 0; i < n; i++) {                       \
       data[i] = value;                                                      \
-    }                                                                       \
+    })                                                                      \
   }
 // clang-format on
 
@@ -70,10 +69,9 @@ static const void *const one_ptrs[] = {FOREACH_NUMC_TYPE(ONE_PTR_ENTRY)};
     ctype *restrict arr = (ctype *)ret;                                        \
     const int n = (step > 0) ? ((stop - start + step - 1) / step)              \
                              : ((start - stop - step - 1) / (-step));          \
-    NUMC_OMP_FOR                                                               \
-    for (int i = 0; i < n; i++) {                                              \
+    NUMC_OMP_FOR(n, for (int i = 0; i < n; i++) {                              \
       arr[i] = (ctype)(start + i * step);                                      \
-    }                                                                          \
+    })                                                                         \
   }
 
 FOREACH_NUMC_TYPE(GEN_ARRAY_ARRANGE)
@@ -98,10 +96,9 @@ static const array_arange_func array_arange_funcs[] = {
     }                                                                          \
     const ctype step = (ctype)(stop - start) / (ctype)(num - 1);               \
     const size_t n = num;                                                      \
-    NUMC_OMP_FOR                                                               \
-    for (size_t i = 0; i < n; i++) {                                           \
+    NUMC_OMP_FOR(n, for (size_t i = 0; i < n; i++) {                           \
       arr[i] = (ctype)start + (ctype)i * step;                                 \
-    }                                                                          \
+    })                                                                         \
     arr[num - 1] = (ctype)stop;                                                \
   }
 
