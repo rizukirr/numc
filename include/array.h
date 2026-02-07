@@ -109,6 +109,18 @@ Array *array_ones(size_t ndim, const size_t *shape, NUMC_TYPE numc_type);
 Array *array_full(ArrayCreate *spec, const void *elem);
 
 /**
+ * @brief Create 1D array with a range of evenly spaced values.
+ *
+ * @param start Start value.
+ * @param stop  Stop value.
+ * @param step  Step size.
+ *
+ * @return Pointer to a new array, or NULL on failure.
+ */
+Array *array_arrange(const int start, const int stop, const int step,
+                     const NUMC_TYPE type);
+
+/**
  * @brief Free an array and its associated memory.
  *
  * Only frees the data buffer if the array owns it.

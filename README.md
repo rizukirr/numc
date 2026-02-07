@@ -208,9 +208,9 @@ The type system supports all precision levels (INT8-64, FLOAT, DOUBLE). Users ca
 - [x] Stack allocation for small arrays (ndim <= 8)
 - [x] Comprehensive benchmark suite
 - [x] Multithreading (OpenMP) - binary ops, scalar ops, reductions, fill
+- [x] `array_arange` - Range of values
 
 ### Tier 1 — Foundation (implement next, other features depend on these)
-- [ ] `array_arange` - Range of values
 - [ ] `array_linspace` - Linearly spaced values
 - [ ] `array_flatten` / `array_ravel` - Flatten to 1D
 - [ ] `array_astype` - Type conversion (prerequisite for mixed-type math)

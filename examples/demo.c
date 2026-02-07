@@ -343,6 +343,65 @@ void demo_array_full(void) {
   array_free(filled);
 }
 
+void demo_array_arrange(void) {
+  printf("\n=== Array Arrange Demo ===\n\n");
+
+  // Create array with range [0, 10) step 1
+  printf("1. array_arrange(0, 10, 1, INT):\n");
+  Array *arr1 = array_arrange(0, 10, 1, NUMC_TYPE_INT);
+  if (arr1) {
+    printf("   Result: ");
+    print_int_array(arr1);
+    array_free(arr1);
+  } else {
+    printf("   Failed to create array\n");
+  }
+
+  // Create array with range [5, 20) step 2
+  printf("\n2. array_arrange(5, 20, 2, INT):\n");
+  Array *arr2 = array_arrange(5, 20, 2, NUMC_TYPE_INT);
+  if (arr2) {
+    printf("   Result: ");
+    print_int_array(arr2);
+    array_free(arr2);
+  } else {
+    printf("   Failed to create array\n");
+  }
+
+  // Create array with range [0, 100) step 10
+  printf("\n3. array_arrange(0, 100, 10, INT):\n");
+  Array *arr3 = array_arrange(0, 100, 10, NUMC_TYPE_INT);
+  if (arr3) {
+    printf("   Result: ");
+    print_int_array(arr3);
+    array_free(arr3);
+  } else {
+    printf("   Failed to create array\n");
+  }
+
+  // Create array with range [1, 6) step 1
+  printf("\n4. array_arrange(1, 6, 1, INT):\n");
+  Array *arr4 = array_arrange(1, 6, 1, NUMC_TYPE_INT);
+  if (arr4) {
+    printf("   Result: ");
+    print_int_array(arr4);
+    array_free(arr4);
+  } else {
+    printf("   Failed to create array\n");
+  }
+
+  // Test with FLOAT type
+  printf("\n5. array_arrange(0, 5, 1, FLOAT):\n");
+  Array *arr5 = array_arrange(0, 5, 1, NUMC_TYPE_FLOAT);
+  if (arr5) {
+    printf("   Result: ");
+    print_float_array(arr5);
+    array_free(arr5);
+  } else {
+    printf("   Failed to create array\n");
+  }
+}
+
 void demo_performance(void) {
   printf("\n=== Performance Demo ===\n\n");
 
@@ -465,6 +524,7 @@ int main(void) {
   demo_array_reshape();
   demo_array_copy();
   demo_array_full();
+  demo_array_arrange();
   demo_performance();
 
   printf("\n");
@@ -479,6 +539,7 @@ int main(void) {
   printf("║  ✓ Reshaping                                             ║\n");
   printf("║  ✓ Copying (contiguous conversion)                       ║\n");
   printf("║  ✓ Fill operations                                       ║\n");
+  printf("║  ✓ Arrange (range generation)                            ║\n");
   printf("║  ✓ Optimized performance (type-specific kernels)         ║\n");
   printf("╚══════════════════════════════════════════════════════════╝\n");
   printf("\n");

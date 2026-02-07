@@ -13,11 +13,7 @@
 #include <string.h>
 #include <sys/types.h>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-
-#define NUMC_OMP_THRESHOLD 100000
+#include "omp.h"
 
 // =============================================================================
 //                          Type-Specific Fill Functions
@@ -35,18 +31,19 @@ static inline void array_fill_UBYTE(Array *arr, const void *elem) {
 }
 
 // Generate fill functions for remaining numc_types
-#define GEN_FILL_FUNC(numc_type, ctype)                                        \
-  static inline void array_fill_##numc_type(Array *restrict arr,               \
-                                            const void *elem) {                \
-    const ctype value = *((const ctype *)elem);                                \
-    ctype *restrict data = __builtin_assume_aligned(arr->data, NUMC_ALIGN);    \
-    const size_t n = arr->size;                                                \
-    _Pragma(                                                                   \
-        "omp parallel for schedule(static) if(n > 100000)") for (size_t i = 0; \
-                                                                 i < n; i++) { \
-      data[i] = value;                                                         \
-    }                                                                          \
+// clang-format off
+#define GEN_FILL_FUNC(numc_type, ctype)                                     \
+  static inline void array_fill_##numc_type(Array *restrict arr,            \
+                                            const void *elem) {             \
+    const ctype value = *((const ctype *)elem);                             \
+    ctype *restrict data = __builtin_assume_aligned(arr->data, NUMC_ALIGN); \
+    const size_t n = arr->size;                                             \
+    NUMC_OMP_FOR                                                               \
+    for (size_t i = 0; i < n; i++) {                                        \
+      data[i] = value;                                                      \
+    }                                                                       \
   }
+// clang-format on
 
 // Only generate for types not manually defined above
 GEN_FILL_FUNC(SHORT, NUMC_SHORT)
@@ -60,7 +57,7 @@ GEN_FILL_FUNC(ULONG, NUMC_ULONG)
 #undef GEN_FILL_FUNC
 
 // Generate constants for "1" value for each type
-#define GEN_ONE_CONSTANT(numc_type, ctype)                                     \
+#define GEN_ONE_CONSTANT(numc_type, ctype) \
   static const ctype one_##numc_type = (ctype)1;
 FOREACH_NUMC_TYPE(GEN_ONE_CONSTANT)
 #undef GEN_ONE_CONSTANT
@@ -68,15 +65,40 @@ FOREACH_NUMC_TYPE(GEN_ONE_CONSTANT)
 // Dispatch tables
 typedef void (*fill_func)(Array *, const void *);
 
-#define FILL_ENTRY(numc_type, ctype)                                           \
+#define FILL_ENTRY(numc_type, ctype) \
   [NUMC_TYPE_##numc_type] = array_fill_##numc_type,
 static const fill_func fill_funcs[] = {FOREACH_NUMC_TYPE(FILL_ENTRY)};
 #undef FILL_ENTRY
 
-#define ONE_PTR_ENTRY(numc_type, ctype)                                        \
+#define ONE_PTR_ENTRY(numc_type, ctype) \
   [NUMC_TYPE_##numc_type] = &one_##numc_type,
 static const void *const one_ptrs[] = {FOREACH_NUMC_TYPE(ONE_PTR_ENTRY)};
 #undef ONE_PTR_ENTRY
+
+// clang-format off
+#define GEN_ARRAY_ARRANGE(numc_type, ctype)                                   \
+  static void array_arrange_##numc_type(const int start, const int stop,      \
+                                        const int step, void *restrict ret) { \
+    ctype *restrict arr = (ctype *)ret;                                       \
+    const int n = (stop - start + step - 1) / step;                           \
+    NUMC_OMP_FOR                                                               \
+    for (int i = 0; i < n; i++) {                                             \
+      arr[i] = (ctype)(start + i * step);                                     \
+    }                                                                         \
+  }
+// clang-format on
+
+FOREACH_NUMC_TYPE(GEN_ARRAY_ARRANGE)
+#undef GEN_ARRAY_ARRANGE
+
+typedef void (*array_arrange_func)(const int start, const int stop,
+                                   const int step, void *ret);
+
+#define ARRAY_ARRANGE_ENTRY(numc_type, ctype) \
+  [NUMC_TYPE_##numc_type] = array_arrange_##numc_type,
+static const array_arrange_func array_arrange_funcs[] = {
+    FOREACH_NUMC_TYPE(ARRAY_ARRANGE_ENTRY)};
+#undef ARRAY_ARRANGE_ENTRY
 
 // =============================================================================
 //                          Array Creation Functions
@@ -226,6 +248,56 @@ Array *array_ones(size_t ndim, const size_t *shape, NUMC_TYPE numc_type) {
     return NULL;
 
   fill_funcs[arr->numc_type](arr, one_ptrs[arr->numc_type]);
+  return arr;
+}
+
+Array *array_arrange(const int start, const int stop, const int step,
+                     const NUMC_TYPE type) {
+  // Validate step
+  if (step == 0) {
+    numc_set_error(NUMC_ERR_INVALID,
+                   "numc: array_arrange: step cannot be zero");
+    return NULL;
+  }
+
+  // Validate range based on step direction
+  if (step > 0 && start >= stop) {
+    numc_set_error(NUMC_ERR_INVALID,
+                   "numc: array_arrange: start must be less than stop for "
+                   "positive step");
+    return NULL;
+  }
+
+  if (step < 0 && start <= stop) {
+    numc_set_error(NUMC_ERR_INVALID,
+                   "numc: array_arrange: start must be greater than stop for "
+                   "negative step");
+    return NULL;
+  }
+
+  // Calculate size using ceiling division for positive step
+  size_t size;
+  if (step > 0) {
+    size = (size_t)((stop - start + step - 1) / step);
+  } else {
+    size = (size_t)((start - stop - step - 1) / (-step));
+  }
+
+  // Create array
+  size_t shape[] = {size};
+  ArrayCreate d = {
+      .ndim = 1,
+      .shape = shape,
+      .numc_type = type,
+      .data = NULL,
+      .owns_data = true,
+  };
+  Array *arr = array_empty(&d);
+  if (!arr)
+    return NULL;
+
+  // Fill array using type-specific function
+  array_arrange_funcs[arr->numc_type](start, stop, step, arr->data);
   return arr;
 }
 
