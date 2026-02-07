@@ -4,6 +4,7 @@
  */
 
 #include "array.h"
+#include "error.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -157,26 +158,43 @@ static inline void array_strided_copy(const Array *src, size_t *src_indices,
 // =============================================================================
 
 int array_reshape(Array *array, size_t ndim, const size_t *shape) {
-  if (!array || !shape || ndim == 0)
-    return -1;
+  if (!array || !shape) {
+    numc_set_error(NUMC_ERR_NULL, "array_reshape: NULL argument");
+    return NUMC_ERR_NULL;
+  }
+  if (ndim == 0) {
+    numc_set_error(NUMC_ERR_INVALID, "array_reshape: ndim must be > 0");
+    return NUMC_ERR_INVALID;
+  }
 
-  if (!array->is_contiguous)
-    return -1;
+  if (!array->is_contiguous) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "array_reshape: array must be contiguous");
+    return NUMC_ERR_CONTIGUOUS;
+  }
 
   size_t new_size = 1;
   for (size_t i = 0; i < ndim; i++) {
-    if (shape[i] == 0)
-      return -1;
+    if (shape[i] == 0) {
+      numc_set_error(NUMC_ERR_INVALID,
+                     "array_reshape: shape dimension must be > 0");
+      return NUMC_ERR_INVALID;
+    }
 
     // Check for overflow before multiplication
-    if (new_size > SIZE_MAX / shape[i])
-      return -1;
+    if (new_size > SIZE_MAX / shape[i]) {
+      numc_set_error(NUMC_ERR_OVERFLOW, "array_reshape: size overflow");
+      return NUMC_ERR_OVERFLOW;
+    }
 
     new_size *= shape[i];
   }
 
-  if (new_size != array->size)
-    return -1;
+  if (new_size != array->size) {
+    numc_set_error(NUMC_ERR_SIZE,
+                   "array_reshape: new size does not match array size");
+    return NUMC_ERR_SIZE;
+  }
 
   bool old_on_heap = array->ndim > MAX_STACK_NDIM;
   bool new_use_stack = ndim <= MAX_STACK_NDIM;
@@ -203,8 +221,10 @@ int array_reshape(Array *array, size_t ndim, const size_t *shape) {
   } else {
     // New shape needs heap allocation
     size_t *new_shape = malloc(2 * ndim * sizeof(size_t));
-    if (!new_shape)
-      return -1;
+    if (!new_shape) {
+      numc_set_error(NUMC_ERR_ALLOC, "array_reshape: allocation failed");
+      return NUMC_ERR_ALLOC;
+    }
     size_t *new_strides = new_shape + ndim;
 
     for (size_t i = 0; i < ndim; i++)
@@ -223,7 +243,7 @@ int array_reshape(Array *array, size_t ndim, const size_t *shape) {
 
   array->ndim = ndim;
 
-  return 0;
+  return NUMC_OK;
 }
 
 // =============================================================================
@@ -231,22 +251,28 @@ int array_reshape(Array *array, size_t ndim, const size_t *shape) {
 // =============================================================================
 
 int array_transpose(Array *array, size_t *axes) {
-  if (!array || !axes)
-    return -1;
+  if (!array || !axes) {
+    numc_set_error(NUMC_ERR_NULL, "array_transpose: NULL argument");
+    return NUMC_ERR_NULL;
+  }
 
   // Validate axes: each value must be < ndim and no duplicates
   size_t seen_buf[MAX_STACK_NDIM] = {0};
   size_t *seen = (array->ndim <= MAX_STACK_NDIM)
                      ? seen_buf
                      : calloc(array->ndim, sizeof(size_t));
-  if (array->ndim > MAX_STACK_NDIM && !seen)
-    return -1;
+  if (array->ndim > MAX_STACK_NDIM && !seen) {
+    numc_set_error(NUMC_ERR_ALLOC, "array_transpose: allocation failed");
+    return NUMC_ERR_ALLOC;
+  }
 
   for (size_t i = 0; i < array->ndim; i++) {
     if (axes[i] >= array->ndim || seen[axes[i]]) {
       if (array->ndim > MAX_STACK_NDIM)
         free(seen);
-      return -1;
+      numc_set_error(NUMC_ERR_AXIS,
+                     "array_transpose: invalid or duplicate axis");
+      return NUMC_ERR_AXIS;
     }
     seen[axes[i]] = 1;
   }
@@ -264,7 +290,8 @@ int array_transpose(Array *array, size_t *axes) {
   if ((!new_shape || !new_strides) && !use_stack) {
     free(new_shape);
     free(new_strides);
-    return -1;
+    numc_set_error(NUMC_ERR_ALLOC, "array_transpose: allocation failed");
+    return NUMC_ERR_ALLOC;
   }
 
   for (size_t i = 0; i < array->ndim; i++) {
@@ -282,7 +309,7 @@ int array_transpose(Array *array, size_t *axes) {
 
   array->is_contiguous = array_is_contiguous(array);
 
-  return 0;
+  return NUMC_OK;
 }
 
 // =============================================================================

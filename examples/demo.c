@@ -11,8 +11,8 @@ void print_array_info(const Array *arr, const char *name) {
     if (i < arr->ndim - 1)
       printf(", ");
   }
-  printf("], size=%zu, numc_type=%d, contiguous=%s\n", arr->size, arr->numc_type,
-         array_is_contiguous(arr) ? "yes" : "no");
+  printf("], size=%zu, numc_type=%d, contiguous=%s\n", arr->size,
+         arr->numc_type, array_is_contiguous(arr) ? "yes" : "no");
 }
 
 void print_int_array(const Array *arr) {
@@ -68,6 +68,20 @@ void demo_array_creation(void) {
       .owns_data = true,
   };
   Array *arr = array_create(&arr_create);
+  print_array_info(arr, "arr");
+  print_int_array(arr);
+  array_free(arr);
+
+  printf("\n4. Creating empty array:\n");
+  // Create empty array
+  ArrayCreate arr_create_empty = {
+      .ndim = 2,
+      .shape = arr_shape,
+      .numc_type = NUMC_TYPE_INT,
+      .data = NULL,
+      .owns_data = true,
+  };
+  arr = array_empty(&arr_create_empty);
   print_array_info(arr, "arr");
   print_int_array(arr);
   array_free(arr);

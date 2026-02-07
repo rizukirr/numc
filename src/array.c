@@ -5,10 +5,10 @@
 
 #include "array.h"
 #include "alloc.h"
+#include "error.h"
 #include "types.h"
 
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -41,8 +41,9 @@ static inline void array_fill_UBYTE(Array *arr, const void *elem) {
     const ctype value = *((const ctype *)elem);                                \
     ctype *restrict data = __builtin_assume_aligned(arr->data, NUMC_ALIGN);    \
     const size_t n = arr->size;                                                \
-    _Pragma("omp parallel for schedule(static) if(n > 100000)")                \
-    for (size_t i = 0; i < n; i++) {                                           \
+    _Pragma(                                                                   \
+        "omp parallel for schedule(static) if(n > 100000)") for (size_t i = 0; \
+                                                                 i < n; i++) { \
       data[i] = value;                                                         \
     }                                                                          \
   }
@@ -81,15 +82,32 @@ static const void *const one_ptrs[] = {FOREACH_NUMC_TYPE(ONE_PTR_ENTRY)};
 //                          Array Creation Functions
 // =============================================================================
 
-Array *array_create(const ArrayCreate *src) {
-  if (!src || src->ndim == 0 || !src->shape)
+Array *array_empty(const ArrayCreate *src) {
+  if (!src) {
+    numc_set_error(NUMC_ERR_NULL,
+                   "numc: array_empty: NULL argument, maybe you forgot to "
+                   "initialize the array_create struct?");
     return NULL;
+  }
+
+  if (src->ndim == 0) {
+    numc_set_error(NUMC_ERR_INVALID, "numc: array_empty: ndim must be > 0");
+    return NULL;
+  }
+
+  if (!src->shape) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_empty: NULL shape");
+    return NULL;
+  }
 
   size_t elem_size = numc_type_size(src->numc_type);
 
   Array *array = malloc(sizeof(Array));
-  if (!array)
+  if (!array) {
+    numc_set_error(NUMC_ERR_ALLOC,
+                   "numc: array_empty: allocation failed for array struct");
     return NULL;
+  }
 
   array->ndim = src->ndim;
   array->numc_type = src->numc_type;
@@ -105,6 +123,8 @@ Array *array_create(const ArrayCreate *src) {
     array->strides = array->shape + src->ndim;
     if (!array->shape) {
       free(array);
+      numc_set_error(NUMC_ERR_ALLOC,
+                     "numc: array_empty: allocation failed for shape buffer");
       return NULL;
     }
   }
@@ -119,6 +139,9 @@ Array *array_create(const ArrayCreate *src) {
       if (!use_stack)
         free(array->shape);
       free(array);
+      numc_set_error(NUMC_ERR_OVERFLOW,
+                     "array creation: overflow in shape dimensions, shape "
+                     "too large");
       return NULL;
     }
     array->size *= src->shape[i];
@@ -129,22 +152,40 @@ Array *array_create(const ArrayCreate *src) {
     array->strides[i] = array->strides[i + 1] * src->shape[i + 1];
 
   array->capacity = array->size;
-  if (src->owns_data) {
-    array->data = numc_malloc(NUMC_ALIGN, array->size * elem_size);
 
-    if (!array->data) {
-      if (!use_stack)
-        free(array->shape);
-      free(array);
-      return NULL;
-    }
+  array->data = numc_malloc(NUMC_ALIGN, array->size * elem_size);
 
-    if (src->data != NULL)
-      memcpy(array->data, src->data, array->size * elem_size);
-
-  } else {
-    array->data = (void *)src->data;
+  if (!array->data) {
+    if (!use_stack)
+      free(array->shape);
+    free(array);
+    numc_set_error(NUMC_ERR_ALLOC,
+                   "array creation: allocation failed for data buffer");
+    return NULL;
   }
+
+  return array;
+}
+
+Array *array_create(const ArrayCreate *src) {
+  if (!src)
+    return NULL;
+
+  Array *array = array_empty(src);
+  if (!array)
+    return NULL;
+
+  if (!src->owns_data) {
+    numc_free(array->data);
+    array->data = (void *)src->data;
+    array->owns_data = false;
+    return array;
+  }
+
+  if (src->data != NULL)
+    memcpy(array->data, src->data, array->size * array->elem_size);
+  else
+    memset(array->data, 0, array->size * array->elem_size);
 
   return array;
 }
@@ -158,16 +199,11 @@ Array *array_zeros(size_t ndim, const size_t *shape, NUMC_TYPE numc_type) {
       .owns_data = true,
   };
 
-  Array *arr = array_create(&src);
-  if (!arr)
-    return NULL;
-
-  memset(arr->data, 0, arr->size * arr->elem_size);
-  return arr;
+  return array_create(&src);
 }
 
 Array *array_full(ArrayCreate *spec, const void *elem) {
-  Array *arr = array_create(spec);
+  Array *arr = array_empty(spec);
   if (!arr)
     return NULL;
 
@@ -185,7 +221,7 @@ Array *array_ones(size_t ndim, const size_t *shape, NUMC_TYPE numc_type) {
       .owns_data = true,
   };
 
-  Array *arr = array_create(&src);
+  Array *arr = array_empty(&src);
   if (!arr)
     return NULL;
 
@@ -210,9 +246,10 @@ void array_free(Array *array) {
 // =============================================================================
 
 size_t array_offset(const Array *array, const size_t *indices) {
-  if (!array || !indices)
-    return 0;
-
+  if (!array || !indices) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_offset: NULL argument");
+    return NUMC_OK;
+  }
   size_t offset = 0;
   for (size_t i = 0; i < array->ndim; i++) {
     offset += indices[i] * array->strides[i];
@@ -222,20 +259,27 @@ size_t array_offset(const Array *array, const size_t *indices) {
 }
 
 int array_bounds_check(const Array *array, const size_t *indices) {
-  if (!array || !indices)
-    return -1;
-
-  for (size_t i = 0; i < array->ndim; i++) {
-    if (indices[i] >= array->shape[i])
-      return -1;
+  if (!array || !indices) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_bounds_check: NULL argument");
+    return NUMC_ERR_NULL;
   }
 
-  return 0;
+  for (size_t i = 0; i < array->ndim; i++) {
+    if (indices[i] >= array->shape[i]) {
+      numc_set_error(NUMC_ERR_BOUNDS,
+                     "array_bounds_check: index out of bounds");
+      return NUMC_ERR_BOUNDS;
+    }
+  }
+
+  return NUMC_OK;
 }
 
 void *array_get(const Array *array, const size_t *indices) {
-  if (!array || !indices)
+  if (!array || !indices) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_get: NULL argument passed");
     return NULL;
+  }
 
   size_t offset = array_offset(array, indices);
   return (char *)array->data + offset;
@@ -245,18 +289,20 @@ void *array_get(const Array *array, const size_t *indices) {
 //                          Array Properties
 // =============================================================================
 
-int array_is_contiguous(const Array *array) {
-  if (!array || array->ndim == 0)
-    return 0;
+bool array_is_contiguous(const Array *array) {
+  if (!array || array->ndim == 0) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_is_contiguous: NULL argument");
+    return false;
+  }
 
   size_t expected = array->elem_size;
   for (size_t i = array->ndim; i-- > 0;) {
     if (array->strides[i] != expected)
-      return 0;
+      return false;
     expected *= array->shape[i];
   }
 
-  return 1;
+  return true;
 }
 
 // =============================================================================
@@ -265,13 +311,17 @@ int array_is_contiguous(const Array *array) {
 
 Array *array_slice(Array *base, const size_t *start, const size_t *stop,
                    const size_t *step) {
-  if (!base || !start || !stop || !step)
+  if (!base || !start || !stop || !step) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_slice: NULL argument");
     return NULL;
+  }
 
   // Lightweight view allocation — skip array_create overhead
   Array *view = malloc(sizeof(Array));
-  if (!view)
+  if (!view) {
+    numc_set_error(NUMC_ERR_ALLOC, "numc: array_slice: allocation failed");
     return NULL;
+  }
 
   view->ndim = base->ndim;
   bool use_stack = base->ndim <= MAX_STACK_NDIM;
@@ -282,6 +332,8 @@ Array *array_slice(Array *base, const size_t *start, const size_t *stop,
     view->shape = malloc(2 * base->ndim * sizeof(size_t));
     if (!view->shape) {
       free(view);
+      numc_set_error(NUMC_ERR_ALLOC,
+                     "numc: array_slice: allocation failed for shape buffer");
       return NULL;
     }
     view->strides = view->shape + base->ndim;
@@ -295,10 +347,7 @@ Array *array_slice(Array *base, const size_t *start, const size_t *stop,
   for (size_t i = 0; i < base->ndim; i++) {
     if (start[i] >= base->shape[i] || stop[i] > base->shape[i] ||
         start[i] >= stop[i] || step[i] == 0) {
-      fprintf(stderr,
-              "array_slice: invalid slice at dimension %zu "
-              "(start=%zu, stop=%zu, step=%zu, shape=%zu)\n",
-              i, start[i], stop[i], step[i], base->shape[i]);
+      numc_set_error(NUMC_ERR_INVALID, "array_slice: invalid slice parameters");
       if (!use_stack)
         free(view->shape);
       free(view);
@@ -330,8 +379,10 @@ Array *array_slice(Array *base, const size_t *start, const size_t *stop,
  * compiler optimizes small fixed-size memcpy (1/2/4/8 bytes) into single
  * load/store instructions.
  */
-static inline void strided_to_contiguous_copy_general(
-    size_t *src_indices, const Array *src, size_t count, char *dest) {
+static inline void strided_to_contiguous_copy_general(size_t *src_indices,
+                                                      const Array *src,
+                                                      size_t count,
+                                                      char *dest) {
 
   const size_t *restrict strides = src->strides;
   const char *restrict src_data = (const char *)src->data;
@@ -404,8 +455,10 @@ void increment_indices(size_t *indices, const size_t *shape, size_t ndim) {
 }
 
 Array *array_copy(const Array *src) {
-  if (!src)
+  if (!src) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_copy: NULL argument");
     return NULL;
+  }
 
   if (src->is_contiguous) {
     ArrayCreate d = {
@@ -436,6 +489,8 @@ Array *array_copy(const Array *src) {
                         : calloc(src->ndim, sizeof(size_t));
   if (src->ndim > MAX_STACK_NDIM && !indices) {
     array_free(dst);
+    numc_set_error(NUMC_ERR_ALLOC,
+                   "numc: array_copy: allocation failed for indices buffer");
     return NULL;
   }
 
@@ -448,16 +503,21 @@ Array *array_copy(const Array *src) {
 }
 
 int array_ascontiguousarray(Array *arr) {
-  if (!arr)
-    return -1;
+  if (!arr) {
+    numc_set_error(NUMC_ERR_NULL, "array_ascontiguousarray: NULL argument");
+    return NUMC_ERR_NULL;
+  }
 
   if (arr->is_contiguous)
-    return 0;
+    return NUMC_OK;
 
   size_t total_bytes = arr->size * arr->elem_size;
   void *new_data = numc_malloc(NUMC_ALIGN, total_bytes);
-  if (!new_data)
-    return -1;
+  if (!new_data) {
+    numc_set_error(NUMC_ERR_ALLOC,
+                   "array_ascontiguousarray: allocation failed");
+    return NUMC_ERR_ALLOC;
+  }
 
   size_t indices_buf[MAX_STACK_NDIM] = {0};
   size_t *indices = (arr->ndim <= MAX_STACK_NDIM)
@@ -465,7 +525,9 @@ int array_ascontiguousarray(Array *arr) {
                         : calloc(arr->ndim, sizeof(size_t));
   if (arr->ndim > MAX_STACK_NDIM && !indices) {
     numc_free(new_data);
-    return -1;
+    numc_set_error(NUMC_ERR_ALLOC,
+                   "array_ascontiguousarray: indices allocation failed");
+    return NUMC_ERR_ALLOC;
   }
 
   strided_to_contiguous_copy(arr, indices, new_data, 0, arr->size);
@@ -488,5 +550,5 @@ int array_ascontiguousarray(Array *arr) {
 
   arr->is_contiguous = true;
 
-  return 0;
+  return NUMC_OK;
 }

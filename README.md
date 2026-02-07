@@ -132,15 +132,8 @@ Use AVX2/AVX-512 intrinsics for better control over memory access patterns:
 - Non-temporal stores for write-only data (`_mm_stream_si256`)
 - Aligned vs unaligned load optimization
 
-#### 3. **Multithreading**
-Parallelize operations across CPU cores to increase effective memory bandwidth:
-```c
-// Future API with OpenMP
-#pragma omp parallel for
-for (size_t i = 0; i < n; i += block_size) {
-    process_block(data + i, block_size);
-}
-```
+#### ~~3. **Multithreading**~~ ✅ Done
+OpenMP parallelization implemented across all math operations (binary ops, scalar ops, reductions) and fill functions. Operations automatically parallelize when array size exceeds 100K elements.
 
 #### 4. **Algorithm Fusion**
 Combine multiple operations to reduce memory traffic:
@@ -149,8 +142,8 @@ Combine multiple operations to reduce memory traffic:
 // Do: result = (a + b) * c;  (1 memory pass)
 ```
 
-#### 5. **Compressed Data Formats**
-Use lower-precision types when appropriate (FLOAT vs DOUBLE, INT16 vs INT32)
+#### ~~5. **Compressed Data Formats**~~ ✅ Already Supported
+The type system supports all precision levels (INT8-64, FLOAT, DOUBLE). Users can choose lower-precision types for better performance.
 
 ### Learning Resources
 
@@ -181,72 +174,31 @@ Use lower-precision types when appropriate (FLOAT vs DOUBLE, INT16 vs INT32)
 - ✅ SIMD auto-vectorization working (AVX2)
 - ✅ Cache-friendly for typical workloads (<10 MB)
 - ✅ Competitive with NumPy/BLAS for cache-resident data
-- 🔄 Memory-bound path optimizations planned (see roadmap above)
+- ✅ OpenMP multithreading for large arrays (>100K elements)
+- 🔄 Cache blocking and explicit SIMD intrinsics planned (see roadmap above)
 
 ## Progress
 
-### Array Creation
-- [x] `array_create` - Create array from specification
+### Completed
+- [x] `array_create` - Create array from specification (zeroed when no data)
+- [x] `array_empty` - Uninitialized array (fast, no zeroing)
 - [x] `array_zeros` - Zero-filled array
 - [x] `array_ones` - Ones-filled array
 - [x] `array_full` - Fill with value
 - [x] `array_free` - Free array memory
-- [ ] `array_arange` - Range of values
-- [ ] `array_linspace` - Linearly spaced values
-- [ ] `array_eye` - Identity matrix
-- [ ] `array_empty` - Uninitialized array
-
-### Element Access
 - [x] `array_get` / type-safe accessors - Get element pointer
 - [x] `array_offset` - Compute byte offset
 - [x] `array_bounds_check` - Bounds checking
-- [ ] `array_get_1d` / `_2d` / `_3d` - Fast dimensional access
-- [ ] Boolean/conditional indexing
-
-### Manipulation
 - [x] `array_reshape` - Reshape in-place (contiguous only)
 - [x] `array_slice` - Zero-copy view
 - [x] `array_copy` - Contiguous copy
 - [x] `array_concat` - Concatenate along axis
 - [x] `array_transpose` - Transpose
 - [x] `array_is_contiguous` - Contiguity check
-- [ ] `array_astype` - Type conversion
-- [ ] `array_flatten` / `array_ravel` - Flatten to 1D
-- [ ] `array_squeeze` / `array_expand_dims` - Dimension manipulation
-- [ ] `array_flip` - Reverse along axis
-- [ ] `array_broadcast_to` - Broadcasting
-- [ ] `array_vstack` / `array_hstack` / `array_hsplit` - Stack/split
-
-### Math Operations
 - [x] `array_add` / `sub` / `mul` / `div` - Element-wise binary ops
 - [x] `array_add_scalar` / `sub` / `mul` / `div` - Scalar ops
-- [ ] `array_matmul` - Matrix multiplication
-- [ ] `array_power` - Element-wise power
-- [ ] Broadcasting support
-
-### Reduction Operations
-- [x] `array_sum` / `array_min` / `array_max` / `array_dot`
-- [ ] Axis-based reductions (`sum_axis`, `mean_axis`)
-- [ ] `array_mean` / `array_prod` / `array_std`
-- [ ] `array_argmin` / `array_argmax`
-
-### Sorting & Searching
-- [ ] `array_sort` / `array_argsort`
-- [ ] `array_unique`
-
-### Comparison
-- [ ] `array_equal` / `array_allclose`
-- [ ] `array_where` / `array_nonzero`
-
-### I/O
+- [x] `array_sum` / `array_min` / `array_max` / `array_dot` - Reductions
 - [x] `array_print` - Print to stdout
-- [ ] Binary file I/O (`.npy` / `.npz`)
-- [ ] Text file I/O (CSV/TXT)
-
-### Random
-- [ ] `array_random` / `array_randint`
-
-### Performance
 - [x] Type-specific SIMD-ready kernels
 - [x] Auto-vectorization (AVX2/SSE)
 - [x] Separate 32-bit / 64-bit optimization strategies
@@ -255,10 +207,44 @@ Use lower-precision types when appropriate (FLOAT vs DOUBLE, INT16 vs INT32)
 - [x] 16-byte aligned allocation
 - [x] Stack allocation for small arrays (ndim <= 8)
 - [x] Comprehensive benchmark suite
+- [x] Multithreading (OpenMP) - binary ops, scalar ops, reductions, fill
+
+### Tier 1 — Foundation (implement next, other features depend on these)
+- [ ] `array_arange` - Range of values
+- [ ] `array_linspace` - Linearly spaced values
+- [ ] `array_flatten` / `array_ravel` - Flatten to 1D
+- [ ] `array_astype` - Type conversion (prerequisite for mixed-type math)
+- [ ] `array_equal` / `array_allclose` - Comparison (needed for reliable testing)
+
+### Tier 2 — Core Numeric (makes the library useful for real workloads)
+- [ ] `array_mean` / `array_prod` / `array_std` - Statistical reductions
+- [ ] Axis-based reductions (`sum_axis`, `mean_axis`)
+- [ ] `array_argmin` / `array_argmax`
+- [ ] `array_power` - Element-wise power
+- [ ] `array_matmul` - Matrix multiplication
+
+### Tier 3 — Shape Manipulation
+- [ ] `array_squeeze` / `array_expand_dims` - Dimension manipulation
+- [ ] `array_flip` - Reverse along axis
+- [ ] `array_vstack` / `array_hstack` / `array_hsplit` - Stack/split
+- [ ] `array_broadcast_to` - Broadcasting
+- [ ] Broadcasting support for math ops
+
+### Tier 4 — Nice to Have
+- [ ] `array_eye` - Identity matrix
+- [ ] `array_get_1d` / `_2d` / `_3d` - Fast dimensional access
+- [ ] Boolean/conditional indexing
+- [ ] `array_sort` / `array_argsort`
+- [ ] `array_unique`
+- [ ] `array_where` / `array_nonzero`
+- [ ] `array_random` / `array_randint`
+- [ ] Binary file I/O (`.npy` / `.npz`)
+- [ ] Text file I/O (CSV/TXT)
+
+### Performance (after API is stable)
 - [ ] Explicit SIMD intrinsics (SSE2/AVX2/NEON)
 - [ ] Runtime SIMD detection and dispatch
 - [ ] Arena allocator for temporary arrays
-- [ ] Multithreading (OpenMP/pthreads)
 
 ## License
 

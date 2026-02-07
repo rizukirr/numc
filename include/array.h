@@ -59,6 +59,16 @@ typedef struct {
 // =============================================================================
 
 /**
+ * @brief Create an empty array with the specified shape and data type.
+ *
+ * @param ndim  Number of dimensions.
+ * @param shape Array of dimension sizes.
+ * @param numc_type Data type of array elements.
+ * @return Pointer to the new array, or NULL on failure.
+ */
+Array *array_empty(const ArrayCreate *src);
+
+/**
  * @brief Create a new array with the specified shape and data type.
  *
  * @param ndim  Number of dimensions.
@@ -225,7 +235,7 @@ void increment_indices(size_t *indices, const size_t *shape, size_t ndim);
  * @param array Pointer to the array.
  * @return Non-zero if contiguous, 0 otherwise.
  */
-int array_is_contiguous(const Array *array);
+bool array_is_contiguous(const Array *array);
 
 // =============================================================================
 //                          Array Views & Slicing

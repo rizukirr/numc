@@ -94,7 +94,7 @@ void test_dot_mismatched(void) {
 
   NUMC_INT result = 0;
   int ret = array_dot(a, b, &result);
-  assert(ret == -1);
+  assert(ret < 0);
 
   array_free(a);
   array_free(b);
@@ -103,10 +103,10 @@ void test_dot_mismatched(void) {
 
 void test_reduce_null(void) {
   NUMC_INT result = 0;
-  assert(array_sum(NULL, &result) == -1);
-  assert(array_min(NULL, &result) == -1);
-  assert(array_max(NULL, &result) == -1);
-  assert(array_dot(NULL, NULL, &result) == -1);
+  assert(array_sum(NULL, &result) < 0);
+  assert(array_min(NULL, &result) < 0);
+  assert(array_max(NULL, &result) < 0);
+  assert(array_dot(NULL, NULL, &result) < 0);
   printf("  test_reduce_null\n");
 }
 

@@ -36,6 +36,7 @@ set(NUMC_SOURCES
     src/utils.c
     src/math.c
     src/alloc.c
+    src/error.c
     src/io.c
 )
 

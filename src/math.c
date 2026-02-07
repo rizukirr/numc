@@ -55,8 +55,7 @@
 
 #include "alloc.h"
 #include "array.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include "error.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -415,22 +414,33 @@ static const binary_op_func div_funcs[] = {FOREACH_NUMC_TYPE(DIV_FUNC_ENTRY)};
  */
 static int array_binary_op_out(const Array *a, const Array *b, Array *out,
                                const binary_op_func *op_funcs) {
-  if (!a || !b || !out)
-    return -1;
+  if (!a || !b || !out) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_binary_op: NULL argument");
+    return NUMC_ERR_NULL;
+  }
 
-  if (a->numc_type != b->numc_type || a->numc_type != out->numc_type ||
-      a->ndim != b->ndim || a->ndim != out->ndim)
-    return -1;
+  if (a->numc_type != b->numc_type || a->numc_type != out->numc_type) {
+    numc_set_error(NUMC_ERR_TYPE, "numc: array_binary_op: type mismatch");
+    return NUMC_ERR_TYPE;
+  }
+
+  if (a->ndim != b->ndim || a->ndim != out->ndim) {
+    numc_set_error(NUMC_ERR_SHAPE, "numc: array_binary_op: ndim mismatch");
+    return NUMC_ERR_SHAPE;
+  }
 
   if (!a->is_contiguous || !b->is_contiguous) {
-    fprintf(stderr, "ERROR: Array must be contiguous, you may need to call "
-                    "array_ascontiguousarray() first\n");
-    abort();
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_binary_op: arrays must be contiguous, call "
+                   "numc: array_ascontiguousarray() first");
+    return NUMC_ERR_CONTIGUOUS;
   }
 
   for (size_t i = 0; i < a->ndim; i++) {
-    if (a->shape[i] != b->shape[i] || a->shape[i] != out->shape[i])
-      return -1;
+    if (a->shape[i] != b->shape[i] || a->shape[i] != out->shape[i]) {
+      numc_set_error(NUMC_ERR_SHAPE, "numc: array_binary_op: shape mismatch");
+      return NUMC_ERR_SHAPE;
+    }
   }
 
   op_funcs[a->numc_type](a->data, b->data, out->data, a->size);
@@ -816,10 +826,9 @@ static const dot_func dot_funcs[] = {FOREACH_NUMC_TYPE(DOT_ENTRY)};
 // #  Scalar ops: out[i] = a[i] OP scalar                                      #
 // #  Same 3-tier pattern as binary ops (template → adapter → dispatch).       #
 // #                                                                           #
-// #  Note: scalar op functions have an "s" suffix in the name:                #
-// #    adds_INT, subs_INT, muls_INT, divs_INT                                 #
-// #  to distinguish from binary op functions (add_INT, sub_INT, etc.)         #
-// #                                                                           #
+// #  Note: scalar op functions have an "numc: s" suffix in the name: # #
+// adds_INT, subs_INT, muls_INT, divs_INT                                 # # to
+// distinguish from binary op functions (add_INT, sub_INT, etc.)         # # #
 // #############################################################################
 
 /**
@@ -1038,35 +1047,79 @@ static const scalar_op_func divs_funcs[] = {FOREACH_NUMC_TYPE(DIVS_ENTRY)};
 // #############################################################################
 
 int array_sum(const Array *a, void *out) {
-  if (!a || !out || !a->is_contiguous || a->size == 0)
-    return -1;
+  if (!a || !out) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_sum: NULL argument");
+    return NUMC_ERR_NULL;
+  }
+  if (!a->is_contiguous) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_sum: array must be contiguous");
+    return NUMC_ERR_CONTIGUOUS;
+  }
+  if (a->size == 0) {
+    numc_set_error(NUMC_ERR_INVALID, "numc: array_sum: empty array");
+    return NUMC_ERR_INVALID;
+  }
   sum_funcs[a->numc_type](a->data, out, a->size);
-  return 0;
+  return NUMC_OK;
 }
 
 int array_min(const Array *a, void *out) {
-  if (!a || !out || !a->is_contiguous || a->size == 0)
-    return -1;
+  if (!a || !out) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_min: NULL argument");
+    return NUMC_ERR_NULL;
+  }
+  if (!a->is_contiguous) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_min: array must be contiguous");
+    return NUMC_ERR_CONTIGUOUS;
+  }
+  if (a->size == 0) {
+    numc_set_error(NUMC_ERR_INVALID, "numc: array_min: empty array");
+    return NUMC_ERR_INVALID;
+  }
   min_funcs[a->numc_type](a->data, out, a->size);
-  return 0;
+  return NUMC_OK;
 }
 
 int array_max(const Array *a, void *out) {
-  if (!a || !out || !a->is_contiguous || a->size == 0)
-    return -1;
+  if (!a || !out) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_max: NULL argument");
+    return NUMC_ERR_NULL;
+  }
+  if (!a->is_contiguous) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_max: array must be contiguous");
+    return NUMC_ERR_CONTIGUOUS;
+  }
+  if (a->size == 0) {
+    numc_set_error(NUMC_ERR_INVALID, "numc: array_max: empty array");
+    return NUMC_ERR_INVALID;
+  }
   max_funcs[a->numc_type](a->data, out, a->size);
-  return 0;
+  return NUMC_OK;
 }
 
 int array_dot(const Array *a, const Array *b, void *out) {
-  if (!a || !b || !out)
-    return -1;
-  if (!a->is_contiguous || !b->is_contiguous)
-    return -1;
-  if (a->numc_type != b->numc_type || a->size != b->size || a->size == 0)
-    return -1;
+  if (!a || !b || !out) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_dot: NULL argument");
+    return NUMC_ERR_NULL;
+  }
+  if (!a->is_contiguous || !b->is_contiguous) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_dot: arrays must be contiguous");
+    return NUMC_ERR_CONTIGUOUS;
+  }
+  if (a->numc_type != b->numc_type) {
+    numc_set_error(NUMC_ERR_TYPE, "numc: array_dot: type mismatch");
+    return NUMC_ERR_TYPE;
+  }
+  if (a->size != b->size || a->size == 0) {
+    numc_set_error(NUMC_ERR_SHAPE, "numc: array_dot: size mismatch or empty");
+    return NUMC_ERR_SHAPE;
+  }
   dot_funcs[a->numc_type](a->data, b->data, out, a->size);
-  return 0;
+  return NUMC_OK;
 }
 
 /**
@@ -1080,18 +1133,31 @@ int array_dot(const Array *a, const Array *b, void *out) {
  */
 static int array_scalar_op(const Array *a, const void *scalar, Array *out,
                            const scalar_op_func *op_funcs) {
-  if (!a || !scalar || !out)
-    return -1;
-  if (a->numc_type != out->numc_type || a->ndim != out->ndim)
-    return -1;
-  if (!a->is_contiguous || !out->is_contiguous)
-    return -1;
+  if (!a || !scalar || !out) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_scalar_op: NULL argument");
+    return NUMC_ERR_NULL;
+  }
+  if (a->numc_type != out->numc_type) {
+    numc_set_error(NUMC_ERR_TYPE, "numc: array_scalar_op: type mismatch");
+    return NUMC_ERR_TYPE;
+  }
+  if (a->ndim != out->ndim) {
+    numc_set_error(NUMC_ERR_SHAPE, "numc: array_scalar_op: ndim mismatch");
+    return NUMC_ERR_SHAPE;
+  }
+  if (!a->is_contiguous || !out->is_contiguous) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_scalar_op: arrays must be contiguous");
+    return NUMC_ERR_CONTIGUOUS;
+  }
   for (size_t i = 0; i < a->ndim; i++) {
-    if (a->shape[i] != out->shape[i])
-      return -1;
+    if (a->shape[i] != out->shape[i]) {
+      numc_set_error(NUMC_ERR_SHAPE, "numc: array_scalar_op: shape mismatch");
+      return NUMC_ERR_SHAPE;
+    }
   }
   op_funcs[a->numc_type](a->data, scalar, out->data, a->size);
-  return 0;
+  return NUMC_OK;
 }
 
 int array_add_scalar(const Array *a, const void *scalar, Array *out) {

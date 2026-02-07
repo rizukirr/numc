@@ -143,11 +143,10 @@ void test_array_bounds_check_invalid(void) {
                                            .owns_data = true});
 
   // Out of bounds indices should return -1
-  assert(array_bounds_check(arr, (size_t[]){3, 0}) == -1); // row out of bounds
-  assert(array_bounds_check(arr, (size_t[]){0, 4}) == -1); // col out of bounds
-  assert(array_bounds_check(arr, (size_t[]){3, 4}) == -1); // both out of bounds
-  assert(array_bounds_check(arr, (size_t[]){10, 10}) ==
-         -1); // far out of bounds
+  assert(array_bounds_check(arr, (size_t[]){3, 0}) < 0); // row out of bounds
+  assert(array_bounds_check(arr, (size_t[]){0, 4}) < 0); // col out of bounds
+  assert(array_bounds_check(arr, (size_t[]){3, 4}) < 0); // both out of bounds
+  assert(array_bounds_check(arr, (size_t[]){10, 10}) < 0); // far out of bounds
 
   array_free(arr);
   printf("  ✓ Invalid indices rejected\n");
@@ -162,11 +161,11 @@ void test_array_bounds_check_null(void) {
                                            .data = NULL,
                                            .owns_data = true});
 
-  // NULL array should return -1
-  assert(array_bounds_check(NULL, (size_t[]){0}) == -1);
+  // NULL array should return error
+  assert(array_bounds_check(NULL, (size_t[]){0}) < 0);
 
-  // NULL indices should return -1
-  assert(array_bounds_check(arr, NULL) == -1);
+  // NULL indices should return error
+  assert(array_bounds_check(arr, NULL) < 0);
 
   array_free(arr);
   printf("  ✓ NULL input handling works\n");

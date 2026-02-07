@@ -111,7 +111,7 @@ void test_add_mismatched_shapes(void) {
   Array *c = array_zeros(2, shape1, NUMC_TYPE_INT);
 
   int result = array_add(a, b, c);
-  assert(result == -1); // Should fail
+  assert(result < 0); // Should fail
 
   array_free(a);
   array_free(b);
@@ -126,7 +126,7 @@ void test_add_mismatched_types(void) {
   Array *c = array_zeros(2, shape, NUMC_TYPE_INT);
 
   int result = array_add(a, b, c);
-  assert(result == -1); // Should fail
+  assert(result < 0); // Should fail
 
   array_free(a);
   array_free(b);

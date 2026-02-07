@@ -102,7 +102,7 @@ void test_scalar_mismatched_numc_type(void) {
 
   NUMC_INT scalar = 1;
   int ret = array_add_scalar(a, &scalar, out);
-  assert(ret == -1);
+  assert(ret < 0);
 
   array_free(a);
   array_free(out);
@@ -114,8 +114,8 @@ void test_scalar_null(void) {
   Array *a = array_zeros(1, shape, NUMC_TYPE_INT);
   Array *out = array_zeros(1, shape, NUMC_TYPE_INT);
 
-  assert(array_add_scalar(NULL, NULL, out) == -1);
-  assert(array_add_scalar(a, NULL, out) == -1);
+  assert(array_add_scalar(NULL, NULL, out) < 0);
+  assert(array_add_scalar(a, NULL, out) < 0);
 
   array_free(a);
   array_free(out);

@@ -200,7 +200,7 @@ void test_transpose_null_array(void) {
   
   size_t axes[] = {1, 0};
   int result = array_transpose(NULL, axes);
-  assert(result == -1);
+  assert(result < 0);
   
   printf("  ✓ NULL array handled correctly\n");
 }
