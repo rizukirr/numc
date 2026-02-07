@@ -10,3 +10,4 @@ docs
 Testing/Temporary
 .github/copilot-instructions.md
 *.s
+build-release

@@ -586,10 +586,12 @@ FOREACH_NUMC_TYPE_64BIT(GENERATE_MAX_FUNC_64BIT)
 // ========================== DOT: acc += a[i] * b[i] ==========================
 
 /**
- * @brief [Template] Dot product with single accumulator (32-bit types).
+ * @brief [Template] Dot product (32-bit types, no OpenMP).
  *
- * Compiler auto-vectorizes integer types: multiply (pmulld) then accumulate
- * (paddd). FLOAT uses mulps + addps with OpenMP reduction.
+ * OpenMP outlining forces accumulators to memory, preventing vectorization.
+ * Instead, we rely on the compiler's vectorizer with interleave hints to
+ * create multiple independent vector accumulators (breaking the vaddps
+ * dependency chain).
  */
 #define GENERATE_DOT_FUNC(numc_type_name, c_type)                              \
   static inline void dot_##numc_type_name(                                     \
@@ -597,7 +599,7 @@ FOREACH_NUMC_TYPE_64BIT(GENERATE_MAX_FUNC_64BIT)
     const c_type *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);       \
     const c_type *restrict pb = __builtin_assume_aligned(b, NUMC_ALIGN);       \
     c_type acc = 0;                                                            \
-    NUMC_OMP_REDUCE_SUM                                                        \
+    NUMC_PRAGMA(clang loop vectorize_width(8) interleave_count(4))             \
     for (size_t i = 0; i < n; i++) {                                           \
       acc += pa[i] * pb[i];                                                    \
     }                                                                          \
@@ -609,8 +611,7 @@ FOREACH_NUMC_TYPE_32BIT(GENERATE_DOT_FUNC)
 #undef GENERATE_DOT_FUNC
 
 /**
- * @brief [Template] Dot product with single accumulator (64-bit types, no
- * alignment hints).
+ * @brief [Template] Dot product (64-bit types, no OpenMP, no alignment hints).
  */
 #define GENERATE_DOT_FUNC_64BIT(numc_type_name, c_type)                        \
   static inline void dot_##numc_type_name(                                     \
@@ -618,7 +619,7 @@ FOREACH_NUMC_TYPE_32BIT(GENERATE_DOT_FUNC)
     const c_type *restrict pa = (const c_type *)a;                             \
     const c_type *restrict pb = (const c_type *)b;                             \
     c_type acc = 0;                                                            \
-    NUMC_OMP_REDUCE_SUM                                                        \
+    NUMC_PRAGMA(clang loop vectorize_width(8) interleave_count(4))             \
     for (size_t i = 0; i < n; i++) {                                           \
       acc += pa[i] * pb[i];                                                    \
     }                                                                          \
