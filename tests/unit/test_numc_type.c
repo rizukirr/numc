@@ -3,7 +3,7 @@
  * @brief Test NUMC_TYPE system functionality
  */
 
-#include "types.h"
+#include <numc/dtype.h>
 #include <assert.h>
 #include <stdio.h>
 

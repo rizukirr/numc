@@ -3,8 +3,7 @@
  * @brief Test scalar-array operations (adds, subs, muls, divs)
  */
 
-#include "array.h"
-#include "types.h"
+#include <numc/numc.h>
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -125,9 +124,10 @@ void test_scalar_null(void) {
 void test_scalar_all_numc_types(void) {
   size_t shape[] = {8};
 
-  NUMC_TYPE types[] = {NUMC_TYPE_BYTE,  NUMC_TYPE_UBYTE, NUMC_TYPE_SHORT, NUMC_TYPE_USHORT,
-                   NUMC_TYPE_INT,   NUMC_TYPE_UINT,  NUMC_TYPE_LONG,  NUMC_TYPE_ULONG,
-                   NUMC_TYPE_FLOAT, NUMC_TYPE_DOUBLE};
+  NUMC_TYPE types[] = {NUMC_TYPE_BYTE,   NUMC_TYPE_UBYTE, NUMC_TYPE_SHORT,
+                       NUMC_TYPE_USHORT, NUMC_TYPE_INT,   NUMC_TYPE_UINT,
+                       NUMC_TYPE_LONG,   NUMC_TYPE_ULONG, NUMC_TYPE_FLOAT,
+                       NUMC_TYPE_DOUBLE};
 
   for (size_t t = 0; t < sizeof(types) / sizeof(NUMC_TYPE); t++) {
     Array *a = array_ones(1, shape, types[t]);

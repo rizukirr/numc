@@ -3,8 +3,7 @@
  * @brief Test array slicing functionality
  */
 
-#include "array.h"
-#include "types.h"
+#include <numc/numc.h>
 #include <assert.h>
 #include <stdio.h>
 

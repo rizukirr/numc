@@ -3,9 +3,7 @@
  * @brief Test array_linspace function
  */
 
-#include "array.h"
-#include "error.h"
-#include "types.h"
+#include <numc/numc.h>
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>

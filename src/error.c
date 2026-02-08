@@ -1,4 +1,4 @@
-#include "error.h"
+#include <numc/error.h>
 #include <string.h>
 
 #define MAX_ERROR_LEN 256

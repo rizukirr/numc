@@ -2,18 +2,153 @@
  * @file array.h
  * @brief Multi-dimensional array library for C.
  *
- * Provides a generic N-dimensional array structure with support for
- * creating, accessing, reshaping, slicing, and copying arrays of any
- * element type.
+ * Provides the Array struct and all operations: creation, destruction,
+ * element access, slicing, copying, type conversion, reshape, transpose,
+ * concatenation, flatten, and printing.
  */
 
 #ifndef NUMC_ARRAY_H
 #define NUMC_ARRAY_H
 
-#include "create.h"
+#include "dtype.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
+
+#define MAX_STACK_NDIM 8
+
+// =============================================================================
+//                          Array Struct & Creation Types
+// =============================================================================
+
+/**
+ * @brief Multi-dimensional array structure.
+ *
+ * @param data      Pointer to the raw data buffer.
+ * @param shape     Array of dimension sizes (length = ndim).
+ * @param strides   Array of byte strides for each dimension (length = ndim).
+ * @param ndim      Number of dimensions.
+ * @param numc_type     Data type of array elements.
+ * @param elem_size Size of each element in bytes.
+ * @param size      Total number of elements.
+ * @param capacity  Allocated capacity in number of elements (for dynamic
+ * growth).
+ * @param owns_data Non-zero if this array owns its data buffer.
+ */
+typedef struct {
+  void *data;
+  size_t *shape;
+  size_t *strides;
+  size_t ndim;
+  NUMC_TYPE numc_type;
+  size_t elem_size;
+  size_t size;
+  size_t capacity;
+  bool is_contiguous;
+  bool owns_data;
+  size_t _shape_buff[MAX_STACK_NDIM];
+  size_t _strides_buff[MAX_STACK_NDIM];
+} Array;
+
+typedef struct {
+  const size_t ndim;
+  const size_t *shape;
+  const NUMC_TYPE numc_type;
+  const void *data;
+  const bool owns_data;
+} ArrayCreate;
+
+// =============================================================================
+//                          Array Creation & Destruction
+// =============================================================================
+
+/**
+ * @brief Create an empty array with the specified shape and data type.
+ *
+ * @param ndim  Number of dimensions.
+ * @param shape Array of dimension sizes.
+ * @param numc_type Data type of array elements.
+ * @return Pointer to the new array, or NULL on failure.
+ */
+Array *array_empty(const ArrayCreate *src);
+
+/**
+ * @brief Create a new array with the specified shape and data type.
+ *
+ * @param ndim  Number of dimensions.
+ * @param shape Array of dimension sizes.
+ * @param numc_type Data type of array elements.
+ * @param data  Pointer to contiguous source data to copy.
+ * @return Pointer to the new array, or NULL on failure.
+ */
+Array *array_create(const ArrayCreate *src);
+
+/**
+ * @brief Create an array filled with zeros.
+ *
+ * @param ndim  Number of dimensions.
+ * @param shape Shape of the array.
+ * @param numc_type Data type of array elements.
+ * @return Pointer to a new array, or NULL on failure.
+ */
+Array *array_zeros(size_t ndim, const size_t *shape, NUMC_TYPE numc_type);
+
+/**
+ * @brief Create an array filled with ones.
+ *
+ * @param ndim      Number of dimensions.
+ * @param shape     Shape of the array.
+ * @param numc_type     Data type of array elements.
+ * @return Pointer to a new array, or NULL on failure.
+ */
+Array *array_ones(size_t ndim, const size_t *shape, NUMC_TYPE numc_type);
+
+/**
+ * @brief Create an array filled with a single value.
+ *
+ * @param spec  Array specification (ndim, shape, numc_type).
+ * @param elem  Pointer to the element to fill with.
+ * @return Pointer to a new array, or NULL on failure.
+ */
+Array *array_full(ArrayCreate *spec, const void *elem);
+
+/**
+ * @brief Create 1D array with a range of evenly spaced values.
+ *
+ * @param start Start value.
+ * @param stop  Stop value.
+ * @param step  Step size.
+ *
+ * @return Pointer to a new array, or NULL on failure.
+ */
+Array *array_arange(const int start, const int stop, const int step,
+                    const NUMC_TYPE type);
+
+/**
+ * @brief Create 1D array of evenly or linearly spaced number over a
+ * specified interval.
+ *
+ * If `num` is evenly divisible by `step`, then the last element is
+ * `stop-1`, otherwise it is `stop`.
+ *
+ * @param start Start value.
+ * @param stop  Stop value.
+ * @param num   Number of elements.
+ * @param type  Data type of array elements.
+ *
+ * @return Pointer to a new array, or NULL on failure.
+ */
+Array *array_linspace(const int start, const int stop, const size_t num,
+                      const NUMC_TYPE type);
+
+/**
+ * @brief Free an array and its associated memory.
+ *
+ * Only frees the data buffer if the array owns it.
+ *
+ * @param array Pointer to the array to free.
+ */
+void array_free(Array *array);
 
 // =============================================================================
 //                          Element Access
@@ -72,7 +207,8 @@ static inline NUMC_FLOAT *array_get_float32(const Array *array,
 
 /**
  * @brief Get pointer to float64 element at indices (with type assertion).
- * @param array   Pointer to the array (must have numc_type == NUMC_TYPE_DOUBLE).
+ * @param array   Pointer to the array (must have numc_type ==
+ * NUMC_TYPE_DOUBLE).
  * @param indices Array of indices for each dimension.
  * @return Pointer to the element as NUMC_DOUBLE*.
  */
@@ -144,7 +280,8 @@ static inline NUMC_SHORT *array_get_int16(const Array *array,
 
 /**
  * @brief Get pointer to uint16 element at indices (with type assertion).
- * @param array   Pointer to the array (must have numc_type == NUMC_TYPE_USHORT).
+ * @param array   Pointer to the array (must have numc_type ==
+ * NUMC_TYPE_USHORT).
  * @param indices Array of indices for each dimension.
  * @return Pointer to the element as NUMC_USHORT*.
  */
@@ -250,139 +387,102 @@ Array *array_copy(const Array *src);
 int array_ascontiguousarray(Array *arr);
 
 // =============================================================================
-//                          Mathematical Operations
+//                          Type Conversion
 // =============================================================================
 
 /**
- * @brief Element-wise addition with pre-allocated output (no allocation).
+ * @brief Convert array to a different data type in-place.
  *
- * All arrays must be contiguous, have the same numc_type, shape, and ndim.
- * This function avoids memory allocation by writing to a pre-allocated array.
+ * Converts all elements from the current type to the specified target type.
+ * The conversion is performed in-place, reallocating memory if needed when
+ * the new type requires more space than currently allocated.
  *
- * @param a   Pointer to the first input array.
- * @param b   Pointer to the second input array.
- * @param out Pointer to the output array (must be pre-allocated).
- * @return 0 on success, -1 on failure.
+ * @param array Pointer to the array to convert (must own its data).
+ * @param type  Target data type.
+ * @return 0 on success, error code on failure.
+ *
+ * @warning Cannot convert views (arrays with owns_data=false). The array must
+ *          be contiguous or will be converted to contiguous first.
+ *
+ * @note Narrowing conversions (e.g., float -> int, int64 -> int8) may result
+ *       in data loss due to truncation or overflow.
  */
-int array_add(const Array *a, const Array *b, Array *out);
-
-/**
- * @brief Element-wise subtraction with pre-allocated output (no allocation).
- *
- * All arrays must be contiguous, have the same numc_type, shape, and ndim.
- * This function avoids memory allocation by writing to a pre-allocated array.
- *
- * @param a   Pointer to the first input array.
- * @param b   Pointer to the second input array.
- * @param out Pointer to the output array (must be pre-allocated).
- * @return 0 on success, -1 on failure.
- */
-int array_subtract(const Array *a, const Array *b, Array *out);
-
-/**
- * @brief Element-wise multiplication with pre-allocated output (no allocation).
- *
- * All arrays must be contiguous, have the same numc_type, shape, and ndim.
- * This function avoids memory allocation by writing to a pre-allocated array.
- *
- * @param a   Pointer to the first input array.
- * @param b   Pointer to the second input array.
- * @param out Pointer to the output array (must be pre-allocated).
- * @return 0 on success, -1 on failure.
- */
-int array_multiply(const Array *a, const Array *b, Array *out);
-
-/**
- * @brief Element-wise division with pre-allocated output (no allocation).
- *
- * All arrays must be contiguous, have the same numc_type, shape, and ndim.
- * This function avoids memory allocation by writing to a pre-allocated array.
- *
- * @warning Division by zero is undefined behavior and may cause crashes.
- *
- * @param a   Pointer to the first input array.
- * @param b   Pointer to the second input array.
- * @param out Pointer to the output array (must be pre-allocated).
- * @return 0 on success, -1 on failure.
- */
-int array_divide(const Array *a, const Array *b, Array *out);
+int array_astype(Array *array, NUMC_TYPE type);
 
 // =============================================================================
-//                          Reduction Operations
+//                          Shape Operations
 // =============================================================================
 
 /**
- * @brief Compute the sum of all elements. Requires contiguous input.
- * @param a   Pointer to the input array.
- * @param out Pointer to store the result (must match array numc_type).
- * @return 0 on success, -1 on failure.
+ * @brief Reshape an array to a new shape.
+ *
+ * The total number of elements must remain unchanged.
+ * Only works on contiguous arrays.
+ *
+ * @param array Pointer to the array.
+ * @param ndim  New number of dimensions.
+ * @param shape New dimension sizes.
+ * @return 0 on success, ERROR or ERROR_DIM on failure.
  */
-int array_sum(const Array *a, void *out);
+int array_reshape(Array *array, size_t ndim, const size_t *shape);
 
 /**
- * @brief Find the minimum element. Requires contiguous input.
- * @param a   Pointer to the input array.
- * @param out Pointer to store the result (must match array numc_type).
- * @return 0 on success, -1 on failure.
+ * @brief Transpose an array in place.
+ *
+ * Changes the order of the array dimensions.
+ *
+ * @param array Pointer to the array.
+ * @param axes  Array of axis indices specifying the new order.
+ *
+ * @return 0 on success, ERROR or ERROR_DIM on failure.
  */
-int array_min(const Array *a, void *out);
+int array_transpose(Array *array, size_t *axes);
 
 /**
- * @brief Find the maximum element. Requires contiguous input.
- * @param a   Pointer to the input array.
- * @param out Pointer to store the result (must match array numc_type).
- * @return 0 on success, -1 on failure.
+ * @brief Concatenate two arrays along a specified axis.
+ *
+ * Creates a new array containing the elements of both arrays
+ * joined along the given axis. Both arrays must have the same
+ * shape except in the concatenation axis.
+ *
+ * Uses fast memcpy when both arrays are contiguous and axis is 0.
+ * Otherwise, uses strided copy for non-contiguous arrays or other axes.
+ *
+ * @param a    Pointer to the first array.
+ * @param b    Pointer to the second array.
+ * @param axis Axis along which to concatenate.
+ * @return Pointer to a new concatenated array, or NULL on failure.
  */
-int array_max(const Array *a, void *out);
+Array *array_concatenate(const Array *a, const Array *b, size_t axis);
 
 /**
- * @brief Compute the dot product of two arrays. Requires contiguous inputs
- *        with same numc_type and size.
- * @param a   Pointer to the first input array.
- * @param b   Pointer to the second input array.
- * @param out Pointer to store the result (must match array numc_type).
- * @return 0 on success, -1 on failure.
+ * @brief Flatten an array in place.
+ *
+ * Changes the array shape to be 1D by inserting a new axis at the
+ * beginning. The new axis is inserted at the end of the array shape.
+ * The total number of elements must remain unchanged.
+ * Only works on contiguous arrays.
+ *
+ * @param array Pointer to the array.
+ * @return 0 on success, ERROR or ERROR_CONTIGUOUS on failure.
  */
-int array_dot(const Array *a, const Array *b, void *out);
+int array_flatten(Array *array);
 
 // =============================================================================
-//                          Scalar-Array Operations
+//                          Array Printing
 // =============================================================================
 
 /**
- * @brief Element-wise add scalar with pre-allocated output.
- * @param a      Pointer to the input array (contiguous).
- * @param scalar Pointer to a single element of matching numc_type.
- * @param out    Pointer to the output array (contiguous, same shape/numc_type).
- * @return 0 on success, -1 on failure.
+ * @brief Print an array to stdout.
+ *
+ * Prints the contents of any Array in a nested bracket format, e.g.:
+ *   [[1, 2, 3], [4, 5, 6]]
+ *
+ * Supports all 10 NUMC_TYPE types and handles non-contiguous arrays
+ * (slices, transposes) correctly via stride-based indexing.
+ *
+ * @param array Pointer to the array to print.
  */
-int array_add_scalar(const Array *a, const void *scalar, Array *out);
-
-/**
- * @brief Element-wise subtract scalar with pre-allocated output.
- * @param a      Pointer to the input array (contiguous).
- * @param scalar Pointer to a single element of matching numc_type.
- * @param out    Pointer to the output array (contiguous, same shape/numc_type).
- * @return 0 on success, -1 on failure.
- */
-int array_subtract_scalar(const Array *a, const void *scalar, Array *out);
-
-/**
- * @brief Element-wise multiply by scalar with pre-allocated output.
- * @param a      Pointer to the input array (contiguous).
- * @param scalar Pointer to a single element of matching numc_type.
- * @param out    Pointer to the output array (contiguous, same shape/numc_type).
- * @return 0 on success, -1 on failure.
- */
-int array_multiply_scalar(const Array *a, const void *scalar, Array *out);
-
-/**
- * @brief Element-wise divide by scalar with pre-allocated output.
- * @param a      Pointer to the input array (contiguous).
- * @param scalar Pointer to a single element of matching numc_type.
- * @param out    Pointer to the output array (contiguous, same shape/numc_type).
- * @return 0 on success, -1 on failure.
- */
-int array_divide_scalar(const Array *a, const void *scalar, Array *out);
+void array_print(const Array *array);
 
 #endif

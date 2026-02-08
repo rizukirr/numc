@@ -3,9 +3,7 @@
  * @brief Test core array functions (offset, bounds_check, get, free)
  */
 
-#include "alloc.h"
-#include "array.h"
-#include "types.h"
+#include <numc/numc.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

@@ -3,8 +3,7 @@
  * @brief Test array creation functions
  */
 
-#include "array.h"
-#include "types.h"
+#include <numc/numc.h>
 #include <assert.h>
 #include <stdio.h>
 

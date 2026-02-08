@@ -1,9 +1,9 @@
 /**
- * @file io.c
+ * @file array_print.c
  * @brief Array printing for all types, with stride-aware indexing.
  */
 
-#include "io.h"
+#include <numc/array.h>
 #include <stdio.h>
 
 /**

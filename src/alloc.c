@@ -3,7 +3,7 @@
  * @brief Implementation of cross-platform aligned memory allocation.
  */
 
-#include "alloc.h"
+#include "internal.h"
 
 #include <stdlib.h>
 #include <string.h>

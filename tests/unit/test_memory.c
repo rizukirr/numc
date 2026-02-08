@@ -3,9 +3,8 @@
  * @brief Test SIMD memory alignment
  */
 
-#include "array.h"
-#include "types.h"
-#include "alloc.h"
+#include <numc/numc.h>
+#include "internal.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>

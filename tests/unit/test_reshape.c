@@ -3,9 +3,7 @@
  * @brief Test array reshaping functionality
  */
 
-#include "array.h"
-#include "shape.h"
-#include "types.h"
+#include <numc/numc.h>
 #include <assert.h>
 #include <stdio.h>
 

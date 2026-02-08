@@ -1,5 +1,5 @@
-#include "shape.h"
-#include "error.h"
+#include <numc/array.h>
+#include <numc/error.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -399,4 +399,8 @@ fail:
     free(indices);
   array_free(result);
   return NULL;
+}
+
+int array_flatten(Array *array) {
+  return array_reshape(array, 1, (size_t[]){array->size});
 }

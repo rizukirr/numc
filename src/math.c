@@ -44,8 +44,9 @@
  *
  *   Reductions (FLOAT/DOUBLE sum, min, max, dot):
  *     → Uses `omp simd reduction` to permit SIMD vectorization of FP reductions
- *     → Without `simd`, compiler can't auto-vectorize FP reductions (non-associative
- *       addition, NaN-aware comparisons) and emits scalar instructions
+ *     → Without `simd`, compiler can't auto-vectorize FP reductions
+ * (non-associative addition, NaN-aware comparisons) and emits scalar
+ * instructions
  *
  *   Reductions (all integer types):
  *     → Simple single-accumulator loops (compiler auto-vectorizes these with
@@ -53,11 +54,10 @@
  * associative)
  */
 
-#include "alloc.h"
-#include "array.h"
-#include "error.h"
-
-#include "omp.h"
+#include "arch/avx2.h"
+#include "internal.h"
+#include <numc/error.h>
+#include <numc/math.h>
 
 // #############################################################################
 // #                                                                           #
@@ -138,9 +138,9 @@
     const c_type *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);       \
     const c_type *restrict pb = __builtin_assume_aligned(b, NUMC_ALIGN);       \
     c_type *restrict pout = __builtin_assume_aligned(out, NUMC_ALIGN);         \
-    NUMC_OMP_FOR(n, for (size_t i = 0; i < n; i++) {                           \
-      pout[i] = pa[i] op_symbol pb[i];                                         \
-    })                                                                         \
+    NUMC_OMP_FOR(                                                              \
+        n,                                                                     \
+        for (size_t i = 0; i < n; i++) { pout[i] = pa[i] op_symbol pb[i]; })   \
   }
 
 /**
@@ -162,9 +162,9 @@
     const c_type *restrict pa = (const c_type *)a;                             \
     const c_type *restrict pb = (const c_type *)b;                             \
     c_type *restrict pout = (c_type *)out;                                     \
-    NUMC_OMP_FOR(n, for (size_t i = 0; i < n; i++) {                           \
-      pout[i] = pa[i] op_symbol pb[i];                                         \
-    })                                                                         \
+    NUMC_OMP_FOR(                                                              \
+        n,                                                                     \
+        for (size_t i = 0; i < n; i++) { pout[i] = pa[i] op_symbol pb[i]; })   \
   }
 
 // #############################################################################
@@ -261,9 +261,9 @@ FOREACH_NUMC_TYPE_64BIT(GENERATE_MUL_FUNC_64BIT)
     const c_type *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);       \
     const c_type *restrict pb = __builtin_assume_aligned(b, NUMC_ALIGN);       \
     c_type *restrict pout = __builtin_assume_aligned(out, NUMC_ALIGN);         \
-    NUMC_OMP_FOR(n, for (size_t i = 0; i < n; i++) {                           \
-      pout[i] = (c_type)((float)pa[i] / (float)pb[i]);                         \
-    })                                                                         \
+    NUMC_OMP_FOR(                                                              \
+        n, for (size_t i = 0; i < n;                                           \
+                i++) { pout[i] = (c_type)((float)pa[i] / (float)pb[i]); })     \
   }
 // Generates: div_BYTE, div_UBYTE, div_SHORT, div_USHORT (float promotion)
 GENERATE_DIV_FUNC_NARROW(BYTE, NUMC_BYTE)
@@ -291,9 +291,9 @@ static inline void div_INT(const void *restrict a, const void *restrict b,
   const NUMC_INT *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);
   const NUMC_INT *restrict pb = __builtin_assume_aligned(b, NUMC_ALIGN);
   NUMC_INT *restrict pout = __builtin_assume_aligned(out, NUMC_ALIGN);
-  NUMC_OMP_FOR(n, for (size_t i = 0; i < n; i++) {
-    pout[i] = (NUMC_INT)((double)pa[i] / (double)pb[i]);
-  })
+  NUMC_OMP_FOR(
+      n, for (size_t i = 0; i < n;
+              i++) { pout[i] = (NUMC_INT)((double)pa[i] / (double)pb[i]); })
 }
 
 static inline void div_UINT(const void *restrict a, const void *restrict b,
@@ -301,9 +301,9 @@ static inline void div_UINT(const void *restrict a, const void *restrict b,
   const NUMC_UINT *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);
   const NUMC_UINT *restrict pb = __builtin_assume_aligned(b, NUMC_ALIGN);
   NUMC_UINT *restrict pout = __builtin_assume_aligned(out, NUMC_ALIGN);
-  NUMC_OMP_FOR(n, for (size_t i = 0; i < n; i++) {
-    pout[i] = (NUMC_UINT)((double)pa[i] / (double)pb[i]);
-  })
+  NUMC_OMP_FOR(
+      n, for (size_t i = 0; i < n;
+              i++) { pout[i] = (NUMC_UINT)((double)pa[i] / (double)pb[i]); })
 }
 
 // Generates: div_LONG, div_ULONG (scalar idiv), div_DOUBLE (SIMD divpd)
@@ -412,6 +412,11 @@ static int array_binary_op_out(const Array *a, const Array *b, Array *out,
   return 0;
 }
 
+int array_add_float(const Array *a, const Array *b, Array *out) {
+  adds_float_avx2(a->data, b->data, out->data, a->size);
+  return 0;
+}
+
 int array_add(const Array *a, const Array *b, Array *out) {
   return array_binary_op_out(a, b, out, add_funcs);
 }
@@ -505,7 +510,7 @@ FOREACH_NUMC_TYPE_64BIT(GENERATE_SUM_FUNC_64BIT)
     c_type m = pa[0];                                                          \
     NUMC_PRAGMA(clang loop vectorize_width(8) interleave_count(4))             \
     for (size_t i = 1; i < n; i++) {                                           \
-      m = pa[i] < m ? pa[i] : m;                                              \
+      m = pa[i] < m ? pa[i] : m;                                               \
     }                                                                          \
     *(c_type *)out = m;                                                        \
   }
@@ -525,7 +530,7 @@ FOREACH_NUMC_TYPE_32BIT(GENERATE_MIN_FUNC)
     c_type m = pa[0];                                                          \
     NUMC_PRAGMA(clang loop vectorize_width(4) interleave_count(4))             \
     for (size_t i = 1; i < n; i++) {                                           \
-      m = pa[i] < m ? pa[i] : m;                                              \
+      m = pa[i] < m ? pa[i] : m;                                               \
     }                                                                          \
     *(c_type *)out = m;                                                        \
   }
@@ -549,7 +554,7 @@ FOREACH_NUMC_TYPE_64BIT(GENERATE_MIN_FUNC_64BIT)
     c_type m = pa[0];                                                          \
     NUMC_PRAGMA(clang loop vectorize_width(8) interleave_count(4))             \
     for (size_t i = 1; i < n; i++) {                                           \
-      m = pa[i] > m ? pa[i] : m;                                              \
+      m = pa[i] > m ? pa[i] : m;                                               \
     }                                                                          \
     *(c_type *)out = m;                                                        \
   }
@@ -569,7 +574,7 @@ FOREACH_NUMC_TYPE_32BIT(GENERATE_MAX_FUNC)
     c_type m = pa[0];                                                          \
     NUMC_PRAGMA(clang loop vectorize_width(4) interleave_count(4))             \
     for (size_t i = 1; i < n; i++) {                                           \
-      m = pa[i] > m ? pa[i] : m;                                              \
+      m = pa[i] > m ? pa[i] : m;                                               \
     }                                                                          \
     *(c_type *)out = m;                                                        \
   }
@@ -696,9 +701,8 @@ static const dot_func dot_funcs[] = {FOREACH_NUMC_TYPE(DOT_ENTRY)};
     const c_type *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);       \
     const c_type s = *(const c_type *)scalar;                                  \
     c_type *restrict pout = __builtin_assume_aligned(out, NUMC_ALIGN);         \
-    NUMC_OMP_FOR(n, for (size_t i = 0; i < n; i++) {                           \
-      pout[i] = pa[i] op_symbol s;                                             \
-    })                                                                         \
+    NUMC_OMP_FOR(                                                              \
+        n, for (size_t i = 0; i < n; i++) { pout[i] = pa[i] op_symbol s; })    \
   }
 
 // --------------- SCALAR ADD: out[i] = a[i] + scalar ---------------
@@ -742,9 +746,9 @@ FOREACH_NUMC_TYPE_32BIT(GENERATE_MULS_FUNC)
     const c_type *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);       \
     const float s = (float)*(const c_type *)scalar;                            \
     c_type *restrict pout = __builtin_assume_aligned(out, NUMC_ALIGN);         \
-    NUMC_OMP_FOR(n, for (size_t i = 0; i < n; i++) {                           \
-      pout[i] = (c_type)((float)pa[i] / s);                                    \
-    })                                                                          \
+    NUMC_OMP_FOR(                                                              \
+        n, for (size_t i = 0; i < n;                                           \
+                i++) { pout[i] = (c_type)((float)pa[i] / s); })                \
   }
 // Generates: divs_BYTE, divs_UBYTE, divs_SHORT, divs_USHORT (float promotion)
 GENERATE_DIVS_FUNC_NARROW(BYTE, NUMC_BYTE)
@@ -774,9 +778,9 @@ static inline void divs_INT(const void *restrict a, const void *restrict scalar,
   const NUMC_INT *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);
   const double recip = 1.0 / (double)*(const NUMC_INT *)scalar;
   NUMC_INT *restrict pout = __builtin_assume_aligned(out, NUMC_ALIGN);
-  NUMC_OMP_FOR(n, for (size_t i = 0; i < n; i++) {
-    pout[i] = (NUMC_INT)((double)pa[i] * recip);
-  })
+  NUMC_OMP_FOR(
+      n, for (size_t i = 0; i < n;
+              i++) { pout[i] = (NUMC_INT)((double)pa[i] * recip); })
 }
 
 static inline void divs_UINT(const void *restrict a,
@@ -784,9 +788,9 @@ static inline void divs_UINT(const void *restrict a,
   const NUMC_UINT *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);
   const double recip = 1.0 / (double)*(const NUMC_UINT *)scalar;
   NUMC_UINT *restrict pout = __builtin_assume_aligned(out, NUMC_ALIGN);
-  NUMC_OMP_FOR(n, for (size_t i = 0; i < n; i++) {
-    pout[i] = (NUMC_UINT)((double)pa[i] * recip);
-  })
+  NUMC_OMP_FOR(
+      n, for (size_t i = 0; i < n;
+              i++) { pout[i] = (NUMC_UINT)((double)pa[i] * recip); })
 }
 
 #undef GENERATE_SCALAR_OP_FUNC
@@ -803,9 +807,8 @@ static inline void divs_UINT(const void *restrict a,
     const c_type *restrict pa = (const c_type *)a;                             \
     const c_type s = *(const c_type *)scalar;                                  \
     c_type *restrict pout = (c_type *)out;                                     \
-    NUMC_OMP_FOR(n, for (size_t i = 0; i < n; i++) {                           \
-      pout[i] = pa[i] op_symbol s;                                             \
-    })                                                                         \
+    NUMC_OMP_FOR(                                                              \
+        n, for (size_t i = 0; i < n; i++) { pout[i] = pa[i] op_symbol s; })    \
   }
 
 // Generates: adds_LONG, adds_ULONG, adds_DOUBLE

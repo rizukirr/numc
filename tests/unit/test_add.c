@@ -3,8 +3,7 @@
  * @brief Test array element-wise mathematical operations (add, sub, mul, div)
  */
 
-#include "array.h"
-#include "types.h"
+#include <numc/numc.h>
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -22,7 +21,11 @@ void test_add_contiguous(void) {
   }
 
   // Add arrays
-  Array *c = array_create(&(ArrayCreate){.ndim = 2, .shape = shape, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
+  Array *c = array_create(&(ArrayCreate){.ndim = 2,
+                                         .shape = shape,
+                                         .numc_type = NUMC_TYPE_INT,
+                                         .data = NULL,
+                                         .owns_data = true});
   int result = array_add(a, b, c);
   assert(result == 0);
   assert(c->ndim == 2);
@@ -70,7 +73,11 @@ void test_add_non_contiguous(void) {
 
   // Add slices
   size_t result_shape[] = {4, 3};
-  Array *c = array_create(&(ArrayCreate){.ndim = 2, .shape = result_shape, .numc_type = NUMC_TYPE_FLOAT, .data = NULL, .owns_data = true});
+  Array *c = array_create(&(ArrayCreate){.ndim = 2,
+                                         .shape = result_shape,
+                                         .numc_type = NUMC_TYPE_FLOAT,
+                                         .data = NULL,
+                                         .owns_data = true});
   int result = array_add(a_cont, b_cont, c);
   assert(result == 0);
   assert(c->ndim == 2);
@@ -137,14 +144,19 @@ void test_add_mismatched_types(void) {
 void test_add_all_numc_types(void) {
   size_t shape[] = {10};
 
-  NUMC_TYPE types[] = {NUMC_TYPE_BYTE,  NUMC_TYPE_UBYTE, NUMC_TYPE_SHORT, NUMC_TYPE_USHORT,
-                   NUMC_TYPE_INT,   NUMC_TYPE_UINT,  NUMC_TYPE_LONG,  NUMC_TYPE_ULONG,
-                   NUMC_TYPE_FLOAT, NUMC_TYPE_DOUBLE};
+  NUMC_TYPE types[] = {NUMC_TYPE_BYTE,   NUMC_TYPE_UBYTE, NUMC_TYPE_SHORT,
+                       NUMC_TYPE_USHORT, NUMC_TYPE_INT,   NUMC_TYPE_UINT,
+                       NUMC_TYPE_LONG,   NUMC_TYPE_ULONG, NUMC_TYPE_FLOAT,
+                       NUMC_TYPE_DOUBLE};
 
   for (size_t t = 0; t < sizeof(types) / sizeof(NUMC_TYPE); t++) {
     Array *a = array_zeros(1, shape, types[t]);
     Array *b = array_zeros(1, shape, types[t]);
-    Array *c = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = types[t], .data = NULL, .owns_data = true});
+    Array *c = array_create(&(ArrayCreate){.ndim = 1,
+                                           .shape = shape,
+                                           .numc_type = types[t],
+                                           .data = NULL,
+                                           .owns_data = true});
 
     int result = array_add(a, b, c);
     assert(result == 0);
@@ -174,7 +186,11 @@ void test_sub_contiguous(void) {
   }
 
   // Subtract arrays
-  Array *c = array_create(&(ArrayCreate){.ndim = 2, .shape = shape, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
+  Array *c = array_create(&(ArrayCreate){.ndim = 2,
+                                         .shape = shape,
+                                         .numc_type = NUMC_TYPE_INT,
+                                         .data = NULL,
+                                         .owns_data = true});
   int result = array_subtract(a, b, c);
   assert(result == 0);
   assert(c->ndim == 2);
@@ -206,7 +222,11 @@ void test_sub_float(void) {
   }
 
   // Subtract arrays
-  Array *c = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = NUMC_TYPE_FLOAT, .data = NULL, .owns_data = true});
+  Array *c = array_create(&(ArrayCreate){.ndim = 1,
+                                         .shape = shape,
+                                         .numc_type = NUMC_TYPE_FLOAT,
+                                         .data = NULL,
+                                         .owns_data = true});
   int result = array_subtract(a, b, c);
   assert(result == 0);
 
@@ -239,7 +259,11 @@ void test_mul_contiguous(void) {
   }
 
   // Multiply arrays
-  Array *c = array_create(&(ArrayCreate){.ndim = 2, .shape = shape, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
+  Array *c = array_create(&(ArrayCreate){.ndim = 2,
+                                         .shape = shape,
+                                         .numc_type = NUMC_TYPE_INT,
+                                         .data = NULL,
+                                         .owns_data = true});
   int result = array_multiply(a, b, c);
   assert(result == 0);
   assert(c->ndim == 2);
@@ -271,7 +295,11 @@ void test_mul_double(void) {
   }
 
   // Multiply arrays
-  Array *c = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = NUMC_TYPE_DOUBLE, .data = NULL, .owns_data = true});
+  Array *c = array_create(&(ArrayCreate){.ndim = 1,
+                                         .shape = shape,
+                                         .numc_type = NUMC_TYPE_DOUBLE,
+                                         .data = NULL,
+                                         .owns_data = true});
   int result = array_multiply(a, b, c);
   assert(result == 0);
 
@@ -304,7 +332,11 @@ void test_div_contiguous(void) {
   }
 
   // Divide arrays
-  Array *c = array_create(&(ArrayCreate){.ndim = 2, .shape = shape, .numc_type = NUMC_TYPE_INT, .data = NULL, .owns_data = true});
+  Array *c = array_create(&(ArrayCreate){.ndim = 2,
+                                         .shape = shape,
+                                         .numc_type = NUMC_TYPE_INT,
+                                         .data = NULL,
+                                         .owns_data = true});
   int result = array_divide(a, b, c);
   assert(result == 0);
   assert(c->ndim == 2);
@@ -336,7 +368,11 @@ void test_div_float(void) {
   }
 
   // Divide arrays
-  Array *c = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = NUMC_TYPE_FLOAT, .data = NULL, .owns_data = true});
+  Array *c = array_create(&(ArrayCreate){.ndim = 1,
+                                         .shape = shape,
+                                         .numc_type = NUMC_TYPE_FLOAT,
+                                         .data = NULL,
+                                         .owns_data = true});
   int result = array_divide(a, b, c);
   assert(result == 0);
 
@@ -360,37 +396,54 @@ void test_div_float(void) {
 void test_all_ops_with_numc_types(void) {
   size_t shape[] = {8};
 
-  NUMC_TYPE types[] = {NUMC_TYPE_BYTE,  NUMC_TYPE_UBYTE, NUMC_TYPE_SHORT, NUMC_TYPE_USHORT,
-                   NUMC_TYPE_INT,   NUMC_TYPE_UINT,  NUMC_TYPE_LONG,  NUMC_TYPE_ULONG,
-                   NUMC_TYPE_FLOAT, NUMC_TYPE_DOUBLE};
+  NUMC_TYPE types[] = {NUMC_TYPE_BYTE,   NUMC_TYPE_UBYTE, NUMC_TYPE_SHORT,
+                       NUMC_TYPE_USHORT, NUMC_TYPE_INT,   NUMC_TYPE_UINT,
+                       NUMC_TYPE_LONG,   NUMC_TYPE_ULONG, NUMC_TYPE_FLOAT,
+                       NUMC_TYPE_DOUBLE};
 
   for (size_t t = 0; t < sizeof(types) / sizeof(NUMC_TYPE); t++) {
     Array *a = array_ones(1, shape, types[t]);
     Array *b = array_ones(1, shape, types[t]);
 
     // Test add
-    Array *result_add = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = types[t], .data = NULL, .owns_data = true});
+    Array *result_add = array_create(&(ArrayCreate){.ndim = 1,
+                                                    .shape = shape,
+                                                    .numc_type = types[t],
+                                                    .data = NULL,
+                                                    .owns_data = true});
     int res_add = array_add(a, b, result_add);
     assert(res_add == 0);
     assert(result_add->numc_type == types[t]);
     array_free(result_add);
 
     // Test sub
-    Array *result_sub = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = types[t], .data = NULL, .owns_data = true});
+    Array *result_sub = array_create(&(ArrayCreate){.ndim = 1,
+                                                    .shape = shape,
+                                                    .numc_type = types[t],
+                                                    .data = NULL,
+                                                    .owns_data = true});
     int res_sub = array_subtract(a, b, result_sub);
     assert(res_sub == 0);
     assert(result_sub->numc_type == types[t]);
     array_free(result_sub);
 
     // Test mul
-    Array *result_mul = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = types[t], .data = NULL, .owns_data = true});
+    Array *result_mul = array_create(&(ArrayCreate){.ndim = 1,
+                                                    .shape = shape,
+                                                    .numc_type = types[t],
+                                                    .data = NULL,
+                                                    .owns_data = true});
     int res_mul = array_multiply(a, b, result_mul);
     assert(res_mul == 0);
     assert(result_mul->numc_type == types[t]);
     array_free(result_mul);
 
     // Test div (use ones to avoid division by zero)
-    Array *result_div = array_create(&(ArrayCreate){.ndim = 1, .shape = shape, .numc_type = types[t], .data = NULL, .owns_data = true});
+    Array *result_div = array_create(&(ArrayCreate){.ndim = 1,
+                                                    .shape = shape,
+                                                    .numc_type = types[t],
+                                                    .data = NULL,
+                                                    .owns_data = true});
     int res_div = array_divide(a, b, result_div);
     assert(res_div == 0);
     assert(result_div->numc_type == types[t]);

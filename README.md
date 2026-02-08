@@ -209,11 +209,11 @@ The type system supports all precision levels (INT8-64, FLOAT, DOUBLE). Users ca
 - [x] Comprehensive benchmark suite
 - [x] Multithreading (OpenMP) - binary ops, scalar ops, reductions, fill
 - [x] `array_arange` - Range of values
+- [x] `array_linspace` - Linearly spaced values
+- [x] `array_flatten` / `array_ravel` - Flatten to 1D
+- [x] `array_astype` - Type conversion (prerequisite for mixed-type math)
 
 ### Tier 1 — Foundation (implement next, other features depend on these)
-- [ ] `array_linspace` - Linearly spaced values
-- [ ] `array_flatten` / `array_ravel` - Flatten to 1D
-- [ ] `array_astype` - Type conversion (prerequisite for mixed-type math)
 - [ ] `array_equal` / `array_allclose` - Comparison (needed for reliable testing)
 
 ### Tier 2 — Core Numeric (makes the library useful for real workloads)

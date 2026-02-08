@@ -3,9 +3,7 @@
  * @brief Test array concatenation with fast path optimization
  */
 
-#include "array.h"
-#include "shape.h"
-#include "types.h"
+#include <numc/numc.h>
 #include <assert.h>
 #include <stdio.h>
 
