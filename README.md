@@ -40,45 +40,45 @@ cmake -B build -DBUILD_TESTS=OFF             # Disable tests
 cmake -B build -DBUILD_EXAMPLES=OFF          # Disable examples
 ```
 
-## Benchmark Report (v0.0.0-RC01)
+## Benchmark Report
 
 System: Intel Core i7-13620H | AVX2 | Clang -O3 -march=native | 1M elements
 
 ### Element-wise Binary Operations (Mops/sec)
 
-| Type   | Add    | Sub    | Mul    | Div    | Avg Improvement |
-|--------|--------|--------|--------|--------|-----------------|
-| INT32  | 3,888  | 3,956  | 3,832  | 626    | 32% faster      |
-| INT64  | 1,355  | 1,311  | 1,205  | 588    | 14% faster      |
-| FLOAT  | 3,831  | 3,811  | 3,943  | 3,562  | 36% faster      |
-| DOUBLE | 1,255  | 1,130  | 1,109  | 1,109  | 1% faster       |
+| Type   | Add     | Sub     | Mul     | Div    |
+|--------|---------|---------|---------|--------|
+| INT32  | 11,427  | 11,747  | 10,960  | 4,490  |
+| INT64  | 4,615   | 3,415   | 1,981   | 1,331  |
+| FLOAT  | 10,673  | 11,787  | 9,097   | 6,484  |
+| DOUBLE | 3,930   | 1,492   | 2,323   | 2,883  |
 
 ### Scalar Operations (Mops/sec)
 
-| Type   | Add    | Sub    | Mul    | Div    |
-|--------|--------|--------|--------|--------|
-| INT32  | 5,100  | 5,200  | 5,500  | 6,000  |
-| INT64  | 2,600  | 2,700  | 2,800  | 2,900  |
-| FLOAT  | 5,500  | 5,700  | 5,900  | 6,200  |
-| DOUBLE | 1,600  | 1,800  | 2,200  | 2,700  |
+| Type   | Add     | Sub     | Mul     | Div     |
+|--------|---------|---------|---------|---------|
+| INT32  | 17,088  | 16,476  | 17,441  | 15,796  |
+| INT64  | 2,856   | 3,742   | 6,063   | 3,387   |
+| FLOAT  | 6,250   | 6,162   | 9,318   | 10,263  |
+| DOUBLE | 6,330   | 7,178   | 6,355   | 6,851   |
 
 ### Reduction Operations (Mops/sec)
 
-| Type   | Sum    | Min    | Max    | Dot    |
-|--------|--------|--------|--------|--------|
-| INT32  | 14,400 | 7,800  | 8,200  | 9,100  |
-| INT64  | 7,000  | 2,900  | 3,100  | 4,200  |
-| FLOAT  | 1,900  | 900    | 1,000  | 1,500  |
-| DOUBLE | 1,750  | 850    | 900    | 1,200  |
+| Type   | Sum     | Min     | Max     | Prod    | Dot     | Mean    | Std    |
+|--------|---------|---------|---------|---------|---------|---------|--------|
+| INT32  | 15,481  | 12,887  | 12,902  | 12,033  | 6,812   | 13,915  | 6,568  |
+| INT64  | 7,460   | 6,173   | 6,230   | 4,888   | 2,828   | 4,976   | 2,397  |
+| FLOAT  | 14,678  | 14,209  | 14,205  | 16,412  | 7,578   | 13,774  | 6,631  |
+| DOUBLE | 6,389   | 6,352   | 6,757   | 7,479   | 2,999   | 7,452   | 3,713  |
 
-### Theoretical Efficiency
+### Axis Reduction Operations (Mops/sec, 1000x1000 2D)
 
-| Type  | Achieved   | Peak       | Efficiency | Bottleneck     |
-|-------|------------|------------|------------|----------------|
-| INT32 | 3.9 Gops/s | 8.0 Gops/s | 49%        | Memory/cache   |
-| FLOAT | 3.9 Gops/s | 4.0 Gops/s | 97%        | Near-optimal   |
-| INT64 | 1.4 Gops/s | 8.0 Gops/s | 17%        | DRAM bandwidth |
-| DOUBLE| 1.3 Gops/s | 4.0 Gops/s | 32%        | DRAM bandwidth |
+| Type   | Mean ax=0 | Mean ax=1 | Std ax=0 | Std ax=1 |
+|--------|-----------|-----------|----------|----------|
+| INT32  | 8,595     | 13,540    | 3,801    | 6,244    |
+| INT64  | 4,405     | 4,783     | 2,033    | 2,300    |
+| FLOAT  | 8,396     | 13,185    | 3,821    | 6,437    |
+| DOUBLE | 5,957     | 7,932     | 3,204    | 4,814    |
 
 ## Performance Characteristics
 
@@ -91,7 +91,7 @@ NUMC performance is highly dependent on whether data fits in CPU cache:
 | 1K elems   | 0.004 MB | L1 Cache      | ~8,300 Mops/s   | baseline         |
 | 65K elems  | 0.256 MB | L2 Cache      | ~10,400 Mops/s  | ✅ +25%          |
 | 524K elems | 2 MB     | L3 Cache      | ~10,100 Mops/s  | ✅ similar       |
-| 4M elems   | 16 MB    | **Main Memory** | ~1,600 Mops/s | ⚠️ **-84% cliff** |
+| 4M elems   | 16 MB    | **Main Memory** | ~1,600 Mops/s | **-84% cliff** |
 
 **Why this happens:**
 - **L3 Cache** (18 MB): ~40 cycle latency, 200 GB/s bandwidth → Fast ✅
@@ -115,67 +115,20 @@ When working set exceeds cache size (~18 MB on i7-13620H), the system becomes **
 
 This explains why 32-bit types are ~3× faster than 64-bit types for large arrays.
 
-### Planned Optimizations for Memory-Bound Workloads
+### Optimization Approach
 
-The following optimizations are planned to improve performance when data exceeds cache:
+**Auto-vectorization over hand-written intrinsics:** Explicit AVX2 intrinsics were tested in a separate translation unit but performed worse than auto-vectorization (`-O3 -march=native`) for most types due to cross-TU call overhead preventing inlining. LTO didn't fully recover the loss. The current approach uses X-macro generated type-specific kernels that the compiler auto-vectorizes effectively.
 
-#### 1. **Cache Blocking (Tiling)**
-Process large arrays in cache-sized chunks to maintain L3 residency:
-```c
-// Future API
-array_add_blocked(a, b, out, block_size);  // Process in cache-friendly chunks
-```
+**Implemented:**
+- ✅ SIMD auto-vectorization (AVX2/SSE2) via `-O3 -march=native`
+- ✅ OpenMP parallelization for arrays > 100K elements
+- ✅ 32-byte aligned allocation for SIMD compatibility
+- ✅ Typed accumulation kernels for balanced axis reduction performance
+- ✅ All 10 precision levels (INT8-64, FLOAT, DOUBLE)
 
-#### 2. **Explicit SIMD Intrinsics**
-Use AVX2/AVX-512 intrinsics for better control over memory access patterns:
-- Software prefetching (`_mm_prefetch`)
-- Non-temporal stores for write-only data (`_mm_stream_si256`)
-- Aligned vs unaligned load optimization
-
-#### ~~3. **Multithreading**~~ ✅ Done
-OpenMP parallelization implemented across all math operations (binary ops, scalar ops, reductions) and fill functions. Operations automatically parallelize when array size exceeds 100K elements.
-
-#### 4. **Algorithm Fusion**
-Combine multiple operations to reduce memory traffic:
-```c
-// Instead of: temp = a + b; result = temp * c;  (2 memory passes)
-// Do: result = (a + b) * c;  (1 memory pass)
-```
-
-#### ~~5. **Compressed Data Formats**~~ ✅ Already Supported
-The type system supports all precision levels (INT8-64, FLOAT, DOUBLE). Users can choose lower-precision types for better performance.
-
-### Learning Resources
-
-**Academic Papers:**
-- [What Every Programmer Should Know About Memory](https://people.freebsd.org/~lstewart/articles/cpumemory.pdf) (Ulrich Drepper, 2007)
-  - Comprehensive guide to memory hierarchy, cache behavior, and optimization strategies
-
-- [Cache-Oblivious Algorithms](https://erikdemaine.org/papers/BRICS2002/paper.pdf) (Frigo et al., 1999)
-  - Optimal cache-aware algorithms without knowing cache sizes
-
-- [Anatomy of High-Performance Matrix Multiplication](https://www.cs.utexas.edu/~flame/pubs/GotoTOMS_revision.pdf) (Goto & van de Geijn, 2008)
-  - Industry-standard techniques for blocking and tiling
-
-- [Software Prefetching](https://dl.acm.org/doi/10.1145/384286.264207) (Mowry et al., 1992)
-  - Cache miss reduction through prefetch instructions
-
-**Books:**
-- *Computer Architecture: A Quantitative Approach* (Hennessy & Patterson)
-- *Optimizing Software in C++* (Agner Fog) - [Free PDF](https://www.agner.org/optimize/)
-- *Systems Performance* (Brendan Gregg)
-
-**Online Resources:**
-- [Intel Optimization Manual](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html)
-- [Agner Fog's Optimization Guides](https://www.agner.org/optimize/)
-- [Gallery of Processor Cache Effects](http://igoro.com/archive/gallery-of-processor-cache-effects/)
-
-**Current Status:**
-- ✅ SIMD auto-vectorization working (AVX2)
-- ✅ Cache-friendly for typical workloads (<10 MB)
-- ✅ Competitive with NumPy/BLAS for cache-resident data
-- ✅ OpenMP multithreading for large arrays (>100K elements)
-- 🔄 Cache blocking and explicit SIMD intrinsics planned (see roadmap above)
+**Planned:**
+- Cache blocking (tiling) for memory-bound workloads
+- Operation fusion to reduce memory traffic
 
 ## Progress
 
@@ -191,59 +144,73 @@ The type system supports all precision levels (INT8-64, FLOAT, DOUBLE). Users ca
 - [x] `array_bounds_check` - Bounds checking
 - [x] `array_reshape` - Reshape in-place (contiguous only)
 - [x] `array_slice` - Zero-copy view
+- [x] `array_index_axis` - Index along axis (returns ndim-1 view)
 - [x] `array_copy` - Contiguous copy
+- [x] `array_ascontiguousarray` - Convert to contiguous in-place
 - [x] `array_concat` - Concatenate along axis
 - [x] `array_transpose` - Transpose
 - [x] `array_is_contiguous` - Contiguity check
 - [x] `array_add` / `sub` / `mul` / `div` - Element-wise binary ops
 - [x] `array_add_scalar` / `sub` / `mul` / `div` - Scalar ops
-- [x] `array_sum` / `array_min` / `array_max` / `array_dot` - Reductions
+- [x] `array_sum` / `array_min` / `array_max` / `array_prod` / `array_dot` - Full reductions
+- [x] `array_mean` / `array_std` - Statistical reductions (double output)
+- [x] `array_sum_axis` / `array_prod_axis` / `array_min_axis` / `array_max_axis` - Axis reductions
+- [x] `array_mean_axis` / `array_std_axis` - Axis statistical reductions (double output)
 - [x] `array_print` - Print to stdout
-- [x] Type-specific SIMD-ready kernels
-- [x] Auto-vectorization (AVX2/SSE)
-- [x] Separate 32-bit / 64-bit optimization strategies
-- [x] Cache-friendly memory access patterns
-- [x] Contiguous fast paths
-- [x] 16-byte aligned allocation
-- [x] Stack allocation for small arrays (ndim <= 8)
-- [x] Comprehensive benchmark suite
-- [x] Multithreading (OpenMP) - binary ops, scalar ops, reductions, fill
 - [x] `array_arange` - Range of values
 - [x] `array_linspace` - Linearly spaced values
 - [x] `array_flatten` / `array_ravel` - Flatten to 1D
-- [x] `array_astype` - Type conversion (prerequisite for mixed-type math)
-- [x] `array_equal` / `array_allclose` - Comparison (needed for reliable testing)
-- [x] `array_mean` / `array_prod` / `array_std` - Statistical reductions
-- [x] Axis-based reductions (`sum_axis`, `mean_axis`)
+- [x] `array_astype` - Type conversion
+- [x] `array_equal` / `array_allclose` - Comparison
+- [x] Auto-vectorization (AVX2/SSE2) via X-macro kernels
+- [x] Separate 32-bit / 64-bit optimization strategies
+- [x] Cache-friendly memory access patterns
+- [x] 32-byte aligned allocation for SIMD
+- [x] Stack allocation for small arrays (ndim <= 8)
+- [x] OpenMP parallelization (binary ops, scalar ops, reductions, fill)
+- [x] Comprehensive benchmark suite
 
-### Tier 1 — Foundation (implement next, other features depend on these) (DONE)
+### Roadmap — Neural Network from Scratch
 
-### Tier 2 — Core Numeric (makes the library useful for real workloads)
-- [ ] `array_argmin` / `array_argmax`
-- [ ] `array_power` - Element-wise power
-- [ ] `array_matmul` - Matrix multiplication
+Goal: build a working MLP (multi-layer perceptron) using only numc.
+Tiers are ordered by what unblocks the most NN functionality.
 
-### Tier 3 — Shape Manipulation
-- [ ] `array_squeeze` / `array_expand_dims` - Dimension manipulation
-- [ ] `array_flip` - Reverse along axis
-- [ ] `array_vstack` / `array_hstack` / `array_hsplit` - Stack/split
-- [ ] `array_broadcast_to` - Broadcasting
-- [ ] Broadcasting support for math ops
+**Tier 1 — Cannot train any NN without these**
+- [ ] `array_matmul` - Matrix multiplication (forward pass, backward pass, gradients)
+- [ ] Broadcasting for binary ops - Bias addition `z = X @ W + b` where b is [1, N]
+- [ ] `array_exp` / `array_log` / `array_negate` - Softmax, cross-entropy loss
+- [ ] `array_random` / `array_randn` - Weight initialization (Xavier/He)
 
-### Tier 4 — Nice to Have
+```
+# Forward:  z = X @ W + b;  a = relu(z);  out = softmax(z2)
+# Backward: dW = a.T @ dz / batch;  db = mean(dz, axis=0)  ← already have!
+# Update:   W -= lr * dW  ← already have scalar ops!
+```
+
+**Tier 2 — Practical training loop**
+- [ ] `array_clip` - Gradient clipping, numerical stability
+- [ ] `array_where` - ReLU backward `dz = da * (z > 0)`, conditional ops
+- [ ] `array_argmax` - Prediction labels, accuracy computation
+- [ ] `array_sqrt` / `array_abs` / `array_power` - Adam optimizer, L2 regularization
+- [ ] `array_squeeze` / `array_expand_dims` - Dimension manipulation for broadcasting
+
+**Tier 3 — Convenience and I/O**
 - [ ] `array_eye` - Identity matrix
-- [ ] `array_get_1d` / `_2d` / `_3d` - Fast dimensional access
-- [ ] Boolean/conditional indexing
+- [ ] Binary file I/O (`.npy` / `.npz`) - Save/load weights
+- [ ] `array_vstack` / `array_hstack` - Batch assembly
+- [ ] `array_shuffle` / `array_permutation` - Mini-batch SGD
+- [ ] `array_flip` - Data augmentation
+
+**Tier 4 — Advanced**
 - [ ] `array_sort` / `array_argsort`
 - [ ] `array_unique`
-- [ ] `array_where` / `array_nonzero`
-- [ ] `array_random` / `array_randint`
-- [ ] Binary file I/O (`.npy` / `.npz`)
+- [ ] `array_nonzero`
+- [ ] Boolean/conditional indexing
 - [ ] Text file I/O (CSV/TXT)
 
-### Performance (after API is stable)
-- [ ] Explicit SIMD intrinsics (SSE2/AVX2/NEON)
-- [ ] Runtime SIMD detection and dispatch
+### Performance
+- [ ] Cache blocking (tiling) for memory-bound workloads
+- [ ] Operation fusion to reduce memory traffic
 - [ ] Arena allocator for temporary arrays
 
 ## License
