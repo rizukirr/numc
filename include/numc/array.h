@@ -358,6 +358,24 @@ bool array_is_contiguous(const Array *array);
 Array *array_slice(Array *base, const size_t *start, const size_t *stop,
                    const size_t *step);
 
+/**
+ * @brief Index into an array along a given axis, returning an (ndim-1) view.
+ *
+ * Selects a single position along the specified axis, producing a view with
+ * one fewer dimension. The returned array shares data with the base array
+ * (owns_data=false).
+ *
+ * For a 2D array with shape [M, N]:
+ *   - array_index_axis(a, 0, i) → row i, shape [N]
+ *   - array_index_axis(a, 1, j) → column j, shape [M]
+ *
+ * @param base  Pointer to the source array.
+ * @param axis  Axis to index along (0 <= axis < base->ndim).
+ * @param index Position along the axis (0 <= index < base->shape[axis]).
+ * @return Pointer to a new view with ndim-1 dimensions, or NULL on failure.
+ */
+Array *array_index_axis(const Array *base, size_t axis, size_t index);
+
 // =============================================================================
 //                          Array Copying
 // =============================================================================
@@ -408,6 +426,34 @@ int array_ascontiguousarray(Array *arr);
  *       in data loss due to truncation or overflow.
  */
 int array_astype(Array *array, NUMC_TYPE type);
+
+/**
+ * @brief Check if two arrays are equal.
+ *
+ * Returns a new array with the same data as the input arrays.
+ *
+ * @param a Pointer to the first array.
+ * @param b Pointer to the second array.
+ *
+ * @return Pointer to a new array, or NULL on failure.
+ *
+ */
+Array *array_equal(const Array *a, const Array *b);
+
+/**
+ * @brief Check if two arrays are element-wise equal within a tolerance.
+ *
+ * Uses the formula: |a[i] - b[i]| <= atol + rtol * |b[i]|
+ *
+ * @param a    Pointer to the first array.
+ * @param b    Pointer to the second array.
+ * @param rtol Relative tolerance (e.g. 1e-5).
+ * @param atol Absolute tolerance (e.g. 1e-8).
+ *
+ * @return 1 if all elements are close, 0 if not, negative error code on
+ * failure.
+ */
+int array_allclose(const Array *a, const Array *b, double rtol, double atol);
 
 // =============================================================================
 //                          Shape Operations

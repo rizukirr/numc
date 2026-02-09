@@ -52,6 +52,19 @@ double benchmark_reduce_op(int (*op_func)(const Array *, void *),
   return (end - start) / 1000.0;
 }
 
+// Benchmark double reduction operations (array -> double scalar)
+double benchmark_double_reduce_op(int (*op_func)(const Array *, double *),
+                                  const Array *a, double *out, int iterations) {
+  int (*volatile vop)(const Array *, double *) = op_func;
+
+  double start = get_time_ms();
+  for (int i = 0; i < iterations; i++) {
+    vop(a, out);
+  }
+  double end = get_time_ms();
+  return (end - start) / 1000.0;
+}
+
 // Benchmark dot product (array, array -> scalar)
 double benchmark_dot_op(int (*op_func)(const Array *, const Array *, void *),
                         const Array *a, const Array *b, void *out,
@@ -75,6 +88,20 @@ double benchmark_scalar_op(int (*op_func)(const Array *, const void *, Array *),
   double start = get_time_ms();
   for (int i = 0; i < iterations; i++) {
     vop(a, scalar, out);
+  }
+  double end = get_time_ms();
+  return (end - start) / 1000.0;
+}
+
+// Benchmark axis reduction operations (array, axis -> new array)
+double benchmark_axis_reduce_op(Array *(*op_func)(const Array *, size_t),
+                                const Array *a, size_t axis, int iterations) {
+  Array *(*volatile vop)(const Array *, size_t) = op_func;
+
+  double start = get_time_ms();
+  for (int i = 0; i < iterations; i++) {
+    Array *result = vop(a, axis);
+    array_free(result);
   }
   double end = get_time_ms();
   return (end - start) / 1000.0;
@@ -196,6 +223,13 @@ void benchmark_all_operations(NUMC_TYPE numc_type, const char *type_name,
   printf("    Max:         %10.2f μs  (%10.2f Mops/sec)\n", avg_max,
          size / avg_max);
 
+  // Prod
+  double prod_time =
+      benchmark_reduce_op(array_prod, a, result, BENCHMARK_ITERATIONS);
+  double avg_prod = (prod_time / BENCHMARK_ITERATIONS) * 1000000;
+  printf("    Prod:        %10.2f μs  (%10.2f Mops/sec)\n", avg_prod,
+         size / avg_prod);
+
   // Dot product
   double dot_time =
       benchmark_dot_op(array_dot, a, b, result, BENCHMARK_ITERATIONS);
@@ -203,6 +237,60 @@ void benchmark_all_operations(NUMC_TYPE numc_type, const char *type_name,
   printf("    Dot product: %10.2f μs  (%10.2f Mops/sec)\n", avg_dot,
          size / avg_dot);
 
+  // Mean (full reduction)
+  NUMC_DOUBLE mean_result = 0.0;
+  double mean_full_time = benchmark_double_reduce_op(array_mean, a, &mean_result,
+                                                     BENCHMARK_ITERATIONS);
+  double avg_mean_full = (mean_full_time / BENCHMARK_ITERATIONS) * 1000000;
+  printf("    Mean:        %10.2f μs  (%10.2f Mops/sec)\n", avg_mean_full,
+         size / avg_mean_full);
+
+  // Std (full reduction)
+  NUMC_DOUBLE std_result = 0.0;
+  double std_full_time = benchmark_double_reduce_op(array_std, a, &std_result,
+                                                    BENCHMARK_ITERATIONS);
+  double avg_std_full = (std_full_time / BENCHMARK_ITERATIONS) * 1000000;
+  printf("    Std:         %10.2f μs  (%10.2f Mops/sec)\n", avg_std_full,
+         size / avg_std_full);
+
+  printf("\n  Axis Reduction Operations (axis=0 on 2D %zux%zu):\n",
+         (size_t)1000, size / 1000);
+
+  // Reshape to 2D for axis benchmarks: 1000 x (size/1000)
+  size_t rows = 1000;
+  size_t cols = size / rows;
+  size_t shape_2d[] = {rows, cols};
+  Array *a2d = array_ones(2, shape_2d, numc_type);
+
+  // Mean axis=0
+  double mean_time =
+      benchmark_axis_reduce_op(array_mean_axis, a2d, 0, BENCHMARK_ITERATIONS);
+  double avg_mean = (mean_time / BENCHMARK_ITERATIONS) * 1000000;
+  printf("    Mean:        %10.2f μs  (%10.2f Mops/sec)\n", avg_mean,
+         size / avg_mean);
+
+  // Mean axis=1
+  double mean1_time =
+      benchmark_axis_reduce_op(array_mean_axis, a2d, 1, BENCHMARK_ITERATIONS);
+  double avg_mean1 = (mean1_time / BENCHMARK_ITERATIONS) * 1000000;
+  printf("    Mean(ax=1):  %10.2f μs  (%10.2f Mops/sec)\n", avg_mean1,
+         size / avg_mean1);
+
+  // Std axis=0
+  double std_time =
+      benchmark_axis_reduce_op(array_std_axis, a2d, 0, BENCHMARK_ITERATIONS);
+  double avg_std = (std_time / BENCHMARK_ITERATIONS) * 1000000;
+  printf("    Std:         %10.2f μs  (%10.2f Mops/sec)\n", avg_std,
+         size / avg_std);
+
+  // Std axis=1
+  double std1_time =
+      benchmark_axis_reduce_op(array_std_axis, a2d, 1, BENCHMARK_ITERATIONS);
+  double avg_std1 = (std1_time / BENCHMARK_ITERATIONS) * 1000000;
+  printf("    Std(ax=1):   %10.2f μs  (%10.2f Mops/sec)\n", avg_std1,
+         size / avg_std1);
+
+  array_free(a2d);
   array_free(a);
   array_free(b);
   array_free(out);
@@ -261,7 +349,8 @@ int main(void) {
   printf("  Binary:     add, subtract, multiply, divide\n");
   printf("  Scalar:     add_scalar, subtract_scalar, multiply_scalar, "
          "divide_scalar\n");
-  printf("  Reduction:  sum, min, max, dot\n");
+  printf("  Reduction:  sum, min, max, prod, dot\n");
+  printf("  Axis:       mean(ax=0,1), std(ax=0,1)\n");
 
   benchmark_by_type();
   benchmark_by_size();
@@ -272,7 +361,7 @@ int main(void) {
   printf("Results show performance across:\n");
   printf("  - 10 data types (BYTE, UBYTE, SHORT, USHORT, INT32, UINT32, INT64, "
          "UINT64, FLOAT, DOUBLE)\n");
-  printf("  - 12 operation types\n");
+  printf("  - 17 operation types\n");
   printf("  - Multiple array sizes (1K to 4M elements)\n\n");
 
   return 0;

@@ -37,6 +37,12 @@ add_numc_test(test_arange unit/test_arange.c)
 add_numc_test(test_linspace unit/test_linspace.c)
 add_numc_test(test_flatten unit/test_flatten.c)
 add_numc_test(test_astype unit/test_astype.c)
+add_numc_test(test_equal unit/test_equal.c)
+add_numc_test(test_allclose unit/test_allclose.c)
+add_numc_test(test_mean unit/test_mean.c)
+add_numc_test(test_prod unit/test_prod.c)
+add_numc_test(test_std unit/test_std.c)
+add_numc_test(test_axis_reduce unit/test_axis_reduce.c)
 
 # Print message
 message(STATUS "Configured numc tests")

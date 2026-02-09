@@ -6,10 +6,11 @@
  * Merged from the former array_creation.c and array.c.
  */
 
+#include "internal.h"
 #include <numc/array.h>
 #include <numc/error.h>
-#include "internal.h"
 
+#include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -491,6 +492,62 @@ static const astype_func astype_funcs[10][10] = {
 };
 
 // =============================================================================
+//                          Equality Kernels
+// =============================================================================
+
+#define GEN_EQUALITY_FUNC(numc_type, ctype)                                    \
+  static void equality_##numc_type(                                            \
+      const void *restrict a, const void *restrict b, void *out, size_t n) {   \
+                                                                               \
+    const ctype *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);        \
+    const ctype *restrict pb = __builtin_assume_aligned(b, NUMC_ALIGN);        \
+    ctype *restrict pout = (ctype *)out;                                       \
+    NUMC_OMP_FOR(                                                              \
+        n, for (size_t i = 0; i < n; i++) { pout[i] = pa[i] == pb[i]; })       \
+  }
+
+FOREACH_NUMC_TYPE(GEN_EQUALITY_FUNC)
+#undef GEN_EQUALITY_FUNC
+
+typedef void (*equality_func)(const void *, const void *, void *, size_t);
+
+#define EQUALITY_ENTRY(numc_type, ctype)                                       \
+  [NUMC_TYPE_##numc_type] = equality_##numc_type,
+static const equality_func equality_funcs[] = {
+    FOREACH_NUMC_TYPE(EQUALITY_ENTRY)};
+#undef EQUALITY_ENTRY
+
+// -----------------------------------------------------------------------------
+//                       Allclose Kernels (tolerance-based)
+// -----------------------------------------------------------------------------
+
+#define GEN_ALLCLOSE_FUNC(numc_type, ctype)                                    \
+  static int allclose_##numc_type(const void *restrict a,                      \
+                                  const void *restrict b, size_t n,            \
+                                  double rtol, double atol) {                  \
+    const ctype *restrict pa = (const ctype *)a;                               \
+    const ctype *restrict pb = (const ctype *)b;                               \
+    for (size_t i = 0; i < n; i++) {                                           \
+      double diff = fabs((double)pa[i] - (double)pb[i]);                       \
+      if (diff > atol + rtol * fabs((double)pb[i]))                            \
+        return 0;                                                              \
+    }                                                                          \
+    return 1;                                                                  \
+  }
+
+FOREACH_NUMC_TYPE(GEN_ALLCLOSE_FUNC)
+#undef GEN_ALLCLOSE_FUNC
+
+typedef int (*allclose_func)(const void *, const void *, size_t, double,
+                             double);
+
+#define ALLCLOSE_ENTRY(numc_type, ctype)                                       \
+  [NUMC_TYPE_##numc_type] = allclose_##numc_type,
+static const allclose_func allclose_funcs[] = {
+    FOREACH_NUMC_TYPE(ALLCLOSE_ENTRY)};
+#undef ALLCLOSE_ENTRY
+
+// =============================================================================
 //                       Strided Copy Helpers
 // =============================================================================
 
@@ -695,6 +752,71 @@ Array *array_slice(Array *base, const size_t *start, const size_t *stop,
   return view;
 }
 
+Array *array_index_axis(const Array *base, size_t axis, size_t index) {
+  if (!base) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_index_axis: NULL argument");
+    return NULL;
+  }
+  if (axis >= base->ndim) {
+    numc_set_error(NUMC_ERR_AXIS, "numc: array_index_axis: axis out of range");
+    return NULL;
+  }
+  if (index >= base->shape[axis]) {
+    numc_set_error(NUMC_ERR_BOUNDS,
+                   "numc: array_index_axis: index out of bounds");
+    return NULL;
+  }
+  if (base->ndim < 2) {
+    numc_set_error(NUMC_ERR_INVALID,
+                   "numc: array_index_axis: ndim must be >= 2");
+    return NULL;
+  }
+
+  Array *view = malloc(sizeof(Array));
+  if (!view) {
+    numc_set_error(NUMC_ERR_ALLOC,
+                   "numc: array_index_axis: allocation failed");
+    return NULL;
+  }
+
+  size_t out_ndim = base->ndim - 1;
+  bool use_stack = out_ndim <= MAX_STACK_NDIM;
+  if (use_stack) {
+    view->shape = view->_shape_buff;
+    view->strides = view->_strides_buff;
+  } else {
+    view->shape = malloc(2 * out_ndim * sizeof(size_t));
+    if (!view->shape) {
+      free(view);
+      numc_set_error(NUMC_ERR_ALLOC,
+                     "numc: array_index_axis: shape allocation failed");
+      return NULL;
+    }
+    view->strides = view->shape + out_ndim;
+  }
+
+  view->ndim = out_ndim;
+  view->numc_type = base->numc_type;
+  view->elem_size = base->elem_size;
+  view->owns_data = false;
+
+  size_t j = 0;
+  view->size = 1;
+  for (size_t d = 0; d < base->ndim; d++) {
+    if (d == axis)
+      continue;
+    view->shape[j] = base->shape[d];
+    view->strides[j] = base->strides[d];
+    view->size *= base->shape[d];
+    j++;
+  }
+
+  view->capacity = view->size;
+  view->data = (char *)base->data + index * base->strides[axis];
+  view->is_contiguous = array_is_contiguous(view);
+  return view;
+}
+
 void increment_indices(size_t *indices, const size_t *shape, size_t ndim) {
   for (ssize_t i = ndim - 1; i >= 0; i--) {
     indices[i]++;
@@ -762,6 +884,82 @@ int array_astype(Array *array, NUMC_TYPE type) {
     array->strides[i] = array->strides[i + 1] * array->shape[i + 1];
 
   return NUMC_OK;
+}
+
+Array *array_equal(const Array *a, const Array *b) {
+  if (!a || !b) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_equal: NULL argument");
+    return NULL;
+  }
+  if (a->ndim != b->ndim) {
+    numc_set_error(NUMC_ERR_INVALID, "numc: array_equal: array ndim mismatch");
+    return NULL;
+  }
+
+  if (a->numc_type != b->numc_type) {
+    numc_set_error(NUMC_ERR_INVALID, "numc: array_equal: array type mismatch");
+    return NULL;
+  }
+
+  if (!a->is_contiguous) {
+    if (array_ascontiguousarray((Array *)a) < 0) {
+      return NULL;
+    }
+  }
+
+  if (!b->is_contiguous) {
+    if (array_ascontiguousarray((Array *)b) < 0) {
+      return NULL;
+    }
+  }
+
+  ArrayCreate d = {
+      .ndim = a->ndim,
+      .shape = a->shape,
+      .numc_type = a->numc_type,
+      .owns_data = true,
+  };
+  Array *out = array_empty(&d);
+  if (!out)
+    return NULL;
+
+  equality_funcs[a->numc_type](a->data, b->data, out->data, a->size);
+  return out;
+}
+
+int array_allclose(const Array *a, const Array *b, double rtol, double atol) {
+  if (!a || !b) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_allclose: NULL argument");
+    return NUMC_ERR_NULL;
+  }
+  if (a->ndim != b->ndim) {
+    numc_set_error(NUMC_ERR_INVALID,
+                   "numc: array_allclose: array ndim mismatch");
+    return NUMC_ERR_INVALID;
+  }
+  if (a->numc_type != b->numc_type) {
+    numc_set_error(NUMC_ERR_INVALID,
+                   "numc: array_allclose: array type mismatch");
+    return NUMC_ERR_INVALID;
+  }
+  for (size_t i = 0; i < a->ndim; i++) {
+    if (a->shape[i] != b->shape[i]) {
+      numc_set_error(NUMC_ERR_SHAPE,
+                     "numc: array_allclose: array shape mismatch");
+      return NUMC_ERR_SHAPE;
+    }
+  }
+
+  if (!a->is_contiguous) {
+    if (array_ascontiguousarray((Array *)a) < 0)
+      return NUMC_ERR_ALLOC;
+  }
+  if (!b->is_contiguous) {
+    if (array_ascontiguousarray((Array *)b) < 0)
+      return NUMC_ERR_ALLOC;
+  }
+
+  return allclose_funcs[a->numc_type](a->data, b->data, a->size, rtol, atol);
 }
 
 Array *array_copy(const Array *src) {

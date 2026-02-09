@@ -212,13 +212,13 @@ The type system supports all precision levels (INT8-64, FLOAT, DOUBLE). Users ca
 - [x] `array_linspace` - Linearly spaced values
 - [x] `array_flatten` / `array_ravel` - Flatten to 1D
 - [x] `array_astype` - Type conversion (prerequisite for mixed-type math)
+- [x] `array_equal` / `array_allclose` - Comparison (needed for reliable testing)
+- [x] `array_mean` / `array_prod` / `array_std` - Statistical reductions
+- [x] Axis-based reductions (`sum_axis`, `mean_axis`)
 
-### Tier 1 — Foundation (implement next, other features depend on these)
-- [ ] `array_equal` / `array_allclose` - Comparison (needed for reliable testing)
+### Tier 1 — Foundation (implement next, other features depend on these) (DONE)
 
 ### Tier 2 — Core Numeric (makes the library useful for real workloads)
-- [ ] `array_mean` / `array_prod` / `array_std` - Statistical reductions
-- [ ] Axis-based reductions (`sum_axis`, `mean_axis`)
 - [ ] `array_argmin` / `array_argmax`
 - [ ] `array_power` - Element-wise power
 - [ ] `array_matmul` - Matrix multiplication

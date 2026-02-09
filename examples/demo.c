@@ -593,6 +593,223 @@ void demo_array_astype(void) {
   array_free(signed_arr);
 }
 
+void demo_array_equal(void) {
+  printf("\n=== Array Equal Demo ===\n\n");
+
+  // Create two identical arrays
+  int data_a[] = {1, 2, 3, 4, 5};
+  int data_b[] = {1, 2, 3, 4, 5};
+  int data_c[] = {1, 0, 3, 0, 5};
+  size_t shape[] = {5};
+
+  ArrayCreate create_a = {
+      .ndim = 1,
+      .shape = shape,
+      .numc_type = NUMC_TYPE_INT,
+      .data = data_a,
+      .owns_data = true,
+  };
+  ArrayCreate create_b = {
+      .ndim = 1,
+      .shape = shape,
+      .numc_type = NUMC_TYPE_INT,
+      .data = data_b,
+      .owns_data = true,
+  };
+  ArrayCreate create_c = {
+      .ndim = 1,
+      .shape = shape,
+      .numc_type = NUMC_TYPE_INT,
+      .data = data_c,
+      .owns_data = true,
+  };
+
+  Array *a = array_create(&create_a);
+  Array *b = array_create(&create_b);
+  Array *c = array_create(&create_c);
+
+  printf("1. Comparing identical arrays:\n");
+  printf("   a = ");
+  array_print(a);
+  printf("   b = ");
+  array_print(b);
+  Array *eq1 = array_equal(a, b);
+  printf("   array_equal(a, b) = ");
+  array_print(eq1);
+
+  printf("\n2. Comparing different arrays:\n");
+  printf("   a = ");
+  array_print(a);
+  printf("   c = ");
+  array_print(c);
+  Array *eq2 = array_equal(a, c);
+  printf("   array_equal(a, c) = ");
+  array_print(eq2);
+
+  array_free(a);
+  array_free(b);
+  array_free(c);
+  array_free(eq1);
+  array_free(eq2);
+}
+
+void demo_array_allclose(void) {
+  printf("\n=== Array Allclose Demo ===\n\n");
+
+  // Float arrays with rounding differences
+  float data_a[] = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
+  float data_b[] = {1.0f, 2.000001f, 3.0f, 4.000001f, 5.0f};
+  float data_c[] = {1.0f, 2.1f, 3.0f, 4.0f, 5.0f};
+  size_t shape[] = {5};
+
+  ArrayCreate create_a = {
+      .ndim = 1, .shape = shape,
+      .numc_type = NUMC_TYPE_FLOAT, .data = data_a, .owns_data = true,
+  };
+  ArrayCreate create_b = {
+      .ndim = 1, .shape = shape,
+      .numc_type = NUMC_TYPE_FLOAT, .data = data_b, .owns_data = true,
+  };
+  ArrayCreate create_c = {
+      .ndim = 1, .shape = shape,
+      .numc_type = NUMC_TYPE_FLOAT, .data = data_c, .owns_data = true,
+  };
+
+  Array *a = array_create(&create_a);
+  Array *b = array_create(&create_b);
+  Array *c = array_create(&create_c);
+
+  printf("1. Nearly identical arrays (rtol=1e-5, atol=1e-8):\n");
+  printf("   a = ");
+  array_print(a);
+  printf("   b = ");
+  array_print(b);
+  int result1 = array_allclose(a, b, 1e-5, 1e-8);
+  printf("   allclose(a, b) = %s\n", result1 ? "true" : "false");
+
+  printf("\n2. Arrays with larger difference:\n");
+  printf("   a = ");
+  array_print(a);
+  printf("   c = ");
+  array_print(c);
+  int result2 = array_allclose(a, c, 1e-5, 1e-8);
+  printf("   allclose(a, c, rtol=1e-5) = %s\n", result2 ? "true" : "false");
+  int result3 = array_allclose(a, c, 0.1, 0.0);
+  printf("   allclose(a, c, rtol=0.1)  = %s\n", result3 ? "true" : "false");
+
+  array_free(a);
+  array_free(b);
+  array_free(c);
+}
+
+void demo_array_prod(void) {
+  printf("\n=== Array Product Demo ===\n\n");
+
+  int data[] = {1, 2, 3, 4, 5};
+  size_t shape[] = {5};
+  ArrayCreate create = {
+      .ndim = 1, .shape = shape,
+      .numc_type = NUMC_TYPE_INT, .data = data, .owns_data = true,
+  };
+  Array *arr = array_create(&create);
+  printf("Array: ");
+  array_print(arr);
+
+  int result = 0;
+  array_prod(arr, &result);
+  printf("prod([1,2,3,4,5]) = %d\n", result);
+
+  array_free(arr);
+}
+
+void demo_array_mean(void) {
+  printf("\n=== Array Mean Demo ===\n\n");
+
+  // Create 3x4 integer array
+  int data[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+  size_t shape[] = {3, 4};
+  ArrayCreate create = {
+      .ndim = 2,
+      .shape = shape,
+      .numc_type = NUMC_TYPE_INT,
+      .data = data,
+      .owns_data = true,
+  };
+  Array *arr = array_create(&create);
+  printf("Input array (3x4):\n");
+  array_print(arr);
+
+  // Mean along axis=0 (collapse rows → shape [4])
+  printf("\n1. mean(axis=0) — collapse rows:\n");
+  Array *m0 = array_mean_axis(arr, 0);
+  if (m0) {
+    printf("   Result: ");
+    array_print(m0);
+    array_free(m0);
+  }
+
+  // Mean along axis=1 (collapse columns → shape [3])
+  printf("\n2. mean(axis=1) — collapse columns:\n");
+  Array *m1 = array_mean_axis(arr, 1);
+  if (m1) {
+    printf("   Result: ");
+    array_print(m1);
+    array_free(m1);
+  }
+
+  array_free(arr);
+}
+
+void demo_array_std(void) {
+  printf("\n=== Array Std Demo ===\n\n");
+
+  int data[] = {2, 4, 4, 4, 5, 5, 7, 9};
+  size_t shape[] = {8};
+  ArrayCreate create = {
+      .ndim = 1, .shape = shape,
+      .numc_type = NUMC_TYPE_INT, .data = data, .owns_data = true,
+  };
+  Array *arr = array_create(&create);
+  printf("Array: ");
+  array_print(arr);
+
+  Array *s = array_std_axis(arr, 0);
+  if (s) {
+    printf("std([2,4,4,4,5,5,7,9]) = ");
+    array_print(s);
+    array_free(s);
+  }
+
+  array_free(arr);
+
+  // 2D example
+  int data2[] = {1, 5, 3, 7};
+  size_t shape2[] = {2, 2};
+  ArrayCreate create2 = {
+      .ndim = 2, .shape = shape2,
+      .numc_type = NUMC_TYPE_INT, .data = data2, .owns_data = true,
+  };
+  Array *arr2 = array_create(&create2);
+  printf("\n2D array:\n");
+  array_print(arr2);
+
+  Array *s0 = array_std_axis(arr2, 0);
+  if (s0) {
+    printf("std(axis=0) = ");
+    array_print(s0);
+    array_free(s0);
+  }
+
+  Array *s1 = array_std_axis(arr2, 1);
+  if (s1) {
+    printf("std(axis=1) = ");
+    array_print(s1);
+    array_free(s1);
+  }
+
+  array_free(arr2);
+}
+
 void demo_performance(void) {
   printf("\n=== Performance Demo ===\n\n");
 
@@ -719,6 +936,11 @@ int main(void) {
   demo_array_arange();
   demo_array_linspace();
   demo_array_astype();
+  demo_array_equal();
+  demo_array_allclose();
+  demo_array_prod();
+  demo_array_mean();
+  demo_array_std();
   demo_performance();
 
   printf("\n");
@@ -737,6 +959,11 @@ int main(void) {
   printf("║  ✓ Arrange (range generation)                            ║\n");
   printf("║  ✓ Linspace (linear spacing)                             ║\n");
   printf("║  ✓ Type conversion (astype - 100 type pairs)             ║\n");
+  printf("║  ✓ Element-wise equality comparison                      ║\n");
+  printf("║  ✓ Tolerance-based comparison (allclose)                  ║\n");
+  printf("║  ✓ Product reduction                                      ║\n");
+  printf("║  ✓ Mean along axis (reduction)                           ║\n");
+  printf("║  ✓ Standard deviation along axis                         ║\n");
   printf("║  ✓ Optimized performance (type-specific kernels)         ║\n");
   printf("╚══════════════════════════════════════════════════════════╝\n");
   printf("\n");

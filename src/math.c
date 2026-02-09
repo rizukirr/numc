@@ -54,10 +54,13 @@
  * associative)
  */
 
-#include "arch/avx2.h"
 #include "internal.h"
+#include "numc/array.h"
+#include <math.h>
 #include <numc/error.h>
 #include <numc/math.h>
+#include <stdlib.h>
+#include <string.h>
 
 // #############################################################################
 // #                                                                           #
@@ -412,11 +415,6 @@ static int array_binary_op_out(const Array *a, const Array *b, Array *out,
   return 0;
 }
 
-int array_add_float(const Array *a, const Array *b, Array *out) {
-  adds_float_avx2(a->data, b->data, out->data, a->size);
-  return 0;
-}
-
 int array_add(const Array *a, const Array *b, Array *out) {
   return array_binary_op_out(a, b, out, add_funcs);
 }
@@ -628,6 +626,49 @@ FOREACH_NUMC_TYPE_32BIT(GENERATE_DOT_FUNC)
 FOREACH_NUMC_TYPE_64BIT(GENERATE_DOT_FUNC_64BIT)
 #undef GENERATE_DOT_FUNC_64BIT
 
+// ========================== PROD: acc *= a[i] ==========================
+
+/**
+ * @brief [Template] Product reduction (32-bit types, no OpenMP).
+ *
+ * Same vectorization strategy as sum: interleave_count(4) creates 4
+ * independent vector accumulators, breaking the vmulps dependency chain.
+ * Accumulator starts at 1 (multiplicative identity).
+ */
+#define GENERATE_PROD_FUNC(numc_type_name, c_type)                             \
+  static inline void prod_##numc_type_name(const void *restrict a, void *out,  \
+                                           size_t n) {                         \
+    const c_type *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);       \
+    c_type acc = 1;                                                            \
+    NUMC_PRAGMA(clang loop vectorize_width(8) interleave_count(4))             \
+    for (size_t i = 0; i < n; i++) {                                           \
+      acc *= pa[i];                                                            \
+    }                                                                          \
+    *(c_type *)out = acc;                                                      \
+  }
+// Generates: prod_BYTE, prod_UBYTE, prod_SHORT, prod_USHORT, prod_INT,
+//            prod_UINT, prod_FLOAT
+FOREACH_NUMC_TYPE_32BIT(GENERATE_PROD_FUNC)
+#undef GENERATE_PROD_FUNC
+
+/**
+ * @brief [Template] Product reduction (64-bit types, no alignment hints).
+ */
+#define GENERATE_PROD_FUNC_64BIT(numc_type_name, c_type)                       \
+  static inline void prod_##numc_type_name(const void *restrict a, void *out,  \
+                                           size_t n) {                         \
+    const c_type *restrict pa = (const c_type *)a;                             \
+    c_type acc = 1;                                                            \
+    NUMC_PRAGMA(clang loop vectorize_width(4) interleave_count(4))             \
+    for (size_t i = 0; i < n; i++) {                                           \
+      acc *= pa[i];                                                            \
+    }                                                                          \
+    *(c_type *)out = acc;                                                      \
+  }
+// Generates: prod_LONG, prod_ULONG, prod_DOUBLE
+FOREACH_NUMC_TYPE_64BIT(GENERATE_PROD_FUNC_64BIT)
+#undef GENERATE_PROD_FUNC_64BIT
+
 // #############################################################################
 // #                                                                           #
 // #  REDUCTION DISPATCH TABLES                                     #
@@ -657,6 +698,12 @@ static const reduce_func min_funcs[] = {FOREACH_NUMC_TYPE(MIN_ENTRY)};
   [NUMC_TYPE_##numc_type_name] = max_##numc_type_name,
 static const reduce_func max_funcs[] = {FOREACH_NUMC_TYPE(MAX_ENTRY)};
 #undef MAX_ENTRY
+
+// --- prod_funcs[10]: NUMC_TYPE → prod_BYTE, ..., prod_DOUBLE ---
+#define PROD_ENTRY(numc_type_name, c_type)                                     \
+  [NUMC_TYPE_##numc_type_name] = prod_##numc_type_name,
+static const reduce_func prod_funcs[] = {FOREACH_NUMC_TYPE(PROD_ENTRY)};
+#undef PROD_ENTRY
 
 // --- dot_funcs[10]: NUMC_TYPE → dot_BYTE, ..., dot_DOUBLE ---
 #define DOT_ENTRY(numc_type_name, c_type)                                      \
@@ -894,6 +941,24 @@ int array_sum(const Array *a, void *out) {
   return NUMC_OK;
 }
 
+int array_prod(const Array *a, void *out) {
+  if (!a || !out) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_prod: NULL argument");
+    return NUMC_ERR_NULL;
+  }
+  if (!a->is_contiguous) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_prod: array must be contiguous");
+    return NUMC_ERR_CONTIGUOUS;
+  }
+  if (a->size == 0) {
+    numc_set_error(NUMC_ERR_INVALID, "numc: array_prod: empty array");
+    return NUMC_ERR_INVALID;
+  }
+  prod_funcs[a->numc_type](a->data, out, a->size);
+  return NUMC_OK;
+}
+
 int array_min(const Array *a, void *out) {
   if (!a || !out) {
     numc_set_error(NUMC_ERR_NULL, "numc: array_min: NULL argument");
@@ -1004,4 +1069,586 @@ int array_multiply_scalar(const Array *a, const void *scalar, Array *out) {
 
 int array_divide_scalar(const Array *a, const void *scalar, Array *out) {
   return array_scalar_op(a, scalar, out, divs_funcs);
+}
+
+// #############################################################################
+// #                                                                           #
+// #  AXIS REDUCTION — Decompose into 1D slices + existing full-reduction      #
+// #                                                                           #
+// #  Strategy: For a contiguous N-D array reduced along axis k, decompose     #
+// #  into a 3D view: data[outer_size][axis_len][inner_size].                  #
+// #                                                                           #
+// #  Fast path (inner_size == 1, i.e. reducing last axis):                    #
+// #    Each 1D slice is already contiguous → call existing optimized          #
+// #    full-reduction kernel (sum_funcs, prod_funcs, etc.) directly.          #
+// #    This gets full SIMD vectorization for free.                            #
+// #                                                                           #
+// #  Slow path (inner_size > 1, i.e. reducing non-last axis):                #
+// #    Elements along the axis are strided → gather into a scratch buffer,   #
+// #    then call the full-reduction kernel on the contiguous scratch.         #
+// #                                                                           #
+// #############################################################################
+
+// =============================================================================
+//  sum_to_double kernels — accumulate contiguous array into double
+// =============================================================================
+
+#define GENERATE_SUM_TO_DOUBLE(NAME, CTYPE)                                    \
+  static inline double sum_to_double_##NAME(const void *restrict data,         \
+                                            size_t n) {                        \
+    const CTYPE *restrict p = __builtin_assume_aligned(data, NUMC_ALIGN);      \
+    double acc = 0.0;                                                          \
+    NUMC_PRAGMA(clang loop vectorize_width(8) interleave_count(4))             \
+    for (size_t i = 0; i < n; i++) {                                           \
+      acc += (double)p[i];                                                     \
+    }                                                                          \
+    return acc;                                                                \
+  }
+FOREACH_NUMC_TYPE_32BIT(GENERATE_SUM_TO_DOUBLE)
+#undef GENERATE_SUM_TO_DOUBLE
+
+#define GENERATE_SUM_TO_DOUBLE_64(NAME, CTYPE)                                 \
+  static inline double sum_to_double_##NAME(const void *restrict data,         \
+                                            size_t n) {                        \
+    const CTYPE *restrict p = (const CTYPE *)data;                             \
+    double acc = 0.0;                                                          \
+    NUMC_PRAGMA(clang loop vectorize_width(4) interleave_count(4))             \
+    for (size_t i = 0; i < n; i++) {                                           \
+      acc += (double)p[i];                                                     \
+    }                                                                          \
+    return acc;                                                                \
+  }
+FOREACH_NUMC_TYPE_64BIT(GENERATE_SUM_TO_DOUBLE_64)
+#undef GENERATE_SUM_TO_DOUBLE_64
+
+typedef double (*sum_to_double_func)(const void *, size_t);
+
+#define SUM_TO_DOUBLE_ENTRY(NAME, CTYPE)                                       \
+  [NUMC_TYPE_##NAME] = sum_to_double_##NAME,
+static const sum_to_double_func sum_to_double_funcs[] = {
+    FOREACH_NUMC_TYPE(SUM_TO_DOUBLE_ENTRY)};
+#undef SUM_TO_DOUBLE_ENTRY
+
+// =============================================================================
+//  var kernels — compute sum((x - mean)^2) for contiguous array, return double
+// =============================================================================
+
+#define GENERATE_VAR(NAME, CTYPE)                                              \
+  static inline double var_##NAME(const void *restrict data, size_t n,         \
+                                  double mean) {                               \
+    const CTYPE *restrict p = __builtin_assume_aligned(data, NUMC_ALIGN);      \
+    double acc = 0.0;                                                          \
+    NUMC_PRAGMA(clang loop vectorize_width(8) interleave_count(4))             \
+    for (size_t i = 0; i < n; i++) {                                           \
+      double diff = (double)p[i] - mean;                                       \
+      acc += diff * diff;                                                      \
+    }                                                                          \
+    return acc;                                                                \
+  }
+FOREACH_NUMC_TYPE_32BIT(GENERATE_VAR)
+#undef GENERATE_VAR
+
+#define GENERATE_VAR_64(NAME, CTYPE)                                           \
+  static inline double var_##NAME(const void *restrict data, size_t n,         \
+                                  double mean) {                               \
+    const CTYPE *restrict p = (const CTYPE *)data;                             \
+    double acc = 0.0;                                                          \
+    NUMC_PRAGMA(clang loop vectorize_width(4) interleave_count(4))             \
+    for (size_t i = 0; i < n; i++) {                                           \
+      double diff = (double)p[i] - mean;                                       \
+      acc += diff * diff;                                                      \
+    }                                                                          \
+    return acc;                                                                \
+  }
+FOREACH_NUMC_TYPE_64BIT(GENERATE_VAR_64)
+#undef GENERATE_VAR_64
+
+typedef double (*var_func)(const void *, size_t, double);
+
+#define VAR_ENTRY(NAME, CTYPE) [NUMC_TYPE_##NAME] = var_##NAME,
+static const var_func var_funcs[] = {FOREACH_NUMC_TYPE(VAR_ENTRY)};
+#undef VAR_ENTRY
+
+// =============================================================================
+//  Typed accumulation kernels — dst[i] OP= src[i] for inner_size elements
+// =============================================================================
+
+// clang-format off
+typedef void (*accum_func)(const void *restrict src, void *restrict dst,
+                           size_t n);
+
+#define GENERATE_ACCUM(op_name, NAME, CTYPE, COMBINE)                          \
+  static void accum_##op_name##_##NAME(const void *restrict src,               \
+                                       void *restrict dst, size_t n) {         \
+    const CTYPE *restrict ps = (const CTYPE *)src;                             \
+    CTYPE *restrict pd = (CTYPE *)dst;                                         \
+    NUMC_PRAGMA(clang loop vectorize_width(8) interleave_count(4))             \
+    for (size_t i = 0; i < n; i++) {                                           \
+      COMBINE;                                                                 \
+    }                                                                          \
+  }
+
+#define GEN_ACCUM_SUM(N, T)  GENERATE_ACCUM(sum, N, T, pd[i] += ps[i])
+#define GEN_ACCUM_PROD(N, T) GENERATE_ACCUM(prod, N, T, pd[i] *= ps[i])
+#define GEN_ACCUM_MIN(N, T)  GENERATE_ACCUM(min, N, T, pd[i] = ps[i] < pd[i] ? ps[i] : pd[i])
+#define GEN_ACCUM_MAX(N, T)  GENERATE_ACCUM(max, N, T, pd[i] = ps[i] > pd[i] ? ps[i] : pd[i])
+
+FOREACH_NUMC_TYPE(GEN_ACCUM_SUM)
+FOREACH_NUMC_TYPE(GEN_ACCUM_PROD)
+FOREACH_NUMC_TYPE(GEN_ACCUM_MIN)
+FOREACH_NUMC_TYPE(GEN_ACCUM_MAX)
+#undef GEN_ACCUM_SUM
+#undef GEN_ACCUM_PROD
+#undef GEN_ACCUM_MIN
+#undef GEN_ACCUM_MAX
+#undef GENERATE_ACCUM
+// clang-format on
+
+#define ACCUM_SUM_ENTRY(N, T) [NUMC_TYPE_##N] = accum_sum_##N,
+static const accum_func accum_sum_funcs[] = {
+    FOREACH_NUMC_TYPE(ACCUM_SUM_ENTRY)};
+#undef ACCUM_SUM_ENTRY
+
+#define ACCUM_PROD_ENTRY(N, T) [NUMC_TYPE_##N] = accum_prod_##N,
+static const accum_func accum_prod_funcs[] = {
+    FOREACH_NUMC_TYPE(ACCUM_PROD_ENTRY)};
+#undef ACCUM_PROD_ENTRY
+
+#define ACCUM_MIN_ENTRY(N, T) [NUMC_TYPE_##N] = accum_min_##N,
+static const accum_func accum_min_funcs[] = {
+    FOREACH_NUMC_TYPE(ACCUM_MIN_ENTRY)};
+#undef ACCUM_MIN_ENTRY
+
+#define ACCUM_MAX_ENTRY(N, T) [NUMC_TYPE_##N] = accum_max_##N,
+static const accum_func accum_max_funcs[] = {
+    FOREACH_NUMC_TYPE(ACCUM_MAX_ENTRY)};
+#undef ACCUM_MAX_ENTRY
+
+// =============================================================================
+//  Typed sum-to-double accumulation — for non-last-axis mean/std
+// =============================================================================
+
+typedef void (*accum_to_double_func)(const void *restrict src,
+                                     double *restrict dst, size_t n);
+
+#define GENERATE_ACCUM_TO_DOUBLE(NAME, CTYPE)                                  \
+  static void accum_to_double_##NAME(const void *restrict src,                 \
+                                     double *restrict dst, size_t n) {         \
+    const CTYPE *restrict ps = (const CTYPE *)src;                             \
+    NUMC_PRAGMA(clang loop vectorize_width(4) interleave_count(4))             \
+    for (size_t i = 0; i < n; i++) {                                           \
+      dst[i] += (double)ps[i];                                                 \
+    }                                                                          \
+  }
+FOREACH_NUMC_TYPE(GENERATE_ACCUM_TO_DOUBLE)
+#undef GENERATE_ACCUM_TO_DOUBLE
+
+#define ACCUM_TO_DOUBLE_ENTRY(N, T) [NUMC_TYPE_##N] = accum_to_double_##N,
+static const accum_to_double_func accum_to_double_funcs[] = {
+    FOREACH_NUMC_TYPE(ACCUM_TO_DOUBLE_ENTRY)};
+#undef ACCUM_TO_DOUBLE_ENTRY
+
+// =============================================================================
+//  Typed var accumulation — for non-last-axis std
+// =============================================================================
+
+typedef void (*accum_var_func)(const void *restrict src,
+                               const double *restrict mean,
+                               double *restrict dst, size_t n);
+
+#define GENERATE_ACCUM_VAR(NAME, CTYPE)                                        \
+  static void accum_var_##NAME(const void *restrict src,                       \
+                               const double *restrict mean,                    \
+                               double *restrict dst, size_t n) {               \
+    const CTYPE *restrict ps = (const CTYPE *)src;                             \
+    NUMC_PRAGMA(clang loop vectorize_width(4) interleave_count(4))             \
+    for (size_t i = 0; i < n; i++) {                                           \
+      double diff = (double)ps[i] - mean[i];                                   \
+      dst[i] += diff * diff;                                                   \
+    }                                                                          \
+  }
+FOREACH_NUMC_TYPE(GENERATE_ACCUM_VAR)
+#undef GENERATE_ACCUM_VAR
+
+#define ACCUM_VAR_ENTRY(N, T) [NUMC_TYPE_##N] = accum_var_##N,
+static const accum_var_func accum_var_funcs[] = {
+    FOREACH_NUMC_TYPE(ACCUM_VAR_ENTRY)};
+#undef ACCUM_VAR_ENTRY
+
+// =============================================================================
+//  reduce_along_axis — generic helper for sum/prod/min/max axis reductions
+// =============================================================================
+
+/**
+ * @brief Reduce a contiguous N-D array along one axis.
+ *
+ * Decomposes into outer x axis_len x inner.
+ *
+ * Fast path (inner_size == 1, last axis): calls full-reduction kernel
+ * directly on each contiguous row — full SIMD vectorization.
+ *
+ * Non-last-axis path (inner_size > 1): initializes output from first axis
+ * slice, then accumulates remaining slices with a vectorized inner loop.
+ */
+static void reduce_along_axis(const Array *a, size_t axis, void *out_data,
+                              size_t elem_size, const reduce_func *funcs,
+                              const accum_func *accum) {
+  const size_t axis_len = a->shape[axis];
+  size_t outer_size = 1;
+  for (size_t d = 0; d < axis; d++)
+    outer_size *= a->shape[d];
+  size_t inner_size = 1;
+  for (size_t d = axis + 1; d < a->ndim; d++)
+    inner_size *= a->shape[d];
+
+  const char *src = (const char *)a->data;
+  char *dst = (char *)out_data;
+
+  if (inner_size == 1) {
+    /* Fast path: reducing last axis — each slice is contiguous */
+    const reduce_func kernel = funcs[a->numc_type];
+    const size_t row_bytes = axis_len * elem_size;
+    for (size_t o = 0; o < outer_size; o++) {
+      kernel(src + o * row_bytes, dst + o * elem_size, axis_len);
+    }
+  } else {
+    /* Non-last-axis: vectorized accumulation over inner_size */
+    const accum_func accum_kernel = accum[a->numc_type];
+    const size_t inner_bytes = inner_size * elem_size;
+    for (size_t o = 0; o < outer_size; o++) {
+      const char *base = src + o * axis_len * inner_bytes;
+      char *out = dst + o * inner_bytes;
+      memcpy(out, base, inner_bytes);
+      for (size_t k = 1; k < axis_len; k++) {
+        accum_kernel(base + k * inner_bytes, out, inner_size);
+      }
+    }
+  }
+}
+
+// =============================================================================
+//  mean_along_axis — uses sum_to_double for precision
+// =============================================================================
+
+static void mean_along_axis(const Array *a, size_t axis, double *out_data) {
+  const size_t axis_len = a->shape[axis];
+  size_t outer_size = 1;
+  for (size_t d = 0; d < axis; d++)
+    outer_size *= a->shape[d];
+  size_t inner_size = 1;
+  for (size_t d = axis + 1; d < a->ndim; d++)
+    inner_size *= a->shape[d];
+
+  const char *src = (const char *)a->data;
+  const size_t elem_size = a->elem_size;
+  const sum_to_double_func kernel = sum_to_double_funcs[a->numc_type];
+  const double inv = 1.0 / (double)axis_len;
+
+  if (inner_size == 1) {
+    /* Fast path: reducing last axis — each slice is contiguous */
+    const size_t row_bytes = axis_len * elem_size;
+    for (size_t o = 0; o < outer_size; o++) {
+      out_data[o] = kernel(src + o * row_bytes, axis_len) * inv;
+    }
+  } else {
+    /* Non-last-axis: vectorized accumulation over inner_size */
+    const accum_to_double_func accum_kernel =
+        accum_to_double_funcs[a->numc_type];
+    const size_t inner_bytes = inner_size * elem_size;
+    for (size_t o = 0; o < outer_size; o++) {
+      double *restrict out_row = out_data + o * inner_size;
+      const char *base = src + o * axis_len * inner_bytes;
+      for (size_t k = 0; k < axis_len; k++) {
+        accum_kernel(base + k * inner_bytes, out_row, inner_size);
+      }
+      for (size_t i = 0; i < inner_size; i++) {
+        out_row[i] *= inv;
+      }
+    }
+  }
+}
+
+// =============================================================================
+//  std_along_axis — two-pass: mean via sum_to_double, then var
+// =============================================================================
+
+static void std_along_axis(const Array *a, size_t axis, double *out_data) {
+  const size_t axis_len = a->shape[axis];
+  size_t outer_size = 1;
+  for (size_t d = 0; d < axis; d++)
+    outer_size *= a->shape[d];
+  size_t inner_size = 1;
+  for (size_t d = axis + 1; d < a->ndim; d++)
+    inner_size *= a->shape[d];
+
+  const char *src = (const char *)a->data;
+  const size_t elem_size = a->elem_size;
+  const double inv = 1.0 / (double)axis_len;
+
+  if (inner_size == 1) {
+    /* Fast path: reducing last axis — each slice is contiguous */
+    const sum_to_double_func sum_kernel = sum_to_double_funcs[a->numc_type];
+    const var_func var_kernel = var_funcs[a->numc_type];
+    const size_t row_bytes = axis_len * elem_size;
+    for (size_t o = 0; o < outer_size; o++) {
+      const void *row = src + o * row_bytes;
+      double mean = sum_kernel(row, axis_len) * inv;
+      double variance = var_kernel(row, axis_len, mean) * inv;
+      out_data[o] = sqrt(variance);
+    }
+  } else {
+    /* Non-last-axis: vectorized two-pass over inner_size */
+    const accum_to_double_func accum_kernel =
+        accum_to_double_funcs[a->numc_type];
+    const accum_var_func var_accum_kernel = accum_var_funcs[a->numc_type];
+    const size_t inner_bytes = inner_size * elem_size;
+
+    /* Allocate scratch for means (out_data is reused for variance) */
+    double *means =
+        (double *)numc_malloc(NUMC_ALIGN, inner_size * sizeof(double));
+
+    for (size_t o = 0; o < outer_size; o++) {
+      double *restrict out_row = out_data + o * inner_size;
+      const char *base = src + o * axis_len * inner_bytes;
+
+      /* Pass 1: compute means via sum_to_double accumulation */
+      memset(out_row, 0, inner_size * sizeof(double));
+      for (size_t k = 0; k < axis_len; k++) {
+        accum_kernel(base + k * inner_bytes, out_row, inner_size);
+      }
+      for (size_t i = 0; i < inner_size; i++) {
+        out_row[i] *= inv;
+      }
+
+      /* Save means, zero out_row for variance accumulation */
+      memcpy(means, out_row, inner_size * sizeof(double));
+      memset(out_row, 0, inner_size * sizeof(double));
+
+      /* Pass 2: accumulate (x - mean)^2, then sqrt(var/N) */
+      for (size_t k = 0; k < axis_len; k++) {
+        var_accum_kernel(base + k * inner_bytes, means, out_row, inner_size);
+      }
+      for (size_t i = 0; i < inner_size; i++) {
+        out_row[i] = sqrt(out_row[i] * inv);
+      }
+    }
+    numc_free(means);
+  }
+}
+
+// =============================================================================
+//  Full reduction: array_mean and array_std
+// =============================================================================
+
+int array_mean(const Array *a, double *out) {
+  if (!a || !out) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_mean: NULL argument");
+    return NUMC_ERR_NULL;
+  }
+  if (!a->is_contiguous) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_mean: array must be contiguous");
+    return NUMC_ERR_CONTIGUOUS;
+  }
+  if (a->size == 0) {
+    numc_set_error(NUMC_ERR_INVALID, "numc: array_mean: empty array");
+    return NUMC_ERR_INVALID;
+  }
+  *out = sum_to_double_funcs[a->numc_type](a->data, a->size) / (double)a->size;
+  return NUMC_OK;
+}
+
+int array_std(const Array *a, double *out) {
+  if (!a || !out) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_std: NULL argument");
+    return NUMC_ERR_NULL;
+  }
+  if (!a->is_contiguous) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_std: array must be contiguous");
+    return NUMC_ERR_CONTIGUOUS;
+  }
+  if (a->size == 0) {
+    numc_set_error(NUMC_ERR_INVALID, "numc: array_std: empty array");
+    return NUMC_ERR_INVALID;
+  }
+  double mean =
+      sum_to_double_funcs[a->numc_type](a->data, a->size) / (double)a->size;
+  double variance =
+      var_funcs[a->numc_type](a->data, a->size, mean) / (double)a->size;
+  *out = sqrt(variance);
+  return NUMC_OK;
+}
+
+// =============================================================================
+//  Axis reduction: shared validation + output shape builder
+// =============================================================================
+
+/**
+ * @brief Build output shape by removing the axis dimension.
+ * @return Output ndim (always >= 1: 1D input → scalar stored as 1D size-1).
+ */
+static size_t build_out_shape(const Array *a, size_t axis,
+                              size_t out_shape[MAX_STACK_NDIM]) {
+  size_t out_ndim = a->ndim - 1;
+  if (out_ndim == 0)
+    out_ndim = 1;
+  size_t j = 0;
+  for (size_t d = 0; d < a->ndim; d++) {
+    if (d != axis)
+      out_shape[j++] = a->shape[d];
+  }
+  if (a->ndim == 1)
+    out_shape[0] = 1;
+  return out_ndim;
+}
+
+// =============================================================================
+//  Axis reduction: public API — sum, prod, min, max
+// =============================================================================
+
+Array *array_sum_axis(const Array *a, size_t axis) {
+  if (!a) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_sum_axis: NULL argument");
+    return NULL;
+  }
+  if (axis >= a->ndim) {
+    numc_set_error(NUMC_ERR_AXIS, "numc: array_sum_axis: invalid axis");
+    return NULL;
+  }
+  if (!a->is_contiguous && array_ascontiguousarray((Array *)a) < 0) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_sum_axis: array must be contiguous");
+    return NULL;
+  }
+  size_t out_shape[MAX_STACK_NDIM];
+  size_t out_ndim = build_out_shape(a, axis, out_shape);
+  Array *out = array_zeros(out_ndim, out_shape, a->numc_type);
+  if (!out)
+    return NULL;
+  reduce_along_axis(a, axis, out->data, a->elem_size, sum_funcs,
+                    accum_sum_funcs);
+  return out;
+}
+
+Array *array_prod_axis(const Array *a, size_t axis) {
+  if (!a) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_prod_axis: NULL argument");
+    return NULL;
+  }
+  if (axis >= a->ndim) {
+    numc_set_error(NUMC_ERR_AXIS, "numc: array_prod_axis: invalid axis");
+    return NULL;
+  }
+  if (!a->is_contiguous) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_prod_axis: array must be contiguous");
+    return NULL;
+  }
+  size_t out_shape[MAX_STACK_NDIM];
+  size_t out_ndim = build_out_shape(a, axis, out_shape);
+  Array *out = array_zeros(out_ndim, out_shape, a->numc_type);
+  if (!out)
+    return NULL;
+  reduce_along_axis(a, axis, out->data, a->elem_size, prod_funcs,
+                    accum_prod_funcs);
+  return out;
+}
+
+Array *array_min_axis(const Array *a, size_t axis) {
+  if (!a) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_min_axis: NULL argument");
+    return NULL;
+  }
+  if (axis >= a->ndim) {
+    numc_set_error(NUMC_ERR_AXIS, "numc: array_min_axis: invalid axis");
+    return NULL;
+  }
+  if (!a->is_contiguous) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_min_axis: array must be contiguous");
+    return NULL;
+  }
+  size_t out_shape[MAX_STACK_NDIM];
+  size_t out_ndim = build_out_shape(a, axis, out_shape);
+  Array *out = array_zeros(out_ndim, out_shape, a->numc_type);
+  if (!out)
+    return NULL;
+  reduce_along_axis(a, axis, out->data, a->elem_size, min_funcs,
+                    accum_min_funcs);
+  return out;
+}
+
+Array *array_max_axis(const Array *a, size_t axis) {
+  if (!a) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_max_axis: NULL argument");
+    return NULL;
+  }
+  if (axis >= a->ndim) {
+    numc_set_error(NUMC_ERR_AXIS, "numc: array_max_axis: invalid axis");
+    return NULL;
+  }
+  if (!a->is_contiguous) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_max_axis: array must be contiguous");
+    return NULL;
+  }
+  size_t out_shape[MAX_STACK_NDIM];
+  size_t out_ndim = build_out_shape(a, axis, out_shape);
+  Array *out = array_zeros(out_ndim, out_shape, a->numc_type);
+  if (!out)
+    return NULL;
+  reduce_along_axis(a, axis, out->data, a->elem_size, max_funcs,
+                    accum_max_funcs);
+  return out;
+}
+
+// =============================================================================
+//  Axis reduction: public API — mean, std
+// =============================================================================
+
+Array *array_mean_axis(const Array *a, size_t axis) {
+  if (!a) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_mean_axis: NULL argument");
+    return NULL;
+  }
+  if (axis >= a->ndim) {
+    numc_set_error(NUMC_ERR_AXIS, "numc: array_mean_axis: invalid axis");
+    return NULL;
+  }
+  if (!a->is_contiguous) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_mean_axis: array must be contiguous");
+    return NULL;
+  }
+  size_t out_shape[MAX_STACK_NDIM];
+  size_t out_ndim = build_out_shape(a, axis, out_shape);
+  Array *out = array_zeros(out_ndim, out_shape, NUMC_TYPE_DOUBLE);
+  if (!out)
+    return NULL;
+  mean_along_axis(a, axis, (double *)out->data);
+  return out;
+}
+
+Array *array_std_axis(const Array *a, size_t axis) {
+  if (!a) {
+    numc_set_error(NUMC_ERR_NULL, "numc: array_std_axis: NULL argument");
+    return NULL;
+  }
+  if (axis >= a->ndim) {
+    numc_set_error(NUMC_ERR_AXIS, "numc: array_std_axis: invalid axis");
+    return NULL;
+  }
+  if (!a->is_contiguous) {
+    numc_set_error(NUMC_ERR_CONTIGUOUS,
+                   "numc: array_std_axis: array must be contiguous");
+    return NULL;
+  }
+  size_t out_shape[MAX_STACK_NDIM];
+  size_t out_ndim = build_out_shape(a, axis, out_shape);
+  Array *out = array_zeros(out_ndim, out_shape, NUMC_TYPE_DOUBLE);
+  if (!out)
+    return NULL;
+  std_along_axis(a, axis, (double *)out->data);
+  return out;
 }

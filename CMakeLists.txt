@@ -42,7 +42,6 @@ set(NUMC_SOURCES
     src/math.c
     src/alloc.c
     src/error.c
-    src/arch/avx2.c
 )
 
 if(BUILD_SHARED)
@@ -54,8 +53,6 @@ endif()
 target_include_directories(numc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(numc PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# SIMD arch-specific compile flags
-set_source_files_properties(src/arch/avx2.c PROPERTIES COMPILE_FLAGS "-mavx2")
 target_link_libraries(numc PUBLIC m)
 
 if(OpenMP_C_FOUND)
