@@ -28,7 +28,7 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 
 # --- Per-build-type flags ---
 set(CMAKE_C_FLAGS_DEBUG "-g -O0 -fsanitize=address -fno-omit-frame-pointer")
-set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -ffast-math -Wno-pass-failed")
+set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -ffast-math -fwrapv -fno-math-errno -ffp-contract=fast -Wno-pass-failed")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
 
 # --- OpenMP ---

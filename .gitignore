@@ -11,3 +11,5 @@ Testing/Temporary
 .github/copilot-instructions.md
 *.s
 build-release
+/.claude/agents
+*.csv
