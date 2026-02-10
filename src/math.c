@@ -179,10 +179,10 @@
     const c_type *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);       \
     const c_type *restrict pb = __builtin_assume_aligned(b, NUMC_ALIGN);       \
     c_type *restrict pout = __builtin_assume_aligned(out, NUMC_ALIGN);         \
-    /* Use OpenMP only for very large arrays (>16MB for BYTE, >32MB for SHORT) \
-     */                                                                        \
-    const size_t bytes = n * sizeof(c_type);                                   \
-    if (bytes > (16 * 1024 * 1024)) {                                          \
+    /* Use OpenMP only for very large arrays (>16MB)                            \
+     * Threshold computed at compile-time to avoid multiplication in hot path   \
+     * BYTE: 16777216 elements, SHORT: 8388608 elements */                     \
+    if (__builtin_expect(n > (16 * 1024 * 1024) / sizeof(c_type), 0)) {        \
       NUMC_PRAGMA(omp parallel for schedule(static))                           \
       for (size_t i = 0; i < n; i++) {                                         \
         pout[i] = pa[i] op_symbol pb[i];                                       \
@@ -338,9 +338,9 @@ FOREACH_NUMC_TYPE_64BIT(GENERATE_MUL_FUNC_64BIT)
     const c_type *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);       \
     const c_type *restrict pb = __builtin_assume_aligned(b, NUMC_ALIGN);       \
     c_type *restrict pout = __builtin_assume_aligned(out, NUMC_ALIGN);         \
-    /* Use OpenMP only for very large arrays (>16MB) */                        \
-    const size_t bytes = n * sizeof(c_type);                                   \
-    if (bytes > (16 * 1024 * 1024)) {                                          \
+    /* Use OpenMP only for very large arrays (>16MB)                            \
+     * Threshold computed at compile-time (avoids multiplication) */           \
+    if (__builtin_expect(n > (16 * 1024 * 1024) / sizeof(c_type), 0)) {        \
       NUMC_PRAGMA(omp parallel for schedule(static))                           \
       for (size_t i = 0; i < n; i++) {                                         \
         pout[i] = (c_type)((float)pa[i] / (float)pb[i]);                       \

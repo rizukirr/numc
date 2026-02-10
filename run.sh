@@ -63,18 +63,43 @@ case $1 in
 
         exit 0
         ;;
+    "benchmark_add"|"benchmark_subtract"|"benchmark_multiply"|"benchmark_divide"|"benchmark_sum"|"benchmark_min"|"benchmark_max"|"benchmark_scalar"|"benchmark_reductions")
+        echo "Building in release mode and running $1..."
+        build Release
+        echo ""
+        if [ -f "./build/bin/$1" ]; then
+            ./build/bin/$1
+        else
+            echo "Benchmark $1 not found."
+        fi
+        exit 0
+        ;;
     "help")
         echo "Usage: $0 [command]"
         echo ""
         echo "Commands:"
-        echo "  debug       Build in debug mode with AddressSanitizer and run demo"
-        echo "  release     Build in release mode with optimizations and run demo"
-        echo "  test        Build in debug mode and run all tests"
-        echo "  benchmark   Build in release mode and run all benchmarks"
-        echo "  clean       Remove build directory"
-        echo "  rebuild     Clean and rebuild in debug mode"
-        echo "  help        Show this help message"
-        echo "  (no args)   Run demo without rebuilding"
+        echo "  debug              Build in debug mode with AddressSanitizer and run demo"
+        echo "  release            Build in release mode with optimizations and run demo"
+        echo "  test               Build in debug mode and run all tests"
+        echo "  benchmark          Build in release mode and run comprehensive benchmark"
+        echo ""
+        echo "  Isolated Operation Benchmarks (avoid thermal effects):"
+        echo "    benchmark_add        ADD operation"
+        echo "    benchmark_subtract   SUBTRACT operation"
+        echo "    benchmark_multiply   MULTIPLY operation"
+        echo "    benchmark_divide     DIVIDE operation"
+        echo "    benchmark_sum        SUM reduction"
+        echo "    benchmark_min        MIN reduction"
+        echo "    benchmark_max        MAX reduction"
+        echo "    benchmark_scalar     SCALAR operations (add/sub/mul/div with scalar)"
+        echo "    benchmark_reductions OTHER reductions (prod/dot/mean/std)"
+        echo ""
+        echo "  clean              Remove build directory"
+        echo "  rebuild            Clean and rebuild in debug mode"
+        echo "  help               Show this help message"
+        echo "  (no args)          Run demo without rebuilding"
+        echo ""
+        echo "Isolated benchmarks avoid thermal effects from sequential testing."
         echo ""
         echo "Environment:"
         echo "  CC=gcc ./run.sh release   Use GCC instead of Clang"

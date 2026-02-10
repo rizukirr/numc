@@ -31,6 +31,18 @@ set(CMAKE_C_FLAGS_DEBUG "-g -O0 -fsanitize=address -fno-omit-frame-pointer")
 set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -ffast-math -fwrapv -fno-math-errno -ffp-contract=fast -Wno-pass-failed")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
 
+# --- Link-Time Optimization (LTO) for Release builds ---
+# Same optimization NumPy uses - enables cross-TU inlining and optimizations
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
+  if(ipo_supported)
+    message(STATUS "LTO enabled for Release build")
+  else()
+    message(STATUS "LTO not supported: ${ipo_error}")
+  endif()
+endif()
+
 # --- OpenMP ---
 find_package(OpenMP)
 
@@ -68,6 +80,22 @@ set_target_properties(numc PROPERTIES
     OUTPUT_NAME "numc"
 )
 
+# Enable LTO for Release builds
+if(CMAKE_BUILD_TYPE STREQUAL "Release" AND ipo_supported)
+  set_target_properties(numc PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_target_properties(numc_demo PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_target_properties(comprehensive_benchmark PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_target_properties(benchmark_add PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_target_properties(benchmark_subtract PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_target_properties(benchmark_multiply PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_target_properties(benchmark_divide PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_target_properties(benchmark_sum PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_target_properties(benchmark_min PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_target_properties(benchmark_max PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_target_properties(benchmark_scalar PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+  set_target_properties(benchmark_reductions PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
 # --- Examples ---
 if(BUILD_EXAMPLES)
     add_executable(numc_demo examples/demo.c)
@@ -75,6 +103,34 @@ if(BUILD_EXAMPLES)
 
     add_executable(comprehensive_benchmark examples/comprehensive_benchmark.c)
     target_link_libraries(comprehensive_benchmark numc)
+
+    # Separate operation benchmarks (avoid thermal effects from sequential testing)
+    add_executable(benchmark_add examples/benchmark_add.c)
+    target_link_libraries(benchmark_add numc)
+
+    add_executable(benchmark_subtract examples/benchmark_subtract.c)
+    target_link_libraries(benchmark_subtract numc)
+
+    add_executable(benchmark_multiply examples/benchmark_multiply.c)
+    target_link_libraries(benchmark_multiply numc)
+
+    add_executable(benchmark_divide examples/benchmark_divide.c)
+    target_link_libraries(benchmark_divide numc)
+
+    add_executable(benchmark_sum examples/benchmark_sum.c)
+    target_link_libraries(benchmark_sum numc)
+
+    add_executable(benchmark_min examples/benchmark_min.c)
+    target_link_libraries(benchmark_min numc)
+
+    add_executable(benchmark_max examples/benchmark_max.c)
+    target_link_libraries(benchmark_max numc)
+
+    add_executable(benchmark_scalar examples/benchmark_scalar.c)
+    target_link_libraries(benchmark_scalar numc)
+
+    add_executable(benchmark_reductions examples/benchmark_reductions.c)
+    target_link_libraries(benchmark_reductions numc)
 endif()
 
 # --- Tests ---
