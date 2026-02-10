@@ -151,6 +151,52 @@
   }
 
 /**
+ * @brief [Template] Binary operation kernel for small types
+ * (BYTE/UBYTE/SHORT/USHORT).
+ *
+ * Uses explicit vectorization hints instead of OpenMP to avoid outlining
+ * overhead for 1-2 byte element types. OpenMP function call overhead dominates
+ * compute time for small element sizes (e.g., 1M BYTE elements = only 1MB
+ * total).
+ *
+ * Uses same optimization as reduction kernels:
+ * - Direct loop (no OpenMP outlining)
+ * - Explicit vectorization via NUMC_PRAGMA
+ * - __builtin_assume_aligned for SIMD
+ *
+ * For very large arrays (>16MB), falls back to OpenMP parallelization.
+ *
+ * @param op_name        Operation prefix (add, sub, mul)
+ * @param numc_type_name Type suffix (BYTE, UBYTE, SHORT, USHORT)
+ * @param c_type         C type (NUMC_BYTE → int8_t, etc.)
+ * @param op_symbol      C operator (+, -, *)
+ * @param vec_width      SIMD width (16 for BYTE/UBYTE, 8 for SHORT/USHORT)
+ */
+#define GENERATE_BINARY_OP_FUNC_SMALL(op_name, numc_type_name, c_type,         \
+                                      op_symbol, vec_width)                    \
+  static inline void op_name##_##numc_type_name(                               \
+      const void *restrict a, const void *restrict b, void *out, size_t n) {   \
+    const c_type *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);       \
+    const c_type *restrict pb = __builtin_assume_aligned(b, NUMC_ALIGN);       \
+    c_type *restrict pout = __builtin_assume_aligned(out, NUMC_ALIGN);         \
+    /* Use OpenMP only for very large arrays (>16MB for BYTE, >32MB for SHORT) \
+     */                                                                        \
+    const size_t bytes = n * sizeof(c_type);                                   \
+    if (bytes > (16 * 1024 * 1024)) {                                          \
+      NUMC_PRAGMA(omp parallel for schedule(static))                           \
+      for (size_t i = 0; i < n; i++) {                                         \
+        pout[i] = pa[i] op_symbol pb[i];                                       \
+      }                                                                        \
+    } else {                                                                   \
+      /* Same optimization as reductions: explicit vectorization hints */      \
+      NUMC_PRAGMA(clang loop vectorize_width(vec_width) interleave_count(4))   \
+      for (size_t i = 0; i < n; i++) {                                         \
+        pout[i] = pa[i] op_symbol pb[i];                                       \
+      }                                                                        \
+    }                                                                          \
+  }
+
+/**
  * @brief [Template] Generate a binary operation kernel for 64-bit types.
  *
  * Same as GENERATE_BINARY_OP_FUNC but WITHOUT __builtin_assume_aligned.
@@ -195,12 +241,17 @@
 // #############################################################################
 
 // --------------- ADD: out[i] = a[i] + b[i] ---------------
-// Generates: add_BYTE, add_UBYTE, add_SHORT, add_USHORT, add_INT, add_UINT,
-//            add_FLOAT (32-bit, with alignment hints)
-#define GENERATE_ADD_FUNC(numc_type_name, c_type)                              \
-  GENERATE_BINARY_OP_FUNC(add, numc_type_name, c_type, +)
-FOREACH_NUMC_TYPE_32BIT(GENERATE_ADD_FUNC)
-#undef GENERATE_ADD_FUNC
+// Small types (BYTE/UBYTE/SHORT/USHORT): Use optimized template with explicit
+// vectorization
+GENERATE_BINARY_OP_FUNC_SMALL(add, BYTE, NUMC_BYTE, +, 16)
+GENERATE_BINARY_OP_FUNC_SMALL(add, UBYTE, NUMC_UBYTE, +, 16)
+GENERATE_BINARY_OP_FUNC_SMALL(add, SHORT, NUMC_SHORT, +, 8)
+GENERATE_BINARY_OP_FUNC_SMALL(add, USHORT, NUMC_USHORT, +, 8)
+
+// Standard 32-bit types (INT, UINT, FLOAT): Use standard template with OpenMP
+GENERATE_BINARY_OP_FUNC(add, INT, NUMC_INT, +)
+GENERATE_BINARY_OP_FUNC(add, UINT, NUMC_UINT, +)
+GENERATE_BINARY_OP_FUNC(add, FLOAT, NUMC_FLOAT, +)
 
 // Generates: add_LONG, add_ULONG, add_DOUBLE (64-bit, no alignment hints)
 #define GENERATE_ADD_FUNC_64BIT(numc_type_name, c_type)                        \
@@ -209,11 +260,17 @@ FOREACH_NUMC_TYPE_64BIT(GENERATE_ADD_FUNC_64BIT)
 #undef GENERATE_ADD_FUNC_64BIT
 
 // --------------- SUB: out[i] = a[i] - b[i] ---------------
-// Generates: sub_BYTE ... sub_FLOAT
-#define GENERATE_SUB_FUNC(numc_type_name, c_type)                              \
-  GENERATE_BINARY_OP_FUNC(sub, numc_type_name, c_type, -)
-FOREACH_NUMC_TYPE_32BIT(GENERATE_SUB_FUNC)
-#undef GENERATE_SUB_FUNC
+// Small types (BYTE/UBYTE/SHORT/USHORT): Use optimized template with explicit
+// vectorization
+GENERATE_BINARY_OP_FUNC_SMALL(sub, BYTE, NUMC_BYTE, -, 16)
+GENERATE_BINARY_OP_FUNC_SMALL(sub, UBYTE, NUMC_UBYTE, -, 16)
+GENERATE_BINARY_OP_FUNC_SMALL(sub, SHORT, NUMC_SHORT, -, 8)
+GENERATE_BINARY_OP_FUNC_SMALL(sub, USHORT, NUMC_USHORT, -, 8)
+
+// Standard 32-bit types (INT, UINT, FLOAT): Use standard template with OpenMP
+GENERATE_BINARY_OP_FUNC(sub, INT, NUMC_INT, -)
+GENERATE_BINARY_OP_FUNC(sub, UINT, NUMC_UINT, -)
+GENERATE_BINARY_OP_FUNC(sub, FLOAT, NUMC_FLOAT, -)
 
 // Generates: sub_LONG, sub_ULONG, sub_DOUBLE
 #define GENERATE_SUB_FUNC_64BIT(numc_type_name, c_type)                        \
@@ -222,11 +279,17 @@ FOREACH_NUMC_TYPE_64BIT(GENERATE_SUB_FUNC_64BIT)
 #undef GENERATE_SUB_FUNC_64BIT
 
 // --------------- MUL: out[i] = a[i] * b[i] ---------------
-// Generates: mul_BYTE ... mul_FLOAT
-#define GENERATE_MUL_FUNC(numc_type_name, c_type)                              \
-  GENERATE_BINARY_OP_FUNC(mul, numc_type_name, c_type, *)
-FOREACH_NUMC_TYPE_32BIT(GENERATE_MUL_FUNC)
-#undef GENERATE_MUL_FUNC
+// Small types (BYTE/UBYTE/SHORT/USHORT): Use optimized template with explicit
+// vectorization
+GENERATE_BINARY_OP_FUNC_SMALL(mul, BYTE, NUMC_BYTE, *, 16)
+GENERATE_BINARY_OP_FUNC_SMALL(mul, UBYTE, NUMC_UBYTE, *, 16)
+GENERATE_BINARY_OP_FUNC_SMALL(mul, SHORT, NUMC_SHORT, *, 8)
+GENERATE_BINARY_OP_FUNC_SMALL(mul, USHORT, NUMC_USHORT, *, 8)
+
+// Standard 32-bit types (INT, UINT, FLOAT): Use standard template with OpenMP
+GENERATE_BINARY_OP_FUNC(mul, INT, NUMC_INT, *)
+GENERATE_BINARY_OP_FUNC(mul, UINT, NUMC_UINT, *)
+GENERATE_BINARY_OP_FUNC(mul, FLOAT, NUMC_FLOAT, *)
 
 // Generates: mul_LONG, mul_ULONG, mul_DOUBLE
 #define GENERATE_MUL_FUNC_64BIT(numc_type_name, c_type)                        \
@@ -254,32 +317,48 @@ FOREACH_NUMC_TYPE_64BIT(GENERATE_MUL_FUNC_64BIT)
 //     DOUBLE uses SIMD divpd natively.
 
 /**
- * @brief [Template] Narrow integer division via float promotion.
+ * @brief [Template] Narrow integer division via float promotion (optimized for
+ * small types).
  *
  * Produces: div_##name(a, b, out, n) where out[i] = (c_type)(float(a[i]) /
  * float(b[i]))
  *
  * Enables SIMD divps for types that would otherwise use scalar idiv (~10-27x
- * speedup).
+ * speedup). Uses explicit vectorization hints instead of OpenMP to avoid
+ * outlining overhead for small element sizes (same optimization as
+ * add/sub/mul).
  *
  * @param numc_type_name Type suffix (BYTE, UBYTE, SHORT, USHORT)
  * @param c_type         C type (int8_t, uint8_t, int16_t, uint16_t)
+ * @param vec_width      SIMD width (16 for BYTE/UBYTE, 8 for SHORT/USHORT)
  */
-#define GENERATE_DIV_FUNC_NARROW(numc_type_name, c_type)                       \
+#define GENERATE_DIV_FUNC_NARROW(numc_type_name, c_type, vec_width)            \
   static inline void div_##numc_type_name(                                     \
       const void *restrict a, const void *restrict b, void *out, size_t n) {   \
     const c_type *restrict pa = __builtin_assume_aligned(a, NUMC_ALIGN);       \
     const c_type *restrict pb = __builtin_assume_aligned(b, NUMC_ALIGN);       \
     c_type *restrict pout = __builtin_assume_aligned(out, NUMC_ALIGN);         \
-    NUMC_OMP_FOR(                                                              \
-        n, for (size_t i = 0; i < n;                                           \
-                i++) { pout[i] = (c_type)((float)pa[i] / (float)pb[i]); })     \
+    /* Use OpenMP only for very large arrays (>16MB) */                        \
+    const size_t bytes = n * sizeof(c_type);                                   \
+    if (bytes > (16 * 1024 * 1024)) {                                          \
+      NUMC_PRAGMA(omp parallel for schedule(static))                           \
+      for (size_t i = 0; i < n; i++) {                                         \
+        pout[i] = (c_type)((float)pa[i] / (float)pb[i]);                       \
+      }                                                                        \
+    } else {                                                                   \
+      /* Explicit vectorization hints for float promotion path */              \
+      NUMC_PRAGMA(clang loop vectorize_width(vec_width) interleave_count(4))   \
+      for (size_t i = 0; i < n; i++) {                                         \
+        pout[i] = (c_type)((float)pa[i] / (float)pb[i]);                       \
+      }                                                                        \
+    }                                                                          \
   }
-// Generates: div_BYTE, div_UBYTE, div_SHORT, div_USHORT (float promotion)
-GENERATE_DIV_FUNC_NARROW(BYTE, NUMC_BYTE)
-GENERATE_DIV_FUNC_NARROW(UBYTE, NUMC_UBYTE)
-GENERATE_DIV_FUNC_NARROW(SHORT, NUMC_SHORT)
-GENERATE_DIV_FUNC_NARROW(USHORT, NUMC_USHORT)
+// Generates: div_BYTE, div_UBYTE, div_SHORT, div_USHORT (float promotion,
+// optimized)
+GENERATE_DIV_FUNC_NARROW(BYTE, NUMC_BYTE, 16)
+GENERATE_DIV_FUNC_NARROW(UBYTE, NUMC_UBYTE, 16)
+GENERATE_DIV_FUNC_NARROW(SHORT, NUMC_SHORT, 8)
+GENERATE_DIV_FUNC_NARROW(USHORT, NUMC_USHORT, 8)
 #undef GENERATE_DIV_FUNC_NARROW
 
 // Generates: div_FLOAT (SIMD divps — native hardware FP division)
