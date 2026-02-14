@@ -25,11 +25,11 @@ numc provides the tensor primitives — ctorch provides layers, autograd, optimi
 - [x] `array_copy(arr)` — deep copy
 - [x] `array_reshape_inplace(arr, new_shape, new_dim)`
 - [x] `array_reshape_copy(arr, new_shape, new_dim)`
-- [ ] `array_transpose(arr)` — 2D stride swap
-- [ ] `array_permute(arr, axes)` — generalized transpose
-- [ ] `array_slice(arr, axis, start, end)` — view into sub-range
-- [ ] `array_is_contiguous(arr)`
-- [ ] `array_contiguous(arr)` — copy to contiguous layout
+- [x] `array_transpose_inplace(arr)` — stride swap in-place
+- [x] `array_transpose_copy(arr)` — stride swap return new array
+- [x] `array_is_contiguous(arr)`
+- [x] `array_as_contiguous(arr)` — copy to contiguous layout
+- [x] `array_slice(arr, axis, start, end)` — view into sub-range
 
 ### 3. Element-wise Math
 

@@ -7,6 +7,8 @@
 #define NUMC_MAX_DIMENSIONS 8
 #define NUMC_MAX_MEMORY 8388608 // 8MB
 
+#define array_slice(arr, ...) _array_slice((arr), &(NumcSlice){__VA_ARGS__})
+
 /* X-macro: generates _assign_value_<DTYPE>(data, value) for each type.
  * Copies one scalar from `value` to `data`. Both pointers must be
  * properly aligned for the target type. */
@@ -34,6 +36,10 @@ typedef struct NumcCtx NumcCtx;
 
 typedef struct NumcArray NumcArray;
 
+typedef struct {
+  size_t axis, start, stop, step;
+} NumcSlice;
+
 /* Create a context. All arrays allocated from it are freed together
  * via array_free(). Returns NULL on failure. */
 NumcCtx *array_create_ctx(void);
@@ -43,9 +49,15 @@ NumcCtx *array_create_ctx(void);
 NumcArray *array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
                         NumcDType dtype);
 
-/* Copy raw bytes into the array's data buffer.
- * `data` must have at least array_size() * array_elem_size() bytes or the
- * remainder will be filled with the zeros */
+/* Check if the array is contiguous. */
+bool is_contiguous(NumcArray *arr);
+
+/* Convert the array to contiguous layout. Returns 0 on success, -1 on error. */
+int array_as_contiguous(NumcArray *arr);
+
+/* Copy raw bytes into the array's data buffer. `data` must have at least
+ * array_size() * array_elem_size() bytes or the remainder will be filled with
+ * the zeros otherwise truncated. */
 void array_write_data(NumcArray *arr, const void *data);
 
 /* Create an array with all elements set to zero. */
@@ -69,8 +81,15 @@ int array_reshape_inplace(NumcArray *arr, const size_t *new_shape,
 NumcArray *array_reshape_copy(const NumcArray *arr, const size_t *new_shape,
                               size_t new_dim);
 
-/* Swap dimensions 1 and 2. Returns 0 on success, -1 on error. */
+/* Swap dimensions in-place. Returns 0 on success, -1 on error. */
 int array_transpose_inplace(NumcArray *arr, const size_t *axes);
+
+/* Swap dimensions and return new array. Returns NULL on failure. */
+NumcArray *array_transpose_copy(const NumcArray *arr, const size_t *axes);
+
+/* Slice a single axis. Returns a view (no data copy). Returns NULL on failure.
+ * `start` is inclusive, `stop` is exclusive, `step` must be >= 1. */
+NumcArray *_array_slice(const NumcArray *arr, NumcSlice *slice);
 
 /* Total number of elements (product of all dimensions). */
 size_t array_size(const NumcArray *arr);
