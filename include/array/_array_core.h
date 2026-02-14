@@ -6,6 +6,7 @@
 
 #define NUMC_MAX_DIMENSIONS 8
 #define NUMC_MAX_MEMORY 8388608 // 8MB
+#define NUMC_SIMD_ALIGN 32
 
 typedef struct {
   Arena *arena;

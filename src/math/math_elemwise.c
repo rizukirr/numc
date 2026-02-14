@@ -10,9 +10,9 @@
 #define GENERATE_OP_DIV_INT8_INT16(TYPE_ENUM, NUMC_TYPE)                       \
   static inline void OP_FNAME(OP_NAME, TYPE_ENUM)(                             \
       void *a, void *b, void *out, size_t n, size_t elem_size) {               \
-    NUMC_TYPE *restrict pa = (NUMC_TYPE *)a;                                   \
-    NUMC_TYPE *restrict pb = (NUMC_TYPE *)b;                                   \
-    NUMC_TYPE *restrict pout = (NUMC_TYPE *)out;                               \
+    NUMC_TYPE *restrict pa = __builtin_assume_aligned(a, NUMC_SIMD_ALIGN);     \
+    NUMC_TYPE *restrict pb = __builtin_assume_aligned(b, NUMC_SIMD_ALIGN);     \
+    NUMC_TYPE *restrict pout = __builtin_assume_aligned(out, NUMC_SIMD_ALIGN); \
     NUMC_OMP_FOR(                                                              \
         n, elem_size, for (size_t i = 0; i < n; i++) {                         \
           pout[i] = (NUMC_TYPE)((float)pa[i] / (float)pb[i]);                  \
@@ -22,9 +22,9 @@
 #define GENERATE_OP_DIV_INT32(TYPE_ENUM, NUMC_TYPE)                            \
   static inline void OP_FNAME(OP_NAME, TYPE_ENUM)(                             \
       void *a, void *b, void *out, size_t n, size_t elem_size) {               \
-    NUMC_TYPE *restrict pa = (NUMC_TYPE *)a;                                   \
-    NUMC_TYPE *restrict pb = (NUMC_TYPE *)b;                                   \
-    NUMC_TYPE *restrict pout = (NUMC_TYPE *)out;                               \
+    NUMC_TYPE *restrict pa = __builtin_assume_aligned(a, NUMC_SIMD_ALIGN);     \
+    NUMC_TYPE *restrict pb = __builtin_assume_aligned(b, NUMC_SIMD_ALIGN);     \
+    NUMC_TYPE *restrict pout = __builtin_assume_aligned(out, NUMC_SIMD_ALIGN); \
     NUMC_OMP_FOR(                                                              \
         n, elem_size, for (size_t i = 0; i < n; i++) {                         \
           pout[i] = (NUMC_TYPE)((double)pa[i] / (double)pb[i]);                \
@@ -34,9 +34,9 @@
 #define GENERATE_OP(TYPE_ENUM, NUMC_TYPE)                                      \
   static inline void OP_FNAME(OP_NAME, TYPE_ENUM)(                             \
       void *a, void *b, void *out, size_t n, size_t elem_size) {               \
-    NUMC_TYPE *restrict pa = (NUMC_TYPE *)a;                                   \
-    NUMC_TYPE *restrict pb = (NUMC_TYPE *)b;                                   \
-    NUMC_TYPE *restrict pout = (NUMC_TYPE *)out;                               \
+    NUMC_TYPE *restrict pa = __builtin_assume_aligned(a, NUMC_SIMD_ALIGN);     \
+    NUMC_TYPE *restrict pb = __builtin_assume_aligned(b, NUMC_SIMD_ALIGN);     \
+    NUMC_TYPE *restrict pout = __builtin_assume_aligned(out, NUMC_SIMD_ALIGN); \
     NUMC_OMP_FOR(                                                              \
         n, elem_size,                                                          \
         for (size_t i = 0; i < n; i++) { pout[i] = pa[i] OP_SYMBOL pb[i]; });  \

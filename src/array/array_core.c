@@ -90,7 +90,7 @@ NumcArray *array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
     return NULL;
 
   arr->ctx = ctx;
-  arr->data = arena_alloc(ctx->arena, capacity, numc_type_align[dtype]);
+  arr->data = arena_alloc(ctx->arena, capacity, NUMC_SIMD_ALIGN);
   if (!arr->data) {
     arena_free(ctx->arena);
     return NULL;
@@ -161,7 +161,7 @@ int array_as_contiguous(NumcArray *arr) {
 
   // Allocate new contiguous buffer from arena
   void *new_data =
-      arena_alloc(arr->ctx->arena, arr->capacity, numc_type_align[arr->dtype]);
+      arena_alloc(arr->ctx->arena, arr->capacity, NUMC_SIMD_ALIGN);
   if (!new_data)
     return -1;
 
