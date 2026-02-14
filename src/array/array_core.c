@@ -3,27 +3,12 @@
 #include "array/array_dtype.h"
 #include "memory/arena.h"
 #include "memory/numc_alloc.h"
-#include "numc_error.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-struct NumcCtx {
-  Arena *arena;
-};
-
-struct NumcArray {
-  NumcCtx *ctx;
-  void *data;
-  size_t *shape, *strides;
-  size_t dim, elem_size, size, capacity;
-  size_t _shape_buff[NUMC_MAX_DIMENSIONS], _strides_buff[NUMC_MAX_DIMENSIONS];
-  bool use_stack;
-  NumcDType dtype;
-};
 
 // Static functions
 
@@ -130,6 +115,7 @@ NumcArray *array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
 
   _calculate_strides(arr->strides, shape, dim, elem_size);
   arr->dim = dim;
+  arr->is_contiguous = true;
   arr->elem_size = elem_size;
   arr->size = size;
   arr->capacity = capacity;
@@ -221,7 +207,7 @@ int array_as_contiguous(NumcArray *arr) {
 
   arr->data = new_data;
   _calculate_strides(arr->strides, arr->shape, arr->dim, arr->elem_size);
-
+  arr->is_contiguous = true;
   return 0;
 }
 
@@ -263,6 +249,7 @@ NumcArray *array_copy(const NumcArray *arr) {
     return NULL;
 
   memcpy(copy->data, arr->data, arr->capacity);
+  copy->is_contiguous = arr->is_contiguous;
   return copy;
 }
 
@@ -284,6 +271,7 @@ int array_reshape_inplace(NumcArray *arr, const size_t *new_shape,
   memcpy(arr->shape, new_shape, new_dim * sizeof(size_t));
 
   _calculate_strides(arr->strides, new_shape, new_dim, arr->elem_size);
+  arr->is_contiguous = is_contiguous(arr);
   return 0;
 }
 
@@ -329,6 +317,7 @@ int array_transpose_inplace(NumcArray *arr, const size_t *axes) {
 
   memcpy(arr->shape, shape_buff, arr->dim * sizeof(size_t));
   memcpy(arr->strides, stride_buff, arr->dim * sizeof(size_t));
+  arr->is_contiguous = is_contiguous(arr);
   return 0;
 }
 
@@ -374,6 +363,7 @@ NumcArray *_array_slice(const NumcArray *arr, NumcSlice *slice) {
   view->dim = arr->dim;
   view->elem_size = arr->elem_size;
   view->dtype = arr->dtype;
+  view->is_contiguous = false;
   view->use_stack = arr->dim <= NUMC_MAX_DIMENSIONS;
 
   if (view->use_stack) {

@@ -5,32 +5,34 @@ set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(CMAKE_C_FLAGS_DEBUG "-g -O0 -fsanitize=address -fno-omit-frame-pointer")
-set(CMAKE_C_FLAGS_RELEASE "-O3 -Wall -Wextra -Wpedantic")
+set(CMAKE_C_FLAGS_DEBUG "-g -O0 -fsanitize=address -fno-omit-frame-pointer -Wall -Wextra -Wpedantic")
+set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
+
 # --- numc library ---
-set(NUMC_SOURCES
+add_library(numc
     src/array/array_core.c
     src/array/array_print.c
     src/memory/numc_alloc.c
+    src/math/math_elemwise.c
+    src/numc_error.c
 )
 
-if(NUMC_SOURCES)
-    add_library(numc ${NUMC_SOURCES})
-    target_include_directories(numc PUBLIC include PRIVATE src)
-    target_compile_options(numc PRIVATE -Wall -Wextra -O2 -march=native)
+find_package(OpenMP)
+if(OpenMP_C_FOUND)
+    target_link_libraries(numc PUBLIC OpenMP::OpenMP_C)
 endif()
+
+target_include_directories(numc PUBLIC include PRIVATE src)
 
 # --- main executable ---
 add_executable(main main.c)
+target_link_libraries(main PRIVATE numc)
 
-if(TARGET numc)
-    target_link_libraries(main PRIVATE numc)
-    target_include_directories(main PRIVATE include)
-else()
-    target_include_directories(main PRIVATE include)
-endif()
+# --- benchmarks ---
+add_executable(bench_array_add benchmark/array_add.c)
+target_link_libraries(bench_array_add PRIVATE numc)

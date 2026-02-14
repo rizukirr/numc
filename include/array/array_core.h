@@ -1,11 +1,9 @@
 #ifndef NUMC_ARRAY_CORE_H
 #define NUMC_ARRAY_CORE_H
 
+#include "_array_core.h"
 #include "array_dtype.h"
 #include <stddef.h>
-
-#define NUMC_MAX_DIMENSIONS 8
-#define NUMC_MAX_MEMORY 8388608 // 8MB
 
 #define array_slice(arr, ...) _array_slice((arr), &(NumcSlice){__VA_ARGS__})
 
@@ -31,10 +29,6 @@ static const AssignValueFunc _assign_value[] = {
     GENERATE_NUMC_TYPES(GENERATE_VALUE_ASSIGNER_ENTRY)};
 
 #undef GENERATE_VALUE_ASSIGNER_ENTRY
-
-typedef struct NumcCtx NumcCtx;
-
-typedef struct NumcArray NumcArray;
 
 typedef struct {
   size_t axis, start, stop, step;

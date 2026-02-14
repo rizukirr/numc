@@ -1,7 +1,7 @@
 #include "numc_error.h"
 #include <string.h>
 
-static NumcError _error = {0, NULL};
+static _Thread_local NumcError _error = {0, NULL};
 
 int numc_set_error(int code, const char *msg) {
   memset(&_error, 0, sizeof(NumcError));
