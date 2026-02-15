@@ -9,6 +9,14 @@
 #define NUMC_STR(x) NUMC_STR_(x)
 #define NUMC_PRAGMA(x) _Pragma(NUMC_STR(x))
 
+#if defined(__clang__)
+#define NUMC_UNROLL(n) _Pragma(NUMC_STR(clang loop unroll_count(n)))
+#elif defined(__GNUC__)
+#define NUMC_UNROLL(n) _Pragma(NUMC_STR(GCC unroll n))
+#else
+#define NUMC_UNROLL(n)
+#endif
+
 #define NUMC_OMP_BYTE_THRESHOLD (1 << 20)       // 1 MB total to enable OMP
 #define NUMC_OMP_BYTES_PER_THREAD (1 << 20)     // 1 MB minimum work per thread
 

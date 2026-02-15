@@ -19,6 +19,7 @@ add_library(numc
     src/array/array_print.c
     src/memory/numc_alloc.c
     src/math/math_elemwise.c
+    src/math/aarch/avx/f32/math_elemwise.c
     src/numc_error.c
 )
 
@@ -36,3 +37,6 @@ target_link_libraries(main PRIVATE numc)
 # --- benchmarks ---
 add_executable(bench_array_add benchmark/array_add.c)
 target_link_libraries(bench_array_add PRIVATE numc)
+
+add_executable(bench_add_float benchmark/bench_add_float.c)
+target_link_libraries(bench_add_float PRIVATE numc)

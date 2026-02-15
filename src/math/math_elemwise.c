@@ -1,3 +1,4 @@
+#include "aarch/avx/f32/math_elemwise.h"
 #include "array/_array_core.h"
 #include "array/array_dtype.h"
 #include "math/math.h"
@@ -116,6 +117,15 @@ static inline int _array_elemwise_check(const NumcArray *a,
     return NUMC_ERR_CONTIGUOUS;
   }
 
+  return 0;
+}
+
+int array_add_float(const NumcArray *a, const NumcArray *b, NumcArray *out) {
+  int err = _array_elemwise_check(a, b);
+  if (err < 0)
+    return err;
+
+  array_add_f32_avx(a->data, b->data, out->data, a->size);
   return 0;
 }
 
