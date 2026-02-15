@@ -1,94 +1,139 @@
-/**
- * @file array_print.c
- * @brief Array printing for all types, with stride-aware indexing.
- */
-
+#include "internal.h"
 #include <numc/array.h>
 #include <stdio.h>
 
-/**
- * @brief Print a single element at the given byte offset.
- */
-static void print_element(const char *data, size_t byte_offset,
-                          NUMC_TYPE numc_type) {
+static int elem_width(const char *data, size_t byte_offset, NumcDType dtype) {
   const void *elem = data + byte_offset;
-  switch (numc_type) {
-  case NUMC_TYPE_BYTE:
-    printf("%d", *(const NUMC_BYTE *)elem);
+  switch (dtype) {
+  case NUMC_DTYPE_INT8:
+    return snprintf(NULL, 0, "%d", *(const NUMC_INT8 *)elem);
+  case NUMC_DTYPE_UINT8:
+    return snprintf(NULL, 0, "%u", *(const NUMC_UINT8 *)elem);
+  case NUMC_DTYPE_INT16:
+    return snprintf(NULL, 0, "%d", *(const NUMC_INT16 *)elem);
+  case NUMC_DTYPE_UINT16:
+    return snprintf(NULL, 0, "%u", *(const NUMC_UINT16 *)elem);
+  case NUMC_DTYPE_INT32:
+    return snprintf(NULL, 0, "%d", *(const NUMC_INT32 *)elem);
+  case NUMC_DTYPE_UINT32:
+    return snprintf(NULL, 0, "%u", *(const NUMC_UINT32 *)elem);
+  case NUMC_DTYPE_INT64:
+    return snprintf(NULL, 0, "%ld", *(const NUMC_INT64 *)elem);
+  case NUMC_DTYPE_UINT64:
+    return snprintf(NULL, 0, "%lu", *(const NUMC_UINT64 *)elem);
+  case NUMC_DTYPE_FLOAT32:
+    return snprintf(NULL, 0, "%g", *(const NUMC_FLOAT32 *)elem);
+  case NUMC_DTYPE_FLOAT64:
+    return snprintf(NULL, 0, "%g", *(const NUMC_FLOAT64 *)elem);
+  }
+  return 0;
+}
+
+static void print_element(const char *data, size_t byte_offset, NumcDType dtype,
+                          int width) {
+  const void *elem = data + byte_offset;
+  switch (dtype) {
+  case NUMC_DTYPE_INT8:
+    printf("%*d", width, *(const NUMC_INT8 *)elem);
     break;
-  case NUMC_TYPE_UBYTE:
-    printf("%u", *(const NUMC_UBYTE *)elem);
+  case NUMC_DTYPE_UINT8:
+    printf("%*u", width, *(const NUMC_UINT8 *)elem);
     break;
-  case NUMC_TYPE_SHORT:
-    printf("%d", *(const NUMC_SHORT *)elem);
+  case NUMC_DTYPE_INT16:
+    printf("%*d", width, *(const NUMC_INT16 *)elem);
     break;
-  case NUMC_TYPE_USHORT:
-    printf("%u", *(const NUMC_USHORT *)elem);
+  case NUMC_DTYPE_UINT16:
+    printf("%*u", width, *(const NUMC_UINT16 *)elem);
     break;
-  case NUMC_TYPE_INT:
-    printf("%d", *(const NUMC_INT *)elem);
+  case NUMC_DTYPE_INT32:
+    printf("%*d", width, *(const NUMC_INT32 *)elem);
     break;
-  case NUMC_TYPE_UINT:
-    printf("%u", *(const NUMC_UINT *)elem);
+  case NUMC_DTYPE_UINT32:
+    printf("%*u", width, *(const NUMC_UINT32 *)elem);
     break;
-  case NUMC_TYPE_LONG:
-    printf("%ld", *(const NUMC_LONG *)elem);
+  case NUMC_DTYPE_INT64:
+    printf("%*ld", width, *(const NUMC_INT64 *)elem);
     break;
-  case NUMC_TYPE_ULONG:
-    printf("%lu", *(const NUMC_ULONG *)elem);
+  case NUMC_DTYPE_UINT64:
+    printf("%*lu", width, *(const NUMC_UINT64 *)elem);
     break;
-  case NUMC_TYPE_FLOAT:
-    printf("%g", *(const NUMC_FLOAT *)elem);
+  case NUMC_DTYPE_FLOAT32:
+    printf("%*g", width, *(const NUMC_FLOAT32 *)elem);
     break;
-  case NUMC_TYPE_DOUBLE:
-    printf("%g", *(const NUMC_DOUBLE *)elem);
+  case NUMC_DTYPE_FLOAT64:
+    printf("%*g", width, *(const NUMC_FLOAT64 *)elem);
     break;
   }
 }
 
-/**
- * @brief Recursive printer that walks dimensions using strides.
- *
- * @param data       Base data pointer (as char* for byte arithmetic).
- * @param shape      Shape array.
- * @param strides    Strides array (bytes per step in each dimension).
- * @param ndim       Total number of dimensions.
- * @param dim        Current dimension being printed.
- * @param offset     Current byte offset from data base.
- * @param numc_type  Element type for formatting.
- */
+static int max_elem_width(const char *data, const size_t *shape,
+                          const size_t *strides, size_t ndim, size_t dim,
+                          size_t offset, NumcDType dtype) {
+  int max_w = 0;
+  for (size_t i = 0; i < shape[dim]; i++) {
+    size_t off = offset + i * strides[dim];
+    int w;
+    if (dim == ndim - 1)
+      w = elem_width(data, off, dtype);
+    else
+      w = max_elem_width(data, shape, strides, ndim, dim + 1, off, dtype);
+    if (w > max_w)
+      max_w = w;
+  }
+  return max_w;
+}
+
 static void print_recursive(const char *data, const size_t *shape,
-                             const size_t *strides, size_t ndim, size_t dim,
-                             size_t offset, NUMC_TYPE numc_type) {
+                            const size_t *strides, size_t ndim, size_t dim,
+                            size_t offset, NumcDType dtype, int width,
+                            size_t indent) {
   printf("[");
   for (size_t i = 0; i < shape[dim]; i++) {
-    size_t elem_offset = offset + i * strides[dim];
+    size_t off = offset + i * strides[dim];
 
     if (dim == ndim - 1) {
-      print_element(data, elem_offset, numc_type);
+      print_element(data, off, dtype, width);
+      if (i + 1 < shape[dim])
+        printf(", ");
     } else {
-      print_recursive(data, shape, strides, ndim, dim + 1, elem_offset,
-                      numc_type);
+      if (i > 0) {
+        printf(",");
+        /* blank lines between sub-arrays: ndim - dim - 1 newlines total */
+        for (size_t b = 0; b < ndim - dim - 1; b++)
+          printf("\n");
+        for (size_t s = 0; s < indent + 1; s++)
+          putchar(' ');
+      }
+      print_recursive(data, shape, strides, ndim, dim + 1, off, dtype, width,
+                      indent + 1);
     }
-
-    if (i + 1 < shape[dim])
-      printf(", ");
   }
   printf("]");
 }
 
-void array_print(const Array *array) {
-  if (!array || !array->data) {
+void numc_array_print(const NumcArray *array) {
+  if (!array) {
     printf("(null)\n");
     return;
   }
 
-  if (array->size == 0) {
+  if (numc_array_size(array) == 0) {
     printf("[]\n");
     return;
   }
 
-  print_recursive((const char *)array->data, array->shape, array->strides,
-                  array->ndim, 0, 0, array->numc_type);
+  void *data = numc_array_data(array);
+  size_t dim = numc_array_ndim(array);
+  size_t shape[dim];
+  numc_array_shape(array, shape);
+  size_t strides[dim];
+  numc_array_strides(array, strides);
+  NumcDType dtype = numc_array_dtype(array);
+
+  int width =
+      max_elem_width((const char *)data, shape, strides, dim, 0, 0, dtype);
+
+  print_recursive((const char *)data, shape, strides, dim, 0, 0, dtype, width,
+                  0);
   printf("\n");
 }

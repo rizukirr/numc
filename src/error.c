@@ -1,23 +1,25 @@
 #include <numc/error.h>
 #include <string.h>
 
-#define MAX_ERROR_LEN 256
+#define NUMC_ERROR_MSG_SIZE 256
 
-static char error_msg[MAX_ERROR_LEN];
-static int error_code = NUMC_OK;
+static _Thread_local char _error_buf[NUMC_ERROR_MSG_SIZE];
+static _Thread_local NumcError _error = {0, NULL};
 
-void numc_set_error(NUMC_ERROR err, const char *msg) {
-  if (err == NUMC_OK)
-    return;
-
-  if (msg)
-    strncpy(error_msg, msg, MAX_ERROR_LEN);
-  else
-    error_msg[0] = '\0';
-
-  error_code = err;
+int numc_set_error(int code, const char *msg) {
+  _error.code = code;
+  if (msg) {
+    size_t len = strlen(msg);
+    if (len >= NUMC_ERROR_MSG_SIZE)
+      len = NUMC_ERROR_MSG_SIZE - 1;
+    memcpy(_error_buf, msg, len);
+    _error_buf[len] = '\0';
+    _error.msg = _error_buf;
+  } else {
+    _error_buf[0] = '\0';
+    _error.msg = _error_buf;
+  }
+  return code;
 }
 
-char *numc_get_error(void) { return error_msg; }
-
-int numc_get_error_code(void) { return error_code; }
+NumcError numc_get_error(void) { return _error; }

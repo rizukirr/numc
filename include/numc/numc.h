@@ -1,17 +1,9 @@
-/**
- * @file numc.h
- * @brief Umbrella header for the numc library.
- *
- * Include this single header to access the entire public API:
- *   #include <numc/numc.h>
- */
+#ifndef NUMC_NUMC_H
+#define NUMC_NUMC_H
 
-#ifndef NUMC_H
-#define NUMC_H
-
-#include "dtype.h"
-#include "error.h"
-#include "array.h"
-#include "math.h"
+#include "numc/array.h"
+#include "numc/dtype.h"
+#include "numc/error.h"
+#include "numc/math.h"
 
 #endif
