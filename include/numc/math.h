@@ -1,0 +1,29 @@
+#ifndef NUMC_MATH_H
+#define NUMC_MATH_H
+
+/* Forward declaration — no struct access needed */
+typedef struct NumcArray NumcArray;
+
+/* Element-wise binary: out = a op b
+ * Works on contiguous AND non-contiguous (views, slices, transposes).
+ * All return 0 on success, negative error code on failure. */
+int numc_add(const NumcArray *a, const NumcArray *b, NumcArray *out);
+int numc_sub(const NumcArray *a, const NumcArray *b, NumcArray *out);
+int numc_mul(const NumcArray *a, const NumcArray *b, NumcArray *out);
+int numc_div(const NumcArray *a, const NumcArray *b, NumcArray *out);
+
+/* Element-wise scalar: out = a op scalar
+ * Scalar is converted to a's dtype before the operation.
+ * Works on contiguous AND non-contiguous arrays. */
+int numc_add_scalar(const NumcArray *a, double scalar, NumcArray *out);
+int numc_sub_scalar(const NumcArray *a, double scalar, NumcArray *out);
+int numc_mul_scalar(const NumcArray *a, double scalar, NumcArray *out);
+int numc_div_scalar(const NumcArray *a, double scalar, NumcArray *out);
+
+/* Element-wise scalar: in-place operations */
+int numc_add_scalar_inplace(NumcArray *a, double scalar);
+int numc_sub_scalar_inplace(NumcArray *a, double scalar);
+int numc_mul_scalar_inplace(NumcArray *a, double scalar);
+int numc_div_scalar_inplace(NumcArray *a, double scalar);
+
+#endif

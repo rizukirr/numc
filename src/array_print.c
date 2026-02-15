@@ -1,6 +1,5 @@
-#include "array/array_print.h"
-#include "array/array_core.h"
-#include "array/array_dtype.h"
+#include "internal.h"
+#include <numc/array.h>
 #include <stdio.h>
 
 static int elem_width(const char *data, size_t byte_offset, NumcDType dtype) {
@@ -112,24 +111,24 @@ static void print_recursive(const char *data, const size_t *shape,
   printf("]");
 }
 
-void array_print(const NumcArray *array) {
+void numc_array_print(const NumcArray *array) {
   if (!array) {
     printf("(null)\n");
     return;
   }
 
-  if (array_size(array) == 0) {
+  if (numc_array_size(array) == 0) {
     printf("[]\n");
     return;
   }
 
-  void *data = array_data(array);
-  size_t dim = array_dim(array);
+  void *data = numc_array_data(array);
+  size_t dim = numc_array_ndim(array);
   size_t shape[dim];
-  array_shape(array, shape);
+  numc_array_shape(array, shape);
   size_t strides[dim];
-  array_strides(array, strides);
-  NumcDType dtype = array_dtype(array);
+  numc_array_strides(array, strides);
+  NumcDType dtype = numc_array_dtype(array);
 
   int width =
       max_elem_width((const char *)data, shape, strides, dim, 0, 0, dtype);

@@ -1,0 +1,305 @@
+#include <numc/numc.h>
+#include <stdio.h>
+
+/* ── Helpers ───────────────────────────────────────────────────────── */
+
+static void section(const char *title) {
+  printf("\n══════════════════════════════════════════\n");
+  printf("  %s\n", title);
+  printf("══════════════════════════════════════════\n\n");
+}
+
+static void label(const char *name) { printf("--- %s ---\n", name); }
+
+/* ── Array Creation ────────────────────────────────────────────────── */
+
+static void demo_array_creation(NumcCtx *ctx) {
+  section("Array Creation");
+
+  /* numc_array_create — uninitialized */
+  label("numc_array_create (2x3 float32, then write data)");
+  size_t shape1[] = {2, 3};
+  NumcArray *a = numc_array_create(ctx, shape1, 2, NUMC_DTYPE_FLOAT32);
+  float data[] = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+  numc_array_write(a, data);
+  numc_array_print(a);
+
+  /* numc_array_zeros */
+  label("numc_array_zeros (3x3 int32)");
+  size_t shape2[] = {3, 3};
+  NumcArray *z = numc_array_zeros(ctx, shape2, 2, NUMC_DTYPE_INT32);
+  numc_array_print(z);
+
+  /* numc_array_fill */
+  label("numc_array_fill (2x4 float64, filled with 3.14)");
+  size_t shape3[] = {2, 4};
+  double fill_val = 3.14;
+  NumcArray *f = numc_array_fill(ctx, shape3, 2, NUMC_DTYPE_FLOAT64, &fill_val);
+  numc_array_print(f);
+
+  /* numc_array_copy */
+  label("numc_array_copy (deep copy of the float32 array)");
+  NumcArray *c = numc_array_copy(a);
+  numc_array_print(c);
+
+  /* numc_array_write — multi-dimensional */
+  label("numc_array_write (2x2x4 int32)");
+  size_t shape4[] = {2, 2, 4};
+  NumcArray *w = numc_array_create(ctx, shape4, 3, NUMC_DTYPE_INT32);
+  int32_t data3d[][2][4] = {
+      {{1, 2, 3, 4}, {5, 6, 7, 8}},
+      {{9, 10, 11, 12}, {13, 14, 15, 16}},
+  };
+  numc_array_write(w, data3d);
+  numc_array_print(w);
+}
+
+/* ── Properties ────────────────────────────────────────────────────── */
+
+static void demo_properties(NumcCtx *ctx) {
+  section("Properties");
+
+  size_t shape[] = {2, 3, 4};
+  float val = 1.0f;
+  NumcArray *a = numc_array_fill(ctx, shape, 3, NUMC_DTYPE_FLOAT32, &val);
+
+  printf("ndim:      %zu\n", numc_array_ndim(a));
+  printf("size:      %zu\n", numc_array_size(a));
+  printf("capacity:  %zu\n", numc_array_capacity(a));
+  printf("elem_size: %zu\n", numc_array_elem_size(a));
+  printf("dtype:     %d (NUMC_DTYPE_FLOAT32 = %d)\n", numc_array_dtype(a),
+         NUMC_DTYPE_FLOAT32);
+
+  size_t ndim = numc_array_ndim(a);
+  size_t s[ndim], st[ndim];
+  numc_array_shape(a, s);
+  numc_array_strides(a, st);
+
+  printf("shape:     [");
+  for (size_t i = 0; i < ndim; i++)
+    printf("%zu%s", s[i], i + 1 < ndim ? ", " : "");
+  printf("]\n");
+
+  printf("strides:   [");
+  for (size_t i = 0; i < ndim; i++)
+    printf("%zu%s", st[i], i + 1 < ndim ? ", " : "");
+  printf("] (bytes)\n");
+
+  printf("data ptr:  %p\n", numc_array_data(a));
+  printf("contiguous: %s\n", numc_array_is_contiguous(a) ? "true" : "false");
+}
+
+/* ── Shape Manipulation ────────────────────────────────────────────── */
+
+static void demo_shape(NumcCtx *ctx) {
+  section("Shape Manipulation");
+
+  /* Setup: 2x3 array [1..6] */
+  size_t shape[] = {2, 3};
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_INT32);
+  int32_t data[] = {1, 2, 3, 4, 5, 6};
+  numc_array_write(a, data);
+
+  label("original (2x3)");
+  numc_array_print(a);
+
+  /* numc_array_reshape — in-place */
+  label("numc_array_reshape (3x2, in-place)");
+  size_t new_shape[] = {3, 2};
+  numc_array_reshape(a, new_shape, 2);
+  numc_array_print(a);
+
+  /* numc_array_reshape_copy — returns new array */
+  label("numc_array_reshape_copy (6x1, new array)");
+  size_t flat_shape[] = {6, 1};
+  NumcArray *flat = numc_array_reshape_copy(a, flat_shape, 2);
+  numc_array_print(flat);
+
+  /* numc_array_transpose — in-place */
+  label("numc_array_transpose (3x2 -> 2x3, in-place)");
+  size_t axes[] = {1, 0};
+  numc_array_transpose(a, axes);
+  printf("contiguous after transpose: %s\n",
+         numc_array_is_contiguous(a) ? "true" : "false");
+  numc_array_print(a);
+
+  /* numc_array_contiguous — make contiguous again */
+  label("numc_array_contiguous (re-layout memory)");
+  numc_array_contiguous(a);
+  printf("contiguous after fix: %s\n",
+         numc_array_is_contiguous(a) ? "true" : "false");
+  numc_array_print(a);
+
+  /* numc_array_transpose_copy — returns new array */
+  label("numc_array_transpose_copy (2x3 -> 3x2, new array)");
+  NumcArray *t = numc_array_transpose_copy(a, axes);
+  printf("contiguous: %s\n", numc_array_is_contiguous(t) ? "true" : "false");
+  numc_array_print(t);
+
+  /* numc_array_slice — view, no data copy */
+  label("numc_slice (row 1 of 2x3 = 3 elements)");
+  size_t shape2[] = {2, 3};
+  NumcArray *b = numc_array_create(ctx, shape2, 2, NUMC_DTYPE_INT32);
+  int32_t data2[] = {10, 20, 30, 40, 50, 60};
+  numc_array_write(b, data2);
+  printf("original:\n");
+  numc_array_print(b);
+
+  NumcArray *row = numc_slice(b, .axis = 0, .start = 1, .stop = 2, .step = 1);
+  printf("slice [1:2, :] :\n");
+  numc_array_print(row);
+}
+
+/* ── Element-wise Binary Ops ───────────────────────────────────────── */
+
+static void demo_math_binary(NumcCtx *ctx) {
+  section("Element-wise Binary Ops");
+
+  size_t shape[] = {2, 3};
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+  NumcArray *b = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+
+  float da[] = {10, 20, 30, 40, 50, 60};
+  float db[] = {1, 2, 3, 4, 5, 6};
+  numc_array_write(a, da);
+  numc_array_write(b, db);
+
+  printf("a:\n");
+  numc_array_print(a);
+  printf("b:\n");
+  numc_array_print(b);
+
+  label("numc_add (a + b)");
+  numc_add(a, b, out);
+  numc_array_print(out);
+
+  label("numc_sub (a - b)");
+  numc_sub(a, b, out);
+  numc_array_print(out);
+
+  label("numc_mul (a * b)");
+  numc_mul(a, b, out);
+  numc_array_print(out);
+
+  label("numc_div (a / b)");
+  numc_div(a, b, out);
+  numc_array_print(out);
+}
+
+/* ── Element-wise Scalar Ops ───────────────────────────────────────── */
+
+static void demo_math_scalar(NumcCtx *ctx) {
+  section("Element-wise Scalar Ops");
+
+  size_t shape[] = {2, 3};
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+
+  float da[] = {10, 20, 30, 40, 50, 60};
+  numc_array_write(a, da);
+
+  printf("a:\n");
+  numc_array_print(a);
+
+  label("numc_add_scalar (a + 100)");
+  numc_add_scalar(a, 100.0, out);
+  numc_array_print(out);
+
+  label("numc_sub_scalar (a - 5)");
+  numc_sub_scalar(a, 5.0, out);
+  numc_array_print(out);
+
+  label("numc_mul_scalar (a * 0.5)");
+  numc_mul_scalar(a, 0.5, out);
+  numc_array_print(out);
+
+  label("numc_div_scalar (a / 3)");
+  numc_div_scalar(a, 3.0, out);
+  numc_array_print(out);
+}
+
+/* ── Scalar Inplace Ops ────────────────────────────────────────────── */
+
+static void demo_math_scalar_inplace(NumcCtx *ctx) {
+  section("Scalar Inplace Ops");
+
+  size_t shape[] = {2, 3};
+  float da[] = {10, 20, 30, 40, 50, 60};
+
+  label("numc_add_scalar_inplace (a += 1000)");
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+  numc_array_write(a, da);
+  numc_add_scalar_inplace(a, 1000.0);
+  numc_array_print(a);
+
+  label("numc_sub_scalar_inplace (a -= 5)");
+  a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+  numc_array_write(a, da);
+  numc_sub_scalar_inplace(a, 5.0);
+  numc_array_print(a);
+
+  label("numc_mul_scalar_inplace (a *= 2)");
+  a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+  numc_array_write(a, da);
+  numc_mul_scalar_inplace(a, 2.0);
+  numc_array_print(a);
+
+  label("numc_div_scalar_inplace (a /= 10)");
+  a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+  numc_array_write(a, da);
+  numc_div_scalar_inplace(a, 10.0);
+  numc_array_print(a);
+}
+
+/* ── Error Handling ────────────────────────────────────────────────── */
+
+static void demo_error(NumcCtx *ctx) {
+  section("Error Handling");
+
+  label("shape mismatch (add 2x3 + 3x2)");
+  size_t s1[] = {2, 3}, s2[] = {3, 2};
+  NumcArray *a = numc_array_zeros(ctx, s1, 2, NUMC_DTYPE_INT32);
+  NumcArray *b = numc_array_zeros(ctx, s2, 2, NUMC_DTYPE_INT32);
+  NumcArray *out = numc_array_zeros(ctx, s1, 2, NUMC_DTYPE_INT32);
+  int err = numc_add(a, b, out);
+  printf("numc_add returned: %d (NUMC_ERR_SHAPE = %d)\n", err, NUMC_ERR_SHAPE);
+
+  label("dtype mismatch (add int32 + float32)");
+  NumcArray *c = numc_array_zeros(ctx, s1, 2, NUMC_DTYPE_FLOAT32);
+  err = numc_add(a, c, out);
+  printf("numc_add returned: %d (NUMC_ERR_TYPE = %d)\n", err, NUMC_ERR_TYPE);
+
+  label("null pointer");
+  err = numc_add(NULL, b, out);
+  printf("numc_add returned: %d (NUMC_ERR_NULL = %d)\n", err, NUMC_ERR_NULL);
+
+  label("numc_set_error / numc_get_error");
+  numc_set_error(-99, "custom error message");
+  NumcError e = numc_get_error();
+  printf("code: %d, msg: \"%s\"\n", e.code, e.msg);
+}
+
+/* ── main ──────────────────────────────────────────────────────────── */
+
+int main(void) {
+  printf("numc API demo\n");
+
+  NumcCtx *ctx = numc_ctx_create();
+  if (!ctx) {
+    fprintf(stderr, "Failed to create context\n");
+    return 1;
+  }
+
+  demo_array_creation(ctx);
+  demo_properties(ctx);
+  demo_shape(ctx);
+  demo_math_binary(ctx);
+  demo_math_scalar(ctx);
+  demo_math_scalar_inplace(ctx);
+  demo_error(ctx);
+
+  numc_ctx_free(ctx);
+  printf("\nnumc_ctx_free — all arrays freed.\n");
+  return 0;
+}

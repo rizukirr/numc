@@ -14,29 +14,40 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 
 # --- numc library ---
-add_library(numc
-    src/array/array_core.c
-    src/array/array_print.c
-    src/memory/numc_alloc.c
-    src/math/math_elemwise.c
-    src/math/aarch/avx/f32/math_elemwise.c
-    src/numc_error.c
+set(NUMC_SOURCES
+    src/array_core.c
+    src/array_print.c
+    src/alloc.c
+    src/math_elemwise.c
+    src/error.c
 )
+
+add_library(numc ${NUMC_SOURCES})
 
 find_package(OpenMP)
 if(OpenMP_C_FOUND)
     target_link_libraries(numc PUBLIC OpenMP::OpenMP_C)
 endif()
 
-target_include_directories(numc PUBLIC include PRIVATE src)
+target_include_directories(numc
+    PUBLIC  ${CMAKE_SOURCE_DIR}/include
+    PRIVATE ${CMAKE_SOURCE_DIR}/src
+)
 
-# --- main executable ---
-add_executable(main main.c)
-target_link_libraries(main PRIVATE numc)
+# --- demo executable ---
+add_executable(demo examples/demo.c)
+target_link_libraries(demo PRIVATE numc)
 
 # --- benchmarks ---
-add_executable(bench_array_add benchmark/array_add.c)
-target_link_libraries(bench_array_add PRIVATE numc)
+add_executable(bench_elemwise bench/bench_elemwise.c)
+target_link_libraries(bench_elemwise PRIVATE numc)
 
-add_executable(bench_add_float benchmark/bench_add_float.c)
-target_link_libraries(bench_add_float PRIVATE numc)
+add_executable(bench_scalar bench/bench_scalar.c)
+target_link_libraries(bench_scalar PRIVATE numc)
+
+# --- tests ---
+enable_testing()
+
+add_executable(test_array_core tests/test_array_core.c)
+target_link_libraries(test_array_core PRIVATE numc)
+add_test(NAME test_array_core COMMAND test_array_core)

@@ -1,8 +1,7 @@
 #define ARENA_IMPLEMENTATION
-#include "array/array_core.h"
-#include "array/array_dtype.h"
-#include "memory/arena.h"
-#include "memory/numc_alloc.h"
+#include "internal.h"
+#include <numc/array.h>
+
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -20,7 +19,8 @@ static inline void _calculate_strides(size_t *strides, const size_t *shape,
   }
 }
 
-static inline void _array_fill_with(NumcArray *arr, const NumcDType dtype,
+static inline void _array_fill_with(struct NumcArray *arr,
+                                    const NumcDType dtype,
                                     const void *value) {
   char *ptr = arr->data;
   size_t cordinate[arr->dim];
@@ -56,8 +56,8 @@ static inline void _array_fill_with(NumcArray *arr, const NumcDType dtype,
 
 // End Of static functions
 
-NumcCtx *array_create_ctx(void) {
-  NumcCtx *ctx = numc_malloc(ARENA_ALIGNOF(NumcCtx), sizeof(NumcCtx));
+NumcCtx *numc_ctx_create(void) {
+  NumcCtx *ctx = numc_malloc(NUMC_ALIGNOF(NumcCtx), sizeof(NumcCtx));
   if (!ctx)
     return NULL;
 
@@ -70,8 +70,8 @@ NumcCtx *array_create_ctx(void) {
   return ctx;
 }
 
-NumcArray *array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
-                        NumcDType dtype) {
+NumcArray *numc_array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
+                             NumcDType dtype) {
   if (!ctx || !shape || dim == 0) {
     return NULL;
   }
@@ -85,7 +85,7 @@ NumcArray *array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
   capacity = size * elem_size;
 
   NumcArray *arr =
-      arena_alloc(ctx->arena, sizeof(NumcArray), ARENA_ALIGNOF(NumcArray));
+      arena_alloc(ctx->arena, sizeof(NumcArray), NUMC_ALIGNOF(NumcArray));
   if (!arr)
     return NULL;
 
@@ -102,7 +102,7 @@ NumcArray *array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
     arr->strides = arr->_strides_buff;
   } else {
     arr->shape = arena_alloc(ctx->arena, 2 * dim * sizeof(size_t),
-                             ARENA_ALIGNOF(size_t));
+                             NUMC_ALIGNOF(size_t));
     arr->strides = arr->shape + dim;
 
     if (!arr->shape) {
@@ -124,7 +124,7 @@ NumcArray *array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
   return arr;
 }
 
-bool is_contiguous(NumcArray *arr) {
+bool numc_array_is_contiguous(NumcArray *arr) {
   size_t expected = arr->elem_size;
   for (int i = arr->dim - 1; i >= 0; i--) {
     if (arr->strides[i] != expected)
@@ -134,11 +134,11 @@ bool is_contiguous(NumcArray *arr) {
   return true;
 }
 
-int array_as_contiguous(NumcArray *arr) {
+int numc_array_contiguous(NumcArray *arr) {
   if (!arr)
     return -1;
 
-  if (is_contiguous(arr))
+  if (numc_array_is_contiguous(arr))
     return 0;
 
   // Dimension collapse: merge adjacent contiguous dims
@@ -169,7 +169,7 @@ int array_as_contiguous(NumcArray *arr) {
   size_t coord[NUMC_MAX_DIMENSIONS] = {0};
 
   if (c_strides[cdim - 1] == arr->elem_size) {
-    // Inner dim is contiguous → memcpy whole chunks
+    // Inner dim is contiguous -> memcpy whole chunks
     size_t chunk = c_shape[cdim - 1] * arr->elem_size;
     size_t outer = arr->size / c_shape[cdim - 1];
 
@@ -188,7 +188,7 @@ int array_as_contiguous(NumcArray *arr) {
       }
     }
   } else {
-    // No contiguous inner dim → element-wise copy
+    // No contiguous inner dim -> element-wise copy
     for (size_t i = 0; i < arr->size; i++) {
       char *src = (char *)arr->data;
       for (size_t d = 0; d < cdim; d++)
@@ -211,9 +211,9 @@ int array_as_contiguous(NumcArray *arr) {
   return 0;
 }
 
-NumcArray *array_zeros(NumcCtx *ctx, const size_t *shape, size_t dim,
-                       NumcDType dtype) {
-  NumcArray *arr = array_create(ctx, shape, dim, dtype);
+NumcArray *numc_array_zeros(NumcCtx *ctx, const size_t *shape, size_t dim,
+                            NumcDType dtype) {
+  NumcArray *arr = numc_array_create(ctx, shape, dim, dtype);
   if (!arr) {
     return NULL;
   }
@@ -222,9 +222,9 @@ NumcArray *array_zeros(NumcCtx *ctx, const size_t *shape, size_t dim,
   return arr;
 }
 
-NumcArray *array_fill_with(NumcCtx *ctx, const size_t *shape, size_t dim,
+NumcArray *numc_array_fill(NumcCtx *ctx, const size_t *shape, size_t dim,
                            NumcDType dtype, const void *value) {
-  NumcArray *arr = array_create(ctx, shape, dim, dtype);
+  NumcArray *arr = numc_array_create(ctx, shape, dim, dtype);
   if (!arr)
     return NULL;
 
@@ -232,7 +232,7 @@ NumcArray *array_fill_with(NumcCtx *ctx, const size_t *shape, size_t dim,
   return arr;
 }
 
-void array_write_data(NumcArray *arr, const void *data) {
+void numc_array_write(NumcArray *arr, const void *data) {
   if (!arr || !data)
     return;
 
@@ -240,11 +240,12 @@ void array_write_data(NumcArray *arr, const void *data) {
   memcpy(arr->data, data, arr->capacity);
 }
 
-NumcArray *array_copy(const NumcArray *arr) {
+NumcArray *numc_array_copy(const NumcArray *arr) {
   if (!arr)
     return NULL;
 
-  NumcArray *copy = array_create(arr->ctx, arr->shape, arr->dim, arr->dtype);
+  NumcArray *copy =
+      numc_array_create(arr->ctx, arr->shape, arr->dim, arr->dtype);
   if (!copy)
     return NULL;
 
@@ -253,8 +254,8 @@ NumcArray *array_copy(const NumcArray *arr) {
   return copy;
 }
 
-int array_reshape_inplace(NumcArray *arr, const size_t *new_shape,
-                          size_t new_dim) {
+int numc_array_reshape(NumcArray *arr, const size_t *new_shape,
+                       size_t new_dim) {
   if (!arr || !new_shape || new_dim == 0)
     return -1;
 
@@ -271,29 +272,30 @@ int array_reshape_inplace(NumcArray *arr, const size_t *new_shape,
   memcpy(arr->shape, new_shape, new_dim * sizeof(size_t));
 
   _calculate_strides(arr->strides, new_shape, new_dim, arr->elem_size);
-  arr->is_contiguous = is_contiguous(arr);
+  arr->is_contiguous = numc_array_is_contiguous(arr);
   return 0;
 }
 
-NumcArray *array_reshape_copy(const NumcArray *arr, const size_t *new_shape,
-                              size_t new_dim) {
+NumcArray *numc_array_reshape_copy(const NumcArray *arr,
+                                   const size_t *new_shape, size_t new_dim) {
   if (!arr || !new_shape || new_dim == 0)
     return NULL;
 
-  NumcArray *copy = array_create(arr->ctx, arr->shape, arr->dim, arr->dtype);
+  NumcArray *copy =
+      numc_array_create(arr->ctx, arr->shape, arr->dim, arr->dtype);
   if (!copy)
     return NULL;
 
   memcpy(copy->data, arr->data, arr->capacity);
 
-  if (array_reshape_inplace(copy, new_shape, new_dim) < 0) {
+  if (numc_array_reshape(copy, new_shape, new_dim) < 0) {
     return NULL;
   }
 
   return copy;
 }
 
-int array_transpose_inplace(NumcArray *arr, const size_t *axes) {
+int numc_array_transpose(NumcArray *arr, const size_t *axes) {
   size_t axes_buff[arr->dim];
   memcpy(axes_buff, axes, arr->dim * sizeof(size_t));
 
@@ -317,34 +319,36 @@ int array_transpose_inplace(NumcArray *arr, const size_t *axes) {
 
   memcpy(arr->shape, shape_buff, arr->dim * sizeof(size_t));
   memcpy(arr->strides, stride_buff, arr->dim * sizeof(size_t));
-  arr->is_contiguous = is_contiguous(arr);
+  arr->is_contiguous = numc_array_is_contiguous(arr);
   return 0;
 }
 
-NumcArray *array_transpose_copy(const NumcArray *arr, const size_t *axes) {
+NumcArray *numc_array_transpose_copy(const NumcArray *arr,
+                                     const size_t *axes) {
   if (!arr || !axes)
     return NULL;
 
-  NumcArray *copy = array_create(arr->ctx, arr->shape, arr->dim, arr->dtype);
+  NumcArray *copy =
+      numc_array_create(arr->ctx, arr->shape, arr->dim, arr->dtype);
   if (!copy)
     return NULL;
 
   memcpy(copy->data, arr->data, arr->capacity);
 
-  if (array_transpose_inplace(copy, axes) < 0) {
+  if (numc_array_transpose(copy, axes) < 0) {
     return NULL;
   }
 
   return copy;
 }
 
-NumcArray *_array_slice(const NumcArray *arr, NumcSlice *slice) {
+NumcArray *numc_array_slice(const NumcArray *arr, NumcSlice *slice) {
   if (!arr || slice->axis >= arr->dim)
     return NULL;
 
   size_t dim_size = arr->shape[slice->axis];
 
-  // Default: step=0 → 1, stop=0 → full extent
+  // Default: step=0 -> 1, stop=0 -> full extent
   if (slice->step == 0)
     slice->step = 1;
   if (slice->stop == 0 || slice->stop > dim_size)
@@ -355,7 +359,7 @@ NumcArray *_array_slice(const NumcArray *arr, NumcSlice *slice) {
     return NULL;
 
   NumcArray *view =
-      arena_alloc(arr->ctx->arena, sizeof(NumcArray), ARENA_ALIGNOF(NumcArray));
+      arena_alloc(arr->ctx->arena, sizeof(NumcArray), NUMC_ALIGNOF(NumcArray));
   if (!view)
     return NULL;
 
@@ -371,7 +375,7 @@ NumcArray *_array_slice(const NumcArray *arr, NumcSlice *slice) {
     view->strides = view->_strides_buff;
   } else {
     view->shape = arena_alloc(arr->ctx->arena, 2 * arr->dim * sizeof(size_t),
-                              ARENA_ALIGNOF(size_t));
+                              NUMC_ALIGNOF(size_t));
     view->strides = view->shape + arr->dim;
     if (!view->shape)
       return NULL;
@@ -394,21 +398,21 @@ NumcArray *_array_slice(const NumcArray *arr, NumcSlice *slice) {
   return view;
 }
 
-size_t array_size(const NumcArray *arr) { return arr->size; }
-size_t array_capacity(const NumcArray *arr) { return arr->capacity; }
-size_t array_elem_size(const NumcArray *arr) { return arr->elem_size; }
-size_t array_dim(const NumcArray *arr) { return arr->dim; }
-void array_shape(const NumcArray *arr, size_t *shape) {
+size_t numc_array_size(const NumcArray *arr) { return arr->size; }
+size_t numc_array_capacity(const NumcArray *arr) { return arr->capacity; }
+size_t numc_array_elem_size(const NumcArray *arr) { return arr->elem_size; }
+size_t numc_array_ndim(const NumcArray *arr) { return arr->dim; }
+void numc_array_shape(const NumcArray *arr, size_t *shape) {
   memcpy(shape, arr->shape, arr->dim * sizeof(size_t));
 }
-void array_strides(const NumcArray *arr, size_t *strides) {
+void numc_array_strides(const NumcArray *arr, size_t *strides) {
   memcpy(strides, arr->strides, arr->dim * sizeof(size_t));
 }
 
-NumcDType array_dtype(const NumcArray *arr) { return arr->dtype; }
-void *array_data(const NumcArray *arr) { return arr->data; }
+NumcDType numc_array_dtype(const NumcArray *arr) { return arr->dtype; }
+void *numc_array_data(const NumcArray *arr) { return arr->data; }
 
-void array_free(NumcCtx *ctx) {
+void numc_ctx_free(NumcCtx *ctx) {
   if (!ctx)
     return;
 

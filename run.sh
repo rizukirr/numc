@@ -30,6 +30,27 @@ case $1 in
         ctest --test-dir build
         exit 0
         ;;
+    "bench")
+        echo "Running benchmarks..."
+        build Release
+        echo ""
+        echo "=== Binary element-wise benchmark ==="
+        ./build/bin/bench_elemwise
+        echo ""
+        echo "=== Scalar element-wise benchmark ==="
+        ./build/bin/bench_scalar
+        exit 0
+        ;;
+    "bench-elemwise")
+        build Release
+        ./build/bin/bench_elemwise
+        exit 0
+        ;;
+    "bench-scalar")
+        build Release
+        ./build/bin/bench_scalar
+        exit 0
+        ;;
     "clean")
         echo "Cleaning build directory..."
         rm -rf build
@@ -50,12 +71,14 @@ case $1 in
         echo "  release            Build in release mode with optimizations and run demo"
         echo "  test               Build in debug mode and run all tests"
         echo ""
+        echo "  bench              Build release and run all benchmarks"
+        echo "  bench-elemwise     Build release and run binary element-wise benchmark"
+        echo "  bench-scalar       Build release and run scalar element-wise benchmark"
+        echo ""
         echo "  clean              Remove build directory"
         echo "  rebuild            Clean and rebuild in debug mode"
         echo "  help               Show this help message"
         echo "  (no args)          Run demo without rebuilding"
-        echo ""
-        echo "Isolated benchmarks avoid thermal effects from sequential testing."
         echo ""
         echo "Environment:"
         echo "  CC=gcc ./run.sh release   Use GCC instead of Clang"
@@ -72,8 +95,8 @@ case $1 in
         ;;
 esac
 
-if [ ! -f "./build/bin/main" ]; then
-    echo "Error: ./build/bin/main not found. Please build first."
+if [ ! -f "./build/bin/demo" ]; then
+    echo "Error: ./build/bin/demo not found. Please build first."
     exit 1
 fi
 
@@ -81,7 +104,7 @@ fi
 export LSAN_OPTIONS="suppressions=$(pwd)/tests/lsan_suppressions.txt"
 
 start=$(date +%s%3N)
-./build/bin/main
+./build/bin/demo
 end=$(date +%s%3N)
 elapsed=$(awk "BEGIN { printf \"%.3f\", ($end - $start)/1000 }")
 echo "Run took ${elapsed} seconds"

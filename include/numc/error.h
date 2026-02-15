@@ -11,8 +11,8 @@
 #define NUMC_ERR_OVERFLOW -8
 #define NUMC_ERR_BOUNDS -9
 #define NUMC_ERR_AXIS -10
-
 #define NUMC_ERR_DIM -11
+
 typedef struct {
   int code;
   char *msg;
