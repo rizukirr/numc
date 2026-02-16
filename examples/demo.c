@@ -252,6 +252,46 @@ static void demo_math_scalar_inplace(NumcCtx *ctx) {
   numc_array_print(a);
 }
 
+/* ── Neg ──────────────────────────────────────────────────────────────── */
+
+static void demo_neg(NumcCtx *ctx) {
+  section("Neg");
+
+  size_t shape[] = {2, 3};
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+
+  float da[] = {10, -20, 30, 40, 50, 60};
+  numc_array_write(a, da);
+
+  printf("a:\n");
+  numc_array_print(a);
+
+  label("numc_neg (a)");
+  numc_neg(a, out);
+  numc_array_print(out);
+}
+
+/* ── Neg Inplace ──────────────────────────────────────────────────────────────
+ */
+
+static void demo_neg_inplace(NumcCtx *ctx) {
+  section("Neg Inplace");
+
+  size_t shape[] = {2, 3};
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+
+  float da[] = {10, -20, 30, -40, 50, 60};
+  numc_array_write(a, da);
+
+  printf("a:\n");
+  numc_array_print(a);
+
+  label("numc_neg_inplace (a)");
+  numc_neg_inplace(a);
+  numc_array_print(a);
+}
+
 /* ── Error Handling ────────────────────────────────────────────────── */
 
 static void demo_error(NumcCtx *ctx) {
@@ -297,6 +337,8 @@ int main(void) {
   demo_math_binary(ctx);
   demo_math_scalar(ctx);
   demo_math_scalar_inplace(ctx);
+  demo_neg(ctx);
+  demo_neg_inplace(ctx);
   demo_error(ctx);
 
   numc_ctx_free(ctx);

@@ -70,6 +70,55 @@ typedef void (*NumcBinaryKernel)(const char *a, const char *b, char *out,
     }                                                                          \
   }
 
+/* Stride-aware unary kernels
+ * Inspired by NumPy's UNARY_LOOP_FAST (fast_loop_macros.h).
+ * Each typed kernel has three runtime paths:
+ *
+ *   PATH 1 — Contiguous:  sa == es, so == es
+ *            Tight indexed loop, auto-vectorizes with -O3 -march=native.
+ *
+ *   PATH 2 — In-place:    a == out
+ *            Reads a once, applies to all elements. Used for scalar ops.
+ *
+ *   PATH 3 — Generic strided:  arbitrary sa, so
+ *            Handles views, slices, transposes via pointer arithmetic.
+ *
+ * */
+
+typedef void (*NumcUnaryKernel)(const char *a, char *out, size_t n, intptr_t sa,
+                                intptr_t so);
+
+#define DEFINE_UNARY_KERNEL(OP_NAME, TYPE_ENUM, C_TYPE, EXPR)                  \
+  static void _kern_##OP_NAME##_##TYPE_ENUM(                                   \
+      const char *a, char *out, size_t n, intptr_t sa, intptr_t so) {          \
+    const intptr_t es = (intptr_t)sizeof(C_TYPE);                              \
+    if (sa == es && so == es) {                                                \
+      /* PATH 1: all contiguous */                                             \
+      const C_TYPE *restrict pa = (const C_TYPE *)a;                           \
+      C_TYPE *restrict po = (C_TYPE *)out;                                     \
+      NUMC_OMP_FOR(                                                            \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                  \
+            C_TYPE in1 = pa[i];                                                \
+            po[i] = (EXPR);                                                    \
+          });                                                                  \
+    } else if (sa == es && so == es && a == out) {                             \
+      /* PATH 2a: inplace */                                                   \
+      const C_TYPE *restrict pa = (const C_TYPE *)a;                           \
+      C_TYPE *restrict po = (C_TYPE *)a;                                       \
+      NUMC_OMP_FOR(                                                            \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                  \
+            C_TYPE in1 = pa[i];                                                \
+            po[i] = (EXPR);                                                    \
+          });                                                                  \
+    } else {                                                                   \
+      /* PATH 2: generic strided */                                            \
+      for (size_t i = 0; i < n; i++) {                                         \
+        C_TYPE in1 = *(const C_TYPE *)(a + i * sa);                            \
+        *(C_TYPE *)(out + i * so) = (EXPR);                                    \
+      }                                                                        \
+    }                                                                          \
+  }
+
 /* ── Stamp out typed kernels ────────────────────────────────────────── */
 
 /* add: all 10 types, native + */
@@ -102,6 +151,11 @@ GENERATE_INT32(STAMP_DIV_I32)
 GENERATE_64BIT_NUMC_TYPES(STAMP_DIV_NATIVE)
 DEFINE_BINARY_KERNEL(div, NUMC_DTYPE_FLOAT32, float, in1 / in2)
 #undef STAMP_DIV_NATIVE
+
+/* neg: all 10 types, native - */
+#define STAMP_NEG(TE, CT) DEFINE_UNARY_KERNEL(neg, TE, CT, -in1)
+GENERATE_NUMC_TYPES(STAMP_NEG)
+#undef STAMP_NEG
 
 /* ── Dispatch tables (dtype → kernel) ─────────────────────────────── */
 
@@ -139,6 +193,14 @@ static const NumcBinaryKernel _div_table[] = {
     E(div, NUMC_DTYPE_FLOAT32), E(div, NUMC_DTYPE_FLOAT64),
 };
 
+static const NumcUnaryKernel _neg_table[] = {
+    E(neg, NUMC_DTYPE_INT8),    E(neg, NUMC_DTYPE_INT16),
+    E(neg, NUMC_DTYPE_INT32),   E(neg, NUMC_DTYPE_INT64),
+    E(neg, NUMC_DTYPE_UINT8),   E(neg, NUMC_DTYPE_UINT16),
+    E(neg, NUMC_DTYPE_UINT32),  E(neg, NUMC_DTYPE_UINT64),
+    E(neg, NUMC_DTYPE_FLOAT32), E(neg, NUMC_DTYPE_FLOAT64),
+};
+
 #undef E
 
 /*
@@ -150,9 +212,10 @@ static const NumcBinaryKernel _div_table[] = {
  * in _binary_op handles it directly.
  * */
 
-static void _elemwise_nd(NumcBinaryKernel kern, const char *a, const size_t *sa,
-                         const char *b, const size_t *sb, char *out,
-                         const size_t *so, const size_t *shape, size_t ndim) {
+static void _elemwise_binary_nd(NumcBinaryKernel kern, const char *a,
+                                const size_t *sa, const char *b,
+                                const size_t *sb, char *out, const size_t *so,
+                                const size_t *shape, size_t ndim) {
   if (ndim == 1) {
     kern(a, b, out, shape[0], (intptr_t)sa[0], (intptr_t)sb[0],
          (intptr_t)so[0]);
@@ -160,8 +223,22 @@ static void _elemwise_nd(NumcBinaryKernel kern, const char *a, const size_t *sa,
   }
 
   for (size_t i = 0; i < shape[0]; i++) {
-    _elemwise_nd(kern, a + i * sa[0], sa + 1, b + i * sb[0], sb + 1,
-                 out + i * so[0], so + 1, shape + 1, ndim - 1);
+    _elemwise_binary_nd(kern, a + i * sa[0], sa + 1, b + i * sb[0], sb + 1,
+                        out + i * so[0], so + 1, shape + 1, ndim - 1);
+  }
+}
+
+static void _elemwise_unary_nd(NumcUnaryKernel kern, const char *a,
+                               const size_t *sa, char *out, const size_t *so,
+                               const size_t *shape, size_t ndim) {
+  if (ndim == 1) {
+    kern(a, out, shape[0], (intptr_t)sa[0], (intptr_t)so[0]);
+    return;
+  }
+
+  for (size_t i = 0; i < shape[0]; i++) {
+    _elemwise_unary_nd(kern, a + i * sa[0], sa + 1, out + i * so[0], so + 1,
+                       shape + 1, ndim - 1);
   }
 }
 
@@ -194,8 +271,9 @@ static void _binary_op(const struct NumcArray *a, const struct NumcArray *b,
          a->size, es, es, es);
   } else {
     /* ND iteration: recurse over outer dims, kernel on inner dim */
-    _elemwise_nd(kern, (const char *)a->data, a->strides, (const char *)b->data,
-                 b->strides, (char *)out->data, out->strides, a->shape, a->dim);
+    _elemwise_binary_nd(kern, (const char *)a->data, a->strides,
+                        (const char *)b->data, b->strides, (char *)out->data,
+                        out->strides, a->shape, a->dim);
   }
 }
 
@@ -253,12 +331,12 @@ static void _scalar_op(const struct NumcArray *a, const char *scalar_buf,
          es);
   } else {
     /* ND iteration with zero strides for the scalar.
-     * We build a fake strides array of all-zeros so _elemwise_nd
+     * We build a fake strides array of all-zeros so _elemwise_binary_nd
      * passes sb=0 at every recursion level. */
     size_t zero_strides[NUMC_MAX_DIMENSIONS] = {0};
-    _elemwise_nd(kern, (const char *)a->data, a->strides, scalar_buf,
-                 zero_strides, (char *)out->data, out->strides, a->shape,
-                 a->dim);
+    _elemwise_binary_nd(kern, (const char *)a->data, a->strides, scalar_buf,
+                        zero_strides, (char *)out->data, out->strides, a->shape,
+                        a->dim);
   }
 }
 
@@ -276,8 +354,9 @@ static int _scalar_op_inplace(NumcArray *a, double scalar,
     kern((const char *)a->data, buf, (char *)a->data, a->size, es, 0, es);
   } else {
     size_t zero_strides[NUMC_MAX_DIMENSIONS] = {0};
-    _elemwise_nd(kern, (const char *)a->data, a->strides, buf, zero_strides,
-                 (char *)a->data, a->strides, a->shape, a->dim);
+    _elemwise_binary_nd(kern, (const char *)a->data, a->strides, buf,
+                        zero_strides, (char *)a->data, a->strides, a->shape,
+                        a->dim);
   }
   return 0;
 }
@@ -286,6 +365,55 @@ static int _scalar_op_inplace(NumcArray *a, double scalar,
 
 static int _check_scalar(const struct NumcArray *a,
                          const struct NumcArray *out) {
+  if (!a || !out)
+    return NUMC_ERR_NULL;
+  if (a->dtype != out->dtype)
+    return NUMC_ERR_TYPE;
+  if (a->dim != out->dim)
+    return NUMC_ERR_SHAPE;
+  for (size_t d = 0; d < a->dim; d++)
+    if (a->shape[d] != out->shape[d])
+      return NUMC_ERR_SHAPE;
+  return 0;
+}
+
+/* ── Unary ops dispatch ───────────────────────────────────────────── */
+
+static int _unary_op(const struct NumcArray *a, struct NumcArray *out,
+                     const NumcUnaryKernel *table) {
+  NumcUnaryKernel kern = table[a->dtype];
+
+  if (a->is_contiguous && out->is_contiguous) {
+    intptr_t es = (intptr_t)a->elem_size;
+    kern((const char *)a->data, (char *)out->data, a->size, es, es);
+  } else {
+    _elemwise_unary_nd(kern, (const char *)a->data, a->strides,
+                       (char *)out->data, out->strides, a->shape, a->dim);
+  }
+
+  return 0;
+}
+
+static int _unary_op_inplace(NumcArray *a, const NumcUnaryKernel *table) {
+  if (!a)
+    return NUMC_ERR_NULL;
+
+  NumcUnaryKernel kern = table[a->dtype];
+
+  if (a->is_contiguous) {
+    intptr_t es = (intptr_t)a->elem_size;
+    kern((const char *)a->data, (char *)a->data, a->size, es, es);
+  } else {
+    _elemwise_unary_nd(kern, (const char *)a->data, a->strides, (char *)a->data,
+                       a->strides, a->shape, a->dim);
+  }
+  return 0;
+}
+
+/* ── Unary Validation ───────────────────────────────────────────────────── */
+
+static int _check_unary(const struct NumcArray *a,
+                        const struct NumcArray *out) {
   if (!a || !out)
     return NUMC_ERR_NULL;
   if (a->dtype != out->dtype)
@@ -392,3 +520,15 @@ int numc_mul_scalar_inplace(NumcArray *a, double scalar) {
 int numc_div_scalar_inplace(NumcArray *a, double scalar) {
   return _scalar_op_inplace(a, scalar, _div_table);
 }
+
+/* ── Element-wise unary ops
+ * ──────────────────────────────────────────────────── */
+
+int numc_neg(NumcArray *a, NumcArray *out) {
+  int err = _check_unary(a, out);
+  if (err)
+    return err;
+  return _unary_op(a, out, _neg_table);
+}
+
+int numc_neg_inplace(NumcArray *a) { return _unary_op_inplace(a, _neg_table); }
