@@ -29,6 +29,12 @@
   NUMC_DTYPE(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32)                                 \
   NUMC_DTYPE(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64)
 
+#define GENERATE_FLOAT32_NUMC_TYPES(NUMC_DTYPE)                                \
+  NUMC_DTYPE(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32)
+
+#define GENERATE_FLOAT64_NUMC_TYPES(NUMC_DTYPE)                                \
+  NUMC_DTYPE(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64)
+
 #define GENERATE_NONINT_NUMC_TYPES(NUMC_DTYPE)                                 \
   NUMC_DTYPE(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32)                                 \
   NUMC_DTYPE(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64)
@@ -38,6 +44,14 @@
   NUMC_DTYPE(NUMC_DTYPE_INT16, NUMC_INT16)                                     \
   NUMC_DTYPE(NUMC_DTYPE_UINT8, NUMC_UINT8)                                     \
   NUMC_DTYPE(NUMC_DTYPE_UINT16, NUMC_UINT16)
+
+#define GENERATE_SIGNED_INT8_INT16_INT32_NUMC_TYPES(NUMC_DTYPE)                \
+  NUMC_DTYPE(NUMC_DTYPE_INT8, NUMC_INT8)                                       \
+  NUMC_DTYPE(NUMC_DTYPE_INT16, NUMC_INT16)                                     \
+  NUMC_DTYPE(NUMC_DTYPE_INT32, NUMC_INT32)
+
+#define GENERATE_SIGNED_64BIT_NUMC_TYPES(NUMC_DTYPE)                           \
+  NUMC_DTYPE(NUMC_DTYPE_INT64, NUMC_INT64)
 
 #define GENERATE_INT32(NUMC_DTYPE)                                             \
   NUMC_DTYPE(NUMC_DTYPE_INT32, NUMC_INT32)                                     \

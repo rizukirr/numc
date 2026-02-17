@@ -1543,6 +1543,397 @@ static int test_neg_inplace_null(void) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+ * Math: Unary ops (abs)
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+static int test_abs_int8(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {6};
+  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT8);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT8);
+
+  int8_t da[] = {-5, -4, -3, 0, 3, 5};
+  numc_array_write(a, da);
+
+  int err = numc_abs(a, out);
+  ASSERT_MSG(err == 0, "abs int8 should succeed");
+
+  int8_t *r = (int8_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 5 && r[1] == 4 && r[2] == 3, "abs int8 negatives");
+  ASSERT_MSG(r[3] == 0 && r[4] == 3 && r[5] == 5, "abs int8 zero and positives unchanged");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_int16(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT16);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT16);
+
+  int16_t da[] = {-1000, -1, 1, 1000};
+  numc_array_write(a, da);
+
+  int err = numc_abs(a, out);
+  ASSERT_MSG(err == 0, "abs int16 should succeed");
+
+  int16_t *r = (int16_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 1000 && r[1] == 1 && r[2] == 1 && r[3] == 1000,
+             "abs int16 results should match");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_int32(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT32);
+
+  int32_t da[] = {-100, -1, 1, 100};
+  numc_array_write(a, da);
+
+  int err = numc_abs(a, out);
+  ASSERT_MSG(err == 0, "abs int32 should succeed");
+
+  int32_t *r = (int32_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 100 && r[1] == 1 && r[2] == 1 && r[3] == 100,
+             "abs int32 results should match");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_int64(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT64);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT64);
+
+  int64_t da[] = {-1000000000LL, -1, 1, 1000000000LL};
+  numc_array_write(a, da);
+
+  int err = numc_abs(a, out);
+  ASSERT_MSG(err == 0, "abs int64 should succeed");
+
+  int64_t *r = (int64_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 1000000000LL && r[1] == 1 && r[2] == 1 && r[3] == 1000000000LL,
+             "abs int64 results should match");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_float32(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+
+  float da[] = {-1.5f, -0.5f, 0.5f, 1.5f};
+  numc_array_write(a, da);
+
+  int err = numc_abs(a, out);
+  ASSERT_MSG(err == 0, "abs float32 should succeed");
+
+  float *r = (float *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 1.5f && r[1] == 0.5f && r[2] == 0.5f && r[3] == 1.5f,
+             "abs float32 results should match");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_float64(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+
+  double da[] = {-1.5, -0.5, 0.5, 1.5};
+  numc_array_write(a, da);
+
+  int err = numc_abs(a, out);
+  ASSERT_MSG(err == 0, "abs float64 should succeed");
+
+  double *r = (double *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 1.5 && r[1] == 0.5 && r[2] == 0.5 && r[3] == 1.5,
+             "abs float64 results should match");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_2d(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {2, 3};
+  NumcArray *a   = numc_array_create(ctx, shape, 2, NUMC_DTYPE_INT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 2, NUMC_DTYPE_INT32);
+
+  int32_t da[] = {-10, -20, -30, 10, 20, 30};
+  numc_array_write(a, da);
+
+  int err = numc_abs(a, out);
+  ASSERT_MSG(err == 0, "2D abs should succeed");
+
+  int32_t *r = (int32_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 10 && r[1] == 20 && r[2] == 30, "abs 2D row 0");
+  ASSERT_MSG(r[3] == 10 && r[4] == 20 && r[5] == 30, "abs 2D row 1 unchanged");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_strided(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {2, 3};
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_INT32);
+
+  int32_t da[] = {-1, -2, -3, 4, 5, 6};
+  numc_array_write(a, da);
+
+  // Transpose to make it non-contiguous
+  size_t axes[] = {1, 0};
+  numc_array_transpose(a, axes);
+
+  // out shape matches transposed: {3, 2}
+  size_t out_shape[] = {3, 2};
+  NumcArray *out = numc_array_zeros(ctx, out_shape, 2, NUMC_DTYPE_INT32);
+
+  int err = numc_abs(a, out);
+  ASSERT_MSG(err == 0, "strided abs should succeed");
+
+  // Transposed a: [[-1,4],[-2,5],[-3,6]]
+  // abs:          [[1,4],[2,5],[3,6]]
+  int32_t *r = (int32_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 1 && r[1] == 4, "strided row 0");
+  ASSERT_MSG(r[2] == 2 && r[3] == 5, "strided row 1");
+  ASSERT_MSG(r[4] == 3 && r[5] == 6, "strided row 2");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_zeros(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a   = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT32);
+
+  int err = numc_abs(a, out);
+  ASSERT_MSG(err == 0, "abs of zeros should succeed");
+
+  int32_t *r = (int32_t *)numc_array_data(out);
+  for (size_t i = 0; i < 4; i++) {
+    ASSERT_MSG(r[i] == 0, "abs of zero should be zero");
+  }
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_all_positive(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT32);
+
+  int32_t da[] = {1, 2, 3, 4};
+  numc_array_write(a, da);
+
+  int err = numc_abs(a, out);
+  ASSERT_MSG(err == 0, "abs of positives should succeed");
+
+  int32_t *r = (int32_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 1 && r[1] == 2 && r[2] == 3 && r[3] == 4,
+             "abs of positives should be unchanged");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_int8_min(void) {
+  /* INT8_MIN (-128) has no positive counterpart in int8 —
+     abs(-128) wraps back to -128 (two's complement overflow) */
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {1};
+  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT8);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT8);
+
+  int8_t da[] = {-128};
+  numc_array_write(a, da);
+
+  numc_abs(a, out);
+
+  int8_t *r = (int8_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == -128, "abs(INT8_MIN) wraps to -128");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_null(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a   = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+
+  ASSERT_MSG(numc_abs(NULL, out) != 0, "abs with NULL a should fail");
+  ASSERT_MSG(numc_abs(a, NULL) != 0, "abs with NULL out should fail");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_type_mismatch(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a   = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT32);
+
+  ASSERT_MSG(numc_abs(a, out) != 0, "abs with dtype mismatch should fail");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_shape_mismatch(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape_a[] = {4};
+  size_t shape_o[] = {5};
+  NumcArray *a   = numc_array_zeros(ctx, shape_a, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *out = numc_array_zeros(ctx, shape_o, 1, NUMC_DTYPE_FLOAT32);
+
+  ASSERT_MSG(numc_abs(a, out) != 0, "abs with shape mismatch should fail");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Math: Unary inplace ops (abs_inplace)
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+static int test_abs_inplace_int8(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT8);
+
+  int8_t da[] = {-5, -10, 15, -20};
+  numc_array_write(a, da);
+
+  int err = numc_abs_inplace(a);
+  ASSERT_MSG(err == 0, "abs_inplace int8 should succeed");
+
+  int8_t *r = (int8_t *)numc_array_data(a);
+  ASSERT_MSG(r[0] == 5 && r[1] == 10 && r[2] == 15 && r[3] == 20,
+             "abs_inplace int8 results should match");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_inplace_int32(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
+
+  int32_t da[] = {-100, -1, 1, 100};
+  numc_array_write(a, da);
+
+  int err = numc_abs_inplace(a);
+  ASSERT_MSG(err == 0, "abs_inplace int32 should succeed");
+
+  int32_t *r = (int32_t *)numc_array_data(a);
+  ASSERT_MSG(r[0] == 100 && r[1] == 1 && r[2] == 1 && r[3] == 100,
+             "abs_inplace int32 results should match");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_inplace_float32(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+
+  float da[] = {-1.5f, -0.5f, 0.5f, 1.5f};
+  numc_array_write(a, da);
+
+  int err = numc_abs_inplace(a);
+  ASSERT_MSG(err == 0, "abs_inplace float32 should succeed");
+
+  float *r = (float *)numc_array_data(a);
+  ASSERT_MSG(r[0] == 1.5f && r[1] == 0.5f && r[2] == 0.5f && r[3] == 1.5f,
+             "abs_inplace float32 results should match");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_inplace_float64(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+
+  double da[] = {-1.5, -0.5, 0.5, 1.5};
+  numc_array_write(a, da);
+
+  int err = numc_abs_inplace(a);
+  ASSERT_MSG(err == 0, "abs_inplace float64 should succeed");
+
+  double *r = (double *)numc_array_data(a);
+  ASSERT_MSG(r[0] == 1.5 && r[1] == 0.5 && r[2] == 0.5 && r[3] == 1.5,
+             "abs_inplace float64 results should match");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_inplace_2d(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {2, 3};
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_INT32);
+
+  int32_t da[] = {-10, -20, -30, 10, 20, 30};
+  numc_array_write(a, da);
+
+  int err = numc_abs_inplace(a);
+  ASSERT_MSG(err == 0, "2D abs_inplace should succeed");
+
+  int32_t *r = (int32_t *)numc_array_data(a);
+  ASSERT_MSG(r[0] == 10 && r[1] == 20 && r[2] == 30, "abs_inplace 2D row 0");
+  ASSERT_MSG(r[3] == 10 && r[4] == 20 && r[5] == 30, "abs_inplace 2D row 1 unchanged");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_inplace_zeros(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT32);
+
+  int err = numc_abs_inplace(a);
+  ASSERT_MSG(err == 0, "abs_inplace of zeros should succeed");
+
+  int32_t *r = (int32_t *)numc_array_data(a);
+  for (size_t i = 0; i < 4; i++) {
+    ASSERT_MSG(r[i] == 0, "abs_inplace of zero should be zero");
+  }
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_inplace_null(void) {
+  ASSERT_MSG(numc_abs_inplace(NULL) != 0, "abs_inplace with NULL should fail");
+  return 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
  * Error API
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -1591,6 +1982,232 @@ static int test_array_print_1d(void) {
   NumcArray *arr = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT8);
   numc_array_print(arr);
   numc_ctx_free(ctx);
+  return 0;
+}
+
+/* --- log tests --- */
+
+/* LN2 constants matching the kernel's bit-manipulation coefficients */
+#define LN2F 0.69314718f
+#define LN2D 0.6931471805599453
+
+static int test_log_float32(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {3};
+  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+
+  /* Powers of 2: mantissa == 1.0, polynomial contribution == 0.
+   * Result = exponent * LN2F exactly. */
+  float da[] = {1.0f, 2.0f, 4.0f};
+  numc_array_write(a, da);
+
+  int err = numc_log(a, out);
+  ASSERT_MSG(err == 0, "log float32 should succeed");
+
+  float *r = (float *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 0.0f,       "log(1.0) == 0.0");
+  ASSERT_MSG(r[1] == LN2F,       "log(2.0) == LN2F");
+  ASSERT_MSG(r[2] == 2 * LN2F,   "log(4.0) == 2*LN2F");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_log_float64(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {3};
+  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+
+  double da[] = {1.0, 2.0, 4.0};
+  numc_array_write(a, da);
+
+  int err = numc_log(a, out);
+  ASSERT_MSG(err == 0, "log float64 should succeed");
+
+  double *r = (double *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 0.0,      "log(1.0) == 0.0");
+  ASSERT_MSG(r[1] == LN2D,     "log(2.0) == LN2D");
+  ASSERT_MSG(r[2] == 2 * LN2D, "log(4.0) == 2*LN2D");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_log_int8(void) {
+  /* int8 casts through float32 log; result is truncated to int8.
+   * log(1)=0.0->0, log(2)=0.69->0, log(4)=1.38->1, log(8)=2.07->2 */
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT8);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT8);
+
+  int8_t da[] = {1, 2, 4, 8};
+  numc_array_write(a, da);
+
+  int err = numc_log(a, out);
+  ASSERT_MSG(err == 0, "log int8 should succeed");
+
+  int8_t *r = (int8_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 0, "log(1) -> int8 0");
+  ASSERT_MSG(r[1] == 0, "log(2) -> int8 0 (truncated)");
+  ASSERT_MSG(r[2] == 1, "log(4) -> int8 1");
+  ASSERT_MSG(r[3] == 2, "log(8) -> int8 2");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_log_int32(void) {
+  /* int32 casts through float64 log; result truncated to int32.
+   * log(1)=0, log(4)=1.38->1, log(1024)=10*LN2=6.93->6 */
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {3};
+  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT32);
+
+  int32_t da[] = {1, 4, 1024};
+  numc_array_write(a, da);
+
+  int err = numc_log(a, out);
+  ASSERT_MSG(err == 0, "log int32 should succeed");
+
+  int32_t *r = (int32_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 0, "log(1)    -> int32 0");
+  ASSERT_MSG(r[1] == 1, "log(4)    -> int32 1");
+  ASSERT_MSG(r[2] == 6, "log(1024) -> int32 6");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_log_2d(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {2, 2};
+  NumcArray *a   = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+
+  float da[] = {1.0f, 2.0f, 4.0f, 8.0f};
+  numc_array_write(a, da);
+
+  int err = numc_log(a, out);
+  ASSERT_MSG(err == 0, "log 2D should succeed");
+
+  float *r = (float *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 0.0f,       "log(1.0)");
+  ASSERT_MSG(r[1] == LN2F,       "log(2.0)");
+  ASSERT_MSG(r[2] == 2 * LN2F,   "log(4.0)");
+  ASSERT_MSG(r[3] == 3 * LN2F,   "log(8.0)");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_log_x1(void) {
+  /* log(1) == 0 for all supported float types */
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {1};
+
+  NumcArray *f32     = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *f32_out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  float vf = 1.0f;
+  numc_array_write(f32, &vf);
+  numc_log(f32, f32_out);
+  ASSERT_MSG(*(float *)numc_array_data(f32_out) == 0.0f, "log(1.0f) == 0");
+
+  NumcArray *f64     = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+  NumcArray *f64_out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+  double vd = 1.0;
+  numc_array_write(f64, &vd);
+  numc_log(f64, f64_out);
+  ASSERT_MSG(*(double *)numc_array_data(f64_out) == 0.0, "log(1.0) == 0");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_log_null(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+
+  int err = numc_log(NULL, out);
+  ASSERT_MSG(err == NUMC_ERR_NULL, "log(NULL, out) should return NUMC_ERR_NULL");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_log_type_mismatch(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+
+  int err = numc_log(a, out);
+  ASSERT_MSG(err == NUMC_ERR_TYPE, "dtype mismatch should return NUMC_ERR_TYPE");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_log_shape_mismatch(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t sa[] = {4}, sb[] = {6};
+  NumcArray *a   = numc_array_create(ctx, sa, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *out = numc_array_zeros(ctx, sb, 1, NUMC_DTYPE_FLOAT32);
+
+  int err = numc_log(a, out);
+  ASSERT_MSG(err == NUMC_ERR_SHAPE, "shape mismatch should return NUMC_ERR_SHAPE");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_log_inplace_float32(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {3};
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+
+  float da[] = {1.0f, 2.0f, 4.0f};
+  numc_array_write(a, da);
+
+  int err = numc_log_inplace(a);
+  ASSERT_MSG(err == 0, "log_inplace float32 should succeed");
+
+  float *r = (float *)numc_array_data(a);
+  ASSERT_MSG(r[0] == 0.0f,     "log_inplace(1.0) == 0.0");
+  ASSERT_MSG(r[1] == LN2F,     "log_inplace(2.0) == LN2F");
+  ASSERT_MSG(r[2] == 2 * LN2F, "log_inplace(4.0) == 2*LN2F");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_log_inplace_float64(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {3};
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+
+  double da[] = {1.0, 2.0, 4.0};
+  numc_array_write(a, da);
+
+  int err = numc_log_inplace(a);
+  ASSERT_MSG(err == 0, "log_inplace float64 should succeed");
+
+  double *r = (double *)numc_array_data(a);
+  ASSERT_MSG(r[0] == 0.0,      "log_inplace(1.0) == 0.0");
+  ASSERT_MSG(r[1] == LN2D,     "log_inplace(2.0) == LN2D");
+  ASSERT_MSG(r[2] == 2 * LN2D, "log_inplace(4.0) == 2*LN2D");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_log_inplace_null(void) {
+  int err = numc_log_inplace(NULL);
+  ASSERT_MSG(err == NUMC_ERR_NULL, "log_inplace(NULL) should return NUMC_ERR_NULL");
   return 0;
 }
 
@@ -1729,6 +2346,47 @@ int main(void) {
   RUN_TEST(test_neg_inplace_contiguous_2d);
   RUN_TEST(test_neg_inplace_zeros);
   RUN_TEST(test_neg_inplace_null);
+
+  printf("\nUnary ops (abs):\n");
+  RUN_TEST(test_abs_int8);
+  RUN_TEST(test_abs_int16);
+  RUN_TEST(test_abs_int32);
+  RUN_TEST(test_abs_int64);
+  RUN_TEST(test_abs_float32);
+  RUN_TEST(test_abs_float64);
+  RUN_TEST(test_abs_2d);
+  RUN_TEST(test_abs_strided);
+  RUN_TEST(test_abs_zeros);
+  RUN_TEST(test_abs_all_positive);
+  RUN_TEST(test_abs_int8_min);
+  RUN_TEST(test_abs_null);
+  RUN_TEST(test_abs_type_mismatch);
+  RUN_TEST(test_abs_shape_mismatch);
+
+  printf("\nUnary inplace ops (abs_inplace):\n");
+  RUN_TEST(test_abs_inplace_int8);
+  RUN_TEST(test_abs_inplace_int32);
+  RUN_TEST(test_abs_inplace_float32);
+  RUN_TEST(test_abs_inplace_float64);
+  RUN_TEST(test_abs_inplace_2d);
+  RUN_TEST(test_abs_inplace_zeros);
+  RUN_TEST(test_abs_inplace_null);
+
+  printf("\nUnary ops (log):\n");
+  RUN_TEST(test_log_float32);
+  RUN_TEST(test_log_float64);
+  RUN_TEST(test_log_int8);
+  RUN_TEST(test_log_int32);
+  RUN_TEST(test_log_2d);
+  RUN_TEST(test_log_x1);
+  RUN_TEST(test_log_null);
+  RUN_TEST(test_log_type_mismatch);
+  RUN_TEST(test_log_shape_mismatch);
+
+  printf("\nUnary inplace ops (log_inplace):\n");
+  RUN_TEST(test_log_inplace_float32);
+  RUN_TEST(test_log_inplace_float64);
+  RUN_TEST(test_log_inplace_null);
 
   printf("\nError API:\n");
   RUN_TEST(test_error_set_get);

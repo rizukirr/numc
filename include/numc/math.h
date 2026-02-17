@@ -26,7 +26,15 @@ int numc_sub_scalar_inplace(NumcArray *a, double scalar);
 int numc_mul_scalar_inplace(NumcArray *a, double scalar);
 int numc_div_scalar_inplace(NumcArray *a, double scalar);
 
+/* Element-wise unary: out = op a
+ * Works on contiguous AND non-contiguous arrays. */
 int numc_neg(NumcArray *a, NumcArray *out);
 int numc_neg_inplace(NumcArray *a);
+
+int numc_abs(NumcArray *a, NumcArray *out);
+int numc_abs_inplace(NumcArray *a);
+
+int numc_log(NumcArray *a, NumcArray *out);
+int numc_log_inplace(NumcArray *a);
 
 #endif

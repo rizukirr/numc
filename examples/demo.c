@@ -270,26 +270,135 @@ static void demo_neg(NumcCtx *ctx) {
   label("numc_neg (a)");
   numc_neg(a, out);
   numc_array_print(out);
-}
-
-/* ── Neg Inplace ──────────────────────────────────────────────────────────────
- */
-
-static void demo_neg_inplace(NumcCtx *ctx) {
-  section("Neg Inplace");
-
-  size_t shape[] = {2, 3};
-  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
-
-  float da[] = {10, -20, 30, -40, 50, 60};
-  numc_array_write(a, da);
-
-  printf("a:\n");
-  numc_array_print(a);
 
   label("numc_neg_inplace (a)");
   numc_neg_inplace(a);
   numc_array_print(a);
+}
+
+/* ── Abs ──────────────────────────────────────────────────────────────── */
+
+static void demo_abs(NumcCtx *ctx) {
+  section("Abs");
+
+  /* abs only applies to signed types (int8/16/32/64, float32/64).
+     unsigned types have no negative values, so abs is not needed. */
+
+  /* abs only applies to signed types (int8/16/32/64, float32/64).
+     unsigned types have no negative values, so abs is not needed. */
+
+  /* --- signed integers --- */
+  label("int8");
+  size_t shape1[] = {6};
+  NumcArray *i8 = numc_array_create(ctx, shape1, 1, NUMC_DTYPE_INT8);
+  NumcArray *i8_out = numc_array_zeros(ctx, shape1, 1, NUMC_DTYPE_INT8);
+  int8_t di8[] = {-5, -4, -3, 0, 3, 5};
+  numc_array_write(i8, di8);
+  printf("in:  "); numc_array_print(i8);
+  numc_abs(i8, i8_out);
+  printf("out: "); numc_array_print(i8_out);
+
+  /* INT8_MIN (-128) has no positive counterpart in int8 — overflows back to -128 */
+  label("int8: INT8_MIN edge case (abs(-128) wraps to -128)");
+  size_t shape_edge[] = {1};
+  NumcArray *edge = numc_array_create(ctx, shape_edge, 1, NUMC_DTYPE_INT8);
+  NumcArray *edge_out = numc_array_zeros(ctx, shape_edge, 1, NUMC_DTYPE_INT8);
+  int8_t d_edge[] = {-128};
+  numc_array_write(edge, d_edge);
+  printf("in:  "); numc_array_print(edge);
+  numc_abs(edge, edge_out);
+  printf("out: "); numc_array_print(edge_out); /* still -128 */
+
+  label("int32");
+  size_t shape2[] = {2, 3};
+  NumcArray *i32 = numc_array_create(ctx, shape2, 2, NUMC_DTYPE_INT32);
+  NumcArray *i32_out = numc_array_zeros(ctx, shape2, 2, NUMC_DTYPE_INT32);
+  int32_t di32[] = {-10, -20, -30, 10, 20, 30};
+  numc_array_write(i32, di32);
+  printf("in:\n");  numc_array_print(i32);
+  numc_abs(i32, i32_out);
+  printf("out:\n"); numc_array_print(i32_out);
+
+  /* --- floats: clears IEEE-754 sign bit, no overflow possible --- */
+  label("float32");
+  size_t shape3[] = {2, 3};
+  NumcArray *f32 = numc_array_create(ctx, shape3, 2, NUMC_DTYPE_FLOAT32);
+  NumcArray *f32_out = numc_array_zeros(ctx, shape3, 2, NUMC_DTYPE_FLOAT32);
+  float df32[] = {-1.5f, -2.5f, -3.5f, 1.5f, 2.5f, 3.5f};
+  numc_array_write(f32, df32);
+  printf("in:\n");  numc_array_print(f32);
+  numc_abs(f32, f32_out);
+  printf("out:\n"); numc_array_print(f32_out);
+
+  /* --- inplace variant --- */
+  label("numc_abs_inplace (float32, mutates in place)");
+  size_t shape4[] = {4};
+  NumcArray *ip = numc_array_create(ctx, shape4, 1, NUMC_DTYPE_FLOAT32);
+  float dip[] = {-1.0f, -2.0f, 3.0f, -4.0f};
+  numc_array_write(ip, dip);
+  printf("before: "); numc_array_print(ip);
+  numc_abs_inplace(ip);
+  printf("after:  "); numc_array_print(ip);
+}
+
+/* ── Log ──────────────────────────────────────────────────────────────── */
+
+static void demo_log(NumcCtx *ctx) {
+  section("Log");
+
+  /* float32 — bit-manipulation kernel, powers of 2 are exact */
+  label("float32: log([1, 2, 4, 8])");
+  size_t shape1[] = {4};
+  NumcArray *f32 = numc_array_create(ctx, shape1, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *f32_out = numc_array_zeros(ctx, shape1, 1, NUMC_DTYPE_FLOAT32);
+  float df32[] = {1.0f, 2.0f, 4.0f, 8.0f};
+  numc_array_write(f32, df32);
+  printf("in:  "); numc_array_print(f32);
+  numc_log(f32, f32_out);
+  printf("out: "); numc_array_print(f32_out);
+
+  /* float64 — same bit-manipulation approach, double precision */
+  label("float64: log([1, 2, 4, 8])");
+  size_t shape2[] = {4};
+  NumcArray *f64 = numc_array_create(ctx, shape2, 1, NUMC_DTYPE_FLOAT64);
+  NumcArray *f64_out = numc_array_zeros(ctx, shape2, 1, NUMC_DTYPE_FLOAT64);
+  double df64[] = {1.0, 2.0, 4.0, 8.0};
+  numc_array_write(f64, df64);
+  printf("in:  "); numc_array_print(f64);
+  numc_log(f64, f64_out);
+  printf("out: "); numc_array_print(f64_out);
+
+  /* int8 — cast through float32 log, result truncated to int8 */
+  label("int8: log([1, 2, 4, 8]) — cast through float, truncated");
+  size_t shape3[] = {4};
+  NumcArray *i8 = numc_array_create(ctx, shape3, 1, NUMC_DTYPE_INT8);
+  NumcArray *i8_out = numc_array_zeros(ctx, shape3, 1, NUMC_DTYPE_INT8);
+  int8_t di8[] = {1, 2, 4, 8};
+  numc_array_write(i8, di8);
+  printf("in:  "); numc_array_print(i8);
+  numc_log(i8, i8_out);
+  printf("out: "); numc_array_print(i8_out);
+
+  /* int32 — cast through float64 log, result truncated to int32 */
+  label("int32: log([1, 4, 1024]) — cast through double, truncated");
+  size_t shape4[] = {3};
+  NumcArray *i32 = numc_array_create(ctx, shape4, 1, NUMC_DTYPE_INT32);
+  NumcArray *i32_out = numc_array_zeros(ctx, shape4, 1, NUMC_DTYPE_INT32);
+  int32_t di32[] = {1, 4, 1024};
+  numc_array_write(i32, di32);
+  printf("in:  "); numc_array_print(i32);
+  numc_log(i32, i32_out);
+  printf("out: "); numc_array_print(i32_out);
+
+  /* inplace variant */
+  label("numc_log_inplace (float32, mutates in place)");
+  size_t shape5[] = {4};
+  NumcArray *ip = numc_array_create(ctx, shape5, 1, NUMC_DTYPE_FLOAT32);
+  float dip[] = {1.0f, 2.0f, 4.0f, 8.0f};
+  numc_array_write(ip, dip);
+  printf("before: "); numc_array_print(ip);
+  numc_log_inplace(ip);
+  printf("after:  "); numc_array_print(ip);
 }
 
 /* ── Error Handling ────────────────────────────────────────────────── */
@@ -338,7 +447,8 @@ int main(void) {
   demo_math_scalar(ctx);
   demo_math_scalar_inplace(ctx);
   demo_neg(ctx);
-  demo_neg_inplace(ctx);
+  demo_abs(ctx);
+  demo_log(ctx);
   demo_error(ctx);
 
   numc_ctx_free(ctx);
