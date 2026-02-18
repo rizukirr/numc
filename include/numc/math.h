@@ -37,4 +37,7 @@ int numc_abs_inplace(NumcArray *a);
 int numc_log(NumcArray *a, NumcArray *out);
 int numc_log_inplace(NumcArray *a);
 
+int numc_exp(NumcArray *a, NumcArray *out);
+int numc_exp_inplace(NumcArray *a);
+
 #endif

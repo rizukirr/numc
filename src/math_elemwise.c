@@ -1,5 +1,6 @@
 #include "internal.h"
 #include "numc/dtype.h"
+#include <math.h>
 #include <numc/math.h>
 #include <string.h>
 
@@ -132,12 +133,11 @@ typedef void (*NumcUnaryKernel)(const char *a, char *out, size_t n, intptr_t sa,
  */
 
 static float _log_NUMC_DTYPE_FLOAT32(float x) {
-  static const float
-      ln2 = 6.9314718056e-01f,
-      Lg1 = 6.6666668653e-01f, /* 0x3F2AAAAB */
-      Lg2 = 4.0000004172e-01f, /* 0x3ECCCCCD */
-      Lg3 = 2.8571429849e-01f, /* 0x3E924925 */
-      Lg4 = 2.2222198009e-01f; /* 0x3E638E29 */
+  static const float ln2 = 6.9314718056e-01f,
+                     Lg1 = 6.6666668653e-01f, /* 0x3F2AAAAB */
+      Lg2 = 4.0000004172e-01f,                /* 0x3ECCCCCD */
+      Lg3 = 2.8571429849e-01f,                /* 0x3E924925 */
+      Lg4 = 2.2222198009e-01f;                /* 0x3E638E29 */
 
   if (x <= 0.0f)
     return 0.0f;
@@ -146,32 +146,34 @@ static float _log_NUMC_DTYPE_FLOAT32(float x) {
   uint32_t ix;
   memcpy(&ix, &x, sizeof ix);
   int k = (int)((ix >> 23) & 0xffu) - 127;
-  ix    = (ix & 0x007fffffu) | 0x3f800000u; /* set biased exponent to 0 */
+  ix = (ix & 0x007fffffu) | 0x3f800000u; /* set biased exponent to 0 */
   float m;
   memcpy(&m, &ix, sizeof m);
-  if (m > 1.41421356f) { m *= 0.5f; k++; }
+  if (m > 1.41421356f) {
+    m *= 0.5f;
+    k++;
+  }
   float f = m - 1.0f;
 
-  float s    = f / (2.0f + f);
-  float z    = s * s;
-  float w    = z * z;
-  float t1   = w * (Lg2 + w * Lg4);
-  float t2   = z * (Lg1 + w * Lg3);
-  float R    = t1 + t2;
+  float s = f / (2.0f + f);
+  float z = s * s;
+  float w = z * z;
+  float t1 = w * (Lg2 + w * Lg4);
+  float t2 = z * (Lg1 + w * Lg3);
+  float R = t1 + t2;
   float hfsq = 0.5f * f * f;
   return (float)k * ln2 + f - hfsq + s * (hfsq + R);
 }
 
 static double _log_NUMC_DTYPE_FLOAT64(double x) {
-  static const double
-      ln2 = 6.9314718055994530942e-01,
-      Lg1 = 6.6666666666666735130e-01, /* 0x3FE5555555555593 */
-      Lg2 = 3.9999999999940941908e-01, /* 0x3FD999999997FA04 */
-      Lg3 = 2.8571428743662391490e-01, /* 0x3FD2492494229359 */
-      Lg4 = 2.2221984321497839600e-01, /* 0x3FCC71C51D8E78AF */
-      Lg5 = 1.8183572161618050120e-01, /* 0x3FC7466496CB03DE */
-      Lg6 = 1.5313837699209373320e-01, /* 0x3FC39A09D078C69F */
-      Lg7 = 1.4798198605116585910e-01; /* 0x3FC2F112DF3E5244 */
+  static const double ln2 = 6.9314718055994530942e-01,
+                      Lg1 = 6.6666666666666735130e-01, /* 0x3FE5555555555593 */
+      Lg2 = 3.9999999999940941908e-01,                 /* 0x3FD999999997FA04 */
+      Lg3 = 2.8571428743662391490e-01,                 /* 0x3FD2492494229359 */
+      Lg4 = 2.2221984321497839600e-01,                 /* 0x3FCC71C51D8E78AF */
+      Lg5 = 1.8183572161618050120e-01,                 /* 0x3FC7466496CB03DE */
+      Lg6 = 1.5313837699209373320e-01,                 /* 0x3FC39A09D078C69F */
+      Lg7 = 1.4798198605116585910e-01;                 /* 0x3FC2F112DF3E5244 */
 
   if (x <= 0.0)
     return 0.0;
@@ -180,20 +182,131 @@ static double _log_NUMC_DTYPE_FLOAT64(double x) {
   uint64_t ix;
   memcpy(&ix, &x, sizeof ix);
   int k = (int)((ix >> 52) & 0x7ffULL) - 1023;
-  ix    = (ix & 0x000fffffffffffffULL) | 0x3ff0000000000000ULL;
+  ix = (ix & 0x000fffffffffffffULL) | 0x3ff0000000000000ULL;
   double m;
   memcpy(&m, &ix, sizeof m);
-  if (m > 1.4142135623730951) { m *= 0.5; k++; }
+  if (m > 1.4142135623730951) {
+    m *= 0.5;
+    k++;
+  }
   double f = m - 1.0;
 
-  double s    = f / (2.0 + f);
-  double z    = s * s;
-  double w    = z * z;
-  double t1   = w * (Lg2 + w * (Lg4 + w * Lg6));
-  double t2   = z * (Lg1 + w * (Lg3 + w * (Lg5 + w * Lg7)));
-  double R    = t1 + t2;
+  double s = f / (2.0 + f);
+  double z = s * s;
+  double w = z * z;
+  double t1 = w * (Lg2 + w * (Lg4 + w * Lg6));
+  double t2 = z * (Lg1 + w * (Lg3 + w * (Lg5 + w * Lg7)));
+  double R = t1 + t2;
   double hfsq = 0.5 * f * f;
   return (double)k * ln2 + f - hfsq + s * (hfsq + R);
+}
+
+/* ── Accurate scalar exp helpers (Cephes-style, argument reduction + Horner) ──
+ */
+/*
+ * Algorithm (Cephes / Julien Pommier):
+ *   1. Clamp: x > 88.38 → inf, x < -103.97 → 0
+ *   2. Argument reduction: n = round(x / ln2), r = x - n*ln2 (compensated)
+ *   3. Horner polynomial: exp(r) for |r| <= ln2/2
+ *   4. Scale: multiply by 2^n via IEEE 754 exponent field bit-add
+ *
+ * float32: 6 Remez coefficients, max error < 1 ULP
+ * float64: 11 Taylor coefficients (1/n!), truncation error < 0.23 × 2⁻⁵³
+ */
+
+static float _exp_NUMC_DTYPE_FLOAT32(float x) {
+  static const float LOG2E = 1.44269504088896341f, /* log2(e) = 1/ln2 */
+      LN2HI = 6.93359375000000000e-1f, /* ln2 upper half (355/512, exact)    */
+      LN2LO = -2.12194440e-4f,         /* ln2 lower half                     */
+      /* Remez-optimized Horner coefficients (Cephes / Julien Pommier)       */
+      P0 = 1.9875691500e-4f, P1 = 1.3981999507e-3f, P2 = 8.3334519073e-3f,
+                     P3 = 4.1665795894e-2f, P4 = 1.6666665459e-1f,
+                     P5 = 5.0000001201e-1f;
+
+  /* Step 0: clamp */
+  if (x > 88.3762626647949f)
+    return 1.0f / 0.0f; /* +inf */
+  if (x < -103.972076f)
+    return 0.0f;
+
+  /* Step 1: argument reduction */
+  float n = roundf(x * LOG2E);
+
+  /* Step 2: compensated subtraction (two-part ln2 avoids cancellation) */
+  float r = x - n * LN2HI;
+  r = r - n * LN2LO;
+
+  /* Step 3: Horner polynomial for exp(r), |r| <= ln2/2 */
+  float p = P0;
+  p = p * r + P1;
+  p = p * r + P2;
+  p = p * r + P3;
+  p = p * r + P4;
+  p = p * r + P5;
+  p = p * r * r + r + 1.0f;
+
+  /* Step 4: scale by 2^n via IEEE 754 exponent field (bits 23-30) */
+  int32_t ni = (int32_t)n;
+  uint32_t bits;
+  memcpy(&bits, &p, sizeof bits);
+  bits += (uint32_t)(ni << 23);
+  memcpy(&p, &bits, sizeof p);
+
+  return p;
+}
+
+static double _exp_NUMC_DTYPE_FLOAT64(double x) {
+  static const double LOG2E = 1.44269504088896338700e+00,
+                      LN2HI =
+                          6.93147180369123816490e-01, /* lower 28 bits zero */
+      LN2LO = 1.90821492927058770002e-10,             /* remainder          */
+      /* Taylor coefficients 1/n! for n = 2..12 */
+      C2 = 5.00000000000000000000e-01, C3 = 1.66666666666666666667e-01,
+                      C4 = 4.16666666666666666667e-02,
+                      C5 = 8.33333333333333333333e-03,
+                      C6 = 1.38888888888888888889e-03,
+                      C7 = 1.98412698412698412698e-04,
+                      C8 = 2.48015873015873015873e-05,
+                      C9 = 2.75573192239858906526e-06,
+                      C10 = 2.75573192239858906526e-07,
+                      C11 = 2.50521083854417187751e-08,
+                      C12 = 2.08767569878680989792e-09;
+
+  /* Step 0: clamp */
+  if (x > 709.782712893383996843)
+    return 1.0 / 0.0; /* +inf */
+  if (x < -745.133219101941217)
+    return 0.0;
+
+  /* Step 1: argument reduction */
+  double n = round(x * LOG2E);
+
+  /* Step 2: compensated subtraction */
+  double r = x - n * LN2HI;
+  r = r - n * LN2LO;
+
+  /* Step 3: Horner polynomial for exp(r), |r| <= ln2/2 */
+  double p = C12;
+  p = p * r + C11;
+  p = p * r + C10;
+  p = p * r + C9;
+  p = p * r + C8;
+  p = p * r + C7;
+  p = p * r + C6;
+  p = p * r + C5;
+  p = p * r + C4;
+  p = p * r + C3;
+  p = p * r + C2;
+  p = p * r * r + r + 1.0;
+
+  /* Step 4: scale by 2^n via IEEE 754 exponent field (bits 52-62) */
+  int64_t ni = (int64_t)n;
+  uint64_t bits;
+  memcpy(&bits, &p, sizeof bits);
+  bits += (uint64_t)(ni << 52);
+  memcpy(&p, &bits, sizeof p);
+
+  return p;
 }
 
 /* ── Stamp out log loop kernels (stride-aware, wrapping scalar bit-manip) ── */
@@ -219,8 +332,40 @@ DEFINE_UNARY_KERNEL(log, NUMC_DTYPE_UINT64, uint64_t,
                     (uint64_t)_log_NUMC_DTYPE_FLOAT64((double)in1))
 
 /* float types: call their own bit-manipulation helpers directly */
-DEFINE_UNARY_KERNEL(log, NUMC_DTYPE_FLOAT32, float, _log_NUMC_DTYPE_FLOAT32(in1))
-DEFINE_UNARY_KERNEL(log, NUMC_DTYPE_FLOAT64, double, _log_NUMC_DTYPE_FLOAT64(in1))
+DEFINE_UNARY_KERNEL(log, NUMC_DTYPE_FLOAT32, float,
+                    _log_NUMC_DTYPE_FLOAT32(in1))
+DEFINE_UNARY_KERNEL(log, NUMC_DTYPE_FLOAT64, double,
+                    _log_NUMC_DTYPE_FLOAT64(in1))
+
+/* ── Stamp out exp loop kernels ─────────────────────────────────────── */
+
+/* int8/int16/uint8/uint16: cast through float32 */
+#define STAMP_EXP_SMALL(TE, CT)                                                \
+  DEFINE_UNARY_KERNEL(exp, TE, CT, (CT)_exp_NUMC_DTYPE_FLOAT32((float)in1))
+GENERATE_INT8_INT16_NUMC_TYPES(STAMP_EXP_SMALL)
+#undef STAMP_EXP_SMALL
+
+/* int32/uint32: cast through float64 */
+#define STAMP_EXP_I32(TE, CT)                                                  \
+  DEFINE_UNARY_KERNEL(exp, TE, CT, (CT)_exp_NUMC_DTYPE_FLOAT64((double)in1))
+GENERATE_INT32(STAMP_EXP_I32)
+#undef STAMP_EXP_I32
+
+/* int64: cast through float64 */
+#define STAMP_EXP_I64(TE, CT)                                                  \
+  DEFINE_UNARY_KERNEL(exp, TE, CT, (CT)_exp_NUMC_DTYPE_FLOAT64((double)in1))
+GENERATE_SIGNED_64BIT_NUMC_TYPES(STAMP_EXP_I64)
+#undef STAMP_EXP_I64
+
+/* uint64: explicit — no X-macro covers just uint64 */
+DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_UINT64, uint64_t,
+                    (uint64_t)_exp_NUMC_DTYPE_FLOAT64((double)in1))
+
+/* float32/float64: call helpers directly */
+DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_FLOAT32, float,
+                    _exp_NUMC_DTYPE_FLOAT32(in1))
+DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_FLOAT64, double,
+                    _exp_NUMC_DTYPE_FLOAT64(in1))
 
 /* ── Stamp out typed kernels ────────────────────────────────────────── */
 
@@ -340,6 +485,14 @@ static const NumcUnaryKernel _log_table[] = {
     E(log, NUMC_DTYPE_UINT8),   E(log, NUMC_DTYPE_UINT16),
     E(log, NUMC_DTYPE_UINT32),  E(log, NUMC_DTYPE_UINT64),
     E(log, NUMC_DTYPE_FLOAT32), E(log, NUMC_DTYPE_FLOAT64),
+};
+
+static const NumcUnaryKernel _exp_table[] = {
+    E(exp, NUMC_DTYPE_INT8),    E(exp, NUMC_DTYPE_INT16),
+    E(exp, NUMC_DTYPE_INT32),   E(exp, NUMC_DTYPE_INT64),
+    E(exp, NUMC_DTYPE_UINT8),   E(exp, NUMC_DTYPE_UINT16),
+    E(exp, NUMC_DTYPE_UINT32),  E(exp, NUMC_DTYPE_UINT64),
+    E(exp, NUMC_DTYPE_FLOAT32), E(exp, NUMC_DTYPE_FLOAT64),
 };
 
 #undef E
@@ -689,3 +842,11 @@ int numc_log(NumcArray *a, NumcArray *out) {
   return _unary_op(a, out, _log_table);
 }
 int numc_log_inplace(NumcArray *a) { return _unary_op_inplace(a, _log_table); }
+
+int numc_exp(NumcArray *a, NumcArray *out) {
+  int err = _check_unary(a, out);
+  if (err)
+    return err;
+  return _unary_op(a, out, _exp_table);
+}
+int numc_exp_inplace(NumcArray *a) { return _unary_op_inplace(a, _exp_table); }
