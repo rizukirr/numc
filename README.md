@@ -1,14 +1,15 @@
 # numc
 
-A fast, NumPy-inspired tensor library written in C23.
+A fast, NumPy-inspired N-dimensional array library written in C23.
 
-numc aims to rewrite the core of NumPy from scratch — same semantics (N-dimensional arrays, broadcasting, type-generic ops), but leaner and faster by cutting through Python overhead and ufunc dispatch. It also serves as the tensor backend for [ctorch](https://github.com/rizukirr/ctorch).
+numc provides the same core abstractions as NumPy but more more faster — N-dimensional arrays, type-generic operations, broadcasting, and strided views — implemented in pure C with zero dependencies. It's designed for anyone who needs efficient tensor operations from C: scientific computing, data processing, machine learning backends, game engines, or embedded systems.
 
 **Highlights:**
 - 10 numeric dtypes (`int8` through `float64`) via X-macro code generation
 - Arena-allocated memory — create a context, allocate tensors, free everything at once
 - Auto-vectorized kernels (`-O3 -march=native`) — no hand-written SIMD intrinsics
-- Matches or beats NumPy on element-wise ops (2-3x faster on float32/int32)
+- Strided views, slices, reshapes, and transposes without copying data
+- OpenMP parallelism for large arrays (>1 MB)
 
 ---
 
@@ -94,7 +95,7 @@ In-place variants (`_inplace` suffix) for optimizer weight updates:
 Create, zeros, fill, clone, free, print, reshape, transpose, slice, contiguous.
 
 ### Phase 2 — Element-wise math (in progress)
-add, sub, mul, div, neg, exp, log, sqrt, abs, maximum, minimum, clamp.
+add, sub, mul, div, neg, exp, log, sqrt, abs, pow, maximum, minimum, clamp.
 Scalar variants. In-place variants.
 
 ### Phase 3 — Reductions + broadcasting
@@ -116,52 +117,13 @@ Tiled matmul or BLAS backend for large matrices.
 
 ---
 
-## Benchmarks
-
-Median of 4 runs, 1M elements, 200 iterations each. Clang 21, `-O3 -march=native`, NumPy 2.4.2.
-
-**Contiguous binary `add`:**
-
-| dtype   | numc (Mop/s) | NumPy (Mop/s) | Speedup |
-|---------|-------------|---------------|---------|
-| int8    | 11,718      | 15,844        | 0.7x    |
-| int32   | 9,766       | 4,117         | 2.4x    |
-| int64   | 3,949       | 1,042         | 3.8x    |
-| float32 | 10,395      | 3,517         | 3.0x    |
-| float64 | 3,975       | 1,234         | 3.2x    |
-
-**Scalar `add`:**
-
-| dtype   | numc (Mop/s) | NumPy (Mop/s) | Speedup |
-|---------|-------------|---------------|---------|
-| int8    | 25,577      | 23,161        | 1.1x    |
-| int32   | 12,523      | 5,787         | 2.2x    |
-| int64   | 6,177       | 2,494         | 2.5x    |
-| float32 | 12,438      | 5,824         | 2.1x    |
-| float64 | 7,950       | 2,637         | 3.0x    |
-
-**Scalar inplace `add`:**
-
-| dtype   | numc (Mop/s) | NumPy (Mop/s) | Speedup |
-|---------|-------------|---------------|---------|
-| int8    | 56,348      | 54,888        | 1.0x    |
-| int32   | 24,450      | 9,111         | 2.7x    |
-| float32 | 25,130      | 9,088         | 2.8x    |
-| float64 | 12,610      | 4,512         | 2.8x    |
-
-numc is 2-3x faster than NumPy on 32/64-bit types. The gap comes from eliminating Python/ufunc dispatch overhead — both libraries emit near-identical SIMD. int8 is bandwidth-bound, so both saturate DRAM equally.
-
-```bash
-./run.sh bench                          # Run all benchmarks
-python bench/bench_numpy.py             # NumPy comparison
-```
-
 ## Build
 
 ```bash
 ./run.sh debug          # Build debug (ASan) + run
 ./run.sh release        # Build release (-O3 -march=native) + run
 ./run.sh test           # Build + run tests
+./run.sh bench          # Build + run all benchmarks
 ./run.sh clean          # Remove build/
 CC=gcc ./run.sh release # Use GCC instead of Clang
 ```
