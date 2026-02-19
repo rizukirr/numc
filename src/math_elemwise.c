@@ -389,10 +389,10 @@ DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_FLOAT64, double,
 
 /* ── 8/16-bit: branchless fixed-iteration (vectorizable) ───────────── */
 
-#define DEFINE_POWI_SIGNED(NAME, CT, UCT, BITS)                            \
+#define DEFINE_POWI_SIGNED(NAME, CT, UCT, BITS)                                \
   __attribute__((always_inline)) static inline CT NAME(CT base, CT exp) {      \
     int neg = exp < 0;                                                         \
-    UCT uexp = neg ? 0 : (UCT)exp;                                            \
+    UCT uexp = neg ? 0 : (UCT)exp;                                             \
     UCT ubase = (UCT)base;                                                     \
     UCT result = 1;                                                            \
     for (int bit = 0; bit < BITS; bit++) {                                     \
@@ -403,7 +403,7 @@ DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_FLOAT64, double,
     return neg ? 0 : (CT)result;                                               \
   }
 
-#define DEFINE_POWI_UNSIGNED(NAME, UCT, BITS)                              \
+#define DEFINE_POWI_UNSIGNED(NAME, UCT, BITS)                                  \
   __attribute__((always_inline)) static inline UCT NAME(UCT base, UCT exp) {   \
     UCT result = 1;                                                            \
     for (int bit = 0; bit < BITS; bit++) {                                     \
@@ -468,13 +468,11 @@ DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT64, uint64_t,
 
 /* float32: fused exp(in2 * log(in1)), single-precision */
 DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_FLOAT32, float,
-                     _exp_NUMC_DTYPE_FLOAT32(in2 *
-                                             _log_NUMC_DTYPE_FLOAT32(in1)))
+                     _exp_NUMC_DTYPE_FLOAT32(in2 *_log_NUMC_DTYPE_FLOAT32(in1)))
 
 /* float64: fused exp(in2 * log(in1)), double-precision */
 DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_FLOAT64, double,
-                     _exp_NUMC_DTYPE_FLOAT64(in2 *
-                                             _log_NUMC_DTYPE_FLOAT64(in1)))
+                     _exp_NUMC_DTYPE_FLOAT64(in2 *_log_NUMC_DTYPE_FLOAT64(in1)))
 
 /* ── Stamp binary elem-wise arithmetic typed kernels ────────────────────*/
 
@@ -583,6 +581,49 @@ DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_FLOAT32, float, sqrtf(in1))
 /* float64: sqrt → hardware vsqrtpd (auto-vectorized) */
 DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_FLOAT64, double, sqrt(in1))
 
+/*── Define clip kernel ────────────────────────────────────────*/
+
+typedef void (*NumcClipKernel)(const char *a, char *out, size_t n, intptr_t sa,
+                               intptr_t so, double min, double max);
+
+#define DEFINE_CLIP_KERNEL(TE, CT)                                             \
+  static void _kern_clip_##TE(const char *a, char *out, size_t n, intptr_t sa, \
+                              intptr_t so, double min, double max) {           \
+    const CT lo = (CT)min;                                                     \
+    const CT hi = (CT)max;                                                     \
+    const intptr_t es = (intptr_t)sizeof(CT);                                  \
+    if (sa == es && so == es && a != out) {                                    \
+      /* PATH 1: contiguous, distinct buffers — restrict is valid */           \
+      const CT *restrict pa = (const CT *)a;                                   \
+      CT *restrict po = (CT *)out;                                             \
+      NUMC_OMP_FOR(                                                            \
+          n, sizeof(CT), for (size_t i = 0; i < n; i++) {                      \
+            CT v = pa[i];                                                      \
+            po[i] = (v < lo) ? lo : (v > hi) ? hi : v;                        \
+          });                                                                  \
+    } else if (sa == es && so == es) {                                         \
+      /* PATH 2: contiguous inplace (a == out) — no restrict to avoid UB */    \
+      CT *p = (CT *)a;                                                         \
+      NUMC_OMP_FOR(                                                            \
+          n, sizeof(CT), for (size_t i = 0; i < n; i++) {                      \
+            CT v = p[i];                                                       \
+            p[i] = (v < lo) ? lo : (v > hi) ? hi : v;                         \
+          });                                                                  \
+    } else {                                                                   \
+      /* PATH 3: generic strided */                                            \
+      for (size_t i = 0; i < n; i++) {                                         \
+        CT v = *(const CT *)(a + i * sa);                                      \
+        *(CT *)(out + i * so) = (v < lo) ? lo : (v > hi) ? hi : v;            \
+      }                                                                        \
+    }                                                                          \
+  }
+
+/* ── Stamp out clip loop kernels ────────────────────────────────────────*/
+
+#define STAMP_CLIP(TE, CT) DEFINE_CLIP_KERNEL(TE, CT)
+GENERATE_NUMC_TYPES(STAMP_CLIP)
+#undef STAMP_CLIP
+
 /* ── Dispatch tables (dtype → kernel) ─────────────────────────────── */
 
 #define E(OP, TE) [TE] = _kern_##OP##_##TE
@@ -665,6 +706,14 @@ static const NumcUnaryKernel _sqrt_table[] = {
     E(sqrt, NUMC_DTYPE_FLOAT32), E(sqrt, NUMC_DTYPE_FLOAT64),
 };
 
+static const NumcClipKernel _clip_table[] = {
+    E(clip, NUMC_DTYPE_INT8),    E(clip, NUMC_DTYPE_INT16),
+    E(clip, NUMC_DTYPE_INT32),   E(clip, NUMC_DTYPE_INT64),
+    E(clip, NUMC_DTYPE_UINT8),   E(clip, NUMC_DTYPE_UINT16),
+    E(clip, NUMC_DTYPE_UINT32),  E(clip, NUMC_DTYPE_UINT64),
+    E(clip, NUMC_DTYPE_FLOAT32), E(clip, NUMC_DTYPE_FLOAT64),
+};
+
 #undef E
 
 /*
@@ -703,6 +752,21 @@ static void _elemwise_unary_nd(NumcUnaryKernel kern, const char *a,
   for (size_t i = 0; i < shape[0]; i++) {
     _elemwise_unary_nd(kern, a + i * sa[0], sa + 1, out + i * so[0], so + 1,
                        shape + 1, ndim - 1);
+  }
+}
+
+static void _elemwise_clip_nd(NumcClipKernel kern, const char *a,
+                              const size_t *sa, char *out, const size_t *so,
+                              const size_t *shape, size_t ndim, double min,
+                              double max) {
+  if (ndim == 1) {
+    kern(a, out, shape[0], (intptr_t)sa[0], (intptr_t)so[0], min, max);
+    return;
+  }
+
+  for (size_t i = 0; i < shape[0]; i++) {
+    _elemwise_clip_nd(kern, a + i * sa[0], sa + 1, out + i * so[0], so + 1,
+                      shape + 1, ndim - 1, min, max);
   }
 }
 
@@ -1047,4 +1111,38 @@ int numc_sqrt(NumcArray *a, NumcArray *out) {
 
 int numc_sqrt_inplace(NumcArray *a) {
   return _unary_op_inplace(a, _sqrt_table);
+}
+
+int numc_clip(NumcArray *a, NumcArray *out, double min, double max) {
+  int err = _check_unary(a, out);
+  if (err)
+    return err;
+
+  NumcClipKernel kern = _clip_table[a->dtype];
+
+  if (a->is_contiguous && out->is_contiguous) {
+    intptr_t es = (intptr_t)a->elem_size;
+    kern((const char *)a->data, (char *)out->data, a->size, es, es, min, max);
+  } else {
+    _elemwise_clip_nd(kern, (const char *)a->data, a->strides,
+                      (char *)out->data, out->strides, a->shape, a->dim, min,
+                      max);
+  }
+  return 0;
+}
+
+int numc_clip_inplace(NumcArray *a, double min, double max) {
+  if (!a)
+    return NUMC_ERR_NULL;
+
+  NumcClipKernel kern = _clip_table[a->dtype];
+
+  if (a->is_contiguous) {
+    intptr_t es = (intptr_t)a->elem_size;
+    kern((const char *)a->data, (char *)a->data, a->size, es, es, min, max);
+  } else {
+    _elemwise_clip_nd(kern, (const char *)a->data, a->strides, (char *)a->data,
+                      a->strides, a->shape, a->dim, min, max);
+  }
+  return 0;
 }

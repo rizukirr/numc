@@ -46,4 +46,7 @@ int numc_exp_inplace(NumcArray *a);
 int numc_sqrt(NumcArray *a, NumcArray *out);
 int numc_sqrt_inplace(NumcArray *a);
 
+int numc_clip(NumcArray *a, NumcArray *out, double min, double max);
+int numc_clip_inplace(NumcArray *a, double min, double max);
+
 #endif
