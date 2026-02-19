@@ -29,6 +29,8 @@ if(OpenMP_C_FOUND)
     target_link_libraries(numc PUBLIC OpenMP::OpenMP_C)
 endif()
 
+target_link_libraries(numc PUBLIC m)
+
 target_include_directories(numc
     PUBLIC  ${CMAKE_SOURCE_DIR}/include
     PRIVATE ${CMAKE_SOURCE_DIR}/src
@@ -44,6 +46,12 @@ target_link_libraries(bench_elemwise PRIVATE numc)
 
 add_executable(bench_scalar bench/bench_scalar.c)
 target_link_libraries(bench_scalar PRIVATE numc)
+
+add_executable(bench_unary bench/bench_unary.c)
+target_link_libraries(bench_unary PRIVATE numc)
+
+add_executable(bench_pow bench/bench_pow.c)
+target_link_libraries(bench_pow PRIVATE numc)
 
 # --- tests ---
 enable_testing()

@@ -39,6 +39,12 @@ case $1 in
         echo ""
         echo "=== Scalar element-wise benchmark ==="
         ./build/bin/bench_scalar
+        echo ""
+        echo "=== Unary element-wise benchmark ==="
+        ./build/bin/bench_unary
+        echo ""
+        echo "=== Pow benchmark ==="
+        ./build/bin/bench_pow
         exit 0
         ;;
     "bench-elemwise")
@@ -49,6 +55,16 @@ case $1 in
     "bench-scalar")
         build Release
         ./build/bin/bench_scalar
+        exit 0
+        ;;
+    "bench-unary")
+        build Release
+        ./build/bin/bench_unary
+        exit 0
+        ;;
+    "bench-pow")
+        build Release
+        ./build/bin/bench_pow
         exit 0
         ;;
     "clean")
@@ -74,6 +90,8 @@ case $1 in
         echo "  bench              Build release and run all benchmarks"
         echo "  bench-elemwise     Build release and run binary element-wise benchmark"
         echo "  bench-scalar       Build release and run scalar element-wise benchmark"
+        echo "  bench-unary        Build release and run unary element-wise benchmark"
+        echo "  bench-pow          Build release and run pow benchmark"
         echo ""
         echo "  clean              Remove build directory"
         echo "  rebuild            Clean and rebuild in debug mode"

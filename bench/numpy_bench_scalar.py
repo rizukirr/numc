@@ -1,8 +1,8 @@
 """
-NumPy element-wise benchmark — mirrors bench_elemwise.c and bench_scalar.c output format.
+NumPy scalar element-wise benchmark — mirrors bench_scalar.c output format.
 
 Usage:
-    python bench/bench_numpy.py
+    python bench/numpy_bench_scalar.py
 """
 
 import numpy as np
@@ -12,32 +12,6 @@ WARMUP = 20
 ITERS  = 200
 
 # ── Timer helpers ──────────────────────────────────────────────────────
-
-def time_binary(op, a, b, out):
-    """Benchmark a binary op, return avg microseconds."""
-    try:
-        for _ in range(WARMUP):
-            op(a, b, out=out)
-
-        t0 = time.perf_counter()
-        for _ in range(ITERS):
-            op(a, b, out=out)
-        t1 = time.perf_counter()
-
-        return (t1 - t0) / ITERS * 1e6
-    except (TypeError, np.exceptions.DTypePromotionError,
-            np._core._exceptions._UFuncOutputCastingError):
-        # NumPy upcasts integer division to float64 — benchmark without out=
-        for _ in range(WARMUP):
-            op(a, b)
-
-        t0 = time.perf_counter()
-        for _ in range(ITERS):
-            op(a, b)
-        t1 = time.perf_counter()
-
-        return (t1 - t0) / ITERS * 1e6
-
 
 def time_scalar(op, a, scalar, out):
     """Benchmark a scalar op, return avg microseconds."""
@@ -107,30 +81,10 @@ def print_row(name, us, mops):
           f"{mops[0]:8.1f} {mops[1]:8.1f} {mops[2]:8.1f} {mops[3]:8.1f}")
 
 
-# ── Benchmark: contiguous binary ops ──────────────────────────────────
-
-def bench_contiguous(size):
-    print(f"{'━' * 82}")
-    print(f"  CONTIGUOUS BINARY  ({size} elements, {ITERS} iters)")
-    print_header("dtype")
-
-    ops = [np.add, np.subtract, np.multiply, np.divide]
-
-    for name, dt in ALL_DTYPES:
-        v   = FILL_VALUES[dt]
-        a   = np.full(size, v, dtype=dt)
-        b   = np.full(size, v, dtype=dt)
-        out = np.empty(size, dtype=dt)
-
-        us   = [time_binary(op, a, b, out) for op in ops]
-        mops = [size / u for u in us]
-        print_row(name, us, mops)
-
-
 # ── Benchmark: scalar ops ─────────────────────────────────────────────
 
 def bench_scalar_ops(size):
-    print(f"\n{'━' * 82}")
+    print(f"{'━' * 82}")
     print(f"  SCALAR OPS  ({size} elements, {ITERS} iters)")
     print_header("dtype")
 
@@ -171,7 +125,7 @@ def bench_scalar_inplace_ops(size):
             # Reset array before each op to avoid overflow/underflow drift
             a[:] = v
             try:
-                us.append(time_scalar_inplace(op, a, dt(1), ))
+                us.append(time_scalar_inplace(op, a, dt(1)))
             except (TypeError, np.exceptions.DTypePromotionError,
                     np._core._exceptions._UFuncOutputCastingError):
                 # Fallback: measure without out=
@@ -187,53 +141,7 @@ def bench_scalar_inplace_ops(size):
         print_row(name, us, mops)
 
 
-# ── Benchmark: strided (transposed view) ──────────────────────────────
-
-def bench_strided(rows, cols):
-    total = rows * cols
-    print(f"\n{'━' * 82}")
-    print(f"  STRIDED  ({rows}x{cols} transposed, {total} elements, {ITERS} iters)")
-    print_header("dtype")
-
-    ops = [np.add, np.subtract, np.multiply, np.divide]
-    dtypes = [
-        ("int32",   np.int32),
-        ("float32", np.float32),
-        ("float64", np.float64),
-    ]
-
-    for name, dt in dtypes:
-        v   = FILL_VALUES[dt]
-        a   = np.full((rows, cols), v, dtype=dt).T
-        b   = np.full((rows, cols), v, dtype=dt).T
-        out = np.empty((cols, rows), dtype=dt)
-
-        us   = [time_binary(op, a, b, out) for op in ops]
-        mops = [total / u for u in us]
-        print_row(name, us, mops)
-
-
 # ── Benchmark: scaling across sizes ───────────────────────────────────
-
-def bench_scaling():
-    print(f"\n{'━' * 82}")
-    print(f"  SIZE SCALING  (float32 add, {ITERS} iters)")
-    print(f"\n  {'elements':>10s} {'time (us)':>10s} {'Mops/s':>10s} {'GB/s':>10s}")
-    print(f"  {'─' * 42}")
-
-    sizes = [100, 1_000, 10_000, 100_000, 1_000_000]
-
-    for n in sizes:
-        a   = np.full(n, 1.5, dtype=np.float32)
-        b   = np.full(n, 2.5, dtype=np.float32)
-        out = np.empty(n, dtype=np.float32)
-
-        us   = time_binary(np.add, a, b, out)
-        mops = n / us
-        gbs  = (3.0 * n * 4) / (us * 1e3)
-
-        print(f"  {n:10d} {us:10.2f} {mops:10.1f} {gbs:10.2f}")
-
 
 def bench_scalar_scaling():
     print(f"\n{'━' * 82}")
@@ -257,15 +165,9 @@ def bench_scalar_scaling():
 # ── main ──────────────────────────────────────────────────────────────
 
 def main():
-    print(f"\n  numpy element-wise benchmark")
+    print(f"\n  numpy scalar element-wise benchmark")
     print(f"  numpy {np.__version__}\n")
 
-    # Binary benchmarks (mirrors bench_elemwise.c)
-    bench_contiguous(1_000_000)
-    bench_strided(1000, 1000)
-    bench_scaling()
-
-    # Scalar benchmarks (mirrors bench_scalar.c)
     bench_scalar_ops(1_000_000)
     bench_scalar_inplace_ops(1_000_000)
     bench_scalar_scaling()

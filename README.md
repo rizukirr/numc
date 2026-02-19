@@ -44,8 +44,9 @@ All support broadcasting. Both allocating and in-place variants.
 - [x] `array_add(a, b)` / `array_sub(a, b)` / `array_mul(a, b)` / `array_div(a, b)`
 - [x] `array_add_scalar(a, s)` / `array_sub_scalar(a, s)` / `array_mul_scalar(a, s)` / `array_div_scalar(a, s)`
 - [x] `array_neg(a)` / `array_neg_inplace(a)`
-- [ ] `array_exp(a)` / `array_log(a)` / `array_sqrt(a)` / `array_abs(a)`
-- [ ] `array_pow(a, exp)`
+- [x] `array_exp(a)` / `array_log(a)` / `array_sqrt(a)` / `array_abs(a)`
+- [x] `array_exp_inplace(a)` / `array_log_inplace(a)` / `array_sqrt_inplace(a)` / `array_abs_inplace(a)`
+- [x] `array_pow(a, exp)`
 - [ ] `array_clamp(a, min, max)`
 - [ ] `array_maximum(a, b)` / `array_minimum(a, b)` — element-wise
 

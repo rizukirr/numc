@@ -367,7 +367,116 @@ DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_FLOAT32, float,
 DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_FLOAT64, double,
                     _exp_NUMC_DTYPE_FLOAT64(in1))
 
-/* ── Stamp out typed kernels ────────────────────────────────────────── */
+/* ── Integer pow helpers ──────────────────────────────────────────────
+ *
+ * Two strategies, chosen by element width:
+ *
+ * 8/16-bit — branchless fixed-iteration (auto-vectorizes to SIMD):
+ *   Fixed iteration count (7–16) lets the compiler fully unroll the inner
+ *   loop. Branchless mask selects base or 1 per exponent bit. The outer
+ *   element loop then auto-vectorizes because every element executes the
+ *   same number of operations. Unsigned arithmetic for well-defined overflow.
+ *
+ * 32/64-bit — variable-iteration with early exit (scalar, optimal throughput):
+ *   For 32/64-bit types, the fixed iteration count (31/63) overwhelms
+ *   the SIMD benefit. Variable-iteration exits early for typical small
+ *   exponents (2–4 iterations for exp ≤ 10). AVX2 also lacks vpmullq
+ *   for 64-bit, so int64 can't vectorize regardless.
+ *
+ * Negative bases work naturally: squaring produces positive values,
+ * and the odd-bit selection from the original base preserves sign.
+ */
+
+/* ── 8/16-bit: branchless fixed-iteration (vectorizable) ───────────── */
+
+#define DEFINE_POWI_SIGNED(NAME, CT, UCT, BITS)                            \
+  __attribute__((always_inline)) static inline CT NAME(CT base, CT exp) {      \
+    int neg = exp < 0;                                                         \
+    UCT uexp = neg ? 0 : (UCT)exp;                                            \
+    UCT ubase = (UCT)base;                                                     \
+    UCT result = 1;                                                            \
+    for (int bit = 0; bit < BITS; bit++) {                                     \
+      UCT mask = -((uexp >> bit) & 1);                                         \
+      result *= ((ubase - 1) & mask) + 1;                                      \
+      ubase *= ubase;                                                          \
+    }                                                                          \
+    return neg ? 0 : (CT)result;                                               \
+  }
+
+#define DEFINE_POWI_UNSIGNED(NAME, UCT, BITS)                              \
+  __attribute__((always_inline)) static inline UCT NAME(UCT base, UCT exp) {   \
+    UCT result = 1;                                                            \
+    for (int bit = 0; bit < BITS; bit++) {                                     \
+      UCT mask = -((exp >> bit) & 1);                                          \
+      result *= ((base - 1) & mask) + 1;                                       \
+      base *= base;                                                            \
+    }                                                                          \
+    return result;                                                             \
+  }
+
+DEFINE_POWI_SIGNED(_powi_i8, int8_t, uint8_t, 7)
+DEFINE_POWI_SIGNED(_powi_i16, int16_t, uint16_t, 15)
+
+DEFINE_POWI_UNSIGNED(_powi_u8, uint8_t, 8)
+DEFINE_POWI_UNSIGNED(_powi_u16, uint16_t, 16)
+
+/* ── 32/64-bit: variable-iteration with early exit (scalar, fast) ──── */
+
+static inline int64_t _powi_signed(int64_t base, int64_t exp) {
+  if (exp < 0)
+    return 0;
+  int64_t result = 1;
+  while (exp > 0) {
+    if (exp & 1)
+      result *= base;
+    base *= base;
+    exp >>= 1;
+  }
+  return result;
+}
+
+static inline uint64_t _powi_unsigned(uint64_t base, uint64_t exp) {
+  uint64_t result = 1;
+  while (exp > 0) {
+    if (exp & 1)
+      result *= base;
+    base *= base;
+    exp >>= 1;
+  }
+  return result;
+}
+
+/* ── Stamp out pow loop kernels ──────────────────────────────────────── */
+
+/* 8/16-bit signed: branchless fixed-iteration (auto-vectorizes) */
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT8, int8_t, _powi_i8(in1, in2))
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT16, int16_t, _powi_i16(in1, in2))
+
+/* 8/16-bit unsigned: branchless fixed-iteration (auto-vectorizes) */
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT8, uint8_t, _powi_u8(in1, in2))
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT16, uint16_t, _powi_u16(in1, in2))
+
+/* 32/64-bit: variable-iteration early-exit (scalar, fast for small exp) */
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT32, int32_t,
+                     (int32_t)_powi_signed((int64_t)in1, (int64_t)in2))
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT32, uint32_t,
+                     (uint32_t)_powi_unsigned((uint64_t)in1, (uint64_t)in2))
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT64, int64_t,
+                     (int64_t)_powi_signed((int64_t)in1, (int64_t)in2))
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT64, uint64_t,
+                     (uint64_t)_powi_unsigned((uint64_t)in1, (uint64_t)in2))
+
+/* float32: fused exp(in2 * log(in1)), single-precision */
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_FLOAT32, float,
+                     _exp_NUMC_DTYPE_FLOAT32(in2 *
+                                             _log_NUMC_DTYPE_FLOAT32(in1)))
+
+/* float64: fused exp(in2 * log(in1)), double-precision */
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_FLOAT64, double,
+                     _exp_NUMC_DTYPE_FLOAT64(in2 *
+                                             _log_NUMC_DTYPE_FLOAT64(in1)))
+
+/* ── Stamp binary elem-wise arithmetic typed kernels ────────────────────*/
 
 /* add: all 10 types, native + */
 #define STAMP_ADD(TE, CT) DEFINE_BINARY_KERNEL(add, TE, CT, in1 + in2)
@@ -400,10 +509,14 @@ GENERATE_64BIT_NUMC_TYPES(STAMP_DIV_NATIVE)
 DEFINE_BINARY_KERNEL(div, NUMC_DTYPE_FLOAT32, float, in1 / in2)
 #undef STAMP_DIV_NATIVE
 
+/* ── Stamp unary neg loop typed kernels ────────────────────*/
+
 /* neg: all 10 types, native - */
 #define STAMP_NEG(TE, CT) DEFINE_UNARY_KERNEL(neg, TE, CT, -in1)
 GENERATE_NUMC_TYPES(STAMP_NEG)
 #undef STAMP_NEG
+
+/* ── Stamp unary abs loop typed kernels ────────────────────*/
 
 #define STAMP_FABS(TE, CT)                                                     \
   DEFINE_UNARY_KERNEL(fabs, TE, CT, (CT)(in1 < 0.0 ? -in1 : in1))
@@ -428,6 +541,47 @@ GENERATE_SIGNED_INT8_INT16_INT32_NUMC_TYPES(STAMP_ABS)
   DEFINE_UNARY_KERNEL(llabs, TE, CT, (CT)(in1 < 0 ? -in1 : in1))
 GENERATE_SIGNED_64BIT_NUMC_TYPES(STANP_LLABS)
 #undef STANP_LLABS
+
+/* ── Stamp unary sqrt loop typed kernels ─────────────────────────────────
+ * float32: sqrtf → hardware vsqrtps (auto-vectorized, -O3 -march=native)
+ * float64: sqrt  → hardware vsqrtpd (auto-vectorized)
+ * signed integers:   clamp negative to 0 before cast (sqrt of negative is UB)
+ * unsigned integers: always non-negative, cast directly
+ * <32-bit: cast through float32; 32-bit+: cast through float64
+ */
+
+/* signed small: clamp negative to 0, cast through float32 */
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_INT8, int8_t,
+                    (int8_t)sqrtf((float)(in1 < 0 ? 0 : in1)))
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_INT16, int16_t,
+                    (int16_t)sqrtf((float)(in1 < 0 ? 0 : in1)))
+
+/* unsigned small: cast through float32 */
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_UINT8, uint8_t, (uint8_t)sqrtf((float)in1))
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_UINT16, uint16_t,
+                    (uint16_t)sqrtf((float)in1))
+
+/* int32: clamp, cast through float64 */
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_INT32, int32_t,
+                    (int32_t)sqrt((double)(in1 < 0 ? 0 : in1)))
+
+/* uint32: cast through float64 */
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_UINT32, uint32_t,
+                    (uint32_t)sqrt((double)in1))
+
+/* int64: clamp, cast through float64 */
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_INT64, int64_t,
+                    (int64_t)sqrt((double)(in1 < 0 ? 0 : in1)))
+
+/* uint64: cast through float64 */
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_UINT64, uint64_t,
+                    (uint64_t)sqrt((double)in1))
+
+/* float32: sqrtf → hardware vsqrtps (auto-vectorized) */
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_FLOAT32, float, sqrtf(in1))
+
+/* float64: sqrt → hardware vsqrtpd (auto-vectorized) */
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_FLOAT64, double, sqrt(in1))
 
 /* ── Dispatch tables (dtype → kernel) ─────────────────────────────── */
 
@@ -465,6 +619,14 @@ static const NumcBinaryKernel _div_table[] = {
     E(div, NUMC_DTYPE_FLOAT32), E(div, NUMC_DTYPE_FLOAT64),
 };
 
+static const NumcBinaryKernel _pow_table[] = {
+    E(pow, NUMC_DTYPE_INT8),    E(pow, NUMC_DTYPE_INT16),
+    E(pow, NUMC_DTYPE_INT32),   E(pow, NUMC_DTYPE_INT64),
+    E(pow, NUMC_DTYPE_UINT8),   E(pow, NUMC_DTYPE_UINT16),
+    E(pow, NUMC_DTYPE_UINT32),  E(pow, NUMC_DTYPE_UINT64),
+    E(pow, NUMC_DTYPE_FLOAT32), E(pow, NUMC_DTYPE_FLOAT64),
+};
+
 static const NumcUnaryKernel _neg_table[] = {
     E(neg, NUMC_DTYPE_INT8),    E(neg, NUMC_DTYPE_INT16),
     E(neg, NUMC_DTYPE_INT32),   E(neg, NUMC_DTYPE_INT64),
@@ -475,8 +637,8 @@ static const NumcUnaryKernel _neg_table[] = {
 
 static const NumcUnaryKernel _abs_table[] = {
     E(abs, NUMC_DTYPE_INT8),      E(abs, NUMC_DTYPE_INT16),
-    E(abs, NUMC_DTYPE_INT32),     E(fabs, NUMC_DTYPE_FLOAT64),
-    E(fabsf, NUMC_DTYPE_FLOAT32), E(llabs, NUMC_DTYPE_INT64),
+    E(abs, NUMC_DTYPE_INT32),     E(llabs, NUMC_DTYPE_INT64),
+    E(fabsf, NUMC_DTYPE_FLOAT32), E(fabs, NUMC_DTYPE_FLOAT64),
 };
 
 static const NumcUnaryKernel _log_table[] = {
@@ -493,6 +655,14 @@ static const NumcUnaryKernel _exp_table[] = {
     E(exp, NUMC_DTYPE_UINT8),   E(exp, NUMC_DTYPE_UINT16),
     E(exp, NUMC_DTYPE_UINT32),  E(exp, NUMC_DTYPE_UINT64),
     E(exp, NUMC_DTYPE_FLOAT32), E(exp, NUMC_DTYPE_FLOAT64),
+};
+
+static const NumcUnaryKernel _sqrt_table[] = {
+    E(sqrt, NUMC_DTYPE_INT8),    E(sqrt, NUMC_DTYPE_INT16),
+    E(sqrt, NUMC_DTYPE_INT32),   E(sqrt, NUMC_DTYPE_INT64),
+    E(sqrt, NUMC_DTYPE_UINT8),   E(sqrt, NUMC_DTYPE_UINT16),
+    E(sqrt, NUMC_DTYPE_UINT32),  E(sqrt, NUMC_DTYPE_UINT64),
+    E(sqrt, NUMC_DTYPE_FLOAT32), E(sqrt, NUMC_DTYPE_FLOAT64),
 };
 
 #undef E
@@ -759,6 +929,22 @@ int numc_div(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   return 0;
 }
 
+int numc_pow(NumcArray *a, NumcArray *b, NumcArray *out) {
+  int err = _check_binary(a, b, out);
+  if (err)
+    return err;
+  _binary_op(a, b, out, _pow_table);
+  return 0;
+}
+
+int numc_pow_inplace(NumcArray *a, NumcArray *b) {
+  int err = _check_binary(a, b, a);
+  if (err)
+    return err;
+  _binary_op(a, b, a, _pow_table);
+  return 0;
+}
+
 /* ── Element-wise scalar ops
  * ──────────────────────────────────────────────────── */
 
@@ -849,4 +1035,16 @@ int numc_exp(NumcArray *a, NumcArray *out) {
     return err;
   return _unary_op(a, out, _exp_table);
 }
+
 int numc_exp_inplace(NumcArray *a) { return _unary_op_inplace(a, _exp_table); }
+
+int numc_sqrt(NumcArray *a, NumcArray *out) {
+  int err = _check_unary(a, out);
+  if (err)
+    return err;
+  return _unary_op(a, out, _sqrt_table);
+}
+
+int numc_sqrt_inplace(NumcArray *a) {
+  return _unary_op_inplace(a, _sqrt_table);
+}
