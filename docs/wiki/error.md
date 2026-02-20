@@ -47,13 +47,43 @@ if (rc != 0) {
 }
 ```
 
+## `NUMC_SET_ERROR`
+
+```c
+#define NUMC_SET_ERROR(code, fmt, ...)
+```
+
+Macro that sets the error state with a formatted message and automatically captures the caller's function name, file, and line number. This is what numc uses internally in all validation checks.
+
+```c
+NUMC_SET_ERROR(NUMC_ERR_SHAPE, "expected %zu elements, got %zu", expected, actual);
+```
+
+In debug builds (compiled with `-DNUMC_DEBUG_ERROR_CONTEXT=1`), the stored message includes full context:
+```
+numc_add@binary.c:42: expected 100 elements, got 200
+```
+
+In release builds, the message is compact:
+```
+numc_add: expected 100 elements, got 200
+```
+
+## `numc_set_error_v`
+
+```c
+int numc_set_error_v(int code, const char *func, const char *file, int line, const char *fmt, ...);
+```
+
+Low-level function behind `NUMC_SET_ERROR`. Takes explicit context parameters. Prefer the macro unless you need to forward from a wrapper function.
+
 ## `numc_set_error`
 
 ```c
 int numc_set_error(int code, const char *msg);
 ```
 
-Manually sets the error state. Useful for testing or wrapping numc in a higher-level API.
+Backward-compatible convenience wrapper. Sets the error state with a plain string (no formatting). Useful for testing or wrapping numc in a higher-level API.
 
 ```c
 numc_set_error(NUMC_ERR_NULL, "weights pointer was null");

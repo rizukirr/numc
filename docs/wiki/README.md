@@ -16,7 +16,7 @@ numc is a C tensor library providing N-dimensional arrays with element-wise math
 | [scalar-ops.md](scalar-ops.md) | `add_scalar`, `mul_scalar`, inplace variants |
 | [unary-ops.md](unary-ops.md) | `neg`, `abs`, `log`, `exp`, `sqrt`, `clip` |
 | [reductions.md](reductions.md) | `numc_sum`, `numc_sum_axis` |
-| [error.md](error.md) | Error codes, `numc_get_error`, `numc_set_error` |
+| [error.md](error.md) | Error codes, `NUMC_SET_ERROR`, `numc_get_error`, `numc_log_error` |
 
 ## Key rules
 
