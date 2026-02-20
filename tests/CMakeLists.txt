@@ -1,4 +1,39 @@
-add_executable(test_array_core test_array_core.c)
-target_link_libraries(test_array_core PRIVATE numc::numc)
-target_include_directories(test_array_core PRIVATE ${PROJECT_SOURCE_DIR}/src)
-add_test(NAME test_array_core COMMAND test_array_core)
+# Helper macro: add a test executable and register it with ctest
+macro(numc_test name src)
+  add_executable(${name} ${src})
+  target_link_libraries(${name} PRIVATE numc::numc)
+  target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/src)
+  add_test(NAME ${name} COMMAND ${name})
+endmacro()
+
+# ── core ────────────────────────────────────────────────────────────────────
+numc_test(test_ctx              core/test_ctx.c)
+numc_test(test_create           core/test_create.c)
+numc_test(test_properties       core/test_properties.c)
+numc_test(test_zeros            core/test_zeros.c)
+numc_test(test_fill             core/test_fill.c)
+numc_test(test_write            core/test_write.c)
+numc_test(test_copy             core/test_copy.c)
+numc_test(test_contiguous       core/test_contiguous.c)
+numc_test(test_reshape          core/test_reshape.c)
+numc_test(test_transpose        core/test_transpose.c)
+numc_test(test_slice            core/test_slice.c)
+numc_test(test_print            core/test_print.c)
+numc_test(test_error            core/test_error.c)
+
+# ── elemwise ─────────────────────────────────────────────────────────────────
+numc_test(test_add              elemwise/test_add.c)
+numc_test(test_sub              elemwise/test_sub.c)
+numc_test(test_mul              elemwise/test_mul.c)
+numc_test(test_div              elemwise/test_div.c)
+numc_test(test_scalar           elemwise/test_scalar.c)
+numc_test(test_neg              elemwise/test_neg.c)
+numc_test(test_abs              elemwise/test_abs.c)
+numc_test(test_log              elemwise/test_log.c)
+numc_test(test_exp              elemwise/test_exp.c)
+numc_test(test_sqrt             elemwise/test_sqrt.c)
+numc_test(test_pow              elemwise/test_pow.c)
+numc_test(test_clip             elemwise/test_clip.c)
+
+# ── reduction ────────────────────────────────────────────────────────────────
+numc_test(test_sum              reduction/test_sum.c)
