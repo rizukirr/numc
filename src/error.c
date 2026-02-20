@@ -15,20 +15,15 @@ int numc_set_error_v(int code,
                      const char *file,
                      int line,
                      const char *fmt, ...) {
-  /* Silence unused-parameter warnings when debug context is disabled. */
 #ifndef NUMC_DEBUG_ERROR_CONTEXT
   (void)file;
   (void)line;
 #endif
-  /* fmt may be NULL if caller passes no message; handle gracefully */
   char formatted[NUMC_ERROR_MSG_SIZE / 2];
-  formatted[0] = '\0';
-  if (fmt) {
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(formatted, sizeof(formatted), fmt, ap);
-    va_end(ap);
-  }
+  va_list ap;
+  va_start(ap, fmt);
+  vsnprintf(formatted, sizeof(formatted), fmt, ap);
+  va_end(ap);
 
 #ifdef NUMC_DEBUG_ERROR_CONTEXT
   /* final stored form: func@file:line: message */
