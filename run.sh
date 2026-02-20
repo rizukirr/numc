@@ -122,16 +122,26 @@ case $1 in
         ;;
 esac
 
-if [ ! -f "./build/bin/demo" ]; then
-    echo "Error: ./build/bin/demo not found. Please build first."
-    exit 1
-fi
+demos=(
+  demo_creation demo_properties demo_shape demo_error
+  demo_binary demo_scalar demo_neg demo_abs demo_log demo_exp
+  demo_clip demo_maximum_minimum demo_sum
+)
+
+for demo in "${demos[@]}"; do
+    if [ ! -f "./build/bin/$demo" ]; then
+        echo "Error: ./build/bin/$demo not found. Please build first."
+        exit 1
+    fi
+done
 
 # Suppress known OpenMP thread pool leak in LeakSanitizer
 export LSAN_OPTIONS="suppressions=$(pwd)/tests/lsan_suppressions.txt"
 
 start=$(date +%s%3N)
-./build/bin/demo
+for demo in "${demos[@]}"; do
+    ./build/bin/$demo
+done
 end=$(date +%s%3N)
 elapsed=$(awk "BEGIN { printf \"%.3f\", ($end - $start)/1000 }")
 echo "Run took ${elapsed} seconds"
