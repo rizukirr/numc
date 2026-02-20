@@ -19,7 +19,7 @@ int numc_set_error_v(int code,
 
 /* Capture caller context automatically */
 #define NUMC_SET_ERROR(code, fmt, ...) \
-  numc_set_error_v(code, __func__, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
+  numc_set_error_v(code, __func__, __FILE__, __LINE__, fmt __VA_OPT__(,) __VA_ARGS__)
 
 /* Backward-compatible convenience (keeps existing API surface) */
 int numc_set_error(int code, const char *msg);
