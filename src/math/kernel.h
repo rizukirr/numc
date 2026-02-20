@@ -30,16 +30,28 @@ typedef void (*NumcClipKernel)(const char *a, char *out, size_t n, intptr_t sa,
                                             intptr_t sb, intptr_t so) {        \
     const intptr_t es = (intptr_t)sizeof(C_TYPE);                              \
     if (sa == es && sb == es && so == es) {                                    \
-      /* PATH 1: all contiguous */                                             \
-      const C_TYPE *restrict pa = (const C_TYPE *)a;                           \
-      const C_TYPE *restrict pb = (const C_TYPE *)b;                           \
-      C_TYPE *restrict po = (C_TYPE *)out;                                     \
-      NUMC_OMP_FOR(                                                            \
-          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                  \
-            C_TYPE in1 = pa[i];                                                \
-            C_TYPE in2 = pb[i];                                                \
-            po[i] = (EXPR);                                                    \
-          });                                                                  \
+      if (a != out) {                                                          \
+        /* PATH 1a: all contiguous, distinct buffers — restrict is valid */    \
+        const C_TYPE *restrict pa = (const C_TYPE *)a;                         \
+        const C_TYPE *restrict pb = (const C_TYPE *)b;                         \
+        C_TYPE *restrict po = (C_TYPE *)out;                                   \
+        NUMC_OMP_FOR(                                                          \
+            n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                \
+              C_TYPE in1 = pa[i];                                              \
+              C_TYPE in2 = pb[i];                                              \
+              po[i] = (EXPR);                                                  \
+            });                                                                \
+      } else {                                                                 \
+        /* PATH 1b: all contiguous, inplace (a == out) — no restrict */        \
+        C_TYPE *p = (C_TYPE *)out;                                             \
+        const C_TYPE *restrict pb = (const C_TYPE *)b;                         \
+        NUMC_OMP_FOR(                                                          \
+            n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                \
+              C_TYPE in1 = p[i];                                               \
+              C_TYPE in2 = pb[i];                                              \
+              p[i] = (EXPR);                                                   \
+            });                                                                \
+      }                                                                        \
     } else if (sb == 0 && sa == es && so == es) {                              \
       /* PATH 2: scalar broadcast */                                           \
       const C_TYPE in2 = *(const C_TYPE *)b;                                   \
