@@ -49,7 +49,7 @@ All support broadcasting. Both allocating and in-place variants.
 - [x] `array_exp_inplace(a)` / `array_log_inplace(a)` / `array_sqrt_inplace(a)` / `array_abs_inplace(a)`
 - [x] `array_pow(a, exp)`
 - [x] `array_clip(a, min, max)`
-- [ ] `array_maximum(a, b)` / `array_minimum(a, b)` — element-wise
+- [x] `array_maximum(a, b)` / `array_minimum(a, b)` — element-wise
 
 In-place variants (`_inplace` suffix) for optimizer weight updates:
 

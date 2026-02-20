@@ -49,4 +49,10 @@ int numc_sqrt_inplace(NumcArray *a);
 int numc_clip(NumcArray *a, NumcArray *out, double min, double max);
 int numc_clip_inplace(NumcArray *a, double min, double max);
 
+int numc_maximum(const NumcArray *a, const NumcArray *b, NumcArray *out);
+int numc_maximum_inplace(NumcArray *a, const NumcArray *b);
+
+int numc_minimum(const NumcArray *a, const NumcArray *b, NumcArray *out);
+int numc_minimum_inplace(NumcArray *a, const NumcArray *b);
+
 #endif

@@ -1,5 +1,6 @@
 #include "dispatch.h"
 #include "helpers.h"
+#include "numc/dtype.h"
 #include <numc/math.h>
 
 /* ── Stamp binary elem-wise arithmetic typed kernels ────────────────────*/
@@ -19,7 +20,8 @@ GENERATE_NUMC_TYPES(STAMP_SUB)
 GENERATE_NUMC_TYPES(STAMP_MUL)
 #undef STAMP_MUL
 
-/* div: int8/int16 -> cast through float, int32 -> through double, rest native */
+/* div: int8/int16 -> cast through float, int32 -> through double, rest native
+ */
 #define STAMP_DIV_SMALL(TE, CT)                                                \
   DEFINE_BINARY_KERNEL(div, TE, CT, (CT)((float)in1 / (float)in2))
 GENERATE_INT8_INT16_NUMC_TYPES(STAMP_DIV_SMALL)
@@ -63,6 +65,18 @@ DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_FLOAT32, float,
 DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_FLOAT64, double,
                      _exp_f64(in2 *_log_f64(in1)))
 
+/* ── Stamp out maximum and minimum ──────────────────────────────────────*/
+
+#define STAMP_MAX(TE, CT)                                                      \
+  DEFINE_BINARY_KERNEL(maximum, TE, CT, in1 > in2 ? in1 : in2)
+GENERATE_NUMC_TYPES(STAMP_MAX)
+#undef STAMP_MAX
+
+#define STAMP_MIN(TE, CT)                                                      \
+  DEFINE_BINARY_KERNEL(minimum, TE, CT, in1 < in2 ? in1 : in2)
+GENERATE_NUMC_TYPES(STAMP_MIN)
+#undef STAMP_MIN
+
 /* ── Dispatch tables (dtype -> kernel) ─────────────────────────────── */
 
 static const NumcBinaryKernel _add_table[] = {
@@ -105,12 +119,28 @@ static const NumcBinaryKernel _pow_table[] = {
     E(pow, NUMC_DTYPE_FLOAT32), E(pow, NUMC_DTYPE_FLOAT64),
 };
 
+static const NumcBinaryKernel _maximum_table[] = {
+    E(maximum, NUMC_DTYPE_INT8),    E(maximum, NUMC_DTYPE_INT16),
+    E(maximum, NUMC_DTYPE_INT32),   E(maximum, NUMC_DTYPE_INT64),
+    E(maximum, NUMC_DTYPE_UINT8),   E(maximum, NUMC_DTYPE_UINT16),
+    E(maximum, NUMC_DTYPE_UINT32),  E(maximum, NUMC_DTYPE_UINT64),
+    E(maximum, NUMC_DTYPE_FLOAT32), E(maximum, NUMC_DTYPE_FLOAT64),
+};
+
+static const NumcBinaryKernel _minimum_table[] = {
+    E(minimum, NUMC_DTYPE_INT8),    E(minimum, NUMC_DTYPE_INT16),
+    E(minimum, NUMC_DTYPE_INT32),   E(minimum, NUMC_DTYPE_INT64),
+    E(minimum, NUMC_DTYPE_UINT8),   E(minimum, NUMC_DTYPE_UINT16),
+    E(minimum, NUMC_DTYPE_UINT32),  E(minimum, NUMC_DTYPE_UINT64),
+    E(minimum, NUMC_DTYPE_FLOAT32), E(minimum, NUMC_DTYPE_FLOAT64),
+};
+
 /* ═══════════════════════════════════════════════════════════════════════
  * Public API — Binary + Scalar ops
  * ═══════════════════════════════════════════════════════════════════════ */
 
 #define DEFINE_ELEMWISE_BINARY(NAME, TABLE)                                    \
-  int numc_##NAME(const NumcArray *a, const NumcArray *b, NumcArray *out) {     \
+  int numc_##NAME(const NumcArray *a, const NumcArray *b, NumcArray *out) {    \
     int err = _check_binary(a, b, out);                                        \
     if (err)                                                                   \
       return err;                                                              \
@@ -119,7 +149,8 @@ static const NumcBinaryKernel _pow_table[] = {
   }
 
 #define DEFINE_ELEMWISE_SCALAR(NAME, TABLE)                                    \
-  int numc_##NAME##_scalar(const NumcArray *a, double scalar, NumcArray *out) { \
+  int numc_##NAME##_scalar(const NumcArray *a, double scalar,                  \
+                           NumcArray *out) {                                   \
     int err = _check_unary(a, out);                                            \
     if (err)                                                                   \
       return err;                                                              \
@@ -136,6 +167,9 @@ DEFINE_ELEMWISE_BINARY(add, _add_table)
 DEFINE_ELEMWISE_BINARY(sub, _sub_table)
 DEFINE_ELEMWISE_BINARY(mul, _mul_table)
 DEFINE_ELEMWISE_BINARY(div, _div_table)
+
+DEFINE_ELEMWISE_BINARY(maximum, _maximum_table)
+DEFINE_ELEMWISE_BINARY(minimum, _minimum_table)
 
 DEFINE_ELEMWISE_SCALAR(add, _add_table)
 DEFINE_ELEMWISE_SCALAR(sub, _sub_table)
@@ -156,5 +190,21 @@ int numc_pow_inplace(NumcArray *a, NumcArray *b) {
   if (err)
     return err;
   _binary_op(a, b, a, _pow_table);
+  return 0;
+}
+
+int numc_maximum_inplace(NumcArray *a, const NumcArray *b) {
+  int err = _check_binary(a, b, a);
+  if (err)
+    return err;
+  _binary_op(a, b, a, _maximum_table);
+  return 0;
+}
+
+int numc_minimum_inplace(NumcArray *a, const NumcArray *b) {
+  int err = _check_binary(a, b, a);
+  if (err)
+    return err;
+  _binary_op(a, b, a, _minimum_table);
   return 0;
 }
