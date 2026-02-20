@@ -136,29 +136,53 @@ static inline void _sort_axes_unary(size_t ndim, const size_t *shape,
 static inline int _check_binary(const struct NumcArray *a,
                                 const struct NumcArray *b,
                                 const struct NumcArray *out) {
-  if (!a || !b || !out)
+  if (!a || !b || !out) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "binary op: NULL pointer (a=%p b=%p out=%p)", a, b, out);
     return NUMC_ERR_NULL;
-  if (a->dtype != b->dtype || a->dtype != out->dtype)
+  }
+  if (a->dtype != b->dtype || a->dtype != out->dtype) {
+    NUMC_SET_ERROR(NUMC_ERR_TYPE,
+                   "binary op: dtype mismatch (a=%d b=%d out=%d)",
+                   a->dtype, b->dtype, out->dtype);
     return NUMC_ERR_TYPE;
-  if (a->dim != b->dim || a->dim != out->dim)
+  }
+  if (a->dim != b->dim || a->dim != out->dim) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "binary op: ndim mismatch (a.dim=%zu b.dim=%zu out.dim=%zu)",
+                   a->dim, b->dim, out->dim);
     return NUMC_ERR_SHAPE;
-  for (size_t d = 0; d < a->dim; d++)
-    if (a->shape[d] != b->shape[d] || a->shape[d] != out->shape[d])
+  }
+  for (size_t d = 0; d < a->dim; d++) {
+    if (a->shape[d] != b->shape[d] || a->shape[d] != out->shape[d]) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                     "binary op: shape mismatch at dim %zu (a=%zu b=%zu out=%zu)",
+                     d, a->shape[d], b->shape[d], out->shape[d]);
       return NUMC_ERR_SHAPE;
+    }
+  }
   return 0;
 }
 
 static inline int _check_unary(const struct NumcArray *a,
                                const struct NumcArray *out) {
-  if (!a || !out)
+  if (!a || !out) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "unary op: NULL pointer (a=%p out=%p)", a, out);
     return NUMC_ERR_NULL;
-  if (a->dtype != out->dtype)
+  }
+  if (a->dtype != out->dtype) {
+    NUMC_SET_ERROR(NUMC_ERR_TYPE, "unary op: dtype mismatch (a=%d out=%d)", a->dtype, out->dtype);
     return NUMC_ERR_TYPE;
-  if (a->dim != out->dim)
+  }
+  if (a->dim != out->dim) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "unary op: ndim mismatch (a.dim=%zu out.dim=%zu)", a->dim, out->dim);
     return NUMC_ERR_SHAPE;
-  for (size_t d = 0; d < a->dim; d++)
-    if (a->shape[d] != out->shape[d])
+  }
+  for (size_t d = 0; d < a->dim; d++) {
+    if (a->shape[d] != out->shape[d]) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE, "unary op: shape mismatch at dim %zu (a=%zu out=%zu)", d, a->shape[d], out->shape[d]);
       return NUMC_ERR_SHAPE;
+    }
+  }
   return 0;
 }
 

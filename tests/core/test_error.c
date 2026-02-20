@@ -1,20 +1,20 @@
-#include "../helpers.h"
-
-static int test_error_set_get(void) {
-  numc_set_error(NUMC_ERR_SHAPE, "test shape error");
-  NumcError err = numc_get_error();
-  ASSERT_MSG(err.code == NUMC_ERR_SHAPE, "error code should be SHAPE");
-  ASSERT_MSG(err.msg != NULL, "error message should not be NULL");
-  return 0;
-}
+#include <assert.h>
+#include <string.h>
+#include <numc/error.h>
 
 int main(void) {
-  int passes = 0, fails = 0;
-  printf("=== core/test_error ===\n\n");
-
-  printf("Error API:\n");
-  RUN_TEST(test_error_set_get);
-
-  printf("\n=== Results: %d passed, %d failed ===\n", passes, fails);
-  return fails > 0 ? 1 : 0;
+  /* Use macro to set an error with formatting */
+  NUMC_SET_ERROR(NUMC_ERR_NULL, "unit test error %d", 42);
+  NumcError e = numc_get_error();
+  assert(e.code == NUMC_ERR_NULL);
+  assert(e.msg != NULL && e.msg[0] != '\0');
+  /* message should include function name (macro captures caller) */
+  assert(strstr(e.msg, "main") || strstr(e.msg, "numc_set_error"));
+#ifdef NUMC_DEBUG_ERROR_CONTEXT
+  /* debug context should include '@' (func@file:line) or a file:line pattern */
+  assert(strchr(e.msg, '@') != NULL || strstr(e.msg, ".c:") != NULL);
+#endif
+  /* Exercise the logging helper (prints to stderr) */
+  numc_log_error(&e);
+  return 0;
 }

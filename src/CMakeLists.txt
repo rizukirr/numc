@@ -27,6 +27,11 @@ target_compile_options(numc PRIVATE
     $<$<CONFIG:RelWithDebInfo>:-O2 -g -march=native>
 )
 
+# Enable debug error context (file/line) in Debug builds
+target_compile_definitions(numc PRIVATE
+    $<$<CONFIG:Debug>:NUMC_DEBUG_ERROR_CONTEXT=1>
+)
+
 # AddressSanitizer
 if(NUMC_ENABLE_ASAN)
     target_compile_options(numc PUBLIC -fsanitize=address)
