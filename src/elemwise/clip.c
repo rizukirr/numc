@@ -42,8 +42,10 @@ int numc_clip(NumcArray *a, NumcArray *out, double min, double max) {
 }
 
 int numc_clip_inplace(NumcArray *a, double min, double max) {
-  if (!a)
+  if (!a) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "clip_inplace: NULL pointer (a=%p)", a);
     return NUMC_ERR_NULL;
+  }
 
   NumcClipKernel kern = _clip_table[a->dtype];
 

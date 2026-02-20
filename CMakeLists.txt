@@ -20,7 +20,7 @@ endif()
 option(NUMC_BUILD_TESTS      "Build numc tests"       ${NUMC_STANDALONE})
 option(NUMC_BUILD_BENCHMARKS "Build numc benchmarks"   ${NUMC_STANDALONE})
 option(NUMC_BUILD_EXAMPLES   "Build numc examples"     ${NUMC_STANDALONE})
-option(NUMC_ENABLE_ASAN      "Enable AddressSanitizer" ${NUMC_STANDALONE})
+option(NUMC_ENABLE_ASAN      "Enable AddressSanitizer" OFF)
 
 # Dependencies (at root scope so install block can see results)
 find_package(OpenMP)

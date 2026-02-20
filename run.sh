@@ -18,15 +18,32 @@ build() {
 
 case $1 in
     "debug")
+        CMAKE_OPTS="$CMAKE_OPTS -DNUMC_ENABLE_ASAN=ON"
         build Debug
+        export LSAN_OPTIONS="suppressions=$(pwd)/tests/lsan_suppressions.txt"
+        for demo in build/bin/demo_*; do
+            echo "=== $(basename "$demo") ==="
+            "$demo"
+            echo ""
+        done
+        exit 0
         ;;
     "release")
         build Release
+        for demo in build/bin/demo_*; do
+            echo "=== $(basename "$demo") ==="
+            "$demo"
+            echo ""
+        done
+        exit 0
         ;;
     "test")
         echo "Running tests..."
+        CMAKE_OPTS="$CMAKE_OPTS -DNUMC_ENABLE_ASAN=ON"
         build Debug
         echo ""
+        # Suppress known OpenMP thread pool leak in LeakSanitizer
+        export LSAN_OPTIONS="suppressions=$(pwd)/tests/lsan_suppressions.txt"
         ctest --test-dir build
         exit 0
         ;;
@@ -84,15 +101,16 @@ case $1 in
     "rebuild")
         echo "Rebuilding from scratch..."
         rm -rf build
-        ./run.sh debug
+        CMAKE_OPTS="$CMAKE_OPTS -DNUMC_ENABLE_ASAN=ON"
+        build Debug
         exit 0
         ;;
     "help")
         echo "Usage: $0 [command]"
         echo ""
         echo "Commands:"
-        echo "  debug              Build in debug mode with AddressSanitizer and run demo"
-        echo "  release            Build in release mode with optimizations and run demo"
+        echo "  debug              Build in debug mode with AddressSanitizer"
+        echo "  release            Build in release mode with optimizations"
         echo "  test               Build in debug mode and run all tests"
         echo ""
         echo "  bench              Build release and run all benchmarks"
@@ -105,14 +123,15 @@ case $1 in
         echo "  clean              Remove build directory"
         echo "  rebuild            Clean and rebuild in debug mode"
         echo "  help               Show this help message"
-        echo "  (no args)          Run demo without rebuilding"
+        echo "  (no args)          Show this help message"
         echo ""
         echo "Environment:"
         echo "  CC=gcc ./run.sh release   Use GCC instead of Clang"
         exit 0
         ;;
     "")
-        echo "Running demo without building..."
+        ./run.sh help
+        exit 0
         ;;
     *)
         echo "Unknown argument: $1"
@@ -122,16 +141,3 @@ case $1 in
         ;;
 esac
 
-if [ ! -f "./build/bin/demo" ]; then
-    echo "Error: ./build/bin/demo not found. Please build first."
-    exit 1
-fi
-
-# Suppress known OpenMP thread pool leak in LeakSanitizer
-export LSAN_OPTIONS="suppressions=$(pwd)/tests/lsan_suppressions.txt"
-
-start=$(date +%s%3N)
-./build/bin/demo
-end=$(date +%s%3N)
-elapsed=$(awk "BEGIN { printf \"%.3f\", ($end - $start)/1000 }")
-echo "Run took ${elapsed} seconds"
