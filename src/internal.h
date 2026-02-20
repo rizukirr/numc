@@ -70,4 +70,19 @@ void numc_free(void *ptr);
     }                                                                          \
   } while (0)
 
+#define NUMC_OMP_REDUCE_FOR(n, elem_size, omp_op, acc, loop)                   \
+  do {                                                                         \
+    size_t _total_bytes = (n) * (elem_size);                                   \
+    if (_total_bytes > NUMC_OMP_BYTE_THRESHOLD) {                              \
+      int _nthreads = (int)(_total_bytes / NUMC_OMP_BYTES_PER_THREAD);         \
+      if (_nthreads < 1)                                                       \
+        _nthreads = 1;                                                         \
+      NUMC_PRAGMA(omp parallel for reduction(omp_op : acc)                     \
+                      schedule(static) num_threads(_nthreads))                 \
+      loop                                                                     \
+    } else {                                                                   \
+      loop                                                                     \
+    }                                                                          \
+  } while (0)
+
 #endif

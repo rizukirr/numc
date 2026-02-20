@@ -2,9 +2,10 @@ add_library(numc
     array_core.c
     array_print.c
     alloc.c
-    math/binary.c
-    math/unary.c
-    math/clip.c
+    elemwise/binary.c
+    elemwise/unary.c
+    elemwise/clip.c
+    reduction/reduction.c
     error.c
 )
 add_library(numc::numc ALIAS numc)
@@ -15,7 +16,8 @@ target_include_directories(numc
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}/math
+        ${CMAKE_CURRENT_SOURCE_DIR}/elemwise
+        ${CMAKE_CURRENT_SOURCE_DIR}/reduction
 )
 
 target_compile_options(numc PRIVATE

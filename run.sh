@@ -45,6 +45,9 @@ case $1 in
         echo ""
         echo "=== Pow benchmark ==="
         ./build/bin/bench_pow
+        echo ""
+        echo "=== Reduction benchmark ==="
+        ./build/bin/bench_reduction
         exit 0
         ;;
     "bench-elemwise")
@@ -65,6 +68,11 @@ case $1 in
     "bench-pow")
         build Release
         ./build/bin/bench_pow
+        exit 0
+        ;;
+    "bench-reduction")
+        build Release
+        ./build/bin/bench_reduction
         exit 0
         ;;
     "clean")
@@ -92,6 +100,7 @@ case $1 in
         echo "  bench-scalar       Build release and run scalar element-wise benchmark"
         echo "  bench-unary        Build release and run unary element-wise benchmark"
         echo "  bench-pow          Build release and run pow benchmark"
+        echo "  bench-reduction    Build release and run reduction benchmark"
         echo ""
         echo "  clean              Remove build directory"
         echo "  rebuild            Clean and rebuild in debug mode"
