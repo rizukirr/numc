@@ -19,15 +19,13 @@ static inline void _calculate_strides(size_t *strides, const size_t *shape,
   }
 }
 
-static inline void _array_fill_with(struct NumcArray *arr,
-                                    const NumcDType dtype,
-                                    const void *value) {
+static inline void _array_fill_with(struct NumcArray *arr, const void *value) {
   char *ptr = arr->data;
   size_t cordinate[arr->dim];
   memset(cordinate, 0, sizeof(cordinate));
 
   while (true) {
-    _assign_value[dtype](ptr, value);
+    memcpy(ptr, value, arr->elem_size);
 
     int d = arr->dim - 1;
     ptr += arr->strides[d];
@@ -72,7 +70,7 @@ NumcCtx *numc_ctx_create(void) {
 
 NumcArray *numc_array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
                              NumcDType dtype) {
-  if (!ctx || !shape || dim == 0) {
+  if (!ctx || !shape || dim == 0 || dim > NUMC_MAX_DIMENSIONS) {
     return NULL;
   }
 
@@ -94,21 +92,6 @@ NumcArray *numc_array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
   if (!arr->data) {
     arena_free(ctx->arena);
     return NULL;
-  }
-
-  arr->use_stack = dim <= NUMC_MAX_DIMENSIONS;
-  if (arr->use_stack) {
-    arr->shape = arr->_shape_buff;
-    arr->strides = arr->_strides_buff;
-  } else {
-    arr->shape = arena_alloc(ctx->arena, 2 * dim * sizeof(size_t),
-                             NUMC_ALIGNOF(size_t));
-    arr->strides = arr->shape + dim;
-
-    if (!arr->shape) {
-      arena_free(ctx->arena);
-      return NULL;
-    }
   }
 
   memcpy(arr->shape, shape, dim * sizeof(size_t));
@@ -142,8 +125,8 @@ int numc_array_contiguous(NumcArray *arr) {
     return 0;
 
   // Dimension collapse: merge adjacent contiguous dims
-  size_t c_shape[NUMC_MAX_DIMENSIONS];
-  size_t c_strides[NUMC_MAX_DIMENSIONS];
+  size_t c_shape[arr->dim];
+  size_t c_strides[arr->dim];
   c_shape[0] = arr->shape[0];
   c_strides[0] = arr->strides[0];
   size_t cdim = 1;
@@ -160,8 +143,7 @@ int numc_array_contiguous(NumcArray *arr) {
   }
 
   // Allocate new contiguous buffer from arena
-  void *new_data =
-      arena_alloc(arr->ctx->arena, arr->capacity, NUMC_SIMD_ALIGN);
+  void *new_data = arena_alloc(arr->ctx->arena, arr->capacity, NUMC_SIMD_ALIGN);
   if (!new_data)
     return -1;
 
@@ -228,7 +210,7 @@ NumcArray *numc_array_fill(NumcCtx *ctx, const size_t *shape, size_t dim,
   if (!arr)
     return NULL;
 
-  _array_fill_with(arr, dtype, value);
+  _array_fill_with(arr, value);
   return arr;
 }
 
@@ -323,8 +305,7 @@ int numc_array_transpose(NumcArray *arr, const size_t *axes) {
   return 0;
 }
 
-NumcArray *numc_array_transpose_copy(const NumcArray *arr,
-                                     const size_t *axes) {
+NumcArray *numc_array_transpose_copy(const NumcArray *arr, const size_t *axes) {
   if (!arr || !axes)
     return NULL;
 
@@ -368,19 +349,6 @@ NumcArray *numc_array_slice(const NumcArray *arr, NumcSlice *slice) {
   view->elem_size = arr->elem_size;
   view->dtype = arr->dtype;
   view->is_contiguous = false;
-  view->use_stack = arr->dim <= NUMC_MAX_DIMENSIONS;
-
-  if (view->use_stack) {
-    view->shape = view->_shape_buff;
-    view->strides = view->_strides_buff;
-  } else {
-    view->shape = arena_alloc(arr->ctx->arena, 2 * arr->dim * sizeof(size_t),
-                              NUMC_ALIGNOF(size_t));
-    view->strides = view->shape + arr->dim;
-    if (!view->shape)
-      return NULL;
-  }
-
   memcpy(view->shape, arr->shape, arr->dim * sizeof(size_t));
   memcpy(view->strides, arr->strides, arr->dim * sizeof(size_t));
 

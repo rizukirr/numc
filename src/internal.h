@@ -11,7 +11,7 @@
 
 /* --- Constants --- */
 
-#define NUMC_MAX_DIMENSIONS 8
+#define NUMC_MAX_DIMENSIONS 64
 #define NUMC_MAX_MEMORY 8388608 // 8MB
 #define NUMC_SIMD_ALIGN 32
 
@@ -24,10 +24,9 @@ struct NumcCtx {
 struct NumcArray {
   struct NumcCtx *ctx;
   void *data;
-  size_t *shape, *strides;
+  size_t shape[NUMC_MAX_DIMENSIONS], strides[NUMC_MAX_DIMENSIONS];
   size_t dim, elem_size, size, capacity;
-  size_t _shape_buff[NUMC_MAX_DIMENSIONS], _strides_buff[NUMC_MAX_DIMENSIONS];
-  bool use_stack, is_contiguous;
+  bool is_contiguous;
   NumcDType dtype;
 };
 
@@ -35,26 +34,6 @@ struct NumcArray {
 
 void *numc_malloc(size_t alignment, size_t size);
 void numc_free(void *ptr);
-
-/* --- Value assigner dispatch (private) --- */
-
-#define GENERATE_VALUE_ASSIGNER(TYPE_ENUM, NUMC_TYPE)                          \
-  static inline void _assign_value_##TYPE_ENUM(void *data,                     \
-                                               const void *value) {            \
-    *(NUMC_TYPE *)data = *(const NUMC_TYPE *)value;                            \
-  }
-
-GENERATE_NUMC_TYPES(GENERATE_VALUE_ASSIGNER)
-#undef GENERATE_VALUE_ASSIGNER
-
-typedef void (*AssignValueFunc)(void *, const void *);
-#define GENERATE_VALUE_ASSIGNER_ENTRY(TYPE_ENUM, NUMC_TYPE)                    \
-  [TYPE_ENUM] = _assign_value_##TYPE_ENUM,
-
-static const AssignValueFunc _assign_value[] = {
-    GENERATE_NUMC_TYPES(GENERATE_VALUE_ASSIGNER_ENTRY)};
-
-#undef GENERATE_VALUE_ASSIGNER_ENTRY
 
 /* --- OMP macros (private) --- */
 

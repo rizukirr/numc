@@ -2,29 +2,24 @@
 #include <numc/array.h>
 #include <stdio.h>
 
+#define NUMC_PRINT_TYPES(X)                                                    \
+  X(NUMC_DTYPE_INT8, NUMC_INT8, "d")                                           \
+  X(NUMC_DTYPE_UINT8, NUMC_UINT8, "u")                                         \
+  X(NUMC_DTYPE_INT16, NUMC_INT16, "d")                                         \
+  X(NUMC_DTYPE_UINT16, NUMC_UINT16, "u")                                       \
+  X(NUMC_DTYPE_INT32, NUMC_INT32, "d")                                         \
+  X(NUMC_DTYPE_UINT32, NUMC_UINT32, "u")                                       \
+  X(NUMC_DTYPE_INT64, NUMC_INT64, "ld")                                        \
+  X(NUMC_DTYPE_UINT64, NUMC_UINT64, "lu")                                      \
+  X(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, "g")                                     \
+  X(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, "g")
+
 static int elem_width(const char *data, size_t byte_offset, NumcDType dtype) {
   const void *elem = data + byte_offset;
   switch (dtype) {
-  case NUMC_DTYPE_INT8:
-    return snprintf(NULL, 0, "%d", *(const NUMC_INT8 *)elem);
-  case NUMC_DTYPE_UINT8:
-    return snprintf(NULL, 0, "%u", *(const NUMC_UINT8 *)elem);
-  case NUMC_DTYPE_INT16:
-    return snprintf(NULL, 0, "%d", *(const NUMC_INT16 *)elem);
-  case NUMC_DTYPE_UINT16:
-    return snprintf(NULL, 0, "%u", *(const NUMC_UINT16 *)elem);
-  case NUMC_DTYPE_INT32:
-    return snprintf(NULL, 0, "%d", *(const NUMC_INT32 *)elem);
-  case NUMC_DTYPE_UINT32:
-    return snprintf(NULL, 0, "%u", *(const NUMC_UINT32 *)elem);
-  case NUMC_DTYPE_INT64:
-    return snprintf(NULL, 0, "%ld", *(const NUMC_INT64 *)elem);
-  case NUMC_DTYPE_UINT64:
-    return snprintf(NULL, 0, "%lu", *(const NUMC_UINT64 *)elem);
-  case NUMC_DTYPE_FLOAT32:
-    return snprintf(NULL, 0, "%g", *(const NUMC_FLOAT32 *)elem);
-  case NUMC_DTYPE_FLOAT64:
-    return snprintf(NULL, 0, "%g", *(const NUMC_FLOAT64 *)elem);
+#define X(DT, CT, FMT) case DT: return snprintf(NULL, 0, "%" FMT, *(const CT *)elem);
+    NUMC_PRINT_TYPES(X)
+#undef X
   }
   return 0;
 }
@@ -33,36 +28,9 @@ static void print_element(const char *data, size_t byte_offset, NumcDType dtype,
                           int width) {
   const void *elem = data + byte_offset;
   switch (dtype) {
-  case NUMC_DTYPE_INT8:
-    printf("%*d", width, *(const NUMC_INT8 *)elem);
-    break;
-  case NUMC_DTYPE_UINT8:
-    printf("%*u", width, *(const NUMC_UINT8 *)elem);
-    break;
-  case NUMC_DTYPE_INT16:
-    printf("%*d", width, *(const NUMC_INT16 *)elem);
-    break;
-  case NUMC_DTYPE_UINT16:
-    printf("%*u", width, *(const NUMC_UINT16 *)elem);
-    break;
-  case NUMC_DTYPE_INT32:
-    printf("%*d", width, *(const NUMC_INT32 *)elem);
-    break;
-  case NUMC_DTYPE_UINT32:
-    printf("%*u", width, *(const NUMC_UINT32 *)elem);
-    break;
-  case NUMC_DTYPE_INT64:
-    printf("%*ld", width, *(const NUMC_INT64 *)elem);
-    break;
-  case NUMC_DTYPE_UINT64:
-    printf("%*lu", width, *(const NUMC_UINT64 *)elem);
-    break;
-  case NUMC_DTYPE_FLOAT32:
-    printf("%*g", width, *(const NUMC_FLOAT32 *)elem);
-    break;
-  case NUMC_DTYPE_FLOAT64:
-    printf("%*g", width, *(const NUMC_FLOAT64 *)elem);
-    break;
+#define X(DT, CT, FMT) case DT: printf("%*" FMT, width, *(const CT *)elem); break;
+    NUMC_PRINT_TYPES(X)
+#undef X
   }
 }
 
