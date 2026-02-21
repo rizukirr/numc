@@ -33,4 +33,53 @@ typedef void (*NumcReductionKernel)(const char *a, char *out, size_t n,
     *(C_TYPE *)out = acc;                                                      \
   }
 
+/* Float reduction kernel with OMP-parallel vectorized helper.
+ * Used for sum (pairwise), max, min — replaces hand-written copies.
+ *
+ * HELPER_FN:    vectorized helper, e.g. _pairwise_sum_f32, _vec_max_f64
+ * OMP_OP:       OMP reduction clause operator (+, max, min)
+ * COMBINE:      how per-thread result merges into global
+ *               sum: global += local
+ *               max: if (local > global) global = local
+ *               min: if (local < global) global = local
+ * STRIDED_EXPR: fallback expression for non-contiguous (uses acc, val)
+ */
+#define DEFINE_FLOAT_REDUCTION_KERNEL(OP_NAME, TYPE_ENUM, C_TYPE, INIT,        \
+                                      HELPER_FN, OMP_OP, COMBINE,             \
+                                      STRIDED_EXPR)                            \
+  static void _kern_##OP_NAME##_##TYPE_ENUM(const char *a, char *out,          \
+                                            size_t n, intptr_t sa) {           \
+    if (n == 0) {                                                              \
+      *(C_TYPE *)out = (INIT);                                                 \
+      return;                                                                  \
+    }                                                                          \
+    if (sa == (intptr_t)sizeof(C_TYPE)) {                                      \
+      const C_TYPE *pa = (const C_TYPE *)a;                                    \
+      size_t total_bytes = n * sizeof(C_TYPE);                                 \
+      if (total_bytes > NUMC_OMP_BYTE_THRESHOLD) {                             \
+        int nt = (int)(total_bytes / NUMC_OMP_BYTES_PER_THREAD);               \
+        if (nt < 1) nt = 1;                                                   \
+        C_TYPE global = (INIT);                                                \
+        NUMC_PRAGMA(omp parallel for reduction(OMP_OP:global)                  \
+                        schedule(static) num_threads(nt))                      \
+        for (int t = 0; t < nt; t++) {                                         \
+          size_t start = (size_t)t * (n / nt);                                 \
+          size_t end = (t == nt - 1) ? n : start + n / nt;                     \
+          C_TYPE local = HELPER_FN(pa + start, end - start);                   \
+          COMBINE;                                                             \
+        }                                                                      \
+        *(C_TYPE *)out = global;                                               \
+      } else {                                                                 \
+        *(C_TYPE *)out = HELPER_FN(pa, n);                                     \
+      }                                                                        \
+    } else {                                                                   \
+      C_TYPE acc = (INIT);                                                     \
+      for (size_t i = 0; i < n; i++) {                                         \
+        C_TYPE val = *(const C_TYPE *)(a + i * sa);                            \
+        acc = (STRIDED_EXPR);                                                  \
+      }                                                                        \
+      *(C_TYPE *)out = acc;                                                    \
+    }                                                                          \
+  }
+
 #endif

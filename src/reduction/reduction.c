@@ -15,69 +15,12 @@ DEFINE_REDUCTION_KERNEL(sum, NUMC_DTYPE_UINT64, uint64_t, 0, acc + val, +)
 
 /* ── Sum reduction kernels (float types — pairwise summation) ─────── */
 
-static void _kern_sum_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
-                                         intptr_t sa) {
-  if (n == 0) {
-    *(float *)out = 0;
-    return;
-  }
-  if (sa == (intptr_t)sizeof(float)) {
-    const float *pa = (const float *)a;
-    size_t total_bytes = n * sizeof(float);
-    if (total_bytes > NUMC_OMP_BYTE_THRESHOLD) {
-      int nt = (int)(total_bytes / NUMC_OMP_BYTES_PER_THREAD);
-      if (nt < 1) nt = 1;
-      float global = 0;
-      #pragma omp parallel for reduction(+:global) schedule(static) num_threads(nt)
-      for (int t = 0; t < nt; t++) {
-        size_t start = (size_t)t * (n / nt);
-        size_t end = (t == nt - 1) ? n : start + n / nt;
-        float local = _pairwise_sum_f32(pa + start, end - start);
-        global += local;
-      }
-      *(float *)out = global;
-    } else {
-      *(float *)out = _pairwise_sum_f32(pa, n);
-    }
-  } else {
-    float acc = 0;
-    for (size_t i = 0; i < n; i++)
-      acc += *(const float *)(a + i * sa);
-    *(float *)out = acc;
-  }
-}
-
-static void _kern_sum_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
-                                         intptr_t sa) {
-  if (n == 0) {
-    *(double *)out = 0;
-    return;
-  }
-  if (sa == (intptr_t)sizeof(double)) {
-    const double *pa = (const double *)a;
-    size_t total_bytes = n * sizeof(double);
-    if (total_bytes > NUMC_OMP_BYTE_THRESHOLD) {
-      int nt = (int)(total_bytes / NUMC_OMP_BYTES_PER_THREAD);
-      if (nt < 1) nt = 1;
-      double global = 0;
-      #pragma omp parallel for reduction(+:global) schedule(static) num_threads(nt)
-      for (int t = 0; t < nt; t++) {
-        size_t start = (size_t)t * (n / nt);
-        size_t end = (t == nt - 1) ? n : start + n / nt;
-        double local = _pairwise_sum_f64(pa + start, end - start);
-        global += local;
-      }
-      *(double *)out = global;
-    } else {
-      *(double *)out = _pairwise_sum_f64(pa, n);
-    }
-  } else {
-    double acc = 0;
-    for (size_t i = 0; i < n; i++)
-      acc += *(const double *)(a + i * sa);
-    *(double *)out = acc;
-  }
-}
+DEFINE_FLOAT_REDUCTION_KERNEL(sum, NUMC_DTYPE_FLOAT32, float, 0,
+                              _pairwise_sum_f32, +, global += local,
+                              acc + val)
+DEFINE_FLOAT_REDUCTION_KERNEL(sum, NUMC_DTYPE_FLOAT64, double, 0,
+                              _pairwise_sum_f64, +, global += local,
+                              acc + val)
 
 /* ── Mean reduction kernels ──────────────────────────────────────────
  *
@@ -141,72 +84,14 @@ DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_UINT32, uint32_t, 0, MAX_EXPR, max)
 DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_UINT64, uint64_t, 0, MAX_EXPR, max)
 /* float32/float64: multi-accumulator for contiguous (SLP-vectorizes to
  * vmaxps/vmaxpd), serial fallback for strided. */
-static void _kern_max_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
-                                         intptr_t sa) {
-  if (n == 0) {
-    *(float *)out = -INFINITY;
-    return;
-  }
-  if (sa == (intptr_t)sizeof(float)) {
-    const float *pa = (const float *)a;
-    size_t total_bytes = n * sizeof(float);
-    if (total_bytes > NUMC_OMP_BYTE_THRESHOLD) {
-      int nt = (int)(total_bytes / NUMC_OMP_BYTES_PER_THREAD);
-      if (nt < 1) nt = 1;
-      float global = -INFINITY;
-      #pragma omp parallel for reduction(max:global) schedule(static) num_threads(nt)
-      for (int t = 0; t < nt; t++) {
-        size_t start = (size_t)t * (n / nt);
-        size_t end = (t == nt - 1) ? n : start + n / nt;
-        float local = _vec_max_f32(pa + start, end - start);
-        if (local > global) global = local;
-      }
-      *(float *)out = global;
-    } else {
-      *(float *)out = _vec_max_f32(pa, n);
-    }
-  } else {
-    float acc = -INFINITY;
-    for (size_t i = 0; i < n; i++) {
-      float val = *(const float *)(a + i * sa);
-      acc = val > acc ? val : acc;
-    }
-    *(float *)out = acc;
-  }
-}
-static void _kern_max_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
-                                         intptr_t sa) {
-  if (n == 0) {
-    *(double *)out = -INFINITY;
-    return;
-  }
-  if (sa == (intptr_t)sizeof(double)) {
-    const double *pa = (const double *)a;
-    size_t total_bytes = n * sizeof(double);
-    if (total_bytes > NUMC_OMP_BYTE_THRESHOLD) {
-      int nt = (int)(total_bytes / NUMC_OMP_BYTES_PER_THREAD);
-      if (nt < 1) nt = 1;
-      double global = -INFINITY;
-      #pragma omp parallel for reduction(max:global) schedule(static) num_threads(nt)
-      for (int t = 0; t < nt; t++) {
-        size_t start = (size_t)t * (n / nt);
-        size_t end = (t == nt - 1) ? n : start + n / nt;
-        double local = _vec_max_f64(pa + start, end - start);
-        if (local > global) global = local;
-      }
-      *(double *)out = global;
-    } else {
-      *(double *)out = _vec_max_f64(pa, n);
-    }
-  } else {
-    double acc = -INFINITY;
-    for (size_t i = 0; i < n; i++) {
-      double val = *(const double *)(a + i * sa);
-      acc = val > acc ? val : acc;
-    }
-    *(double *)out = acc;
-  }
-}
+DEFINE_FLOAT_REDUCTION_KERNEL(max, NUMC_DTYPE_FLOAT32, float, -INFINITY,
+                              _vec_max_f32, max,
+                              if (local > global) global = local,
+                              val > acc ? val : acc)
+DEFINE_FLOAT_REDUCTION_KERNEL(max, NUMC_DTYPE_FLOAT64, double, -INFINITY,
+                              _vec_max_f64, max,
+                              if (local > global) global = local,
+                              val > acc ? val : acc)
 
 #undef MAX_EXPR
 
@@ -234,72 +119,14 @@ DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT64, uint64_t, UINT64_MAX, MIN_EXPR,
                         min)
 /* float32/float64: multi-accumulator for contiguous (SLP-vectorizes to
  * vminps/vminpd), serial fallback for strided. */
-static void _kern_min_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
-                                         intptr_t sa) {
-  if (n == 0) {
-    *(float *)out = INFINITY;
-    return;
-  }
-  if (sa == (intptr_t)sizeof(float)) {
-    const float *pa = (const float *)a;
-    size_t total_bytes = n * sizeof(float);
-    if (total_bytes > NUMC_OMP_BYTE_THRESHOLD) {
-      int nt = (int)(total_bytes / NUMC_OMP_BYTES_PER_THREAD);
-      if (nt < 1) nt = 1;
-      float global = INFINITY;
-      #pragma omp parallel for reduction(min:global) schedule(static) num_threads(nt)
-      for (int t = 0; t < nt; t++) {
-        size_t start = (size_t)t * (n / nt);
-        size_t end = (t == nt - 1) ? n : start + n / nt;
-        float local = _vec_min_f32(pa + start, end - start);
-        if (local < global) global = local;
-      }
-      *(float *)out = global;
-    } else {
-      *(float *)out = _vec_min_f32(pa, n);
-    }
-  } else {
-    float acc = INFINITY;
-    for (size_t i = 0; i < n; i++) {
-      float val = *(const float *)(a + i * sa);
-      acc = val < acc ? val : acc;
-    }
-    *(float *)out = acc;
-  }
-}
-static void _kern_min_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
-                                         intptr_t sa) {
-  if (n == 0) {
-    *(double *)out = INFINITY;
-    return;
-  }
-  if (sa == (intptr_t)sizeof(double)) {
-    const double *pa = (const double *)a;
-    size_t total_bytes = n * sizeof(double);
-    if (total_bytes > NUMC_OMP_BYTE_THRESHOLD) {
-      int nt = (int)(total_bytes / NUMC_OMP_BYTES_PER_THREAD);
-      if (nt < 1) nt = 1;
-      double global = INFINITY;
-      #pragma omp parallel for reduction(min:global) schedule(static) num_threads(nt)
-      for (int t = 0; t < nt; t++) {
-        size_t start = (size_t)t * (n / nt);
-        size_t end = (t == nt - 1) ? n : start + n / nt;
-        double local = _vec_min_f64(pa + start, end - start);
-        if (local < global) global = local;
-      }
-      *(double *)out = global;
-    } else {
-      *(double *)out = _vec_min_f64(pa, n);
-    }
-  } else {
-    double acc = INFINITY;
-    for (size_t i = 0; i < n; i++) {
-      double val = *(const double *)(a + i * sa);
-      acc = val < acc ? val : acc;
-    }
-    *(double *)out = acc;
-  }
-}
+DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_FLOAT32, float, INFINITY,
+                              _vec_min_f32, min,
+                              if (local < global) global = local,
+                              val < acc ? val : acc)
+DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_FLOAT64, double, INFINITY,
+                              _vec_min_f64, min,
+                              if (local < global) global = local,
+                              val < acc ? val : acc)
 
 #undef MIN_EXPR
 
