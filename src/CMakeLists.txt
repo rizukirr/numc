@@ -23,7 +23,7 @@ target_include_directories(numc
 target_compile_options(numc PRIVATE
     -Wall -Wextra -Wpedantic
     $<$<CONFIG:Debug>:-g -O0 -fno-omit-frame-pointer>
-    $<$<CONFIG:Release>:-O3 -march=native>
+    $<$<CONFIG:Release>:-O3 -march=native -fno-math-errno -fno-signed-zeros -fno-trapping-math -funroll-loops>
     $<$<CONFIG:RelWithDebInfo>:-O2 -g -march=native>
 )
 
