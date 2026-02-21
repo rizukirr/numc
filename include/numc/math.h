@@ -67,4 +67,10 @@ int numc_max_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
 int numc_min(const NumcArray *a, NumcArray *out);
 int numc_min_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
 
+int numc_argmax(const NumcArray *a, NumcArray *out);
+int numc_argmax_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
+
+int numc_argmin(const NumcArray *a, NumcArray *out);
+int numc_argmin_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
+
 #endif

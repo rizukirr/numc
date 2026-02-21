@@ -100,7 +100,7 @@ def main():
     print(f"\n  numpy reduction benchmark")
     print(f"  numpy {np.__version__}")
 
-    for op in ("sum", "mean", "max", "min"):
+    for op in ("sum", "mean", "max", "min", "argmax", "argmin"):
         bench_full(op, 1_000_000)
         bench_axis(op, 0, 1000, 1000)
         bench_axis(op, 1, 1000, 1000)

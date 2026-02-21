@@ -194,4 +194,113 @@ static inline int _check_reduce_axis(const struct NumcArray *a, int axis,
   return 0;
 }
 
+/* ── Arg-reduction validation ─────────────────────────────────────
+ *
+ * Like _check_reduce_full/axis but enforces out->dtype == INT64
+ * instead of a->dtype == out->dtype. */
+
+static inline int _check_argreduce_full(const struct NumcArray *a,
+                                        const struct NumcArray *out) {
+  if (!a || !out) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "argreduce full: NULL pointer (a=%p out=%p)",
+                   a, out);
+    return NUMC_ERR_NULL;
+  }
+  if (out->dtype != NUMC_DTYPE_INT64) {
+    NUMC_SET_ERROR(NUMC_ERR_TYPE,
+                   "argreduce full: output dtype must be INT64 (got %d)",
+                   out->dtype);
+    return NUMC_ERR_TYPE;
+  }
+  if (out->size != 1) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "argreduce full: output not scalar (out.size=%zu)",
+                   out->size);
+    return NUMC_ERR_SHAPE;
+  }
+  return 0;
+}
+
+static inline int _check_argreduce_axis(const struct NumcArray *a, int axis,
+                                        int keepdim,
+                                        const struct NumcArray *out) {
+  if (!a || !out) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL,
+                   "argreduce axis: NULL pointer (a=%p out=%p)", a, out);
+    return NUMC_ERR_NULL;
+  }
+  if (out->dtype != NUMC_DTYPE_INT64) {
+    NUMC_SET_ERROR(NUMC_ERR_TYPE,
+                   "argreduce axis: output dtype must be INT64 (got %d)",
+                   out->dtype);
+    return NUMC_ERR_TYPE;
+  }
+  if (axis < 0 || (size_t)axis >= a->dim) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "argreduce axis: invalid axis %d (ndim=%zu)", axis, a->dim);
+    return NUMC_ERR_SHAPE;
+  }
+
+  if (keepdim) {
+    if (out->dim != a->dim) {
+      NUMC_SET_ERROR(
+          NUMC_ERR_SHAPE,
+          "argreduce axis: keepdim expects out.dim == a.dim (out.dim=%zu "
+          "a.dim=%zu)",
+          out->dim, a->dim);
+      return NUMC_ERR_SHAPE;
+    }
+    for (size_t i = 0; i < a->dim; i++) {
+      if (i == (size_t)axis) {
+        if (out->shape[i] != 1) {
+          NUMC_SET_ERROR(
+              NUMC_ERR_SHAPE,
+              "argreduce axis: expected out.shape[%zu] == 1 (got %zu)", i,
+              out->shape[i]);
+          return NUMC_ERR_SHAPE;
+        }
+      } else {
+        if (out->shape[i] != a->shape[i]) {
+          NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                         "argreduce axis: shape mismatch at dim %zu (a=%zu "
+                         "out=%zu)",
+                         i, a->shape[i], out->shape[i]);
+          return NUMC_ERR_SHAPE;
+        }
+      }
+    }
+  } else {
+    size_t expected_ndim = a->dim - 1;
+    if (expected_ndim == 0) {
+      if (out->size != 1) {
+        NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                       "argreduce axis: expected scalar output for 1D "
+                       "reduction (out.size=%zu)",
+                       out->size);
+        return NUMC_ERR_SHAPE;
+      }
+    } else {
+      if (out->dim != expected_ndim) {
+        NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                       "argreduce axis: expected out.dim=%zu but got %zu",
+                       expected_ndim, out->dim);
+        return NUMC_ERR_SHAPE;
+      }
+      for (size_t i = 0, j = 0; i < a->dim; i++) {
+        if (i == (size_t)axis)
+          continue;
+        if (out->shape[j] != a->shape[i]) {
+          NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                         "argreduce axis: shape mismatch at output dim %zu "
+                         "(a=%zu out=%zu)",
+                         j, a->shape[i], out->shape[j]);
+          return NUMC_ERR_SHAPE;
+        }
+        j++;
+      }
+    }
+  }
+  return 0;
+}
+
 #endif

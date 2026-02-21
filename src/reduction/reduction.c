@@ -128,6 +128,42 @@ DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_FLOAT64, double, INFINITY,
 
 #undef MIN_EXPR
 
+/* ── Argmax reduction kernels ────────────────────────────────────────
+ *
+ * Per-type INIT = type minimum so any element is > INIT.
+ * Output is always int64_t (index of maximum element). */
+
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_INT8, int8_t, INT8_MIN, >)
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_INT16, int16_t, INT16_MIN, >)
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_INT32, int32_t, INT32_MIN, >)
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_INT64, int64_t, INT64_MIN, >)
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT8, uint8_t, 0, >)
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT16, uint16_t, 0, >)
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT32, uint32_t, 0, >)
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT64, uint64_t, 0, >)
+DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_FLOAT32, float,
+                                  -INFINITY, _vec_max_f32, >)
+DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_FLOAT64, double,
+                                  -INFINITY, _vec_max_f64, >)
+
+/* ── Argmin reduction kernels ────────────────────────────────────────
+ *
+ * Per-type INIT = type maximum so any element is < INIT.
+ * Output is always int64_t (index of minimum element). */
+
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_INT8, int8_t, INT8_MAX, <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_INT16, int16_t, INT16_MAX, <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_INT32, int32_t, INT32_MAX, <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_INT64, int64_t, INT64_MAX, <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_UINT8, uint8_t, UINT8_MAX, <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_UINT16, uint16_t, UINT16_MAX, <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_UINT32, uint32_t, UINT32_MAX, <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_UINT64, uint64_t, UINT64_MAX, <)
+DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_FLOAT32, float, INFINITY,
+                                  _vec_min_f32, <)
+DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_FLOAT64, double, INFINITY,
+                                  _vec_min_f64, <)
+
 /* ── Dispatch tables ─────────────────────────────────────────────── */
 
 #define R(OP, TE) [TE] = _kern_##OP##_##TE
@@ -162,6 +198,22 @@ static const NumcReductionKernel _min_table[] = {
     R(min, NUMC_DTYPE_UINT8),   R(min, NUMC_DTYPE_UINT16),
     R(min, NUMC_DTYPE_UINT32),  R(min, NUMC_DTYPE_UINT64),
     R(min, NUMC_DTYPE_FLOAT32), R(min, NUMC_DTYPE_FLOAT64),
+};
+
+static const NumcReductionKernel _argmax_table[] = {
+    R(argmax, NUMC_DTYPE_INT8),    R(argmax, NUMC_DTYPE_INT16),
+    R(argmax, NUMC_DTYPE_INT32),   R(argmax, NUMC_DTYPE_INT64),
+    R(argmax, NUMC_DTYPE_UINT8),   R(argmax, NUMC_DTYPE_UINT16),
+    R(argmax, NUMC_DTYPE_UINT32),  R(argmax, NUMC_DTYPE_UINT64),
+    R(argmax, NUMC_DTYPE_FLOAT32), R(argmax, NUMC_DTYPE_FLOAT64),
+};
+
+static const NumcReductionKernel _argmin_table[] = {
+    R(argmin, NUMC_DTYPE_INT8),    R(argmin, NUMC_DTYPE_INT16),
+    R(argmin, NUMC_DTYPE_INT32),   R(argmin, NUMC_DTYPE_INT64),
+    R(argmin, NUMC_DTYPE_UINT8),   R(argmin, NUMC_DTYPE_UINT16),
+    R(argmin, NUMC_DTYPE_UINT32),  R(argmin, NUMC_DTYPE_UINT64),
+    R(argmin, NUMC_DTYPE_FLOAT32), R(argmin, NUMC_DTYPE_FLOAT64),
 };
 
 #undef R
@@ -439,5 +491,39 @@ int numc_min_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out) {
 
   /* Generic path: per-element reduction via ND iterator */
   _reduce_axis_op(a, ax, keepdim, out, _min_table);
+  return 0;
+}
+
+int numc_argmax(const NumcArray *a, NumcArray *out) {
+  int err = _check_argreduce_full(a, out);
+  if (err)
+    return err;
+  _reduce_full_op(a, out, _argmax_table);
+  return 0;
+}
+
+int numc_argmax_axis(const NumcArray *a, int axis, int keepdim,
+                     NumcArray *out) {
+  int err = _check_argreduce_axis(a, axis, keepdim, out);
+  if (err)
+    return err;
+  _reduce_axis_op(a, (size_t)axis, keepdim, out, _argmax_table);
+  return 0;
+}
+
+int numc_argmin(const NumcArray *a, NumcArray *out) {
+  int err = _check_argreduce_full(a, out);
+  if (err)
+    return err;
+  _reduce_full_op(a, out, _argmin_table);
+  return 0;
+}
+
+int numc_argmin_axis(const NumcArray *a, int axis, int keepdim,
+                     NumcArray *out) {
+  int err = _check_argreduce_axis(a, axis, keepdim, out);
+  if (err)
+    return err;
+  _reduce_axis_op(a, (size_t)axis, keepdim, out, _argmin_table);
   return 0;
 }

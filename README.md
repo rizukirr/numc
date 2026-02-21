@@ -60,9 +60,9 @@ In-place variants (`_inplace` suffix) for optimizer weight updates:
 
 - [x] `array_sum(a)` / `array_sum_axis(a, axis, keepdim)`
 - [x] `array_mean(a)` / `array_mean_axis(a, axis, keepdim)`
-- [ ] `array_max(a)` / `array_max_axis(a, axis, keepdim)`
-- [ ] `array_min(a)` / `array_min_axis(a, axis, keepdim)`
-- [ ] `array_argmax(a, axis)` / `array_argmin(a, axis)`
+- [x] `array_max(a)` / `array_max_axis(a, axis, keepdim)`
+- [x] `array_min(a)` / `array_min_axis(a, axis, keepdim)`
+- [x] `array_argmax(a, axis)` / `array_argmin(a, axis)`
 
 ### 5. Broadcasting
 
@@ -114,6 +114,12 @@ Seedable PRNG, randn (Box-Muller), rand. Needed for weight initialization.
 ### Phase 7 — Performance
 `-O3 -march=native` auto-vectorization. OpenMP for element-wise ops.
 Tiled matmul or BLAS backend for large matrices.
+
+---
+
+## Documentation
+
+Full API reference is available on the [wiki](https://github.com/rizukirr/numc/wiki).
 
 ---
 

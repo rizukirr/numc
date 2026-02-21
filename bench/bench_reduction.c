@@ -1,7 +1,7 @@
 /*
  * bench_reduction.c — Reduction operation benchmark
  *
- * Tests: sum, mean, max, min (full + axis=0 + axis=1)
+ * Tests: sum, mean, max, min, argmax, argmin (full + axis=0 + axis=1)
  * Varies: dtype (all 10), array size (100-1M)
  * Reports: avg time (us), throughput (Mops/s)
  */
@@ -171,6 +171,90 @@ static void bench_axis(const char *name, ReduceAxisFn fn, int axis, size_t rows,
   }
 }
 
+/* ── Benchmark: arg-reduction (output is INT64) ───────────────────── */
+
+static void bench_full_arg(const char *name, ReduceFullFn fn, size_t size) {
+  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("  %s (full reduction)  (%zu elements, %d iters)\n", name, size,
+         ITERS);
+  printf("\n  %-8s %10s %10s\n", "dtype", "time (us)", "Mop/s");
+  printf("  ────────────────────────────────\n");
+
+  for (int d = 0; d < N_DTYPES; d++) {
+    NumcDType dt = ALL_DTYPES[d];
+    NumcCtx *ctx = numc_ctx_create();
+    size_t shape[] = {size};
+    char val[8];
+    fill_value(dt, val);
+
+    NumcArray *a = numc_array_fill(ctx, shape, 1, dt, val);
+    size_t sshape[] = {1};
+    NumcArray *out = numc_array_zeros(ctx, sshape, 1, NUMC_DTYPE_INT64);
+    if (!a || !out) {
+      fprintf(stderr, "  alloc failed for %s\n", dtype_name(dt));
+      numc_ctx_free(ctx);
+      continue;
+    }
+
+    for (int i = 0; i < WARMUP; i++)
+      fn(a, out);
+
+    double t0 = time_us();
+    for (int i = 0; i < ITERS; i++)
+      fn(a, out);
+    double t1 = time_us();
+
+    double us = (t1 - t0) / ITERS;
+    double mops = size / us;
+
+    printf("  %-8s %10.2f %10.1f\n", dtype_name(dt), us, mops);
+    numc_ctx_free(ctx);
+  }
+}
+
+static void bench_axis_arg(const char *name, ReduceAxisFn fn, int axis,
+                           size_t rows, size_t cols) {
+  size_t total = rows * cols;
+  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("  %s AXIS=%d  (%zux%zu = %zu elements, %d iters)\n", name, axis,
+         rows, cols, total, ITERS);
+  printf("\n  %-8s %10s %10s\n", "dtype", "time (us)", "Mop/s");
+  printf("  ────────────────────────────────\n");
+
+  for (int d = 0; d < N_DTYPES; d++) {
+    NumcDType dt = ALL_DTYPES[d];
+    NumcCtx *ctx = numc_ctx_create();
+    size_t shape[] = {rows, cols};
+    char val[8];
+    fill_value(dt, val);
+
+    NumcArray *a = numc_array_fill(ctx, shape, 2, dt, val);
+    size_t oshape[] = {axis == 0 ? cols : rows};
+    NumcArray *out = numc_array_zeros(ctx, oshape, 1, NUMC_DTYPE_INT64);
+    if (!a || !out) {
+      fprintf(stderr, "  alloc failed for %s\n", dtype_name(dt));
+      numc_ctx_free(ctx);
+      continue;
+    }
+
+    for (int i = 0; i < WARMUP; i++)
+      fn(a, axis, 0, out);
+
+    double t0 = time_us();
+    for (int i = 0; i < ITERS; i++)
+      fn(a, axis, 0, out);
+    double t1 = time_us();
+
+    double us = (t1 - t0) / ITERS;
+    double mops = total / us;
+
+    printf("  %-8s %10.2f %10.1f\n", dtype_name(dt), us, mops);
+    numc_ctx_free(ctx);
+  }
+}
+
 /* ── Benchmark: size scaling (float32 full sum) ────────────────────── */
 
 static void bench_scaling(void) {
@@ -250,6 +334,16 @@ int main(void) {
   bench_full("MIN", numc_min, 1000000);
   bench_axis("MIN", numc_min_axis, 0, 1000, 1000);
   bench_axis("MIN", numc_min_axis, 1, 1000, 1000);
+
+  /* Argmax */
+  bench_full_arg("ARGMAX", numc_argmax, 1000000);
+  bench_axis_arg("ARGMAX", numc_argmax_axis, 0, 1000, 1000);
+  bench_axis_arg("ARGMAX", numc_argmax_axis, 1, 1000, 1000);
+
+  /* Argmin */
+  bench_full_arg("ARGMIN", numc_argmin, 1000000);
+  bench_axis_arg("ARGMIN", numc_argmin_axis, 0, 1000, 1000);
+  bench_axis_arg("ARGMIN", numc_argmin_axis, 1, 1000, 1000);
 
   /* Size scaling */
   bench_scaling();
