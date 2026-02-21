@@ -18,6 +18,7 @@ numc_demo(demo_log             elemwise/demo_log.c)
 numc_demo(demo_exp             elemwise/demo_exp.c)
 numc_demo(demo_clip            elemwise/demo_clip.c)
 numc_demo(demo_maximum_minimum elemwise/demo_maximum_minimum.c)
+numc_demo(demo_broadcast       elemwise/demo_broadcast.c)
 
 # ── reduction ─────────────────────────────────────────────────────────────────
 numc_demo(demo_sum             reduction/demo_sum.c)

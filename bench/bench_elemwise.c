@@ -173,6 +173,73 @@ static void bench_strided(NumcCtx *ctx, size_t rows, size_t cols) {
   }
 }
 
+/* ── Benchmark: broadcast patterns ─────────────────────────────────── */
+
+static void bench_bcast_pattern(NumcCtx *ctx, const size_t *sa, size_t na,
+                                const size_t *sb, size_t nb, const size_t *so,
+                                size_t no, size_t total) {
+  ElemwiseOp ops[] = {numc_add, numc_sub, numc_mul, numc_div};
+  NumcDType dtypes[] = {NUMC_DTYPE_INT32, NUMC_DTYPE_FLOAT32, NUMC_DTYPE_FLOAT64};
+
+  for (int d = 0; d < 3; d++) {
+    NumcDType dt = dtypes[d];
+    char val[8];
+    fill_value(dt, val);
+    NumcArray *a   = numc_array_fill(ctx, sa, na, dt, val);
+    NumcArray *b   = numc_array_fill(ctx, sb, nb, dt, val);
+    NumcArray *out = numc_array_zeros(ctx, so, no, dt);
+    if (!a || !b || !out) continue;
+
+    double us[4], mops[4];
+    for (int op = 0; op < 4; op++) {
+      us[op]   = bench(ops[op], a, b, out, ITERS);
+      mops[op] = total / us[op];
+    }
+
+    printf("  %-8s %8.2f %8.2f %8.2f %8.2f   %8.1f %8.1f %8.1f %8.1f\n",
+           dtype_name(dt),
+           us[0], us[1], us[2], us[3],
+           mops[0], mops[1], mops[2], mops[3]);
+  }
+}
+
+static void bench_broadcast(NumcCtx *ctx, size_t M, size_t N) {
+  size_t total = M * N;
+
+  /* Row broadcast: (1,N) + (M,N) → (M,N) */
+  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("  BROADCAST ROW  (1,%zu) + (%zu,%zu) -> (%zu,%zu), %d iters\n",
+         N, M, N, M, N, ITERS);
+  print_header("dtype");
+  {
+    size_t sa[] = {1, N}, sb[] = {M, N}, so[] = {M, N};
+    bench_bcast_pattern(ctx, sa, 2, sb, 2, so, 2, total);
+  }
+
+  /* Outer broadcast: (M,1) + (1,N) → (M,N) */
+  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("  BROADCAST OUTER  (%zu,1) + (1,%zu) -> (%zu,%zu), %d iters\n",
+         M, N, M, N, ITERS);
+  print_header("dtype");
+  {
+    size_t sa[] = {M, 1}, sb[] = {1, N}, so[] = {M, N};
+    bench_bcast_pattern(ctx, sa, 2, sb, 2, so, 2, total);
+  }
+
+  /* Rank broadcast: (N,) + (M,N) → (M,N) */
+  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("  BROADCAST RANK  (%zu,) + (%zu,%zu) -> (%zu,%zu), %d iters\n",
+         N, M, N, M, N, ITERS);
+  print_header("dtype");
+  {
+    size_t sa[] = {N}, sb[] = {M, N}, so[] = {M, N};
+    bench_bcast_pattern(ctx, sa, 1, sb, 2, so, 2, total);
+  }
+}
+
 /* ── Benchmark: scaling across sizes ───────────────────────────────── */
 
 static void bench_scaling(NumcCtx *ctx) {
@@ -233,7 +300,12 @@ int main(void) {
   bench_strided(ctx, 1000, 1000);
   numc_ctx_free(ctx);
 
-  /* 3. Size scaling */
+  /* 3. Broadcast */
+  ctx = numc_ctx_create();
+  bench_broadcast(ctx, 1000, 1000);
+  numc_ctx_free(ctx);
+
+  /* 4. Size scaling */
   ctx = numc_ctx_create();
   bench_scaling(ctx);
   numc_ctx_free(ctx);

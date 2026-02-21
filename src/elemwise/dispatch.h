@@ -137,26 +137,47 @@ static inline int _check_binary(const struct NumcArray *a,
                                 const struct NumcArray *b,
                                 const struct NumcArray *out) {
   if (!a || !b || !out) {
-    NUMC_SET_ERROR(NUMC_ERR_NULL, "binary op: NULL pointer (a=%p b=%p out=%p)", a, b, out);
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "binary op: NULL pointer (a=%p b=%p out=%p)",
+                   a, b, out);
     return NUMC_ERR_NULL;
   }
   if (a->dtype != b->dtype || a->dtype != out->dtype) {
     NUMC_SET_ERROR(NUMC_ERR_TYPE,
-                   "binary op: dtype mismatch (a=%d b=%d out=%d)",
-                   a->dtype, b->dtype, out->dtype);
+                   "binary op: dtype mismatch (a=%d b=%d out=%d)", a->dtype,
+                   b->dtype, out->dtype);
     return NUMC_ERR_TYPE;
   }
-  if (a->dim != b->dim || a->dim != out->dim) {
-    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
-                   "binary op: ndim mismatch (a.dim=%zu b.dim=%zu out.dim=%zu)",
-                   a->dim, b->dim, out->dim);
+
+  size_t bcast_ndim = a->dim > b->dim ? a->dim : b->dim;
+  if (out->dim != bcast_ndim) {
+    NUMC_SET_ERROR(
+        NUMC_ERR_SHAPE,
+        "binary op: output ndim mismatch (expected %zu, got %zu)",
+        bcast_ndim, out->dim);
     return NUMC_ERR_SHAPE;
   }
-  for (size_t d = 0; d < a->dim; d++) {
-    if (a->shape[d] != b->shape[d] || a->shape[d] != out->shape[d]) {
+
+  size_t a_off = bcast_ndim - a->dim;
+  size_t b_off = bcast_ndim - b->dim;
+
+  for (size_t i = 0; i < bcast_ndim; i++) {
+    size_t da = (i < a_off) ? 1 : a->shape[i - a_off];
+    size_t db = (i < b_off) ? 1 : b->shape[i - b_off];
+
+    if (da != db && da != 1 && db != 1) {
+      NUMC_SET_ERROR(
+          NUMC_ERR_SHAPE,
+          "binary op: incompatible broadcast shapes at dim %zu (a=%zu b=%zu)",
+          i, da, db);
+      return NUMC_ERR_SHAPE;
+    }
+
+    size_t expected = da > db ? da : db;
+    if (out->shape[i] != expected) {
       NUMC_SET_ERROR(NUMC_ERR_SHAPE,
-                     "binary op: shape mismatch at dim %zu (a=%zu b=%zu out=%zu)",
-                     d, a->shape[d], b->shape[d], out->shape[d]);
+                     "binary op: output shape mismatch at dim %zu "
+                     "(expected %zu, got %zu)",
+                     i, expected, out->shape[i]);
       return NUMC_ERR_SHAPE;
     }
   }
@@ -194,18 +215,52 @@ static inline void _binary_op(const struct NumcArray *a,
   NumcBinaryKernel kern = table[a->dtype];
   intptr_t es = (intptr_t)a->elem_size;
 
-  if (a->is_contiguous && b->is_contiguous && out->is_contiguous) {
-    /* All contiguous: single flat kernel call — fastest path */
-    kern((const char *)a->data, (const char *)b->data, (char *)out->data,
-         a->size, es, es, es);
+  /* Check if broadcasting is needed */
+  bool needs_broadcast = (a->dim != b->dim);
+  if (!needs_broadcast) {
+    for (size_t i = 0; i < a->dim; i++) {
+      if (a->shape[i] != b->shape[i]) {
+        needs_broadcast = true;
+        break;
+      }
+    }
+  }
+
+  if (!needs_broadcast) {
+    /* Same shapes — original fast paths */
+    if (a->is_contiguous && b->is_contiguous && out->is_contiguous) {
+      kern((const char *)a->data, (const char *)b->data, (char *)out->data,
+           a->size, es, es, es);
+    } else {
+      size_t ps[NUMC_MAX_DIMENSIONS], pa[NUMC_MAX_DIMENSIONS],
+          pb[NUMC_MAX_DIMENSIONS], po[NUMC_MAX_DIMENSIONS];
+      _sort_axes_binary(a->dim, a->shape, a->strides, b->strides, out->strides,
+                        ps, pa, pb, po);
+      _elemwise_binary_nd(kern, (const char *)a->data, pa,
+                          (const char *)b->data, pb, (char *)out->data, po, ps,
+                          a->dim);
+    }
   } else {
-    /* Sort axes: smallest-stride dim innermost for cache locality */
+    /* Broadcast path: compute virtual strides (stride=0 where dim==1) */
+    size_t bcast_ndim = a->dim > b->dim ? a->dim : b->dim;
+    size_t a_off = bcast_ndim - a->dim;
+    size_t b_off = bcast_ndim - b->dim;
+    size_t va[NUMC_MAX_DIMENSIONS], vb[NUMC_MAX_DIMENSIONS];
+
+    for (size_t i = 0; i < bcast_ndim; i++) {
+      size_t da = (i < a_off) ? 1 : a->shape[i - a_off];
+      size_t db = (i < b_off) ? 1 : b->shape[i - b_off];
+      va[i] = (i >= a_off && da > 1) ? a->strides[i - a_off] : 0;
+      vb[i] = (i >= b_off && db > 1) ? b->strides[i - b_off] : 0;
+    }
+
     size_t ps[NUMC_MAX_DIMENSIONS], pa[NUMC_MAX_DIMENSIONS],
         pb[NUMC_MAX_DIMENSIONS], po[NUMC_MAX_DIMENSIONS];
-    _sort_axes_binary(a->dim, a->shape, a->strides, b->strides, out->strides,
-                      ps, pa, pb, po);
-    _elemwise_binary_nd(kern, (const char *)a->data, pa, (const char *)b->data,
-                        pb, (char *)out->data, po, ps, a->dim);
+    _sort_axes_binary(bcast_ndim, out->shape, va, vb, out->strides, ps, pa, pb,
+                      po);
+    _elemwise_binary_nd(kern, (const char *)a->data, pa,
+                        (const char *)b->data, pb, (char *)out->data, po, ps,
+                        bcast_ndim);
   }
 }
 

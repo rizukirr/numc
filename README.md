@@ -66,10 +66,10 @@ In-place variants (`_inplace` suffix) for optimizer weight updates:
 
 ### 5. Broadcasting
 
-- [ ] Shape compatibility check
-- [ ] Broadcast shape computation
-- [ ] Virtual expansion (stride=0 for broadcast dims)
-- [ ] Works with all binary ops
+- [x] Shape compatibility check
+- [x] Broadcast shape computation
+- [x] Virtual expansion (stride=0 for broadcast dims)
+- [x] Works with all binary ops (add, sub, mul, div, pow, maximum, minimum)
 
 ### 6. Matrix Operations
 
@@ -98,9 +98,9 @@ Create, zeros, fill, clone, free, print, reshape, transpose, slice, contiguous.
 add, sub, mul, div, neg, exp, log, sqrt, abs, pow, maximum, minimum, clamp.
 Scalar variants. In-place variants.
 
-### Phase 3 — Reductions + broadcasting (On progress)
-sum, mean, max, min, argmax (full + axis + keepdim).
-Broadcasting for all binary ops.
+### Phase 3 — Reductions + broadcasting ✓
+sum, mean, max, min, argmax, argmin (full + axis + keepdim).
+NumPy-style broadcasting for all binary ops.
 
 ### Phase 4 — Matrix multiplication
 Naive matmul first. BLAS (`cblas_sgemm`) later for performance.

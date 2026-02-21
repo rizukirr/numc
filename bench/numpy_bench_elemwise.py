@@ -115,6 +115,49 @@ def bench_strided(rows, cols):
         print_row(name, us, mops)
 
 
+# ── Benchmark: broadcast patterns ─────────────────────────────────────
+
+def bench_bcast_pattern(a_shape, b_shape, out_shape, total):
+    ops = [np.add, np.subtract, np.multiply, np.divide]
+    dtypes = [
+        ("int32",   np.int32),
+        ("float32", np.float32),
+        ("float64", np.float64),
+    ]
+
+    for name, dt in dtypes:
+        v   = FILL_VALUES[dt]
+        a   = np.full(a_shape, v, dtype=dt)
+        b   = np.full(b_shape, v, dtype=dt)
+        out = np.empty(out_shape, dtype=dt)
+
+        us   = [time_binary(op, a, b, out) for op in ops]
+        mops = [total / u for u in us]
+        print_row(name, us, mops)
+
+
+def bench_broadcast(M, N):
+    total = M * N
+
+    # Row broadcast: (1,N) + (M,N) → (M,N)
+    print(f"\n{'━' * 82}")
+    print(f"  BROADCAST ROW  (1,{N}) + ({M},{N}) -> ({M},{N}), {ITERS} iters")
+    print_header("dtype")
+    bench_bcast_pattern((1, N), (M, N), (M, N), total)
+
+    # Outer broadcast: (M,1) + (1,N) → (M,N)
+    print(f"\n{'━' * 82}")
+    print(f"  BROADCAST OUTER  ({M},1) + (1,{N}) -> ({M},{N}), {ITERS} iters")
+    print_header("dtype")
+    bench_bcast_pattern((M, 1), (1, N), (M, N), total)
+
+    # Rank broadcast: (N,) + (M,N) → (M,N)
+    print(f"\n{'━' * 82}")
+    print(f"  BROADCAST RANK  ({N},) + ({M},{N}) -> ({M},{N}), {ITERS} iters")
+    print_header("dtype")
+    bench_bcast_pattern((N,), (M, N), (M, N), total)
+
+
 # ── Benchmark: scaling across sizes ───────────────────────────────────
 
 def bench_scaling():
@@ -145,6 +188,7 @@ def main():
 
     bench_contiguous(1_000_000)
     bench_strided(1000, 1000)
+    bench_broadcast(1000, 1000)
     bench_scaling()
 
     print()

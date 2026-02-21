@@ -34,6 +34,7 @@ numc_test(test_exp              elemwise/test_exp.c)
 numc_test(test_sqrt             elemwise/test_sqrt.c)
 numc_test(test_pow              elemwise/test_pow.c)
 numc_test(test_clip             elemwise/test_clip.c)
+numc_test(test_broadcast        elemwise/test_broadcast.c)
 
 # ── reduction ────────────────────────────────────────────────────────────────
 numc_test(test_sum              reduction/test_sum.c)
