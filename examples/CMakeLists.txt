@@ -22,3 +22,4 @@ numc_demo(demo_maximum_minimum elemwise/demo_maximum_minimum.c)
 # ── reduction ─────────────────────────────────────────────────────────────────
 numc_demo(demo_sum             reduction/demo_sum.c)
 numc_demo(demo_mean            reduction/demo_mean.c)
+numc_demo(demo_max_min         reduction/demo_max_min.c)

@@ -1,5 +1,5 @@
 """
-NumPy reduction (sum) benchmark — mirrors bench_reduction.c output format.
+NumPy reduction benchmark — mirrors bench_reduction.c output format.
 
 Usage:
     python bench/numpy_bench_reduction.py
@@ -35,54 +35,40 @@ def bench(fn, iters=ITERS):
     return (t1 - t0) / iters * 1e6
 
 
-# ── Benchmark: full sum — all dtypes ──────────────────────────────────
+# ── Benchmark: full reduction — all dtypes ─────────────────────────────
 
-def bench_sum_full(size):
-    print(f"{'━' * 82}")
-    print(f"  SUM (full reduction)  ({size} elements, {ITERS} iters)")
+def bench_full(op, size):
+    label = op.upper()
+    print(f"\n{'━' * 82}")
+    print(f"  {label} (full reduction)  ({size} elements, {ITERS} iters)")
     print(f"\n  {'dtype':<8s} {'time (us)':>10s} {'Mop/s':>10s}")
     print(f"  {'─' * 32}")
 
     for name, dt in ALL_DTYPES:
         a = np.ones(size, dtype=dt)
+        method = getattr(a, op)
 
-        us   = bench(lambda: a.sum())
+        us   = bench(method)
         mops = size / us
 
         print(f"  {name:<8s} {us:10.2f} {mops:10.1f}")
 
 
-# ── Benchmark: sum axis=0 on 2D array ─────────────────────────────────
+# ── Benchmark: axis reduction on 2D array ──────────────────────────────
 
-def bench_sum_axis0(rows, cols):
+def bench_axis(op, axis, rows, cols):
     total = rows * cols
+    label = op.upper()
     print(f"\n{'━' * 82}")
-    print(f"  SUM AXIS=0  ({rows}x{cols} = {total} elements, {ITERS} iters)")
+    print(f"  {label} AXIS={axis}  ({rows}x{cols} = {total} elements, {ITERS} iters)")
     print(f"\n  {'dtype':<8s} {'time (us)':>10s} {'Mop/s':>10s}")
     print(f"  {'─' * 32}")
 
     for name, dt in ALL_DTYPES:
         a = np.ones((rows, cols), dtype=dt)
+        method = getattr(a, op)
 
-        us   = bench(lambda: a.sum(axis=0))
-        mops = total / us
-
-        print(f"  {name:<8s} {us:10.2f} {mops:10.1f}")
-
-
-# ── Benchmark: sum axis=1 on 2D array ─────────────────────────────────
-
-def bench_sum_axis_last(rows, cols):
-    total = rows * cols
-    print(f"\n{'━' * 82}")
-    print(f"  SUM AXIS=1  ({rows}x{cols} = {total} elements, {ITERS} iters)")
-    print(f"\n  {'dtype':<8s} {'time (us)':>10s} {'Mop/s':>10s}")
-    print(f"  {'─' * 32}")
-
-    for name, dt in ALL_DTYPES:
-        a = np.ones((rows, cols), dtype=dt)
-
-        us   = bench(lambda: a.sum(axis=1))
+        us   = bench(lambda: method(axis=axis))
         mops = total / us
 
         print(f"  {name:<8s} {us:10.2f} {mops:10.1f}")
@@ -112,11 +98,13 @@ def bench_scaling():
 
 def main():
     print(f"\n  numpy reduction benchmark")
-    print(f"  numpy {np.__version__}\n")
+    print(f"  numpy {np.__version__}")
 
-    bench_sum_full(1_000_000)
-    bench_sum_axis0(1000, 1000)
-    bench_sum_axis_last(1000, 1000)
+    for op in ("sum", "mean", "max", "min"):
+        bench_full(op, 1_000_000)
+        bench_axis(op, 0, 1000, 1000)
+        bench_axis(op, 1, 1000, 1000)
+
     bench_scaling()
 
     print()

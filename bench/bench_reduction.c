@@ -1,8 +1,8 @@
 /*
  * bench_reduction.c — Reduction operation benchmark
  *
- * Tests: sum (full), sum_axis (axis=0, axis=-1)
- * Varies: dtype (all 10), array size (100–1M)
+ * Tests: sum, mean, max, min (full + axis=0 + axis=1)
+ * Varies: dtype (all 10), array size (100-1M)
  * Reports: avg time (us), throughput (Mops/s)
  */
 
@@ -81,12 +81,17 @@ static const NumcDType ALL_DTYPES[] = {
 };
 static const int N_DTYPES = sizeof(ALL_DTYPES) / sizeof(ALL_DTYPES[0]);
 
-/* ── Benchmark: full sum — all dtypes ──────────────────────────────── */
+/* ── Function pointer types ───────────────────────────────────────── */
 
-static void bench_sum_full(size_t size) {
-  printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+typedef int (*ReduceFullFn)(const NumcArray *, NumcArray *);
+typedef int (*ReduceAxisFn)(const NumcArray *, int, int, NumcArray *);
+
+/* ── Benchmark: full reduction — all dtypes ───────────────────────── */
+
+static void bench_full(const char *name, ReduceFullFn fn, size_t size) {
+  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-  printf("  SUM (full reduction)  (%zu elements, %d iters)\n", size, ITERS);
+  printf("  %s (full reduction)  (%zu elements, %d iters)\n", name, size, ITERS);
   printf("\n  %-8s %10s %10s\n", "dtype", "time (us)", "Mop/s");
   printf("  ────────────────────────────────\n");
 
@@ -106,13 +111,12 @@ static void bench_sum_full(size_t size) {
       continue;
     }
 
-    /* Warmup */
     for (int i = 0; i < WARMUP; i++)
-      numc_sum(a, out);
+      fn(a, out);
 
     double t0 = time_us();
     for (int i = 0; i < ITERS; i++)
-      numc_sum(a, out);
+      fn(a, out);
     double t1 = time_us();
 
     double us = (t1 - t0) / ITERS;
@@ -123,14 +127,15 @@ static void bench_sum_full(size_t size) {
   }
 }
 
-/* ── Benchmark: sum axis=0 on 2D array ─────────────────────────────── */
+/* ── Benchmark: axis reduction on 2D array ────────────────────────── */
 
-static void bench_sum_axis0(size_t rows, size_t cols) {
+static void bench_axis(const char *name, ReduceAxisFn fn, int axis, size_t rows,
+                       size_t cols) {
   size_t total = rows * cols;
   printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-  printf("  SUM AXIS=0  (%zux%zu = %zu elements, %d iters)\n", rows, cols, total,
-         ITERS);
+  printf("  %s AXIS=%d  (%zux%zu = %zu elements, %d iters)\n", name, axis, rows,
+         cols, total, ITERS);
   printf("\n  %-8s %10s %10s\n", "dtype", "time (us)", "Mop/s");
   printf("  ────────────────────────────────\n");
 
@@ -142,7 +147,7 @@ static void bench_sum_axis0(size_t rows, size_t cols) {
     fill_value(dt, val);
 
     NumcArray *a = numc_array_fill(ctx, shape, 2, dt, val);
-    size_t oshape[] = {cols};
+    size_t oshape[] = {axis == 0 ? cols : rows};
     NumcArray *out = numc_array_zeros(ctx, oshape, 1, dt);
     if (!a || !out) {
       fprintf(stderr, "  alloc failed for %s\n", dtype_name(dt));
@@ -151,54 +156,11 @@ static void bench_sum_axis0(size_t rows, size_t cols) {
     }
 
     for (int i = 0; i < WARMUP; i++)
-      numc_sum_axis(a, 0, 0, out);
+      fn(a, axis, 0, out);
 
     double t0 = time_us();
     for (int i = 0; i < ITERS; i++)
-      numc_sum_axis(a, 0, 0, out);
-    double t1 = time_us();
-
-    double us = (t1 - t0) / ITERS;
-    double mops = total / us;
-
-    printf("  %-8s %10.2f %10.1f\n", dtype_name(dt), us, mops);
-    numc_ctx_free(ctx);
-  }
-}
-
-/* ── Benchmark: sum axis=-1 (last) on 2D array ────────────────────── */
-
-static void bench_sum_axis_last(size_t rows, size_t cols) {
-  size_t total = rows * cols;
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-  printf("  SUM AXIS=1  (%zux%zu = %zu elements, %d iters)\n", rows, cols, total,
-         ITERS);
-  printf("\n  %-8s %10s %10s\n", "dtype", "time (us)", "Mop/s");
-  printf("  ────────────────────────────────\n");
-
-  for (int d = 0; d < N_DTYPES; d++) {
-    NumcDType dt = ALL_DTYPES[d];
-    NumcCtx *ctx = numc_ctx_create();
-    size_t shape[] = {rows, cols};
-    char val[8];
-    fill_value(dt, val);
-
-    NumcArray *a = numc_array_fill(ctx, shape, 2, dt, val);
-    size_t oshape[] = {rows};
-    NumcArray *out = numc_array_zeros(ctx, oshape, 1, dt);
-    if (!a || !out) {
-      fprintf(stderr, "  alloc failed for %s\n", dtype_name(dt));
-      numc_ctx_free(ctx);
-      continue;
-    }
-
-    for (int i = 0; i < WARMUP; i++)
-      numc_sum_axis(a, 1, 0, out);
-
-    double t0 = time_us();
-    for (int i = 0; i < ITERS; i++)
-      numc_sum_axis(a, 1, 0, out);
+      fn(a, axis, 0, out);
     double t1 = time_us();
 
     double us = (t1 - t0) / ITERS;
@@ -267,18 +229,29 @@ int main(void) {
 #ifdef _OPENMP
          " | OpenMP"
 #endif
-         "\n\n");
+         "\n");
 
-  /* 1. Full sum — all dtypes, 1M elements */
-  bench_sum_full(1000000);
+  /* Sum */
+  bench_full("SUM", numc_sum, 1000000);
+  bench_axis("SUM", numc_sum_axis, 0, 1000, 1000);
+  bench_axis("SUM", numc_sum_axis, 1, 1000, 1000);
 
-  /* 2. Axis=0 reduction — 1000x1000 (reduce rows) */
-  bench_sum_axis0(1000, 1000);
+  /* Mean */
+  bench_full("MEAN", numc_mean, 1000000);
+  bench_axis("MEAN", numc_mean_axis, 0, 1000, 1000);
+  bench_axis("MEAN", numc_mean_axis, 1, 1000, 1000);
 
-  /* 3. Axis=1 reduction — 1000x1000 (reduce cols, contiguous inner dim) */
-  bench_sum_axis_last(1000, 1000);
+  /* Max */
+  bench_full("MAX", numc_max, 1000000);
+  bench_axis("MAX", numc_max_axis, 0, 1000, 1000);
+  bench_axis("MAX", numc_max_axis, 1, 1000, 1000);
 
-  /* 4. Size scaling */
+  /* Min */
+  bench_full("MIN", numc_min, 1000000);
+  bench_axis("MIN", numc_min_axis, 0, 1000, 1000);
+  bench_axis("MIN", numc_min_axis, 1, 1000, 1000);
+
+  /* Size scaling */
   bench_scaling();
 
   printf("\n");

@@ -3,7 +3,7 @@
 set -e
 
 CC="${CC:-clang}"
-CMAKE_OPTS="-DCMAKE_C_COMPILER=$CC"
+CMAKE_OPTS="-DCMAKE_C_COMPILER=$CC -DNUMC_ENABLE_ASAN=OFF"
 
 build() {
     local build_type=$1

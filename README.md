@@ -94,11 +94,11 @@ In-place variants (`_inplace` suffix) for optimizer weight updates:
 ### Phase 1 — Tensor core ✓
 Create, zeros, fill, clone, free, print, reshape, transpose, slice, contiguous.
 
-### Phase 2 — Element-wise math (in progress)
+### Phase 2 — Element-wise math ✓
 add, sub, mul, div, neg, exp, log, sqrt, abs, pow, maximum, minimum, clamp.
 Scalar variants. In-place variants.
 
-### Phase 3 — Reductions + broadcasting
+### Phase 3 — Reductions + broadcasting (On progress)
 sum, mean, max, min, argmax (full + axis + keepdim).
 Broadcasting for all binary ops.
 

@@ -1,10 +1,24 @@
 #ifndef NUMC_REDUCTION_DISPATCH_H
 #define NUMC_REDUCTION_DISPATCH_H
 
-#include "internal.h"
 #include "kernel.h"
 #include <numc/array.h>
 #include <numc/error.h>
+
+/* Check if the non-reduced dims of 'a' form a contiguous block.
+ * Walk from last dim backwards (skipping reduction axis), verify
+ * strides match C-order contiguous layout. */
+static inline bool _iter_contiguous(const struct NumcArray *a, size_t axis) {
+  size_t expected = a->elem_size;
+  for (size_t i = a->dim; i-- > 0;) {
+    if (i == axis)
+      continue;
+    if (a->strides[i] != expected)
+      return false;
+    expected *= a->shape[i];
+  }
+  return true;
+}
 
 /* ── ND iteration for axis reduction ──────────────────────────────
  *

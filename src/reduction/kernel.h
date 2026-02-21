@@ -1,8 +1,7 @@
 #ifndef NUMC_REDUCTION_KERNEL_H
 #define NUMC_REDUCTION_KERNEL_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include "internal.h"
 
 typedef void (*NumcReductionKernel)(const char *a, char *out, size_t n,
                                     intptr_t sa);
