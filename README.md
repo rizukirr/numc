@@ -58,8 +58,8 @@ In-place variants (`_inplace` suffix) for optimizer weight updates:
 
 ### 4. Reductions
 
-- [ ] `array_sum(a)` / `array_sum_axis(a, axis, keepdim)`
-- [ ] `array_mean(a)` / `array_mean_axis(a, axis, keepdim)`
+- [x] `array_sum(a)` / `array_sum_axis(a, axis, keepdim)`
+- [x] `array_mean(a)` / `array_mean_axis(a, axis, keepdim)`
 - [ ] `array_max(a)` / `array_max_axis(a, axis, keepdim)`
 - [ ] `array_min(a)` / `array_min_axis(a, axis, keepdim)`
 - [ ] `array_argmax(a, axis)` / `array_argmin(a, axis)`

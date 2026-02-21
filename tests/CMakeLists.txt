@@ -37,3 +37,4 @@ numc_test(test_clip             elemwise/test_clip.c)
 
 # ── reduction ────────────────────────────────────────────────────────────────
 numc_test(test_sum              reduction/test_sum.c)
+numc_test(test_mean             reduction/test_mean.c)

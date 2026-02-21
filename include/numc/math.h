@@ -58,4 +58,13 @@ int numc_minimum_inplace(NumcArray *a, const NumcArray *b);
 int numc_sum(const NumcArray *a, NumcArray *out);
 int numc_sum_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
 
+int numc_mean(const NumcArray *a, NumcArray *out);
+int numc_mean_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
+
+int numc_max(const NumcArray *a, NumcArray *out);
+int numc_max_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
+
+int numc_min(const NumcArray *a, NumcArray *out);
+int numc_min_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
+
 #endif
