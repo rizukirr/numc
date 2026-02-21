@@ -16,11 +16,9 @@ DEFINE_REDUCTION_KERNEL(sum, NUMC_DTYPE_UINT64, uint64_t, 0, acc + val, +)
 /* ── Sum reduction kernels (float types — pairwise summation) ─────── */
 
 DEFINE_FLOAT_REDUCTION_KERNEL(sum, NUMC_DTYPE_FLOAT32, float, 0,
-                              _pairwise_sum_f32, +, global += local,
-                              acc + val)
+                              _pairwise_sum_f32, +, global += local, acc + val)
 DEFINE_FLOAT_REDUCTION_KERNEL(sum, NUMC_DTYPE_FLOAT64, double, 0,
-                              _pairwise_sum_f64, +, global += local,
-                              acc + val)
+                              _pairwise_sum_f64, +, global += local, acc + val)
 
 /* ── Mean reduction kernels ──────────────────────────────────────────
  *
