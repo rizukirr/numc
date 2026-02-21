@@ -17,10 +17,10 @@ GENERATE_NUMC_TYPES(STAMP_NEG)
 GENERATE_SIGNED_INT8_INT16_INT32_NUMC_TYPES(STAMP_ABS)
 GENERATE_SIGNED_64BIT_NUMC_TYPES(STAMP_ABS)
 #undef STAMP_ABS
-DEFINE_UNARY_KERNEL(abs, NUMC_DTYPE_FLOAT32, float,
-                    (float)(in1 < 0.0f ? -in1 : in1))
-DEFINE_UNARY_KERNEL(abs, NUMC_DTYPE_FLOAT64, double,
-                    (double)(in1 < 0.0 ? -in1 : in1))
+DEFINE_UNARY_KERNEL(abs, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32,
+                    (NUMC_FLOAT32)(in1 < 0.0f ? -in1 : in1))
+DEFINE_UNARY_KERNEL(abs, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64,
+                    (NUMC_FLOAT64)(in1 < 0.0 ? -in1 : in1))
 
 /* ── Stamp out log loop kernels (stride-aware, wrapping scalar bit-manip) ── */
 
@@ -41,12 +41,12 @@ GENERATE_INT32(STAMP_LOG_I32)
   DEFINE_UNARY_KERNEL(log, TE, CT, (CT)_log_f64((double)in1))
 GENERATE_SIGNED_64BIT_NUMC_TYPES(STAMP_LOG_I64)
 #undef STAMP_LOG_I64
-DEFINE_UNARY_KERNEL(log, NUMC_DTYPE_UINT64, uint64_t,
-                    (uint64_t)_log_f64((double)in1))
+DEFINE_UNARY_KERNEL(log, NUMC_DTYPE_UINT64, NUMC_UINT64,
+                    (NUMC_UINT64)_log_f64((double)in1))
 
 /* float types: call their own bit-manipulation helpers directly */
-DEFINE_UNARY_KERNEL(log, NUMC_DTYPE_FLOAT32, float, _log_f32(in1))
-DEFINE_UNARY_KERNEL(log, NUMC_DTYPE_FLOAT64, double, _log_f64(in1))
+DEFINE_UNARY_KERNEL(log, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, _log_f32(in1))
+DEFINE_UNARY_KERNEL(log, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _log_f64(in1))
 
 /* ── Stamp out exp loop kernels ─────────────────────────────────────── */
 
@@ -69,12 +69,12 @@ GENERATE_SIGNED_64BIT_NUMC_TYPES(STAMP_EXP_I64)
 #undef STAMP_EXP_I64
 
 /* uint64: explicit — no X-macro covers just uint64 */
-DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_UINT64, uint64_t,
-                    (uint64_t)_exp_f64((double)in1))
+DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_UINT64, NUMC_UINT64,
+                    (NUMC_UINT64)_exp_f64((double)in1))
 
 /* float32/float64: call helpers directly */
-DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_FLOAT32, float, _exp_f32(in1))
-DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_FLOAT64, double, _exp_f64(in1))
+DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, _exp_f32(in1))
+DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _exp_f64(in1))
 
 /* ── Stamp unary sqrt loop typed kernels ─────────────────────────────────
  * float32: sqrtf -> hardware vsqrtps (auto-vectorized, -O3 -march=native)
@@ -85,37 +85,38 @@ DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_FLOAT64, double, _exp_f64(in1))
  */
 
 /* signed small: clamp negative to 0, cast through float32 */
-DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_INT8, int8_t,
-                    (int8_t)sqrtf((float)(in1 < 0 ? 0 : in1)))
-DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_INT16, int16_t,
-                    (int16_t)sqrtf((float)(in1 < 0 ? 0 : in1)))
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_INT8, NUMC_INT8,
+                    (NUMC_INT8)sqrtf((float)(in1 < 0 ? 0 : in1)))
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_INT16, NUMC_INT16,
+                    (NUMC_INT16)sqrtf((float)(in1 < 0 ? 0 : in1)))
 
 /* unsigned small: cast through float32 */
-DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_UINT8, uint8_t, (uint8_t)sqrtf((float)in1))
-DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_UINT16, uint16_t,
-                    (uint16_t)sqrtf((float)in1))
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_UINT8, NUMC_UINT8,
+                    (NUMC_UINT8)sqrtf((float)in1))
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_UINT16, NUMC_UINT16,
+                    (NUMC_UINT16)sqrtf((float)in1))
 
 /* int32: clamp, cast through float64 */
-DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_INT32, int32_t,
-                    (int32_t)sqrt((double)(in1 < 0 ? 0 : in1)))
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_INT32, NUMC_INT32,
+                    (NUMC_INT32)sqrt((double)(in1 < 0 ? 0 : in1)))
 
 /* uint32: cast through float64 */
-DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_UINT32, uint32_t,
-                    (uint32_t)sqrt((double)in1))
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_UINT32, NUMC_UINT32,
+                    (NUMC_UINT32)sqrt((double)in1))
 
 /* int64: clamp, cast through float64 */
-DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_INT64, int64_t,
-                    (int64_t)sqrt((double)(in1 < 0 ? 0 : in1)))
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_INT64, NUMC_INT64,
+                    (NUMC_INT64)sqrt((double)(in1 < 0 ? 0 : in1)))
 
 /* uint64: cast through float64 */
-DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_UINT64, uint64_t,
-                    (uint64_t)sqrt((double)in1))
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_UINT64, NUMC_UINT64,
+                    (NUMC_UINT64)sqrt((double)in1))
 
 /* float32: sqrtf -> hardware vsqrtps (auto-vectorized) */
-DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_FLOAT32, float, sqrtf(in1))
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, sqrtf(in1))
 
 /* float64: sqrt -> hardware vsqrtpd (auto-vectorized) */
-DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_FLOAT64, double, sqrt(in1))
+DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, sqrt(in1))
 
 /* ── Dispatch tables (dtype -> kernel) ─────────────────────────────── */
 

@@ -34,35 +34,35 @@ GENERATE_INT32(STAMP_DIV_I32)
 
 #define STAMP_DIV_NATIVE(TE, CT) DEFINE_BINARY_KERNEL(div, TE, CT, in1 / in2)
 GENERATE_64BIT_NUMC_TYPES(STAMP_DIV_NATIVE)
-DEFINE_BINARY_KERNEL(div, NUMC_DTYPE_FLOAT32, float, in1 / in2)
+DEFINE_BINARY_KERNEL(div, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, in1 / in2)
 #undef STAMP_DIV_NATIVE
 
 /* ── Stamp out pow loop kernels ──────────────────────────────────────── */
 
 /* 8/16-bit signed: branchless fixed-iteration (auto-vectorizes) */
-DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT8, int8_t, _powi_i8(in1, in2))
-DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT16, int16_t, _powi_i16(in1, in2))
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT8, NUMC_INT8, _powi_i8(in1, in2))
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT16, NUMC_INT16, _powi_i16(in1, in2))
 
 /* 8/16-bit unsigned: branchless fixed-iteration (auto-vectorizes) */
-DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT8, uint8_t, _powi_u8(in1, in2))
-DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT16, uint16_t, _powi_u16(in1, in2))
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT8, NUMC_UINT8, _powi_u8(in1, in2))
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT16, NUMC_UINT16, _powi_u16(in1, in2))
 
 /* 32/64-bit: variable-iteration early-exit (scalar, fast for small exp) */
-DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT32, int32_t,
-                     (int32_t)_powi_signed((int64_t)in1, (int64_t)in2))
-DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT32, uint32_t,
-                     (uint32_t)_powi_unsigned((uint64_t)in1, (uint64_t)in2))
-DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT64, int64_t,
-                     (int64_t)_powi_signed((int64_t)in1, (int64_t)in2))
-DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT64, uint64_t,
-                     (uint64_t)_powi_unsigned((uint64_t)in1, (uint64_t)in2))
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT32, NUMC_INT32,
+                     (NUMC_INT32)_powi_signed((NUMC_INT64)in1, (NUMC_INT64)in2))
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT32, NUMC_UINT32,
+                     (NUMC_UINT32)_powi_unsigned((NUMC_UINT64)in1, (NUMC_UINT64)in2))
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT64, NUMC_INT64,
+                     (NUMC_INT64)_powi_signed((NUMC_INT64)in1, (NUMC_INT64)in2))
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT64, NUMC_UINT64,
+                     (NUMC_UINT64)_powi_unsigned((NUMC_UINT64)in1, (NUMC_UINT64)in2))
 
 /* float32: fused exp(in2 * log(in1)), single-precision */
-DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_FLOAT32, float,
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32,
                      _exp_f32(in2 *_log_f32(in1)))
 
 /* float64: fused exp(in2 * log(in1)), double-precision */
-DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_FLOAT64, double,
+DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64,
                      _exp_f64(in2 *_log_f64(in1)))
 
 /* ── Stamp out maximum and minimum ──────────────────────────────────────*/

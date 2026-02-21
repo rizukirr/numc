@@ -9,15 +9,15 @@
 #define STAMP_SUM(TE, CT) DEFINE_REDUCTION_KERNEL(sum, TE, CT, 0, acc + val, +)
 GENERATE_INT8_INT16_NUMC_TYPES(STAMP_SUM)
 GENERATE_INT32(STAMP_SUM)
-DEFINE_REDUCTION_KERNEL(sum, NUMC_DTYPE_INT64, int64_t, 0, acc + val, +)
-DEFINE_REDUCTION_KERNEL(sum, NUMC_DTYPE_UINT64, uint64_t, 0, acc + val, +)
+DEFINE_REDUCTION_KERNEL(sum, NUMC_DTYPE_INT64, NUMC_INT64, 0, acc + val, +)
+DEFINE_REDUCTION_KERNEL(sum, NUMC_DTYPE_UINT64, NUMC_UINT64, 0, acc + val, +)
 #undef STAMP_SUM
 
 /* ── Sum reduction kernels (float types — pairwise summation) ─────── */
 
-DEFINE_FLOAT_REDUCTION_KERNEL(sum, NUMC_DTYPE_FLOAT32, float, 0,
+DEFINE_FLOAT_REDUCTION_KERNEL(sum, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, 0,
                               _pairwise_sum_f32, +, global += local, acc + val)
-DEFINE_FLOAT_REDUCTION_KERNEL(sum, NUMC_DTYPE_FLOAT64, double, 0,
+DEFINE_FLOAT_REDUCTION_KERNEL(sum, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, 0,
                               _pairwise_sum_f64, +, global += local, acc + val)
 
 /* ── Mean reduction kernels ──────────────────────────────────────────
@@ -46,8 +46,8 @@ GENERATE_INT8_INT16_NUMC_TYPES(STAMP_MEAN_SMALL)
       *(CT *)out = (CT)((double)*(CT *)out / (double)n);                       \
   }
 GENERATE_INT32(STAMP_MEAN_DBL)
-STAMP_MEAN_DBL(NUMC_DTYPE_INT64, int64_t)
-STAMP_MEAN_DBL(NUMC_DTYPE_UINT64, uint64_t)
+STAMP_MEAN_DBL(NUMC_DTYPE_INT64, NUMC_INT64)
+STAMP_MEAN_DBL(NUMC_DTYPE_UINT64, NUMC_UINT64)
 #undef STAMP_MEAN_DBL
 
 /* float32/float64: native division */
@@ -58,8 +58,8 @@ STAMP_MEAN_DBL(NUMC_DTYPE_UINT64, uint64_t)
     if (n > 0)                                                                 \
       *(CT *)out /= (CT)n;                                                     \
   }
-STAMP_MEAN_FLOAT(NUMC_DTYPE_FLOAT32, float)
-STAMP_MEAN_FLOAT(NUMC_DTYPE_FLOAT64, double)
+STAMP_MEAN_FLOAT(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32)
+STAMP_MEAN_FLOAT(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64)
 #undef STAMP_MEAN_FLOAT
 
 /* ── Max reduction kernels ───────────────────────────────────────────
@@ -69,24 +69,25 @@ STAMP_MEAN_FLOAT(NUMC_DTYPE_FLOAT64, double)
 
 #define MAX_EXPR val > acc ? val : acc
 
-DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_INT8, int8_t, INT8_MIN, MAX_EXPR, max)
-DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_INT16, int16_t, INT16_MIN, MAX_EXPR,
+DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_INT8, NUMC_INT8, INT8_MIN, MAX_EXPR,
                         max)
-DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_INT32, int32_t, INT32_MIN, MAX_EXPR,
+DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_INT16, NUMC_INT16, INT16_MIN, MAX_EXPR,
                         max)
-DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_INT64, int64_t, INT64_MIN, MAX_EXPR,
+DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_INT32, NUMC_INT32, INT32_MIN, MAX_EXPR,
                         max)
-DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_UINT8, uint8_t, 0, MAX_EXPR, max)
-DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_UINT16, uint16_t, 0, MAX_EXPR, max)
-DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_UINT32, uint32_t, 0, MAX_EXPR, max)
-DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_UINT64, uint64_t, 0, MAX_EXPR, max)
+DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_INT64, NUMC_INT64, INT64_MIN, MAX_EXPR,
+                        max)
+DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_UINT8, NUMC_UINT8, 0, MAX_EXPR, max)
+DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_UINT16, NUMC_UINT16, 0, MAX_EXPR, max)
+DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_UINT32, NUMC_UINT32, 0, MAX_EXPR, max)
+DEFINE_REDUCTION_KERNEL(max, NUMC_DTYPE_UINT64, NUMC_UINT64, 0, MAX_EXPR, max)
 /* float32/float64: multi-accumulator for contiguous (SLP-vectorizes to
  * vmaxps/vmaxpd), serial fallback for strided. */
-DEFINE_FLOAT_REDUCTION_KERNEL(max, NUMC_DTYPE_FLOAT32, float, -INFINITY,
+DEFINE_FLOAT_REDUCTION_KERNEL(max, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, -INFINITY,
                               _vec_max_f32, max,
                               if (local > global) global = local,
                               val > acc ? val : acc)
-DEFINE_FLOAT_REDUCTION_KERNEL(max, NUMC_DTYPE_FLOAT64, double, -INFINITY,
+DEFINE_FLOAT_REDUCTION_KERNEL(max, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, -INFINITY,
                               _vec_max_f64, max,
                               if (local > global) global = local,
                               val > acc ? val : acc)
@@ -100,28 +101,29 @@ DEFINE_FLOAT_REDUCTION_KERNEL(max, NUMC_DTYPE_FLOAT64, double, -INFINITY,
 
 #define MIN_EXPR val < acc ? val : acc
 
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_INT8, int8_t, INT8_MAX, MIN_EXPR, min)
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_INT16, int16_t, INT16_MAX, MIN_EXPR,
+DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_INT8, NUMC_INT8, INT8_MAX, MIN_EXPR,
                         min)
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_INT32, int32_t, INT32_MAX, MIN_EXPR,
+DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_INT16, NUMC_INT16, INT16_MAX, MIN_EXPR,
                         min)
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_INT64, int64_t, INT64_MAX, MIN_EXPR,
+DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_INT32, NUMC_INT32, INT32_MAX, MIN_EXPR,
                         min)
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT8, uint8_t, UINT8_MAX, MIN_EXPR,
+DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_INT64, NUMC_INT64, INT64_MAX, MIN_EXPR,
                         min)
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT16, uint16_t, UINT16_MAX, MIN_EXPR,
+DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT8, NUMC_UINT8, UINT8_MAX, MIN_EXPR,
                         min)
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT32, uint32_t, UINT32_MAX, MIN_EXPR,
-                        min)
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT64, uint64_t, UINT64_MAX, MIN_EXPR,
-                        min)
+DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT16, NUMC_UINT16, UINT16_MAX,
+                        MIN_EXPR, min)
+DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT32, NUMC_UINT32, UINT32_MAX,
+                        MIN_EXPR, min)
+DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT64, NUMC_UINT64, UINT64_MAX,
+                        MIN_EXPR, min)
 /* float32/float64: multi-accumulator for contiguous (SLP-vectorizes to
  * vminps/vminpd), serial fallback for strided. */
-DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_FLOAT32, float, INFINITY,
+DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, INFINITY,
                               _vec_min_f32, min,
                               if (local < global) global = local,
                               val < acc ? val : acc)
-DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_FLOAT64, double, INFINITY,
+DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, INFINITY,
                               _vec_min_f64, min,
                               if (local < global) global = local,
                               val < acc ? val : acc)
@@ -133,17 +135,17 @@ DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_FLOAT64, double, INFINITY,
  * Per-type INIT = type minimum so any element is > INIT.
  * Output is always int64_t (index of maximum element). */
 
-DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_INT8, int8_t, INT8_MIN, >)
-DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_INT16, int16_t, INT16_MIN, >)
-DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_INT32, int32_t, INT32_MIN, >)
-DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_INT64, int64_t, INT64_MIN, >)
-DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT8, uint8_t, 0, >)
-DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT16, uint16_t, 0, >)
-DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT32, uint32_t, 0, >)
-DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT64, uint64_t, 0, >)
-DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_FLOAT32, float,
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_INT8, NUMC_INT8, INT8_MIN, >)
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_INT16, NUMC_INT16, INT16_MIN, >)
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_INT32, NUMC_INT32, INT32_MIN, >)
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_INT64, NUMC_INT64, INT64_MIN, >)
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT8, NUMC_UINT8, 0, >)
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT16, NUMC_UINT16, 0, >)
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT32, NUMC_UINT32, 0, >)
+DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT64, NUMC_UINT64, 0, >)
+DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32,
                                   -INFINITY, _vec_max_f32, >)
-DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_FLOAT64, double,
+DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64,
                                   -INFINITY, _vec_max_f64, >)
 
 /* ── Argmin reduction kernels ────────────────────────────────────────
@@ -151,18 +153,21 @@ DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_FLOAT64, double,
  * Per-type INIT = type maximum so any element is < INIT.
  * Output is always int64_t (index of minimum element). */
 
-DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_INT8, int8_t, INT8_MAX, <)
-DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_INT16, int16_t, INT16_MAX, <)
-DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_INT32, int32_t, INT32_MAX, <)
-DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_INT64, int64_t, INT64_MAX, <)
-DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_UINT8, uint8_t, UINT8_MAX, <)
-DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_UINT16, uint16_t, UINT16_MAX, <)
-DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_UINT32, uint32_t, UINT32_MAX, <)
-DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_UINT64, uint64_t, UINT64_MAX, <)
-DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_FLOAT32, float, INFINITY,
-                                  _vec_min_f32, <)
-DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_FLOAT64, double, INFINITY,
-                                  _vec_min_f64, <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_INT8, NUMC_INT8, INT8_MAX, <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_INT16, NUMC_INT16, INT16_MAX, <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_INT32, NUMC_INT32, INT32_MAX, <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_INT64, NUMC_INT64, INT64_MAX, <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_UINT8, NUMC_UINT8, UINT8_MAX, <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_UINT16, NUMC_UINT16, UINT16_MAX,
+                           <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_UINT32, NUMC_UINT32, UINT32_MAX,
+                           <)
+DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_UINT64, NUMC_UINT64, UINT64_MAX,
+                           <)
+DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32,
+                                  INFINITY, _vec_min_f32, <)
+DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64,
+                                  INFINITY, _vec_min_f64, <)
 
 /* ── Dispatch tables ─────────────────────────────────────────────── */
 
@@ -330,20 +335,20 @@ GENERATE_INT8_INT16_NUMC_TYPES(STAMP_DIV_COUNT_SMALL)
       d[i] = (CT)((double)d[i] / dc);                                          \
   }
 GENERATE_INT32(STAMP_DIV_COUNT_DBL)
-STAMP_DIV_COUNT_DBL(NUMC_DTYPE_INT64, int64_t)
-STAMP_DIV_COUNT_DBL(NUMC_DTYPE_UINT64, uint64_t)
+STAMP_DIV_COUNT_DBL(NUMC_DTYPE_INT64, NUMC_INT64)
+STAMP_DIV_COUNT_DBL(NUMC_DTYPE_UINT64, NUMC_UINT64)
 #undef STAMP_DIV_COUNT_DBL
 
 /* float32/float64: native division */
 static void _div_count_NUMC_DTYPE_FLOAT32(char *data, size_t n, size_t count) {
-  float *d = (float *)data;
-  float cc = (float)count;
+  NUMC_FLOAT32 *d = (NUMC_FLOAT32 *)data;
+  NUMC_FLOAT32 cc = (NUMC_FLOAT32)count;
   for (size_t i = 0; i < n; i++)
     d[i] /= cc;
 }
 static void _div_count_NUMC_DTYPE_FLOAT64(char *data, size_t n, size_t count) {
-  double *d = (double *)data;
-  double dc = (double)count;
+  NUMC_FLOAT64 *d = (NUMC_FLOAT64 *)data;
+  NUMC_FLOAT64 dc = (NUMC_FLOAT64)count;
   for (size_t i = 0; i < n; i++)
     d[i] /= dc;
 }
