@@ -131,8 +131,13 @@ typedef void (*NumcReductionKernel)(const char *a, char *out, size_t n,
     }                                                                          \
   }
 
-/* Float arg-reduction: pass 1 uses multi-accumulator helper (SLP-vectorizes
- * to vmaxps/vminps), pass 2 is same early-exit equality scan. */
+/* Float arg-reduction: chunked single-pass algorithm.
+ * Each chunk uses multi-accumulator helper (SLP-vectorizes to vmaxps/vminps)
+ * to find the chunk-local extreme. Only when a chunk beats the global best
+ * do we scan within that chunk for the first matching index. Reads data
+ * once (vs. two-pass), winning when data exceeds L3 cache. */
+#define NUMC_ARGCHUNK 1024
+
 #define DEFINE_FLOAT_ARGREDUCTION_KERNEL(OP_NAME, TYPE_ENUM, C_TYPE, INIT,     \
                                          HELPER_FN, CMP)                       \
   static void _kern_##OP_NAME##_##TYPE_ENUM(const char *a, char *out,          \
@@ -143,17 +148,23 @@ typedef void (*NumcReductionKernel)(const char *a, char *out, size_t n,
     }                                                                          \
     if (sa == (intptr_t)sizeof(C_TYPE)) {                                      \
       const C_TYPE *restrict pa = (const C_TYPE *)a;                           \
-      /* PASS 1: multi-accumulator max/min (SLP-vectorizes) */                 \
-      C_TYPE best = HELPER_FN(pa, n);                                          \
-      /* PASS 2: find first matching index (early-exit) */                     \
-      for (size_t i = 0; i < n; i++) {                                         \
-        if (pa[i] == best) {                                                   \
-          *(int64_t *)out = (int64_t)i;                                        \
-          return;                                                              \
+      C_TYPE best_val = (INIT);                                                \
+      int64_t best_idx = 0;                                                    \
+      for (size_t base = 0; base < n; base += NUMC_ARGCHUNK) {                \
+        size_t len = (base + NUMC_ARGCHUNK <= n) ? NUMC_ARGCHUNK             \
+                                                  : (n - base);               \
+        C_TYPE chunk_ext = HELPER_FN(pa + base, len);                          \
+        if (chunk_ext CMP best_val) {                                          \
+          best_val = chunk_ext;                                                \
+          for (size_t j = 0; j < len; j++) {                                   \
+            if (pa[base + j] == chunk_ext) {                                   \
+              best_idx = (int64_t)(base + j);                                  \
+              break;                                                           \
+            }                                                                  \
+          }                                                                    \
         }                                                                      \
       }                                                                        \
-      /* Fallback (e.g. all-NaN: best is INIT, no match) */                    \
-      *(int64_t *)out = 0;                                                     \
+      *(int64_t *)out = best_idx;                                              \
     } else {                                                                   \
       /* Strided: single-pass scalar */                                        \
       C_TYPE best_val = (INIT);                                                \

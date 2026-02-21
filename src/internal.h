@@ -12,6 +12,7 @@
 /* --- Constants --- */
 
 #define NUMC_MAX_DIMENSIONS 64
+#define NUMC_MAX_INLINE_DIMS 8
 #define NUMC_MAX_MEMORY 8388608 // 8MB
 #define NUMC_SIMD_ALIGN 32
 
@@ -24,7 +25,10 @@ struct NumcCtx {
 struct NumcArray {
   struct NumcCtx *ctx;
   void *data;
-  size_t shape[NUMC_MAX_DIMENSIONS], strides[NUMC_MAX_DIMENSIONS];
+  size_t *shape;   /* → _shape_buf (dims ≤ 8) or arena-allocated */
+  size_t *strides; /* → _strides_buf (dims ≤ 8) or arena-allocated */
+  size_t _shape_buf[NUMC_MAX_INLINE_DIMS];
+  size_t _strides_buf[NUMC_MAX_INLINE_DIMS];
   size_t dim, elem_size, size, capacity;
   bool is_contiguous;
   NumcDType dtype;

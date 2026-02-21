@@ -283,6 +283,81 @@ GENERATE_NUMC_TYPES(STAMP_MAX_FUSED)
 GENERATE_NUMC_TYPES(STAMP_MIN_FUSED)
 #undef STAMP_MIN_FUSED
 
+/* ── Fused argmax row-reduce kernels ──────────────────────────────
+ *
+ * Tracks best value (in VLA scratch buffer) + index (in output).
+ * Inner loop auto-vectorizes the comparison; the conditional index
+ * update is scalar but amortized across rows. */
+
+typedef void (*NumcArgRowReduceKernel)(const char *restrict base,
+                                       intptr_t row_stride, size_t nrows,
+                                       char *restrict dst, size_t ncols);
+
+#define STAMP_ARGMAX_FUSED(TE, CT)                                             \
+  static void _argmax_fused_##TE(const char *restrict base,                    \
+                                  intptr_t row_stride, size_t nrows,           \
+                                  char *restrict dst, size_t ncols) {          \
+    int64_t *restrict idx = (int64_t *)dst;                                    \
+    CT best[ncols]; /* VLA scratch for best values */                          \
+    const CT *restrict first = (const CT *)base;                               \
+    for (size_t i = 0; i < ncols; i++) {                                       \
+      best[i] = first[i];                                                      \
+      idx[i] = 0;                                                              \
+    }                                                                          \
+    for (size_t r = 1; r < nrows; r++) {                                       \
+      const CT *restrict row = (const CT *)(base + r * row_stride);            \
+      for (size_t i = 0; i < ncols; i++) {                                     \
+        if (row[i] > best[i]) {                                                \
+          best[i] = row[i];                                                    \
+          idx[i] = (int64_t)r;                                                 \
+        }                                                                      \
+      }                                                                        \
+    }                                                                          \
+  }
+GENERATE_NUMC_TYPES(STAMP_ARGMAX_FUSED)
+#undef STAMP_ARGMAX_FUSED
+
+#define STAMP_ARGMIN_FUSED(TE, CT)                                             \
+  static void _argmin_fused_##TE(const char *restrict base,                    \
+                                  intptr_t row_stride, size_t nrows,           \
+                                  char *restrict dst, size_t ncols) {          \
+    int64_t *restrict idx = (int64_t *)dst;                                    \
+    CT best[ncols]; /* VLA scratch for best values */                          \
+    const CT *restrict first = (const CT *)base;                               \
+    for (size_t i = 0; i < ncols; i++) {                                       \
+      best[i] = first[i];                                                      \
+      idx[i] = 0;                                                              \
+    }                                                                          \
+    for (size_t r = 1; r < nrows; r++) {                                       \
+      const CT *restrict row = (const CT *)(base + r * row_stride);            \
+      for (size_t i = 0; i < ncols; i++) {                                     \
+        if (row[i] < best[i]) {                                                \
+          best[i] = row[i];                                                    \
+          idx[i] = (int64_t)r;                                                 \
+        }                                                                      \
+      }                                                                        \
+    }                                                                          \
+  }
+GENERATE_NUMC_TYPES(STAMP_ARGMIN_FUSED)
+#undef STAMP_ARGMIN_FUSED
+
+#define F(OP, TE) [TE] = _##OP##_fused_##TE
+static const NumcArgRowReduceKernel _argmax_fused_table[] = {
+    F(argmax, NUMC_DTYPE_INT8),    F(argmax, NUMC_DTYPE_INT16),
+    F(argmax, NUMC_DTYPE_INT32),   F(argmax, NUMC_DTYPE_INT64),
+    F(argmax, NUMC_DTYPE_UINT8),   F(argmax, NUMC_DTYPE_UINT16),
+    F(argmax, NUMC_DTYPE_UINT32),  F(argmax, NUMC_DTYPE_UINT64),
+    F(argmax, NUMC_DTYPE_FLOAT32), F(argmax, NUMC_DTYPE_FLOAT64),
+};
+static const NumcArgRowReduceKernel _argmin_fused_table[] = {
+    F(argmin, NUMC_DTYPE_INT8),    F(argmin, NUMC_DTYPE_INT16),
+    F(argmin, NUMC_DTYPE_INT32),   F(argmin, NUMC_DTYPE_INT64),
+    F(argmin, NUMC_DTYPE_UINT8),   F(argmin, NUMC_DTYPE_UINT16),
+    F(argmin, NUMC_DTYPE_UINT32),  F(argmin, NUMC_DTYPE_UINT64),
+    F(argmin, NUMC_DTYPE_FLOAT32), F(argmin, NUMC_DTYPE_FLOAT64),
+};
+#undef F
+
 #define F(OP, TE) [TE] = _##OP##_fused_##TE
 static const NumcRowReduceKernel _sum_fused_table[] = {
     F(sum, NUMC_DTYPE_INT8),    F(sum, NUMC_DTYPE_INT16),
@@ -512,7 +587,22 @@ int numc_argmax_axis(const NumcArray *a, int axis, int keepdim,
   int err = _check_argreduce_axis(a, axis, keepdim, out);
   if (err)
     return err;
-  _reduce_axis_op(a, (size_t)axis, keepdim, out, _argmax_table);
+
+  size_t ax = (size_t)axis;
+
+  /* Fast path: fused row-reduce with value+index tracking */
+  if (out->is_contiguous && _iter_contiguous(a, ax)) {
+    size_t reduce_len = a->shape[ax];
+    intptr_t reduce_stride = (intptr_t)a->strides[ax];
+    size_t slice_elems = out->size;
+
+    _argmax_fused_table[a->dtype]((const char *)a->data, reduce_stride,
+                                   reduce_len, (char *)out->data, slice_elems);
+    return 0;
+  }
+
+  /* Generic path: per-element reduction via ND iterator */
+  _reduce_axis_op(a, ax, keepdim, out, _argmax_table);
   return 0;
 }
 
@@ -529,6 +619,21 @@ int numc_argmin_axis(const NumcArray *a, int axis, int keepdim,
   int err = _check_argreduce_axis(a, axis, keepdim, out);
   if (err)
     return err;
-  _reduce_axis_op(a, (size_t)axis, keepdim, out, _argmin_table);
+
+  size_t ax = (size_t)axis;
+
+  /* Fast path: fused row-reduce with value+index tracking */
+  if (out->is_contiguous && _iter_contiguous(a, ax)) {
+    size_t reduce_len = a->shape[ax];
+    intptr_t reduce_stride = (intptr_t)a->strides[ax];
+    size_t slice_elems = out->size;
+
+    _argmin_fused_table[a->dtype]((const char *)a->data, reduce_stride,
+                                   reduce_len, (char *)out->data, slice_elems);
+    return 0;
+  }
+
+  /* Generic path: per-element reduction via ND iterator */
+  _reduce_axis_op(a, ax, keepdim, out, _argmin_table);
   return 0;
 }

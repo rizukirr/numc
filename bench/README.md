@@ -12,48 +12,71 @@ All benchmarks run on contiguous 1M-element arrays, 200 iterations, best-of-warm
 
 | dtype | op | numc (Mop/s) | numpy (Mop/s) | speedup |
 |---|---|---:|---:|---:|
-| int8 | add | 15,875 | 14,545 | 1.1x |
-| int8 | sub | 17,100 | 13,699 | 1.2x |
-| int8 | mul | 18,418 | 13,736 | 1.3x |
-| int8 | div | 6,050 | 1,004 | **6.0x** |
-| uint8 | add | 18,244 | 16,217 | 1.1x |
-| uint8 | sub | 19,041 | 17,424 | 1.1x |
-| uint8 | mul | 19,092 | 15,761 | 1.2x |
-| uint8 | div | 6,053 | 1,049 | **5.8x** |
-| int16 | add | 9,103 | 8,736 | 1.0x |
-| int16 | sub | 8,933 | 9,064 | 1.0x |
-| int16 | mul | 8,531 | 8,706 | 1.0x |
-| int16 | div | 5,970 | 1,146 | **5.2x** |
-| uint16 | add | 8,725 | 8,098 | 1.1x |
-| uint16 | sub | 8,961 | 8,909 | 1.0x |
-| uint16 | mul | 8,838 | 8,589 | 1.0x |
-| uint16 | div | 6,006 | 1,161 | **5.2x** |
-| int32 | add | 8,771 | 3,863 | **2.3x** |
-| int32 | sub | 10,454 | 3,948 | **2.6x** |
-| int32 | mul | 10,338 | 3,881 | **2.7x** |
-| int32 | div | 5,442 | 1,010 | **5.4x** |
-| uint32 | add | 9,734 | 4,304 | **2.3x** |
-| uint32 | sub | 10,252 | 4,272 | **2.4x** |
-| uint32 | mul | 10,269 | 4,209 | **2.4x** |
-| uint32 | div | 5,245 | 867 | **6.0x** |
-| int64 | add | 3,497 | 922 | **3.8x** |
-| int64 | sub | 4,946 | 1,107 | **4.5x** |
-| int64 | mul | 3,802 | 1,266 | **3.0x** |
-| int64 | div | 2,793 | 648 | **4.3x** |
-| uint64 | add | 4,070 | 1,097 | **3.7x** |
-| uint64 | sub | 4,841 | 826 | **5.9x** |
-| uint64 | mul | 5,248 | 1,192 | **4.4x** |
-| uint64 | div | 2,796 | 585 | **4.8x** |
-| float32 | add | 10,160 | 3,703 | **2.7x** |
-| float32 | sub | 10,223 | 3,610 | **2.8x** |
-| float32 | mul | 9,976 | 3,648 | **2.7x** |
-| float32 | div | 10,147 | 3,694 | **2.7x** |
-| float64 | add | 4,499 | 1,142 | **3.9x** |
-| float64 | sub | 2,398 | 1,109 | **2.2x** |
-| float64 | mul | 2,542 | 1,143 | **2.2x** |
-| float64 | div | 1,476 | 1,163 | 1.3x |
+| int8 | add | 17,493 | 13,362 | 1.3x |
+| int8 | sub | 15,664 | 13,248 | 1.2x |
+| int8 | mul | 10,110 | 13,210 | 0.8x |
+| int8 | div | 5,915 | 1,118 | **5.3x** |
+| uint8 | add | 14,712 | 12,843 | 1.1x |
+| uint8 | sub | 14,799 | 13,405 | 1.1x |
+| uint8 | mul | 14,598 | 13,164 | 1.1x |
+| uint8 | div | 6,039 | 1,073 | **5.6x** |
+| int16 | add | 7,618 | 6,551 | 1.2x |
+| int16 | sub | 8,147 | 6,833 | 1.2x |
+| int16 | mul | 8,645 | 6,801 | 1.3x |
+| int16 | div | 6,023 | 1,151 | **5.2x** |
+| uint16 | add | 7,943 | 6,879 | 1.2x |
+| uint16 | sub | 8,595 | 6,844 | 1.3x |
+| uint16 | mul | 8,745 | 6,897 | 1.3x |
+| uint16 | div | 5,981 | 1,168 | **5.1x** |
+| int32 | add | 4,524 | 3,312 | 1.4x |
+| int32 | sub | 7,672 | 3,237 | **2.4x** |
+| int32 | mul | 9,090 | 3,396 | **2.7x** |
+| int32 | div | 5,280 | 993 | **5.3x** |
+| uint32 | add | 7,680 | 3,339 | **2.3x** |
+| uint32 | sub | 10,531 | 3,354 | **3.1x** |
+| uint32 | mul | 10,390 | 3,342 | **3.1x** |
+| uint32 | div | 5,445 | 832 | **6.5x** |
+| int64 | add | 4,336 | 1,110 | **3.9x** |
+| int64 | sub | 2,223 | 1,171 | **1.9x** |
+| int64 | mul | 2,448 | 1,330 | **1.8x** |
+| int64 | div | 1,974 | 573 | **3.4x** |
+| uint64 | add | 5,930 | 942 | **6.3x** |
+| uint64 | sub | 5,620 | 1,196 | **4.7x** |
+| uint64 | mul | 5,454 | 1,346 | **4.1x** |
+| uint64 | div | 2,299 | 548 | **4.2x** |
+| float32 | add | 9,780 | 3,374 | **2.9x** |
+| float32 | sub | 9,743 | 3,151 | **3.1x** |
+| float32 | mul | 10,442 | 3,552 | **2.9x** |
+| float32 | div | 10,459 | 3,514 | **3.0x** |
+| float64 | add | 1,619 | 911 | **1.8x** |
+| float64 | sub | 4,319 | 980 | **4.4x** |
+| float64 | mul | 2,557 | 884 | **2.9x** |
+| float64 | div | 3,349 | 1,306 | **2.6x** |
 
-**Summary:** numc matches NumPy on 8-bit/16-bit add/sub/mul (both are memory-bandwidth bound at ~17 Gop/s). numc is 2-6x faster on 32-bit and 64-bit types due to zero Python/ufunc dispatch overhead. Integer division is 4-6x faster.
+**Summary:** numc matches or beats NumPy on 8-bit/16-bit types (both are memory-bandwidth bound). numc is 2-6x faster on 32-bit and 64-bit types due to zero Python/ufunc dispatch overhead. Integer division is 3-6x faster across the board.
+
+---
+
+## Strided (transposed)
+
+1M elements (1000x1000, one operand transposed). Tests tiled gather/compute/scatter PATH 3.
+
+| dtype | op | numc (Mop/s) | numpy (Mop/s) | speedup |
+|---|---|---:|---:|---:|
+| int32 | add | 579 | 788 | 0.7x |
+| int32 | sub | 560 | 771 | 0.7x |
+| int32 | mul | 576 | 785 | 0.7x |
+| int32 | div | 482 | 1,025 | 0.5x |
+| float32 | add | 465 | 728 | 0.6x |
+| float32 | sub | 585 | 769 | 0.8x |
+| float32 | mul | 521 | 755 | 0.7x |
+| float32 | div | 559 | 682 | 0.8x |
+| float64 | add | 355 | 341 | 1.0x |
+| float64 | sub | 352 | 316 | 1.1x |
+| float64 | mul | 315 | 291 | 1.1x |
+| float64 | div | 326 | 340 | 1.0x |
+
+**Summary:** Strided ops use tiled gather/compute/scatter (tile size 256). For cheap ops (add/mul), the gather/scatter overhead exceeds the vectorization gain — NumPy's nditer is faster on int32/float32. For float64 (larger elements, fewer tiles), numc is roughly even. The tiling wins on compute-heavy ops (pow, log, exp) where vectorized tiles amortize the gather/scatter cost.
 
 ---
 
@@ -65,54 +88,54 @@ All benchmarks run on contiguous 1M-element arrays, 200 iterations, best-of-warm
 
 | dtype | op | numc (Mop/s) | numpy (Mop/s) | speedup |
 |---|---|---:|---:|---:|
-| int32 | add | 5,533 | 3,897 | **1.4x** |
-| int32 | sub | 5,625 | 4,039 | **1.4x** |
-| int32 | mul | 5,798 | 3,930 | **1.5x** |
-| int32 | div | 1,881 | 1,143 | **1.6x** |
-| float32 | add | 5,846 | 3,334 | **1.8x** |
-| float32 | sub | 5,818 | 3,121 | **1.9x** |
-| float32 | mul | 5,524 | 3,154 | **1.8x** |
-| float32 | div | 5,676 | 3,175 | **1.8x** |
-| float64 | add | 2,586 | 1,404 | **1.8x** |
-| float64 | sub | 2,771 | 1,436 | **1.9x** |
-| float64 | mul | 2,474 | 1,542 | **1.6x** |
-| float64 | div | 1,805 | 1,514 | 1.2x |
+| int32 | add | 5,298 | 3,996 | 1.3x |
+| int32 | sub | 5,295 | 3,783 | 1.4x |
+| int32 | mul | 5,284 | 3,774 | 1.4x |
+| int32 | div | 1,886 | 1,060 | **1.8x** |
+| float32 | add | 5,365 | 3,034 | **1.8x** |
+| float32 | sub | 5,548 | 3,099 | **1.8x** |
+| float32 | mul | 5,900 | 3,191 | **1.8x** |
+| float32 | div | 5,839 | 3,142 | **1.9x** |
+| float64 | add | 2,754 | 1,452 | **1.9x** |
+| float64 | sub | 2,514 | 1,322 | **1.9x** |
+| float64 | mul | 2,513 | 1,552 | **1.6x** |
+| float64 | div | 1,822 | 1,485 | 1.2x |
 
 ### Outer Broadcast: (1000,1) + (1,1000) → (1000,1000)
 
 | dtype | op | numc (Mop/s) | numpy (Mop/s) | speedup |
 |---|---|---:|---:|---:|
-| int32 | add | 2,901 | 2,921 | 1.0x |
-| int32 | sub | 2,923 | 2,925 | 1.0x |
-| int32 | mul | 2,934 | 2,911 | 1.0x |
-| int32 | div | 946 | 942 | 1.0x |
-| float32 | add | 2,723 | 2,421 | 1.1x |
-| float32 | sub | 2,745 | 2,424 | 1.1x |
-| float32 | mul | 2,722 | 2,436 | 1.1x |
-| float32 | div | 1,261 | 2,418 | 0.5x |
-| float64 | add | 2,693 | 1,200 | **2.2x** |
-| float64 | sub | 2,640 | 1,203 | **2.2x** |
-| float64 | mul | 2,640 | 1,207 | **2.2x** |
-| float64 | div | 945 | 1,122 | 0.8x |
+| int32 | add | 8,871 | 2,756 | **3.2x** |
+| int32 | sub | 8,494 | 2,718 | **3.1x** |
+| int32 | mul | 9,118 | 2,706 | **3.4x** |
+| int32 | div | 1,888 | 937 | **2.0x** |
+| float32 | add | 9,067 | 2,249 | **4.0x** |
+| float32 | sub | 8,962 | 2,307 | **3.9x** |
+| float32 | mul | 9,183 | 2,332 | **3.9x** |
+| float32 | div | 6,001 | 2,294 | **2.6x** |
+| float64 | add | 4,647 | 1,235 | **3.8x** |
+| float64 | sub | 4,662 | 1,220 | **3.8x** |
+| float64 | mul | 4,651 | 1,242 | **3.7x** |
+| float64 | div | 1,888 | 1,123 | **1.7x** |
 
 ### Rank Broadcast: (1000,) + (1000,1000) → (1000,1000)
 
 | dtype | op | numc (Mop/s) | numpy (Mop/s) | speedup |
 |---|---|---:|---:|---:|
-| int32 | add | 5,846 | 3,909 | **1.5x** |
-| int32 | sub | 5,456 | 3,615 | **1.5x** |
-| int32 | mul | 5,626 | 3,635 | **1.5x** |
-| int32 | div | 1,882 | 1,176 | **1.6x** |
-| float32 | add | 5,949 | 3,230 | **1.8x** |
-| float32 | sub | 5,799 | 3,098 | **1.9x** |
-| float32 | mul | 5,715 | 3,173 | **1.8x** |
-| float32 | div | 5,685 | 3,213 | **1.8x** |
-| float64 | add | 2,322 | 1,486 | **1.6x** |
-| float64 | sub | 2,613 | 1,534 | **1.7x** |
-| float64 | mul | 2,399 | 1,636 | **1.5x** |
-| float64 | div | 1,774 | 1,494 | 1.2x |
+| int32 | add | 5,293 | 3,726 | 1.4x |
+| int32 | sub | 5,319 | 4,014 | 1.3x |
+| int32 | mul | 5,324 | 3,750 | 1.4x |
+| int32 | div | 1,890 | 1,124 | **1.7x** |
+| float32 | add | 5,264 | 3,122 | **1.7x** |
+| float32 | sub | 5,265 | 3,143 | **1.7x** |
+| float32 | mul | 5,263 | 3,159 | **1.7x** |
+| float32 | div | 5,224 | 3,119 | **1.7x** |
+| float64 | add | 2,497 | 1,546 | **1.6x** |
+| float64 | sub | 2,319 | 1,500 | **1.5x** |
+| float64 | mul | 2,429 | 1,405 | **1.7x** |
+| float64 | div | 1,834 | 1,451 | 1.3x |
 
-**Summary:** Row and rank broadcast are 1.4-1.9x faster than NumPy — one input reads linearly while the other repeats via stride=0, giving good cache locality. Outer broadcast (both dims broadcast) is roughly tied on 32-bit types since both libraries hit the same cache-unfriendly access pattern. numc pulls ahead on float64 outer broadcast (2.2x) due to lower dispatch overhead.
+**Summary:** Row and rank broadcast are 1.3-1.9x faster than NumPy — one input reads linearly while the other repeats via stride=0, giving good cache locality. **Outer broadcast is 2.6-4.0x faster** thanks to PATH 2.5 (left scalar broadcast), which vectorizes + OMP the previously-scalar inner loop. Prior to PATH 2.5, outer broadcast was 0.5-1.1x NumPy.
 
 ---
 
@@ -212,71 +235,87 @@ All benchmarks run on contiguous 1M-element arrays, 200 iterations, best-of-warm
 
 | dtype | op | numc (Mop/s) | numpy (Mop/s) | speedup |
 |---|---|---:|---:|---:|
-| int8 | sum | 92,320 | 2,341 | **39.4x** |
-| int8 | mean | 86,945 | 2,338 | **37.2x** |
-| int8 | max | 94,314 | 76,818 | 1.2x |
-| int8 | min | 94,303 | 72,631 | 1.3x |
-| int8 | argmax | 95,718 | 38,383 | **2.5x** |
-| int8 | argmin | 93,372 | 38,738 | **2.4x** |
-| int16 | sum | 26,939 | 2,197 | **12.3x** |
-| int16 | max | 25,505 | 26,091 | 1.0x |
-| int16 | argmax | 29,507 | 21,000 | 1.4x |
-| int32 | sum | 18,534 | 3,639 | **5.1x** |
-| int32 | mean | 29,820 | 2,763 | **10.8x** |
-| int32 | max | 29,754 | 13,407 | **2.2x** |
-| int32 | min | 31,016 | 15,056 | **2.1x** |
-| int32 | argmax | 14,128 | 10,794 | 1.3x |
-| int32 | argmin | 12,384 | 10,871 | 1.1x |
-| int64 | sum | 12,876 | 5,832 | **2.2x** |
-| int64 | max | 11,025 | 5,852 | **1.9x** |
-| int64 | argmax | 6,400 | 4,146 | **1.5x** |
-| float32 | sum | 14,022 | 6,189 | **2.3x** |
-| float32 | mean | 17,362 | 6,123 | **2.8x** |
-| float32 | max | 18,920 | 10,851 | **1.7x** |
-| float32 | min | 19,685 | 11,002 | **1.8x** |
-| float32 | argmax | 7,551 | 8,760 | 0.9x |
-| float32 | argmin | 7,552 | 8,754 | 0.9x |
-| float64 | sum | 12,688 | 4,885 | **2.6x** |
-| float64 | mean | 13,467 | 4,871 | **2.8x** |
-| float64 | max | 14,124 | 5,083 | **2.8x** |
-| float64 | min | 14,503 | 5,126 | **2.8x** |
-| float64 | argmax | 6,845 | 4,268 | **1.6x** |
-| float64 | argmin | 6,651 | 4,207 | **1.6x** |
+| int8 | sum | 55,185 | 2,341 | **23.6x** |
+| int8 | mean | 104,142 | 2,324 | **44.8x** |
+| int8 | max | 88,185 | 67,526 | 1.3x |
+| int8 | min | 107,298 | 70,253 | **1.5x** |
+| int8 | argmax | 111,202 | 37,621 | **3.0x** |
+| int8 | argmin | 110,145 | 39,555 | **2.8x** |
+| int16 | sum | 19,795 | 2,174 | **9.1x** |
+| int16 | max | 32,171 | 29,427 | 1.1x |
+| int16 | argmax | 23,313 | 20,655 | 1.1x |
+| int32 | sum | 23,234 | 3,256 | **7.1x** |
+| int32 | mean | 30,409 | 2,744 | **11.1x** |
+| int32 | max | 27,375 | 12,861 | **2.1x** |
+| int32 | min | 28,676 | 13,285 | **2.2x** |
+| int32 | argmax | 10,990 | 10,622 | 1.0x |
+| int32 | argmin | 11,075 | 10,910 | 1.0x |
+| int64 | sum | 8,935 | 5,761 | **1.6x** |
+| int64 | max | 9,348 | 5,904 | **1.6x** |
+| int64 | argmax | 5,456 | 4,109 | 1.3x |
+| float32 | sum | 11,694 | 6,110 | **1.9x** |
+| float32 | mean | 9,255 | 6,048 | **1.5x** |
+| float32 | max | 19,067 | 10,897 | **1.8x** |
+| float32 | min | 19,739 | 11,070 | **1.8x** |
+| float32 | argmax | 11,610 | 8,788 | 1.3x |
+| float32 | argmin | 10,725 | 8,710 | 1.2x |
+| float64 | sum | 7,109 | 5,036 | 1.4x |
+| float64 | mean | 8,430 | 4,866 | **1.7x** |
+| float64 | max | 13,958 | 5,061 | **2.8x** |
+| float64 | min | 13,260 | 5,154 | **2.6x** |
+| float64 | argmax | 5,525 | 4,216 | 1.3x |
+| float64 | argmin | 5,597 | 4,168 | 1.3x |
+
+**Note:** float32 argmax/argmin use a chunked single-pass algorithm (chunk size 1024): each chunk finds the extreme via vectorized multi-accumulator, then only scans for the matching index when a chunk beats the global best. This reads data once (vs. two-pass before), yielding 1.2-1.3x over NumPy (up from 0.9x with the old two-pass algorithm).
 
 ### Axis=0 Reduction (1000x1000 -> 1000 cols)
 
 | dtype | op | numc (Mop/s) | numpy (Mop/s) | speedup |
 |---|---|---:|---:|---:|
-| int8 | sum | 41,731 | 2,262 | **18.4x** |
-| int8 | mean | 47,566 | 2,585 | **18.4x** |
-| int8 | max | 42,862 | 19,890 | **2.2x** |
-| int8 | min | 43,102 | 20,996 | **2.1x** |
-| int32 | sum | 12,101 | 2,695 | **4.5x** |
-| int32 | max | 13,100 | 8,558 | **1.5x** |
-| float32 | sum | 12,554 | 10,498 | 1.2x |
-| float32 | mean | 12,939 | 10,040 | 1.3x |
-| float32 | max | 12,858 | 7,917 | **1.6x** |
-| float32 | min | 13,544 | 7,959 | **1.7x** |
-| float64 | sum | 6,605 | 4,845 | 1.4x |
-| float64 | max | 6,081 | 3,931 | **1.5x** |
+| int8 | sum | 34,544 | 2,275 | **15.2x** |
+| int8 | mean | 49,327 | 2,597 | **19.0x** |
+| int8 | max | 44,140 | 24,597 | **1.8x** |
+| int8 | min | 44,297 | 25,060 | **1.8x** |
+| int8 | argmax | 3,013 | 1,836 | **1.6x** |
+| int8 | argmin | 3,028 | 1,816 | **1.7x** |
+| int32 | sum | 11,134 | 2,621 | **4.2x** |
+| int32 | max | 12,406 | 7,363 | **1.7x** |
+| int32 | argmax | 6,082 | 1,512 | **4.0x** |
+| int32 | argmin | 6,458 | 1,604 | **4.0x** |
+| float32 | sum | 10,111 | 8,704 | 1.2x |
+| float32 | mean | 8,786 | 8,106 | 1.1x |
+| float32 | max | 10,738 | 7,313 | **1.5x** |
+| float32 | min | 13,865 | 7,341 | **1.9x** |
+| float32 | argmax | 6,613 | 1,466 | **4.5x** |
+| float32 | argmin | 6,631 | 1,540 | **4.3x** |
+| float64 | sum | 5,424 | 4,912 | 1.1x |
+| float64 | max | 5,636 | 3,880 | **1.5x** |
+| float64 | argmax | 5,257 | 903 | **5.8x** |
+| float64 | argmin | 5,324 | 930 | **5.7x** |
+
+**Note:** Axis argmax/argmin now use fused row-reduce kernels that process all rows in a single call, tracking both values (VLA scratch) and indices (output). This eliminates per-row ND iterator overhead. Axis=0 argmax went from ~920 Mop/s (generic ND path) to 4,000-6,600 Mop/s — a **4-7x improvement** over the old code, and **4-6x faster than NumPy**.
 
 ### Axis=1 Reduction (1000x1000 -> 1000 rows)
 
 | dtype | op | numc (Mop/s) | numpy (Mop/s) | speedup |
 |---|---|---:|---:|---:|
-| int8 | sum | 47,301 | 2,647 | **17.9x** |
-| int8 | mean | 44,621 | 2,551 | **17.5x** |
-| int8 | max | 46,069 | 21,969 | **2.1x** |
-| int8 | argmax | 49,708 | 8,666 | **5.7x** |
-| int32 | sum | 13,487 | 3,714 | **3.6x** |
-| int32 | max | 13,668 | 10,176 | 1.3x |
-| int32 | argmax | 13,054 | 9,617 | 1.4x |
-| float32 | sum | 6,839 | 5,784 | 1.2x |
-| float32 | max | 12,317 | 6,540 | **1.9x** |
-| float32 | argmax | 13,124 | 7,857 | **1.7x** |
-| float64 | sum | 5,749 | 4,794 | 1.2x |
-| float64 | max | 7,618 | 4,179 | **1.8x** |
-| float64 | argmax | 7,522 | 4,107 | **1.8x** |
+| int8 | sum | 48,096 | 2,644 | **18.2x** |
+| int8 | mean | 46,322 | 2,545 | **18.2x** |
+| int8 | max | 47,481 | 22,111 | **2.1x** |
+| int8 | argmax | 52,635 | 8,141 | **6.5x** |
+| int8 | argmin | 52,592 | 8,027 | **6.6x** |
+| int32 | sum | 10,232 | 3,664 | **2.8x** |
+| int32 | max | 10,139 | 10,303 | 1.0x |
+| int32 | argmax | 10,344 | 9,955 | 1.0x |
+| int32 | argmin | 11,063 | 9,918 | 1.1x |
+| float32 | sum | 6,716 | 5,781 | 1.2x |
+| float32 | max | 10,665 | 6,476 | **1.6x** |
+| float32 | argmax | 10,668 | 7,890 | 1.4x |
+| float32 | argmin | 10,565 | 8,025 | 1.3x |
+| float64 | sum | 4,949 | 5,049 | 1.0x |
+| float64 | max | 8,028 | 4,185 | **1.9x** |
+| float64 | argmax | 5,479 | 4,089 | 1.3x |
+| float64 | argmin | 5,391 | 4,084 | 1.3x |
 
 ---
 
@@ -284,13 +323,13 @@ All benchmarks run on contiguous 1M-element arrays, 200 iterations, best-of-warm
 
 | elements | numc (us) | numpy (us) | numc GB/s | numpy GB/s | speedup |
 |---:|---:|---:|---:|---:|---:|
-| 100 | 0.01 | 0.76 | 26.85 | 0.53 | **76.0x** |
-| 1,000 | 0.14 | 0.91 | 28.60 | 4.39 | **6.5x** |
-| 10,000 | 1.43 | 2.47 | 27.89 | 16.23 | **1.7x** |
-| 100,000 | 14.12 | 17.84 | 28.34 | 22.43 | 1.3x |
-| 1,000,000 | 58.26 | 160.95 | 68.66 | 24.85 | **2.8x** |
+| 100 | 0.02 | 0.74 | 26.02 | 0.54 | **37.0x** |
+| 1,000 | 0.14 | 0.96 | 28.44 | 4.17 | **6.9x** |
+| 10,000 | 1.46 | 2.53 | 27.44 | 15.80 | **1.7x** |
+| 100,000 | 14.13 | 18.10 | 28.32 | 22.10 | 1.3x |
+| 1,000,000 | 59.02 | 163.89 | 67.77 | 24.41 | **2.8x** |
 
-**Summary:** numc has near-zero dispatch overhead. At 100 elements, numc is 76x faster due to NumPy's Python/ufunc dispatch cost (~0.76us baseline). At 1M elements numc is 2.8x faster, reaching 68.66 GB/s bandwidth.
+**Summary:** numc has near-zero dispatch overhead. At 100 elements, numc is 37x faster due to NumPy's Python/ufunc dispatch cost (~0.74us baseline). At 1M elements numc is 2.8x faster, reaching 67.77 GB/s bandwidth.
 
 ---
 

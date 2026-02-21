@@ -19,6 +19,24 @@ static inline void _calculate_strides(size_t *strides, const size_t *shape,
   }
 }
 
+/* Initialize shape/strides pointers: inline buffer for dims ≤ 8,
+ * arena-allocated for larger dimensionality. */
+static inline int _init_dims(struct NumcArray *arr, struct NumcCtx *ctx,
+                              size_t dim) {
+  if (dim <= NUMC_MAX_INLINE_DIMS) {
+    arr->shape = arr->_shape_buf;
+    arr->strides = arr->_strides_buf;
+  } else {
+    arr->shape =
+        arena_alloc(ctx->arena, dim * sizeof(size_t), _Alignof(size_t));
+    arr->strides =
+        arena_alloc(ctx->arena, dim * sizeof(size_t), _Alignof(size_t));
+    if (!arr->shape || !arr->strides)
+      return -1;
+  }
+  return 0;
+}
+
 static inline void _array_fill_with(struct NumcArray *arr, const void *value) {
   char *ptr = arr->data;
   size_t cordinate[arr->dim];
@@ -88,6 +106,9 @@ NumcArray *numc_array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
     return NULL;
 
   arr->ctx = ctx;
+  if (_init_dims(arr, ctx, dim))
+    return NULL;
+
   arr->data = arena_alloc(ctx->arena, capacity, NUMC_SIMD_ALIGN);
   if (!arr->data) {
     arena_free(ctx->arena);
@@ -250,6 +271,12 @@ int numc_array_reshape(NumcArray *arr, const size_t *new_shape,
     return -1;
   }
 
+  /* Re-initialize shape/strides buffers if dim changed beyond inline limit */
+  if (new_dim > NUMC_MAX_INLINE_DIMS && arr->dim <= NUMC_MAX_INLINE_DIMS) {
+    if (_init_dims(arr, arr->ctx, new_dim))
+      return -1;
+  }
+
   arr->dim = new_dim;
   memcpy(arr->shape, new_shape, new_dim * sizeof(size_t));
 
@@ -349,6 +376,8 @@ NumcArray *numc_array_slice(const NumcArray *arr, NumcSlice *slice) {
   view->elem_size = arr->elem_size;
   view->dtype = arr->dtype;
   view->is_contiguous = false;
+  if (_init_dims(view, arr->ctx, arr->dim))
+    return NULL;
   memcpy(view->shape, arr->shape, arr->dim * sizeof(size_t));
   memcpy(view->strides, arr->strides, arr->dim * sizeof(size_t));
 

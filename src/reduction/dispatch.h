@@ -4,6 +4,7 @@
 #include "kernel.h"
 #include <numc/array.h>
 #include <numc/error.h>
+#include <string.h>
 
 /* Check if the non-reduced dims of 'a' form a contiguous block.
  * Walk from last dim backwards (skipping reduction axis), verify
@@ -56,12 +57,70 @@ static inline void _reduce_full_op(const struct NumcArray *a,
     kern((const char *)a->data, (char *)out->data, a->size,
          (intptr_t)a->elem_size);
   } else {
-    /* Non-contiguous: copy to contiguous first (arena memory is cheap,
-     * non-contiguous full reduction is rare). */
-    NumcArray *tmp = numc_array_copy(a);
-    numc_array_contiguous(tmp);
-    kern((const char *)tmp->data, (char *)out->data, tmp->size,
-         (intptr_t)tmp->elem_size);
+    /* Non-contiguous: create a contiguous copy directly.
+     * Uses dimension collapsing for efficient chunk copying.
+     * Single allocation (vs. numc_array_copy + numc_array_contiguous
+     * which allocates twice and misses elements for strided views). */
+    size_t cap = a->size * a->elem_size;
+    char *buf =
+        (char *)arena_alloc(a->ctx->arena, cap, NUMC_SIMD_ALIGN);
+    if (!buf)
+      return;
+
+    /* Dimension collapse: merge adjacent contiguous dims */
+    size_t c_shape[NUMC_MAX_DIMENSIONS];
+    size_t c_strides[NUMC_MAX_DIMENSIONS];
+    c_shape[0] = a->shape[0];
+    c_strides[0] = a->strides[0];
+    size_t cdim = 1;
+    for (size_t i = 1; i < a->dim; i++) {
+      if (c_strides[cdim - 1] == a->strides[i] * a->shape[i]) {
+        c_shape[cdim - 1] *= a->shape[i];
+        c_strides[cdim - 1] = a->strides[i];
+      } else {
+        c_shape[cdim] = a->shape[i];
+        c_strides[cdim] = a->strides[i];
+        cdim++;
+      }
+    }
+
+    char *dst = buf;
+    size_t coord[NUMC_MAX_DIMENSIONS] = {0};
+
+    if (c_strides[cdim - 1] == a->elem_size) {
+      /* Inner dim is contiguous → memcpy whole chunks */
+      size_t chunk = c_shape[cdim - 1] * a->elem_size;
+      size_t outer = a->size / c_shape[cdim - 1];
+      for (size_t i = 0; i < outer; i++) {
+        const char *src = (const char *)a->data;
+        for (size_t d = 0; d < cdim - 1; d++)
+          src += coord[d] * c_strides[d];
+        memcpy(dst, src, chunk);
+        dst += chunk;
+        for (int d = (int)cdim - 2; d >= 0; d--) {
+          if (++coord[d] < c_shape[d])
+            break;
+          coord[d] = 0;
+        }
+      }
+    } else {
+      /* No contiguous inner dim → element-wise copy */
+      for (size_t i = 0; i < a->size; i++) {
+        const char *src = (const char *)a->data;
+        for (size_t d = 0; d < cdim; d++)
+          src += coord[d] * c_strides[d];
+        memcpy(dst, src, a->elem_size);
+        dst += a->elem_size;
+        for (int d = (int)cdim - 1; d >= 0; d--) {
+          if (++coord[d] < c_shape[d])
+            break;
+          coord[d] = 0;
+        }
+      }
+    }
+
+    kern((const char *)buf, (char *)out->data, a->size,
+         (intptr_t)a->elem_size);
   }
 }
 
