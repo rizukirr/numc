@@ -7,6 +7,7 @@ add_library(numc
     elemwise/clip.c
     reduction/reduction.c
     matmul/matmul.c
+    matmul/blas.c
     error.c
 )
 add_library(numc::numc ALIAS numc)

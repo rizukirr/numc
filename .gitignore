@@ -13,3 +13,4 @@ build-release
 /.claude/agents
 *.csv
 /notes
+/GEMINI.md
