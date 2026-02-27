@@ -8,7 +8,7 @@
 
 #define STAMP_SUM(TE, CT) DEFINE_REDUCTION_KERNEL(sum, TE, CT, 0, acc + val, +)
 GENERATE_INT8_INT16_NUMC_TYPES(STAMP_SUM)
-GENERATE_INT32(STAMP_SUM)
+GENERATE_INT32_NUMC_TYPES(STAMP_SUM)
 DEFINE_REDUCTION_KERNEL(sum, NUMC_DTYPE_INT64, NUMC_INT64, 0, acc + val, +)
 DEFINE_REDUCTION_KERNEL(sum, NUMC_DTYPE_UINT64, NUMC_UINT64, 0, acc + val, +)
 #undef STAMP_SUM
@@ -45,7 +45,7 @@ GENERATE_INT8_INT16_NUMC_TYPES(STAMP_MEAN_SMALL)
     if (n > 0)                                                                 \
       *(CT *)out = (CT)((double)*(CT *)out / (double)n);                       \
   }
-GENERATE_INT32(STAMP_MEAN_DBL)
+GENERATE_INT32_NUMC_TYPES(STAMP_MEAN_DBL)
 STAMP_MEAN_DBL(NUMC_DTYPE_INT64, NUMC_INT64)
 STAMP_MEAN_DBL(NUMC_DTYPE_UINT64, NUMC_UINT64)
 #undef STAMP_MEAN_DBL
@@ -409,18 +409,33 @@ GENERATE_INT8_INT16_NUMC_TYPES(STAMP_DIV_COUNT_SMALL)
     for (size_t i = 0; i < n; i++)                                             \
       d[i] = (CT)((double)d[i] / dc);                                          \
   }
-GENERATE_INT32(STAMP_DIV_COUNT_DBL)
+GENERATE_INT32_NUMC_TYPES(STAMP_DIV_COUNT_DBL)
 STAMP_DIV_COUNT_DBL(NUMC_DTYPE_INT64, NUMC_INT64)
 STAMP_DIV_COUNT_DBL(NUMC_DTYPE_UINT64, NUMC_UINT64)
 #undef STAMP_DIV_COUNT_DBL
 
 /* float32/float64: native division */
+/**
+ * @brief Divide float32 array elements by a count (for mean calculation).
+ *
+ * @param data  Pointer to the data buffer.
+ * @param n     Number of elements.
+ * @param count Value to divide by.
+ */
 static void _div_count_NUMC_DTYPE_FLOAT32(char *data, size_t n, size_t count) {
   NUMC_FLOAT32 *d = (NUMC_FLOAT32 *)data;
   NUMC_FLOAT32 cc = (NUMC_FLOAT32)count;
   for (size_t i = 0; i < n; i++)
     d[i] /= cc;
 }
+
+/**
+ * @brief Divide float64 array elements by a count (for mean calculation).
+ *
+ * @param data  Pointer to the data buffer.
+ * @param n     Number of elements.
+ * @param count Value to divide by.
+ */
 static void _div_count_NUMC_DTYPE_FLOAT64(char *data, size_t n, size_t count) {
   NUMC_FLOAT64 *d = (NUMC_FLOAT64 *)data;
   NUMC_FLOAT64 dc = (NUMC_FLOAT64)count;

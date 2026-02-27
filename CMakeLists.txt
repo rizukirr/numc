@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 project(numc VERSION 0.1.0 LANGUAGES C)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -17,13 +18,42 @@ else()
 endif()
 
 # Options (defaults depend on standalone vs subdirectory)
-option(NUMC_BUILD_TESTS      "Build numc tests"       ${NUMC_STANDALONE})
-option(NUMC_BUILD_BENCHMARKS "Build numc benchmarks"   ${NUMC_STANDALONE})
-option(NUMC_BUILD_EXAMPLES   "Build numc examples"     ${NUMC_STANDALONE})
-option(NUMC_ENABLE_ASAN      "Enable AddressSanitizer" OFF)
+option(NUMC_BUILD_TESTS      "Build numc tests"             ${NUMC_STANDALONE})
+option(NUMC_BUILD_BENCHMARKS "Build numc benchmarks"        ${NUMC_STANDALONE})
+option(NUMC_BUILD_EXAMPLES   "Build numc examples"          ${NUMC_STANDALONE})
+option(NUMC_ENABLE_ASAN      "Enable AddressSanitizer"      OFF)
+option(NUMC_USE_BLAS         "Enable BLAS backend (BLIS)"   OFF)
 
 # Dependencies (at root scope so install block can see results)
 find_package(OpenMP)
+
+if(NUMC_USE_BLAS)
+    find_package(BLIS)
+
+    if(BLIS_FOUND)
+        set(BLAS_FOUND TRUE)
+        set(BLAS_LIBRARIES ${BLIS_LIBRARIES})
+        set(BLAS_INCLUDE_DIRS ${BLIS_INCLUDE_DIRS})
+        message(STATUS "Found BLIS: ${BLIS_LIBRARIES}")
+    else()
+        # Fall back to generic BLAS (may find OpenBLAS, MKL, etc.)
+        find_package(BLAS QUIET)
+        if(BLAS_FOUND)
+            message(STATUS "Found BLAS: ${BLAS_LIBRARIES}")
+            # Try to find CBLAS header
+            find_path(CBLAS_INCLUDE_DIR cblas.h
+                PATHS /usr/include /usr/local/include
+                PATH_SUFFIXES openblas blas)
+            if(CBLAS_INCLUDE_DIR)
+                set(BLAS_INCLUDE_DIRS ${CBLAS_INCLUDE_DIR})
+            endif()
+        endif()
+    endif()
+
+    if(NOT BLAS_FOUND)
+        message(WARNING "No BLAS/BLIS library found. Falling back to naive matmul. Install BLIS or disable NUMC_USE_BLAS.")
+    endif()
+endif()
 
 # Library (always built)
 add_subdirectory(src)

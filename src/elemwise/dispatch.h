@@ -15,6 +15,19 @@
  * in _binary_op / _unary_op handles it directly.
  */
 
+/**
+ * @brief Recursive N-dimensional iteration for binary operations.
+ *
+ * @param kern  Binary kernel function.
+ * @param a     Pointer to first input data.
+ * @param sa    Strides for first input.
+ * @param b     Pointer to second input data.
+ * @param sb    Strides for second input.
+ * @param out   Pointer to output data.
+ * @param so    Strides for output.
+ * @param shape Array of dimensions.
+ * @param ndim  Number of dimensions.
+ */
 static inline void _elemwise_binary_nd(NumcBinaryKernel kern, const char *a,
                                        const size_t *sa, const char *b,
                                        const size_t *sb, char *out,
@@ -32,6 +45,17 @@ static inline void _elemwise_binary_nd(NumcBinaryKernel kern, const char *a,
   }
 }
 
+/**
+ * @brief Recursive N-dimensional iteration for unary operations.
+ *
+ * @param kern  Unary kernel function.
+ * @param a     Pointer to input data.
+ * @param sa    Strides for input.
+ * @param out   Pointer to output data.
+ * @param so    Strides for output.
+ * @param shape Array of dimensions.
+ * @param ndim  Number of dimensions.
+ */
 static inline void _elemwise_unary_nd(NumcUnaryKernel kern, const char *a,
                                       const size_t *sa, char *out,
                                       const size_t *so, const size_t *shape,
@@ -47,6 +71,19 @@ static inline void _elemwise_unary_nd(NumcUnaryKernel kern, const char *a,
   }
 }
 
+/**
+ * @brief Recursive N-dimensional iteration for clip operation.
+ *
+ * @param kern  Clip kernel function.
+ * @param a     Pointer to input data.
+ * @param sa    Strides for input.
+ * @param out   Pointer to output data.
+ * @param so    Strides for output.
+ * @param shape Array of dimensions.
+ * @param ndim  Number of dimensions.
+ * @param min   Minimum value.
+ * @param max   Maximum value.
+ */
 static inline void _elemwise_clip_nd(NumcClipKernel kern, const char *a,
                                      const size_t *sa, char *out,
                                      const size_t *so, const size_t *shape,
@@ -73,6 +110,19 @@ static inline void _elemwise_clip_nd(NumcClipKernel kern, const char *a,
  * Insertion sort (stable, max NUMC_MAX_DIMENSIONS = 8 elements).
  */
 
+/**
+ * @brief Sort axes for optimal binary operation performance.
+ *
+ * @param ndim  Number of dimensions.
+ * @param shape Original shape.
+ * @param sa    Original strides of a.
+ * @param sb    Original strides of b.
+ * @param so    Original strides of out.
+ * @param ps    Permuted shape (output).
+ * @param pa    Permuted strides of a (output).
+ * @param pb    Permuted strides of b (output).
+ * @param po    Permuted strides of out (output).
+ */
 static inline void _sort_axes_binary(size_t ndim, const size_t *shape,
                                      const size_t *sa, const size_t *sb,
                                      const size_t *so, size_t *ps, size_t *pa,
@@ -103,6 +153,17 @@ static inline void _sort_axes_binary(size_t ndim, const size_t *shape,
   }
 }
 
+/**
+ * @brief Sort axes for optimal unary operation performance.
+ *
+ * @param ndim  Number of dimensions.
+ * @param shape Original shape.
+ * @param sa    Original strides of a.
+ * @param so    Original strides of out.
+ * @param ps    Permuted shape (output).
+ * @param pa    Permuted strides of a (output).
+ * @param po    Permuted strides of out (output).
+ */
 static inline void _sort_axes_unary(size_t ndim, const size_t *shape,
                                     const size_t *sa, const size_t *so,
                                     size_t *ps, size_t *pa, size_t *po) {
@@ -133,6 +194,14 @@ static inline void _sort_axes_unary(size_t ndim, const size_t *shape,
 
 /* ── Validation ───────────────────────────────────────────────────── */
 
+/**
+ * @brief Validate shapes and types for binary operations.
+ *
+ * @param a   First input array.
+ * @param b   Second input array.
+ * @param out Output array.
+ * @return 0 on success, negative error code on failure.
+ */
 static inline int _check_binary(const struct NumcArray *a,
                                 const struct NumcArray *b,
                                 const struct NumcArray *out) {
@@ -184,6 +253,13 @@ static inline int _check_binary(const struct NumcArray *a,
   return 0;
 }
 
+/**
+ * @brief Validate shapes and types for unary operations.
+ *
+ * @param a   Input array.
+ * @param out Output array.
+ * @return 0 on success, negative error code on failure.
+ */
 static inline int _check_unary(const struct NumcArray *a,
                                const struct NumcArray *out) {
   if (!a || !out) {
@@ -209,6 +285,14 @@ static inline int _check_unary(const struct NumcArray *a,
 
 /* ── Binary op dispatch ───────────────────────────────────────────── */
 
+/**
+ * @brief Dispatch element-wise binary operation.
+ *
+ * @param a     First input array.
+ * @param b     Second input array.
+ * @param out   Output array.
+ * @param table Kernel function table for the operation.
+ */
 static inline void _binary_op(const struct NumcArray *a,
                               const struct NumcArray *b, struct NumcArray *out,
                               const NumcBinaryKernel *table) {
@@ -266,6 +350,13 @@ static inline void _binary_op(const struct NumcArray *a,
 
 /* ── Scalar Conversion ──────────────────────────────────────────────── */
 
+/**
+ * @brief Convert a double value to the target data type in a buffer.
+ *
+ * @param value The double value to convert.
+ * @param dtype The target data type.
+ * @param buf   The destination buffer (must be at least 8 bytes).
+ */
 static inline void _double_to_dtype(double value, NumcDType dtype,
                                     char buf[static 8]) {
   memset(buf, 0, 8);
@@ -308,6 +399,14 @@ static inline void _double_to_dtype(double value, NumcDType dtype,
 
 /* ── Scalar op dispatch ───────────────────────────────────────────── */
 
+/**
+ * @brief Dispatch element-wise scalar operation.
+ *
+ * @param a          Input array.
+ * @param scalar_buf Pointer to the scalar value in target data type.
+ * @param out        Output array.
+ * @param table      Kernel function table for the operation.
+ */
 static inline void _scalar_op(const struct NumcArray *a, const char *scalar_buf,
                               struct NumcArray *out,
                               const NumcBinaryKernel *table) {
@@ -329,6 +428,14 @@ static inline void _scalar_op(const struct NumcArray *a, const char *scalar_buf,
   }
 }
 
+/**
+ * @brief Dispatch element-wise scalar operation in-place.
+ *
+ * @param a     Array to be modified.
+ * @param scalar Scalar value (double).
+ * @param table Kernel function table for the operation.
+ * @return 0 on success, negative error code on failure.
+ */
 static inline int _scalar_op_inplace(struct NumcArray *a, double scalar,
                                      const NumcBinaryKernel *table) {
   if (!a)
@@ -355,6 +462,14 @@ static inline int _scalar_op_inplace(struct NumcArray *a, double scalar,
 
 /* ── Unary op dispatch ────────────────────────────────────────────── */
 
+/**
+ * @brief Dispatch element-wise unary operation.
+ *
+ * @param a     Input array.
+ * @param out   Output array.
+ * @param table Kernel function table for the operation.
+ * @return 0 on success, negative error code on failure.
+ */
 static inline int _unary_op(const struct NumcArray *a, struct NumcArray *out,
                             const NumcUnaryKernel *table) {
   NumcUnaryKernel kern = table[a->dtype];
@@ -373,6 +488,13 @@ static inline int _unary_op(const struct NumcArray *a, struct NumcArray *out,
   return 0;
 }
 
+/**
+ * @brief Dispatch element-wise unary operation in-place.
+ *
+ * @param a     Array to be modified.
+ * @param table Kernel function table for the operation.
+ * @return 0 on success, negative error code on failure.
+ */
 static inline int _unary_op_inplace(struct NumcArray *a,
                                     const NumcUnaryKernel *table) {
   if (!a)

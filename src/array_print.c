@@ -14,6 +14,14 @@
   X(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, "g")                                     \
   X(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, "g")
 
+/**
+ * @brief Get the printed width of a single element.
+ *
+ * @param data        Pointer to the data buffer.
+ * @param byte_offset Offset in bytes to the element.
+ * @param dtype       Data type of the element.
+ * @return Width in characters.
+ */
 static int elem_width(const char *data, size_t byte_offset, NumcDType dtype) {
   const void *elem = data + byte_offset;
   switch (dtype) {
@@ -24,6 +32,14 @@ static int elem_width(const char *data, size_t byte_offset, NumcDType dtype) {
   return 0;
 }
 
+/**
+ * @brief Print a single element with a specified width.
+ *
+ * @param data        Pointer to the data buffer.
+ * @param byte_offset Offset in bytes to the element.
+ * @param dtype       Data type of the element.
+ * @param width       Minimum width to use when printing.
+ */
 static void print_element(const char *data, size_t byte_offset, NumcDType dtype,
                           int width) {
   const void *elem = data + byte_offset;
@@ -34,6 +50,18 @@ static void print_element(const char *data, size_t byte_offset, NumcDType dtype,
   }
 }
 
+/**
+ * @brief Find the maximum printed width of any element in an array (or sub-array).
+ *
+ * @param data    Pointer to the data buffer.
+ * @param shape   Shape of the array.
+ * @param strides Strides of the array.
+ * @param ndim    Total number of dimensions.
+ * @param dim     Current dimension being processed.
+ * @param offset  Current byte offset.
+ * @param dtype   Data type of elements.
+ * @return Maximum width in characters.
+ */
 static int max_elem_width(const char *data, const size_t *shape,
                           const size_t *strides, size_t ndim, size_t dim,
                           size_t offset, NumcDType dtype) {
@@ -51,6 +79,19 @@ static int max_elem_width(const char *data, const size_t *shape,
   return max_w;
 }
 
+/**
+ * @brief Recursively print array contents.
+ *
+ * @param data    Pointer to the data buffer.
+ * @param shape   Shape of the array.
+ * @param strides Strides of the array.
+ * @param ndim    Total number of dimensions.
+ * @param dim     Current dimension being processed.
+ * @param offset  Current byte offset.
+ * @param dtype   Data type of elements.
+ * @param width   Width to use for each element.
+ * @param indent  Current indentation level.
+ */
 static void print_recursive(const char *data, const size_t *shape,
                             const size_t *strides, size_t ndim, size_t dim,
                             size_t offset, NumcDType dtype, int width,

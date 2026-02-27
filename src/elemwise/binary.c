@@ -29,7 +29,7 @@ GENERATE_INT8_INT16_NUMC_TYPES(STAMP_DIV_SMALL)
 
 #define STAMP_DIV_I32(TE, CT)                                                  \
   DEFINE_BINARY_KERNEL(div, TE, CT, (CT)((double)in1 / (double)in2))
-GENERATE_INT32(STAMP_DIV_I32)
+GENERATE_INT32_NUMC_TYPES(STAMP_DIV_I32)
 #undef STAMP_DIV_I32
 
 #define STAMP_DIV_NATIVE(TE, CT) DEFINE_BINARY_KERNEL(div, TE, CT, in1 / in2)

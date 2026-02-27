@@ -18,6 +18,14 @@
  * float64: 7 Horner coefficients, max error < 1 ULP
  */
 
+/**
+ * @brief Compute the natural logarithm of a float (accurate scalar).
+ *
+ * Uses argument reduction and Horner's method.
+ *
+ * @param x Input value.
+ * @return Natural logarithm of x.
+ */
 static inline float _log_f32(float x) {
   static const float ln2 = 6.9314718056e-01f,
                      Lg1 = 6.6666668653e-01f, /* 0x3F2AAAAB */
@@ -51,6 +59,14 @@ static inline float _log_f32(float x) {
   return (float)k * ln2 + f - hfsq + s * (hfsq + R);
 }
 
+/**
+ * @brief Compute the natural logarithm of a double (accurate scalar).
+ *
+ * Uses argument reduction and Horner's method.
+ *
+ * @param x Input value.
+ * @return Natural logarithm of x.
+ */
 static inline double _log_f64(double x) {
   static const double ln2 = 6.9314718055994530942e-01,
                       Lg1 = 6.6666666666666735130e-01, /* 0x3FE5555555555593 */
@@ -99,6 +115,14 @@ static inline double _log_f64(double x) {
  * float64: 11 Taylor coefficients (1/n!), truncation error < 0.23 * 2^-53
  */
 
+/**
+ * @brief Compute the exponential of a float (accurate scalar).
+ *
+ * Uses argument reduction and Horner's method.
+ *
+ * @param x Input value.
+ * @return e^x.
+ */
 static inline float _exp_f32(float x) {
   static const float LOG2E = 1.44269504088896341f, /* log2(e) = 1/ln2 */
       LN2HI = 6.93359375000000000e-1f, /* ln2 upper half (355/512, exact)    */
@@ -140,6 +164,14 @@ static inline float _exp_f32(float x) {
   return p;
 }
 
+/**
+ * @brief Compute the exponential of a double (accurate scalar).
+ *
+ * Uses argument reduction and Horner's method.
+ *
+ * @param x Input value.
+ * @return e^x.
+ */
 static inline double _exp_f64(double x) {
   static const double LOG2E = 1.44269504088896338700e+00,
                       LN2HI =
@@ -249,6 +281,13 @@ DEFINE_POWI_UNSIGNED(_powi_u16, uint16_t, 16)
 
 /* ── 32/64-bit: variable-iteration with early exit (scalar, fast) ──── */
 
+/**
+ * @brief Compute the power of a signed 64-bit integer.
+ *
+ * @param base The base.
+ * @param exp  The exponent.
+ * @return base^exp.
+ */
 static inline int64_t _powi_signed(int64_t base, int64_t exp) {
   if (exp < 0)
     return 0;
@@ -262,6 +301,13 @@ static inline int64_t _powi_signed(int64_t base, int64_t exp) {
   return result;
 }
 
+/**
+ * @brief Compute the power of an unsigned 64-bit integer.
+ *
+ * @param base The base.
+ * @param exp  The exponent.
+ * @return base^exp.
+ */
 static inline uint64_t _powi_unsigned(uint64_t base, uint64_t exp) {
   uint64_t result = 1;
   while (exp > 0) {

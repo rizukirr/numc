@@ -12,3 +12,6 @@ target_link_libraries(bench_pow PRIVATE numc::numc)
 
 add_executable(bench_reduction bench_reduction.c)
 target_link_libraries(bench_reduction PRIVATE numc::numc)
+
+add_executable(bench_matmul bench_matmul.c)
+target_link_libraries(bench_matmul PRIVATE numc::numc)

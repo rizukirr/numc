@@ -1,3 +1,2 @@
 CompileFlags:
-  Add:
-    - -DARENA_IMPLEMENTATION=1
+  Add: []

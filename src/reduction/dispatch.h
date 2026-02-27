@@ -9,6 +9,13 @@
 /* Check if the non-reduced dims of 'a' form a contiguous block.
  * Walk from last dim backwards (skipping reduction axis), verify
  * strides match C-order contiguous layout. */
+/**
+ * @brief Check if the non-reduced dimensions of an array form a contiguous block.
+ *
+ * @param a    Input array.
+ * @param axis The reduction axis.
+ * @return true if contiguous, false otherwise.
+ */
 static inline bool _iter_contiguous(const struct NumcArray *a, size_t axis) {
   size_t expected = a->elem_size;
   for (size_t i = a->dim; i-- > 0;) {
@@ -21,16 +28,19 @@ static inline bool _iter_contiguous(const struct NumcArray *a, size_t axis) {
   return true;
 }
 
-/* ── ND iteration for axis reduction ──────────────────────────────
+/**
+ * @brief Recursive N-dimensional iteration for axis reduction.
  *
- * Recursive — at each leaf position, calls the reduction kernel
- * along the reduction axis.
- *
- * iter_shape / sa / so have the reduction axis REMOVED — they
- * describe the iteration space (all dims except the one being reduced).
- * reduce_stride / reduce_len describe the reduction axis itself.
+ * @param kern          Reduction kernel function.
+ * @param a             Pointer to input data.
+ * @param sa            Strides for input iteration space.
+ * @param out           Pointer to output data.
+ * @param so            Strides for output iteration space.
+ * @param iter_shape    Shape of the iteration space (excluding reduction axis).
+ * @param iter_ndim     Number of dimensions in the iteration space.
+ * @param reduce_stride Stride along the reduction axis.
+ * @param reduce_len    Length of the reduction axis.
  */
-
 static inline void _reduce_axis_nd(NumcReductionKernel kern, const char *a,
                                    const size_t *sa, char *out,
                                    const size_t *so, const size_t *iter_shape,
@@ -46,8 +56,13 @@ static inline void _reduce_axis_nd(NumcReductionKernel kern, const char *a,
   }
 }
 
-/* ── Full reduction dispatch ──────────────────────────────────────── */
-
+/**
+ * @brief Dispatch a full reduction operation (all elements reduced to a scalar).
+ *
+ * @param a     Input array.
+ * @param out   Output array (scalar).
+ * @param table Reduction kernel function table.
+ */
 static inline void _reduce_full_op(const struct NumcArray *a,
                                    struct NumcArray *out,
                                    const NumcReductionKernel *table) {
@@ -124,8 +139,15 @@ static inline void _reduce_full_op(const struct NumcArray *a,
   }
 }
 
-/* ── Axis reduction dispatch ──────────────────────────────────────── */
-
+/**
+ * @brief Dispatch a reduction operation along a specific axis.
+ *
+ * @param a       Input array.
+ * @param axis    The axis to reduce.
+ * @param keepdim If true, the reduced axis is kept with size 1.
+ * @param out     Output array.
+ * @param table   Reduction kernel function table.
+ */
 static inline void _reduce_axis_op(const struct NumcArray *a, size_t axis,
                                    int keepdim, struct NumcArray *out,
                                    const NumcReductionKernel *table) {
@@ -170,8 +192,13 @@ static inline void _reduce_axis_op(const struct NumcArray *a, size_t axis,
   }
 }
 
-/* ── Validation ───────────────────────────────────────────────────── */
-
+/**
+ * @brief Validate full reduction operation.
+ *
+ * @param a   Input array.
+ * @param out Output array.
+ * @return 0 on success, negative error code on failure.
+ */
 static inline int _check_reduce_full(const struct NumcArray *a,
                                      const struct NumcArray *out) {
   if (!a || !out) {
@@ -189,6 +216,15 @@ static inline int _check_reduce_full(const struct NumcArray *a,
   return 0;
 }
 
+/**
+ * @brief Validate axis reduction operation.
+ *
+ * @param a       Input array.
+ * @param axis    The reduction axis.
+ * @param keepdim If true, the reduced axis is kept with size 1.
+ * @param out     Output array.
+ * @return 0 on success, negative error code on failure.
+ */
 static inline int _check_reduce_axis(const struct NumcArray *a, int axis,
                                      int keepdim,
                                      const struct NumcArray *out) {
@@ -253,11 +289,13 @@ static inline int _check_reduce_axis(const struct NumcArray *a, int axis,
   return 0;
 }
 
-/* ── Arg-reduction validation ─────────────────────────────────────
+/**
+ * @brief Validate full arg-reduction operation (argmax/argmin).
  *
- * Like _check_reduce_full/axis but enforces out->dtype == INT64
- * instead of a->dtype == out->dtype. */
-
+ * @param a   Input array.
+ * @param out Output array (must be INT64 scalar).
+ * @return 0 on success, negative error code on failure.
+ */
 static inline int _check_argreduce_full(const struct NumcArray *a,
                                         const struct NumcArray *out) {
   if (!a || !out) {
@@ -280,6 +318,15 @@ static inline int _check_argreduce_full(const struct NumcArray *a,
   return 0;
 }
 
+/**
+ * @brief Validate axis arg-reduction operation.
+ *
+ * @param a       Input array.
+ * @param axis    The reduction axis.
+ * @param keepdim If true, the reduced axis is kept with size 1.
+ * @param out     Output array (must be INT64).
+ * @return 0 on success, negative error code on failure.
+ */
 static inline int _check_argreduce_axis(const struct NumcArray *a, int axis,
                                         int keepdim,
                                         const struct NumcArray *out) {

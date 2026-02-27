@@ -1,6 +1,6 @@
 macro(numc_demo name src)
-  add_executable(${name} ${src})
-  target_link_libraries(${name} PRIVATE numc::numc)
+    add_executable(${name} ${src})
+    target_link_libraries(${name} PRIVATE numc::numc)
 endmacro()
 
 # ── core ─────────────────────────────────────────────────────────────────────
@@ -25,3 +25,6 @@ numc_demo(demo_sum             reduction/demo_sum.c)
 numc_demo(demo_mean            reduction/demo_mean.c)
 numc_demo(demo_max_min         reduction/demo_max_min.c)
 numc_demo(demo_argmax_argmin   reduction/demo_argmax_argmin.c)
+
+# ── matmul ─────────────────────────────────────────────────────────────────
+numc_demo(demo_matmul          matmul/demo_matmul.c)

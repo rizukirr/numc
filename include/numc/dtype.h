@@ -43,7 +43,7 @@
 #define GENERATE_SIGNED_64BIT_NUMC_TYPES(NUMC_DTYPE)                           \
   NUMC_DTYPE(NUMC_DTYPE_INT64, NUMC_INT64)
 
-#define GENERATE_INT32(NUMC_DTYPE)                                             \
+#define GENERATE_INT32_NUMC_TYPES(NUMC_DTYPE)                                  \
   NUMC_DTYPE(NUMC_DTYPE_INT32, NUMC_INT32)                                     \
   NUMC_DTYPE(NUMC_DTYPE_UINT32, NUMC_UINT32)
 
@@ -51,6 +51,11 @@
   NUMC_DTYPE(NUMC_DTYPE_INT64, NUMC_INT64)                                     \
   NUMC_DTYPE(NUMC_DTYPE_UINT64, NUMC_UINT64)                                   \
   NUMC_DTYPE(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64)
+
+#define GENERATE_32BIT_NUMC_TYPES(NUMC_DTYPE)                                  \
+  NUMC_DTYPE(NUMC_DTYPE_INT32, NUMC_INT32)                                     \
+  NUMC_DTYPE(NUMC_DTYPE_UINT32, NUMC_UINT32)                                   \
+  NUMC_DTYPE(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32)
 
 typedef enum {
   NUMC_DTYPE_INT8,

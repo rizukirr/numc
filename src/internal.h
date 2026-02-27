@@ -25,10 +25,8 @@ struct NumcCtx {
 struct NumcArray {
   struct NumcCtx *ctx;
   void *data;
-  size_t *shape;   /* → _shape_buf (dims ≤ 8) or arena-allocated */
-  size_t *strides; /* → _strides_buf (dims ≤ 8) or arena-allocated */
-  size_t _shape_buf[NUMC_MAX_INLINE_DIMS];
-  size_t _strides_buf[NUMC_MAX_INLINE_DIMS];
+  size_t *shape, *strides;
+  size_t _shape_buf[NUMC_MAX_INLINE_DIMS], _strides_buf[NUMC_MAX_INLINE_DIMS];
   size_t dim, elem_size, size, capacity;
   bool is_contiguous;
   NumcDType dtype;
@@ -36,7 +34,20 @@ struct NumcArray {
 
 /* --- Aligned alloc (private) --- */
 
+/**
+ * @brief Allocate aligned memory.
+ *
+ * @param alignment Alignment in bytes (must be a power of two).
+ * @param size      Number of bytes to allocate.
+ * @return Pointer to the allocated memory, or NULL on failure.
+ */
 void *numc_malloc(size_t alignment, size_t size);
+
+/**
+ * @brief Free memory allocated by numc_malloc.
+ *
+ * @param ptr Pointer to the memory to be freed.
+ */
 void numc_free(void *ptr);
 
 /* --- OMP macros (private) --- */

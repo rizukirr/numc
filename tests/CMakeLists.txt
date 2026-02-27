@@ -1,9 +1,9 @@
 # Helper macro: add a test executable and register it with ctest
 macro(numc_test name src)
-  add_executable(${name} ${src})
-  target_link_libraries(${name} PRIVATE numc::numc)
-  target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/src)
-  add_test(NAME ${name} COMMAND ${name})
+    add_executable(${name} ${src})
+    target_link_libraries(${name} PRIVATE numc::numc)
+    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/src)
+    add_test(NAME ${name} COMMAND ${name})
 endmacro()
 
 # ── core ────────────────────────────────────────────────────────────────────
@@ -43,3 +43,6 @@ numc_test(test_max              reduction/test_max.c)
 numc_test(test_min              reduction/test_min.c)
 numc_test(test_argmax           reduction/test_argmax.c)
 numc_test(test_argmin           reduction/test_argmin.c)
+
+# ── matmul ────────────────────────────────────────────────────────────────
+numc_test(test_matmul_naive     matmul/test_matmul_naive.c)

@@ -11,6 +11,14 @@
 
 // Static functions
 
+/**
+ * @brief Calculate byte-strides for a contiguous array.
+ *
+ * @param strides   Output array for strides.
+ * @param shape     Input array of dimensions.
+ * @param dim       Number of dimensions.
+ * @param elem_size Size of one element in bytes.
+ */
 static inline void _calculate_strides(size_t *strides, const size_t *shape,
                                       size_t dim, size_t elem_size) {
   strides[dim - 1] = elem_size;
@@ -19,10 +27,19 @@ static inline void _calculate_strides(size_t *strides, const size_t *shape,
   }
 }
 
-/* Initialize shape/strides pointers: inline buffer for dims ≤ 8,
- * arena-allocated for larger dimensionality. */
+/**
+ * @brief Initialize shape and strides buffers for an array.
+ *
+ * Uses an inline buffer for small dimensionality (<= 8), otherwise allocates
+ * from the arena.
+ *
+ * @param arr Pointer to the NumcArray.
+ * @param ctx Pointer to the NumcCtx.
+ * @param dim Number of dimensions.
+ * @return 0 on success, -1 on failure.
+ */
 static inline int _init_dims(struct NumcArray *arr, struct NumcCtx *ctx,
-                              size_t dim) {
+                             size_t dim) {
   if (dim <= NUMC_MAX_INLINE_DIMS) {
     arr->shape = arr->_shape_buf;
     arr->strides = arr->_strides_buf;
@@ -37,6 +54,12 @@ static inline int _init_dims(struct NumcArray *arr, struct NumcCtx *ctx,
   return 0;
 }
 
+/**
+ * @brief Fill an array with a specific value (handles non-contiguous).
+ *
+ * @param arr   Pointer to the array.
+ * @param value Pointer to the scalar value.
+ */
 static inline void _array_fill_with(struct NumcArray *arr, const void *value) {
   char *ptr = arr->data;
   size_t cordinate[arr->dim];
@@ -88,7 +111,7 @@ NumcCtx *numc_ctx_create(void) {
 
 NumcArray *numc_array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
                              NumcDType dtype) {
-  if (!ctx || !shape || dim == 0 || dim > NUMC_MAX_DIMENSIONS) {
+  if (!ctx || !shape || dim == 0) {
     return NULL;
   }
 

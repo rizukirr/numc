@@ -21,6 +21,13 @@
 
 #define PAIRWISE_BLOCKSIZE 128
 
+/**
+ * @brief Pairwise summation for float32 (accurate and vectorizable).
+ *
+ * @param a Pointer to the float32 data.
+ * @param n Number of elements.
+ * @return Sum of all elements.
+ */
 static inline float _pairwise_sum_f32(const float *restrict a, size_t n) {
   if (n <= PAIRWISE_BLOCKSIZE) {
     float r0 = 0, r1 = 0, r2 = 0, r3 = 0;
@@ -45,6 +52,13 @@ static inline float _pairwise_sum_f32(const float *restrict a, size_t n) {
   return _pairwise_sum_f32(a, half) + _pairwise_sum_f32(a + half, n - half);
 }
 
+/**
+ * @brief Pairwise summation for float64 (accurate and vectorizable).
+ *
+ * @param a Pointer to the float64 data.
+ * @param n Number of elements.
+ * @return Sum of all elements.
+ */
 static inline double _pairwise_sum_f64(const double *restrict a, size_t n) {
   if (n <= PAIRWISE_BLOCKSIZE) {
     double r0 = 0, r1 = 0, r2 = 0, r3 = 0;

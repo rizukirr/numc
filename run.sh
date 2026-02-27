@@ -92,6 +92,11 @@ case $1 in
         ./build/bin/bench_reduction
         exit 0
         ;;
+    "bench-matmul")
+        build Release
+        ./build/bin/bench_matmul
+        exit 0
+        ;;
     "clean")
         echo "Cleaning build directory..."
         rm -rf build

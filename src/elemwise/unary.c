@@ -33,7 +33,7 @@ GENERATE_INT8_INT16_NUMC_TYPES(STAMP_LOG_SMALL)
 /* 32-bit integers: cast through double */
 #define STAMP_LOG_I32(TE, CT)                                                  \
   DEFINE_UNARY_KERNEL(log, TE, CT, (CT)_log_f64((double)in1))
-GENERATE_INT32(STAMP_LOG_I32)
+GENERATE_INT32_NUMC_TYPES(STAMP_LOG_I32)
 #undef STAMP_LOG_I32
 
 /* 64-bit integers: cast through double */
@@ -59,7 +59,7 @@ GENERATE_INT8_INT16_NUMC_TYPES(STAMP_EXP_SMALL)
 /* int32/uint32: cast through float64 */
 #define STAMP_EXP_I32(TE, CT)                                                  \
   DEFINE_UNARY_KERNEL(exp, TE, CT, (CT)_exp_f64((double)in1))
-GENERATE_INT32(STAMP_EXP_I32)
+GENERATE_INT32_NUMC_TYPES(STAMP_EXP_I32)
 #undef STAMP_EXP_I32
 
 /* int64: cast through float64 */
