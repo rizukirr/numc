@@ -3,6 +3,59 @@
 #include "numc/dtype.h"
 #include "numc/math.h"
 
+#ifdef HAVE_BLAS
+
+#include "internal.h"
+#include <blis/blis.h>
+
+void _matmul_blis_f32(const struct NumcArray *a, const struct NumcArray *b,
+                      struct NumcArray *out) {
+  float alpha = 1.0f;
+  float beta = 0.0f;
+
+  dim_t m = a->shape[0];
+  dim_t k = a->shape[1];
+  dim_t n = b->shape[1];
+
+  inc_t rs_a = a->strides[0] / sizeof(float);
+  inc_t cs_a = a->strides[1] / sizeof(float);
+
+  inc_t rs_b = b->strides[0] / sizeof(float);
+  inc_t cs_b = b->strides[1] / sizeof(float);
+
+  inc_t rs_c = out->strides[0] / sizeof(float);
+  inc_t cs_c = out->strides[1] / sizeof(float);
+
+  bli_sgemm(BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE, m, n, k, &alpha,
+            (float *)a->data, rs_a, cs_a, (float *)b->data, rs_b, cs_b, &beta,
+            (float *)out->data, rs_c, cs_c);
+}
+
+void _matmul_blis_f64(const struct NumcArray *a, const struct NumcArray *b,
+                      struct NumcArray *out) {
+  double alpha = 1.0;
+  double beta = 0.0;
+
+  dim_t m = a->shape[0];
+  dim_t k = a->shape[1];
+  dim_t n = b->shape[1];
+
+  inc_t rs_a = a->strides[0] / sizeof(double);
+  inc_t cs_a = a->strides[1] / sizeof(double);
+
+  inc_t rs_b = b->strides[0] / sizeof(double);
+  inc_t cs_b = b->strides[1] / sizeof(double);
+
+  inc_t rs_c = out->strides[0] / sizeof(double);
+  inc_t cs_c = out->strides[1] / sizeof(double);
+
+  bli_dgemm(BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE, m, n, k, &alpha,
+            (double *)a->data, rs_a, cs_a, (double *)b->data, rs_b, cs_b, &beta,
+            (double *)out->data, rs_c, cs_c);
+}
+
+#endif
+
 #define E(TE) [TE] = _matmul_naive_##TE
 
 static const MatmulKernel _matmul_table[] = {
@@ -18,6 +71,28 @@ int numc_matmul_naive(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   int err = _check_matmul(a, b, out);
   if (err)
     return err;
+
+  MatmulKernel kern = _matmul_table[a->dtype];
+  kern((const char *)a->data, (const char *)b->data, (char *)out->data,
+       a->shape[0], b->shape[0], out->shape[1]);
+  return 0;
+}
+
+int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
+  int err = _check_matmul(a, b, out);
+  if (err)
+    return err;
+
+#ifdef HAVE_BLAS
+  if (a->dtype == NUMC_DTYPE_FLOAT32) {
+    _matmul_blis_f32(a, b, out);
+    return 0;
+  }
+  if (a->dtype == NUMC_DTYPE_FLOAT64) {
+    _matmul_blis_f64(a, b, out);
+    return 0;
+  }
+#endif
 
   MatmulKernel kern = _matmul_table[a->dtype];
   kern((const char *)a->data, (const char *)b->data, (char *)out->data,

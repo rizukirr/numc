@@ -417,11 +417,24 @@ int numc_argmin(const NumcArray *a, NumcArray *out);
 int numc_argmin_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
 
 /**
+ * @brief Matrix multiplication: out = a @ b.
+ *
+ * Dispatches to BLIS for float32/float64 when available,
+ * otherwise falls back to the naive kernel.
+ *
+ * @param a   First input matrix (M x K).
+ * @param b   Second input matrix (K x N).
+ * @param out Output matrix (M x N).
+ * @return 0 on success, negative error code on failure.
+ */
+int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out);
+
+/**
  * @brief Naive matrix multiplication: out = a @ b.
  *
- * @param a   First input matrix.
- * @param b   Second input matrix.
- * @param out Output matrix.
+ * @param a   First input matrix (M x K).
+ * @param b   Second input matrix (K x N).
+ * @param out Output matrix (M x N).
  * @return 0 on success, negative error code on failure.
  */
 int numc_matmul_naive(const NumcArray *a, const NumcArray *b, NumcArray *out);

@@ -73,7 +73,7 @@ In-place variants (`_inplace` suffix) for optimizer weight updates:
 
 ### 6. Matrix Operations
 
-- [ ] `array_matmul(a, b)` — (M,K) @ (K,N) -> (M,N)
+- [x] `array_matmul(a, b)` — (M,K) @ (K,N) -> (M,N)
 
 ### 7. Comparison / Selection
 

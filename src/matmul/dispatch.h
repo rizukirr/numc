@@ -54,4 +54,15 @@ static inline int _check_matmul(const struct NumcArray *a,
   return 0;
 }
 
+/* --- BLIS dispatch declarations (private) --- */
+
+#ifdef HAVE_BLAS
+
+void _matmul_blis_f32(const struct NumcArray *a, const struct NumcArray *b,
+                      struct NumcArray *out);
+void _matmul_blis_f64(const struct NumcArray *a, const struct NumcArray *b,
+                      struct NumcArray *out);
+
+#endif
+
 #endif
