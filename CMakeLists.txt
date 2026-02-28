@@ -36,22 +36,7 @@ if(NUMC_USE_BLAS)
         set(BLAS_INCLUDE_DIRS ${BLIS_INCLUDE_DIRS})
         message(STATUS "Found BLIS: ${BLIS_LIBRARIES}")
     else()
-        # Fall back to generic BLAS (may find OpenBLAS, MKL, etc.)
-        find_package(BLAS QUIET)
-        if(BLAS_FOUND)
-            message(STATUS "Found BLAS: ${BLAS_LIBRARIES}")
-            # Try to find CBLAS header
-            find_path(CBLAS_INCLUDE_DIR cblas.h
-                PATHS /usr/include /usr/local/include
-                PATH_SUFFIXES openblas blas)
-            if(CBLAS_INCLUDE_DIR)
-                set(BLAS_INCLUDE_DIRS ${CBLAS_INCLUDE_DIR})
-            endif()
-        endif()
-    endif()
-
-    if(NOT BLAS_FOUND)
-        message(WARNING "No BLAS/BLIS library found. Falling back to naive matmul. Install BLIS or disable NUMC_USE_BLAS.")
+        message(WARNING "BLIS not found. Falling back to naive matmul. Install BLIS or disable NUMC_USE_BLAS.")
     endif()
 endif()
 
