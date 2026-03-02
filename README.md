@@ -105,7 +105,7 @@ NumPy-style broadcasting for all binary ops.
 ### Phase 4 — Matrix multiplication ✓
 Naive matmul first. BLAS (`cblas_sgemm`) later for performance.
 
-### Phase 5 — Comparison + selection
+### Phase 5 — Comparison + selection ✓
 gt, lt, eq, where. Needed for relu backward.
 
 ### Phase 6 — Random
