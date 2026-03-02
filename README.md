@@ -86,6 +86,8 @@ In-place variants (`_inplace` suffix) for optimizer weight updates:
 - [ ] `numc_manual_seed(seed)`
 - [ ] `array_rand(ctx, shape, dim, dtype)` — uniform [0, 1)
 - [ ] `array_randn(ctx, shape, dim, dtype)` — normal N(0,1) via Box-Muller
+- [ ] `array_random_he(ctx, shape, dim, dtype, fan_in)` — He (Kaiming) initialization
+- [ ] `array_random_xavier(ctx, shape, dim, dtype, fan_in, fan_out)` — Xavier (Glorot) initialization
 
 ---
 
