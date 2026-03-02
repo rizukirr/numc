@@ -77,8 +77,8 @@ In-place variants (`_inplace` suffix) for optimizer weight updates:
 
 ### 7. Comparison / Selection
 
-- [ ] `array_eq(a, b)` / `array_gt(a, b)` / `array_lt(a, b)` / `array_ge(a, b)` / `array_le(a, b)`
-- [ ] `array_where(cond, a, b)` — ternary select
+- [x] `array_eq(a, b)` / `array_gt(a, b)` / `array_lt(a, b)` / `array_ge(a, b)` / `array_le(a, b)`
+- [x] `array_where(cond, a, b)` — ternary select
 
 ### 8. Random
 
@@ -102,7 +102,7 @@ Scalar variants. In-place variants.
 sum, mean, max, min, argmax, argmin (full + axis + keepdim).
 NumPy-style broadcasting for all binary ops.
 
-### Phase 4 — Matrix multiplication
+### Phase 4 — Matrix multiplication ✓
 Naive matmul first. BLAS (`cblas_sgemm`) later for performance.
 
 ### Phase 5 — Comparison + selection

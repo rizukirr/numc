@@ -45,33 +45,6 @@ static void demo_maximum_minimum(NumcCtx *ctx) {
   numc_minimum(i1, i2, iout);
   printf("min: ");
   numc_array_print(iout);
-
-  /* Inplace variants */
-  label("numc_maximum_inplace (a = max(a, b), int32)");
-  NumcArray *ma = numc_array_create(ctx, shape, 2, NUMC_DTYPE_INT32);
-  NumcArray *mb = numc_array_create(ctx, shape, 2, NUMC_DTYPE_INT32);
-  numc_array_write(ma, di1);
-  numc_array_write(mb, di2);
-  printf("a: ");
-  numc_array_print(ma);
-  printf("b: ");
-  numc_array_print(mb);
-  numc_maximum_inplace(ma, mb);
-  printf("a: ");
-  numc_array_print(ma);
-
-  label("numc_minimum_inplace (a = min(a, b), int32)");
-  NumcArray *na = numc_array_create(ctx, shape, 2, NUMC_DTYPE_INT32);
-  NumcArray *nb = numc_array_create(ctx, shape, 2, NUMC_DTYPE_INT32);
-  numc_array_write(na, di1);
-  numc_array_write(nb, di2);
-  printf("a: ");
-  numc_array_print(na);
-  printf("b: ");
-  numc_array_print(nb);
-  numc_minimum_inplace(na, nb);
-  printf("a: ");
-  numc_array_print(na);
 }
 
 int main(void) {

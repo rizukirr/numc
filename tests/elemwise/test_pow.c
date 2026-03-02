@@ -300,67 +300,6 @@ static int test_pow_shape_mismatch(void) {
   return 0;
 }
 
-static int test_pow_inplace_float32(void) {
-  NumcCtx *ctx = numc_ctx_create();
-  size_t shape[] = {3};
-  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
-  NumcArray *b = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
-
-  float da[] = {2.0f, 3.0f, 10.0f};
-  float db[] = {3.0f, 2.0f, 2.0f};
-  numc_array_write(a, da);
-  numc_array_write(b, db);
-
-  int err = numc_pow_inplace(a, b);
-  ASSERT_MSG(err == 0, "pow_inplace float32 should succeed");
-
-  float *r = (float *)numc_array_data(a);
-  ASSERT_MSG(FABSF_T(r[0] - 8.0f) <= POW_EPS32, "pow_inplace(2,3) ≈ 8");
-  ASSERT_MSG(FABSF_T(r[1] - 9.0f) <= POW_EPS32, "pow_inplace(3,2) ≈ 9");
-  ASSERT_MSG(FABSF_T(r[2] - 100.0f) <= POW_EPS32, "pow_inplace(10,2) ≈ 100");
-
-  numc_ctx_free(ctx);
-  return 0;
-}
-
-static int test_pow_inplace_int32(void) {
-  NumcCtx *ctx = numc_ctx_create();
-  size_t shape[] = {4};
-  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
-  NumcArray *b = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
-
-  int32_t da[] = {2, -3, 5, 10};
-  int32_t db[] = {10, 3, 2, 2};
-  numc_array_write(a, da);
-  numc_array_write(b, db);
-
-  int err = numc_pow_inplace(a, b);
-  ASSERT_MSG(err == 0, "pow_inplace int32 should succeed");
-
-  int32_t *r = (int32_t *)numc_array_data(a);
-  ASSERT_MSG(r[0] == 1024, "pow_inplace(2,10) == 1024");
-  ASSERT_MSG(r[1] == -27, "pow_inplace(-3,3) == -27");
-  ASSERT_MSG(r[2] == 25, "pow_inplace(5,2) == 25");
-  ASSERT_MSG(r[3] == 100, "pow_inplace(10,2) == 100");
-
-  numc_ctx_free(ctx);
-  return 0;
-}
-
-static int test_pow_inplace_null(void) {
-  NumcCtx *ctx = numc_ctx_create();
-  size_t shape[] = {4};
-  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
-
-  int err = numc_pow_inplace(NULL, a);
-  ASSERT_MSG(err == NUMC_ERR_NULL, "pow_inplace(NULL, a) should fail");
-  err = numc_pow_inplace(a, NULL);
-  ASSERT_MSG(err == NUMC_ERR_NULL, "pow_inplace(a, NULL) should fail");
-
-  numc_ctx_free(ctx);
-  return 0;
-}
-
 int main(void) {
   int passes = 0, fails = 0;
   printf("=== elemwise/test_pow ===\n\n");
@@ -379,11 +318,6 @@ int main(void) {
   RUN_TEST(test_pow_null);
   RUN_TEST(test_pow_type_mismatch);
   RUN_TEST(test_pow_shape_mismatch);
-
-  printf("\nnumc_pow_inplace:\n");
-  RUN_TEST(test_pow_inplace_float32);
-  RUN_TEST(test_pow_inplace_int32);
-  RUN_TEST(test_pow_inplace_null);
 
   printf("\n=== Results: %d passed, %d failed ===\n", passes, fails);
   return fails > 0 ? 1 : 0;

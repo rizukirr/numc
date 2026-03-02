@@ -40,19 +40,6 @@ static double bench_pow_op(PowOp op, NumcArray *a, NumcArray *b, NumcArray *out,
   return (t1 - t0) / iters;
 }
 
-static double bench_pow_inplace_op(PowInplace op, NumcArray *a, NumcArray *b,
-                                   int iters) {
-  for (int i = 0; i < WARMUP; i++)
-    op(a, b);
-
-  double t0 = time_us();
-  for (int i = 0; i < iters; i++)
-    op(a, b);
-  double t1 = time_us();
-
-  return (t1 - t0) / iters;
-}
-
 /* ── Helpers ───────────────────────────────────────────────────────── */
 
 static const char *dtype_name(NumcDType dt) {
@@ -141,10 +128,9 @@ static void fill_exp(NumcDType dt, char buf[static 8]) {
 }
 
 static const NumcDType ALL_DTYPES[] = {
-    NUMC_DTYPE_INT8,    NUMC_DTYPE_UINT8,   NUMC_DTYPE_INT16,
-    NUMC_DTYPE_UINT16,  NUMC_DTYPE_INT32,   NUMC_DTYPE_UINT32,
-    NUMC_DTYPE_INT64,   NUMC_DTYPE_UINT64,  NUMC_DTYPE_FLOAT32,
-    NUMC_DTYPE_FLOAT64,
+    NUMC_DTYPE_INT8,    NUMC_DTYPE_UINT8,   NUMC_DTYPE_INT16, NUMC_DTYPE_UINT16,
+    NUMC_DTYPE_INT32,   NUMC_DTYPE_UINT32,  NUMC_DTYPE_INT64, NUMC_DTYPE_UINT64,
+    NUMC_DTYPE_FLOAT32, NUMC_DTYPE_FLOAT64,
 };
 static const int N_DTYPES = sizeof(ALL_DTYPES) / sizeof(ALL_DTYPES[0]);
 
@@ -178,10 +164,8 @@ static void bench_contiguous(NumcCtx *ctx, size_t size) {
     }
 
     double us_pow = bench_pow_op(numc_pow, a, b, out, ITERS);
-    double us_ip = bench_pow_inplace_op(numc_pow_inplace, a_ip, b, ITERS);
 
-    printf("  %-8s %10.2f %10.2f   %10.1f %10.1f\n", dtype_name(dt), us_pow,
-           us_ip, size / us_pow, size / us_ip);
+    printf("  %-8s %10.2f %10.2f\n", dtype_name(dt), us_pow, size / us_pow);
   }
 }
 
@@ -229,8 +213,8 @@ static void bench_int_vs_float(NumcCtx *ctx, size_t size) {
   printf("\n  %-8s %10s %10s\n", "dtype", "time (us)", "Mop/s");
   printf("  ──────────────────────────────\n");
 
-  NumcDType dtypes[] = {NUMC_DTYPE_INT32, NUMC_DTYPE_INT64,
-                        NUMC_DTYPE_FLOAT32, NUMC_DTYPE_FLOAT64};
+  NumcDType dtypes[] = {NUMC_DTYPE_INT32, NUMC_DTYPE_INT64, NUMC_DTYPE_FLOAT32,
+                        NUMC_DTYPE_FLOAT64};
   int ndtypes = sizeof(dtypes) / sizeof(dtypes[0]);
 
   for (int d = 0; d < ndtypes; d++) {

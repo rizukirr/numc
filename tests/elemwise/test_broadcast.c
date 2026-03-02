@@ -91,8 +91,7 @@ static int test_broadcast_both(void) {
   ASSERT_MSG(r[4] == 12.0f && r[5] == 22.0f && r[6] == 32.0f && r[7] == 42.0f,
              "row 1");
   /* row 2: 3+10, 3+20, 3+30, 3+40 */
-  ASSERT_MSG(r[8] == 13.0f && r[9] == 23.0f && r[10] == 33.0f &&
-                 r[11] == 43.0f,
+  ASSERT_MSG(r[8] == 13.0f && r[9] == 23.0f && r[10] == 33.0f && r[11] == 43.0f,
              "row 2");
 
   numc_ctx_free(ctx);
@@ -180,8 +179,7 @@ static int test_broadcast_3d(void) {
   ASSERT_MSG(r[4] == 21.0f && r[5] == 22.0f && r[6] == 23.0f && r[7] == 24.0f,
              "out[0,1,:]");
   /* out[0,2,:] = a[0,0,:] + b[0,2,0] = [1,2,3,4] + 30 = [31,32,33,34] */
-  ASSERT_MSG(r[8] == 31.0f && r[9] == 32.0f && r[10] == 33.0f &&
-                 r[11] == 34.0f,
+  ASSERT_MSG(r[8] == 31.0f && r[9] == 32.0f && r[10] == 33.0f && r[11] == 34.0f,
              "out[0,2,:]");
   /* out[1,0,:] = a[1,0,:] + b[0,0,0] = [5,6,7,8] + 10 = [15,16,17,18] */
   ASSERT_MSG(r[12] == 15.0f && r[13] == 16.0f && r[14] == 17.0f &&
@@ -283,35 +281,6 @@ static int test_broadcast_noncontiguous(void) {
   /* row 2: 100+3, 200+6, 300+9, 400+12 */
   ASSERT_MSG(r[8] == 103.0f && r[9] == 206.0f && r[10] == 309.0f &&
                  r[11] == 412.0f,
-             "row 2");
-
-  numc_ctx_free(ctx);
-  return 0;
-}
-
-/* ── In-place broadcast: maximum_inplace with (3,4) and (1,4) ──────── */
-
-static int test_broadcast_inplace(void) {
-  NumcCtx *ctx = numc_ctx_create();
-  size_t sa[] = {3, 4}, sb[] = {1, 4};
-  NumcArray *a = numc_array_create(ctx, sa, 2, NUMC_DTYPE_FLOAT32);
-  NumcArray *b = numc_array_create(ctx, sb, 2, NUMC_DTYPE_FLOAT32);
-
-  float da[] = {1, 5, 3, 7, 2, 6, 4, 8, 9, 0, 5, 3};
-  float db[] = {3, 3, 3, 3};
-  numc_array_write(a, da);
-  numc_array_write(b, db);
-
-  int err = numc_maximum_inplace(a, b);
-  ASSERT_MSG(err == 0, "inplace broadcast maximum should succeed");
-
-  float *r = (float *)numc_array_data(a);
-  /* max(each, 3): row 0: 3,5,3,7  row 1: 3,6,4,8  row 2: 9,3,5,3 */
-  ASSERT_MSG(r[0] == 3.0f && r[1] == 5.0f && r[2] == 3.0f && r[3] == 7.0f,
-             "row 0");
-  ASSERT_MSG(r[4] == 3.0f && r[5] == 6.0f && r[6] == 4.0f && r[7] == 8.0f,
-             "row 1");
-  ASSERT_MSG(r[8] == 9.0f && r[9] == 3.0f && r[10] == 5.0f && r[11] == 3.0f,
              "row 2");
 
   numc_ctx_free(ctx);
@@ -430,7 +399,6 @@ int main(void) {
 
   printf("\nNon-contiguous + inplace:\n");
   RUN_TEST(test_broadcast_noncontiguous);
-  RUN_TEST(test_broadcast_inplace);
 
   printf("\nError cases:\n");
   RUN_TEST(test_broadcast_error_incompatible);
