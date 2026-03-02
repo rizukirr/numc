@@ -51,11 +51,13 @@ DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT16, NUMC_UINT16, _powi_u16(in1, in2))
 DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT32, NUMC_INT32,
                      (NUMC_INT32)_powi_signed((NUMC_INT64)in1, (NUMC_INT64)in2))
 DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT32, NUMC_UINT32,
-                     (NUMC_UINT32)_powi_unsigned((NUMC_UINT64)in1, (NUMC_UINT64)in2))
+                     (NUMC_UINT32)_powi_unsigned((NUMC_UINT64)in1,
+                                                 (NUMC_UINT64)in2))
 DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT64, NUMC_INT64,
                      (NUMC_INT64)_powi_signed((NUMC_INT64)in1, (NUMC_INT64)in2))
 DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT64, NUMC_UINT64,
-                     (NUMC_UINT64)_powi_unsigned((NUMC_UINT64)in1, (NUMC_UINT64)in2))
+                     (NUMC_UINT64)_powi_unsigned((NUMC_UINT64)in1,
+                                                 (NUMC_UINT64)in2))
 
 /* float32: fused exp(in2 * log(in1)), single-precision */
 DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32,
@@ -76,6 +78,35 @@ GENERATE_NUMC_TYPES(STAMP_MAX)
   DEFINE_BINARY_KERNEL(minimum, TE, CT, in1 < in2 ? in1 : in2)
 GENERATE_NUMC_TYPES(STAMP_MIN)
 #undef STAMP_MIN
+
+/* ── Stamp out comparison / selection ─────────────────────────────── */
+
+#define STAMP_EQ(TE, CT) DEFINE_BINARY_KERNEL(eq, TE, CT, in1 == in2)
+GENERATE_NUMC_TYPES(STAMP_EQ)
+#undef STAMP_EQ
+
+#define STAMP_GT(TE, CT) DEFINE_BINARY_KERNEL(gt, TE, CT, in1 > in2)
+GENERATE_NUMC_TYPES(STAMP_GT)
+#undef STAMP_GT
+
+#define STAMP_LT(TE, CT) DEFINE_BINARY_KERNEL(lt, TE, CT, in1 < in2)
+GENERATE_NUMC_TYPES(STAMP_LT)
+#undef STAMP_LT
+
+#define STAMP_GE(TE, CT) DEFINE_BINARY_KERNEL(ge, TE, CT, in1 >= in2)
+GENERATE_NUMC_TYPES(STAMP_GE)
+#undef STAMP_GE
+
+#define STAMP_LE(TE, CT) DEFINE_BINARY_KERNEL(le, TE, CT, in1 <= in2)
+GENERATE_NUMC_TYPES(STAMP_LE)
+#undef STAMP_LE
+
+/* ── Stamp out ternary where ───────────────────────────────────────── */
+
+#define STAMP_WHERE(TE, CT)                                                    \
+  DEFINE_TERNARY_KERNEL(where, TE, CT, (in_cond != 0 ? in_a : in_b))
+GENERATE_NUMC_TYPES(STAMP_WHERE)
+#undef STAMP_WHERE
 
 /* ── Dispatch tables (dtype -> kernel) ─────────────────────────────── */
 
@@ -135,6 +166,54 @@ static const NumcBinaryKernel _minimum_table[] = {
     E(minimum, NUMC_DTYPE_FLOAT32), E(minimum, NUMC_DTYPE_FLOAT64),
 };
 
+static const NumcBinaryKernel _eq_table[] = {
+    E(eq, NUMC_DTYPE_INT8),    E(eq, NUMC_DTYPE_INT16),
+    E(eq, NUMC_DTYPE_INT32),   E(eq, NUMC_DTYPE_INT64),
+    E(eq, NUMC_DTYPE_UINT8),   E(eq, NUMC_DTYPE_UINT16),
+    E(eq, NUMC_DTYPE_UINT32),  E(eq, NUMC_DTYPE_UINT64),
+    E(eq, NUMC_DTYPE_FLOAT32), E(eq, NUMC_DTYPE_FLOAT64),
+};
+
+static const NumcBinaryKernel _gt_table[] = {
+    E(gt, NUMC_DTYPE_INT8),    E(gt, NUMC_DTYPE_INT16),
+    E(gt, NUMC_DTYPE_INT32),   E(gt, NUMC_DTYPE_INT64),
+    E(gt, NUMC_DTYPE_UINT8),   E(gt, NUMC_DTYPE_UINT16),
+    E(gt, NUMC_DTYPE_UINT32),  E(gt, NUMC_DTYPE_UINT64),
+    E(gt, NUMC_DTYPE_FLOAT32), E(gt, NUMC_DTYPE_FLOAT64),
+};
+
+static const NumcBinaryKernel _lt_table[] = {
+    E(lt, NUMC_DTYPE_INT8),    E(lt, NUMC_DTYPE_INT16),
+    E(lt, NUMC_DTYPE_INT32),   E(lt, NUMC_DTYPE_INT64),
+    E(lt, NUMC_DTYPE_UINT8),   E(lt, NUMC_DTYPE_UINT16),
+    E(lt, NUMC_DTYPE_UINT32),  E(lt, NUMC_DTYPE_UINT64),
+    E(lt, NUMC_DTYPE_FLOAT32), E(lt, NUMC_DTYPE_FLOAT64),
+};
+
+static const NumcBinaryKernel _ge_table[] = {
+    E(ge, NUMC_DTYPE_INT8),    E(ge, NUMC_DTYPE_INT16),
+    E(ge, NUMC_DTYPE_INT32),   E(ge, NUMC_DTYPE_INT64),
+    E(ge, NUMC_DTYPE_UINT8),   E(ge, NUMC_DTYPE_UINT16),
+    E(ge, NUMC_DTYPE_UINT32),  E(ge, NUMC_DTYPE_UINT64),
+    E(ge, NUMC_DTYPE_FLOAT32), E(ge, NUMC_DTYPE_FLOAT64),
+};
+
+static const NumcBinaryKernel _le_table[] = {
+    E(le, NUMC_DTYPE_INT8),    E(le, NUMC_DTYPE_INT16),
+    E(le, NUMC_DTYPE_INT32),   E(le, NUMC_DTYPE_INT64),
+    E(le, NUMC_DTYPE_UINT8),   E(le, NUMC_DTYPE_UINT16),
+    E(le, NUMC_DTYPE_UINT32),  E(le, NUMC_DTYPE_UINT64),
+    E(le, NUMC_DTYPE_FLOAT32), E(le, NUMC_DTYPE_FLOAT64),
+};
+
+static const NumcTernaryKernel _where_table[] = {
+    E(where, NUMC_DTYPE_INT8),    E(where, NUMC_DTYPE_INT16),
+    E(where, NUMC_DTYPE_INT32),   E(where, NUMC_DTYPE_INT64),
+    E(where, NUMC_DTYPE_UINT8),   E(where, NUMC_DTYPE_UINT16),
+    E(where, NUMC_DTYPE_UINT32),  E(where, NUMC_DTYPE_UINT64),
+    E(where, NUMC_DTYPE_FLOAT32), E(where, NUMC_DTYPE_FLOAT64),
+};
+
 /* ═══════════════════════════════════════════════════════════════════════
  * Public API — Binary + Scalar ops
  * ═══════════════════════════════════════════════════════════════════════ */
@@ -171,10 +250,22 @@ DEFINE_ELEMWISE_BINARY(div, _div_table)
 DEFINE_ELEMWISE_BINARY(maximum, _maximum_table)
 DEFINE_ELEMWISE_BINARY(minimum, _minimum_table)
 
+DEFINE_ELEMWISE_BINARY(eq, _eq_table)
+DEFINE_ELEMWISE_BINARY(gt, _gt_table)
+DEFINE_ELEMWISE_BINARY(lt, _lt_table)
+DEFINE_ELEMWISE_BINARY(ge, _ge_table)
+DEFINE_ELEMWISE_BINARY(le, _le_table)
+
 DEFINE_ELEMWISE_SCALAR(add, _add_table)
 DEFINE_ELEMWISE_SCALAR(sub, _sub_table)
 DEFINE_ELEMWISE_SCALAR(mul, _mul_table)
 DEFINE_ELEMWISE_SCALAR(div, _div_table)
+
+DEFINE_ELEMWISE_SCALAR(eq, _eq_table)
+DEFINE_ELEMWISE_SCALAR(gt, _gt_table)
+DEFINE_ELEMWISE_SCALAR(lt, _lt_table)
+DEFINE_ELEMWISE_SCALAR(ge, _ge_table)
+DEFINE_ELEMWISE_SCALAR(le, _le_table)
 
 /* pow: non-const signature differs, stays explicit */
 int numc_pow(NumcArray *a, NumcArray *b, NumcArray *out) {
@@ -185,26 +276,12 @@ int numc_pow(NumcArray *a, NumcArray *b, NumcArray *out) {
   return 0;
 }
 
-int numc_pow_inplace(NumcArray *a, NumcArray *b) {
-  int err = _check_binary(a, b, a);
+/* where: ternary selection */
+int numc_where(const NumcArray *cond, const NumcArray *a, const NumcArray *b,
+               NumcArray *out) {
+  int err = _check_ternary(cond, a, b, out);
   if (err)
     return err;
-  _binary_op(a, b, a, _pow_table);
-  return 0;
-}
-
-int numc_maximum_inplace(NumcArray *a, const NumcArray *b) {
-  int err = _check_binary(a, b, a);
-  if (err)
-    return err;
-  _binary_op(a, b, a, _maximum_table);
-  return 0;
-}
-
-int numc_minimum_inplace(NumcArray *a, const NumcArray *b) {
-  int err = _check_binary(a, b, a);
-  if (err)
-    return err;
-  _binary_op(a, b, a, _minimum_table);
+  _ternary_op(cond, a, b, out, _where_table);
   return 0;
 }

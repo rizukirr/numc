@@ -99,6 +99,40 @@ static inline void _elemwise_clip_nd(NumcClipKernel kern, const char *a,
   }
 }
 
+/**
+ * @brief Recursive N-dimensional iteration for ternary operations.
+ *
+ * @param kern  Ternary kernel function.
+ * @param cond  Pointer to condition data.
+ * @param sc    Strides for condition.
+ * @param a     Pointer to first input data.
+ * @param sa    Strides for first input.
+ * @param b     Pointer to second input data.
+ * @param sb    Strides for second input.
+ * @param out   Pointer to output data.
+ * @param so    Strides for output.
+ * @param shape Array of dimensions.
+ * @param ndim  Number of dimensions.
+ */
+static inline void _elemwise_ternary_nd(NumcTernaryKernel kern, const char *cond,
+                                        const size_t *sc, const char *a,
+                                        const size_t *sa, const char *b,
+                                        const size_t *sb, char *out,
+                                        const size_t *so, const size_t *shape,
+                                        size_t ndim) {
+  if (ndim == 1) {
+    kern(cond, a, b, out, shape[0], (intptr_t)sc[0], (intptr_t)sa[0],
+         (intptr_t)sb[0], (intptr_t)so[0]);
+    return;
+  }
+
+  for (size_t i = 0; i < shape[0]; i++) {
+    _elemwise_ternary_nd(kern, cond + i * sc[0], sc + 1, a + i * sa[0], sa + 1,
+                         b + i * sb[0], sb + 1, out + i * so[0], so + 1,
+                         shape + 1, ndim - 1);
+  }
+}
+
 /* ── Axis sorting for optimal iteration order ────────────────────────
  *
  * Sort dimensions by descending stride sum so the smallest-stride axis
@@ -147,6 +181,53 @@ static inline void _sort_axes_binary(size_t ndim, const size_t *shape,
 
   for (size_t i = 0; i < ndim; i++) {
     ps[i] = shape[perm[i]];
+    pa[i] = sa[perm[i]];
+    pb[i] = sb[perm[i]];
+    po[i] = so[perm[i]];
+  }
+}
+
+/**
+ * @brief Sort axes for optimal ternary operation performance.
+ *
+ * @param ndim  Number of dimensions.
+ * @param shape Original shape.
+ * @param sc    Original strides of cond.
+ * @param sa    Original strides of a.
+ * @param sb    Original strides of b.
+ * @param so    Original strides of out.
+ * @param ps    Permuted shape (output).
+ * @param pc    Permuted strides of cond (output).
+ * @param pa    Permuted strides of a (output).
+ * @param pb    Permuted strides of b (output).
+ * @param po    Permuted strides of out (output).
+ */
+static inline void _sort_axes_ternary(size_t ndim, const size_t *shape,
+                                      const size_t *sc, const size_t *sa,
+                                      const size_t *sb, const size_t *so,
+                                      size_t *ps, size_t *pc, size_t *pa,
+                                      size_t *pb, size_t *po) {
+  size_t perm[ndim];
+  for (size_t i = 0; i < ndim; i++)
+    perm[i] = i;
+
+  for (size_t i = 1; i < ndim; i++) {
+    size_t key = perm[i];
+    size_t kv = sc[key] + sa[key] + sb[key] + so[key];
+    size_t j = i;
+    while (j > 0) {
+      size_t p = perm[j - 1];
+      if (sc[p] + sa[p] + sb[p] + so[p] >= kv)
+        break;
+      perm[j] = perm[j - 1];
+      j--;
+    }
+    perm[j] = key;
+  }
+
+  for (size_t i = 0; i < ndim; i++) {
+    ps[i] = shape[perm[i]];
+    pc[i] = sc[perm[i]];
     pa[i] = sa[perm[i]];
     pb[i] = sb[perm[i]];
     po[i] = so[perm[i]];
@@ -283,6 +364,56 @@ static inline int _check_unary(const struct NumcArray *a,
   return 0;
 }
 
+/**
+ * @brief Validate shapes and types for ternary operations.
+ *
+ * @param cond Condition array.
+ * @param a    First input array.
+ * @param b    Second input array.
+ * @param out  Output array.
+ * @return 0 on success, negative error code on failure.
+ */
+static inline int _check_ternary(const struct NumcArray *cond,
+                                 const struct NumcArray *a,
+                                 const struct NumcArray *b,
+                                 const struct NumcArray *out) {
+  if (!cond || !a || !b || !out) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL,
+                   "ternary op: NULL pointer (cond=%p a=%p b=%p out=%p)", cond,
+                   a, b, out);
+    return NUMC_ERR_NULL;
+  }
+  if (cond->dtype != a->dtype || a->dtype != b->dtype ||
+      a->dtype != out->dtype) {
+    NUMC_SET_ERROR(
+        NUMC_ERR_TYPE,
+        "ternary op: dtype mismatch (cond=%d a=%d b=%d out=%d)", cond->dtype,
+        a->dtype, b->dtype, out->dtype);
+    return NUMC_ERR_TYPE;
+  }
+
+  /* All four must have the same shape */
+  size_t ndim = cond->dim;
+  if (a->dim != ndim || b->dim != ndim || out->dim != ndim) {
+    NUMC_SET_ERROR(
+        NUMC_ERR_SHAPE,
+        "ternary op: ndim mismatch (cond=%zu a=%zu b=%zu out=%zu)", cond->dim,
+        a->dim, b->dim, out->dim);
+    return NUMC_ERR_SHAPE;
+  }
+  for (size_t d = 0; d < ndim; d++) {
+    if (cond->shape[d] != out->shape[d] || a->shape[d] != out->shape[d] ||
+        b->shape[d] != out->shape[d]) {
+      NUMC_SET_ERROR(
+          NUMC_ERR_SHAPE,
+          "ternary op: shape mismatch at dim %zu (cond=%zu a=%zu b=%zu out=%zu)",
+          d, cond->shape[d], a->shape[d], b->shape[d], out->shape[d]);
+      return NUMC_ERR_SHAPE;
+    }
+  }
+  return 0;
+}
+
 /* ── Binary op dispatch ───────────────────────────────────────────── */
 
 /**
@@ -345,6 +476,41 @@ static inline void _binary_op(const struct NumcArray *a,
     _elemwise_binary_nd(kern, (const char *)a->data, pa,
                         (const char *)b->data, pb, (char *)out->data, po, ps,
                         bcast_ndim);
+  }
+}
+
+/* ── Ternary op dispatch ──────────────────────────────────────────── */
+
+/**
+ * @brief Dispatch element-wise ternary operation.
+ *
+ * @param cond  Condition array.
+ * @param a     First input array.
+ * @param b     Second input array.
+ * @param out   Output array.
+ * @param table Kernel function table for the operation.
+ */
+static inline void _ternary_op(const struct NumcArray *cond,
+                                const struct NumcArray *a,
+                                const struct NumcArray *b,
+                                struct NumcArray *out,
+                                const NumcTernaryKernel *table) {
+  NumcTernaryKernel kern = table[a->dtype];
+  intptr_t es = (intptr_t)a->elem_size;
+
+  if (cond->is_contiguous && a->is_contiguous && b->is_contiguous &&
+      out->is_contiguous) {
+    kern((const char *)cond->data, (const char *)a->data,
+         (const char *)b->data, (char *)out->data, a->size, es, es, es, es);
+  } else {
+    size_t ps[NUMC_MAX_DIMENSIONS], pc[NUMC_MAX_DIMENSIONS],
+        pa[NUMC_MAX_DIMENSIONS], pb[NUMC_MAX_DIMENSIONS],
+        po[NUMC_MAX_DIMENSIONS];
+    _sort_axes_ternary(a->dim, a->shape, cond->strides, a->strides, b->strides,
+                       out->strides, ps, pc, pa, pb, po);
+    _elemwise_ternary_nd(kern, (const char *)cond->data, pc,
+                         (const char *)a->data, pa, (const char *)b->data, pb,
+                         (char *)out->data, po, ps, a->dim);
   }
 }
 

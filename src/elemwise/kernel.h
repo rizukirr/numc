@@ -16,6 +16,11 @@ typedef void (*NumcUnaryKernel)(const char *a, char *out, size_t n, intptr_t sa,
 typedef void (*NumcClipKernel)(const char *a, char *out, size_t n, intptr_t sa,
                                intptr_t so, double min, double max);
 
+typedef void (*NumcTernaryKernel)(const char *cond, const char *a,
+                                  const char *b, char *out, size_t n,
+                                  intptr_t sc, intptr_t sa, intptr_t sb,
+                                  intptr_t so);
+
 /* ── Stride-aware binary kernel macro ──────────────────────────────
  *
  * Five runtime paths:
@@ -103,6 +108,68 @@ typedef void (*NumcClipKernel)(const char *a, char *out, size_t n, intptr_t sa,
         for (size_t i = 0; i < chunk; i++) {                                   \
           C_TYPE in1 = abuf[i];                                                \
           C_TYPE in2 = bbuf[i];                                                \
+          obuf[i] = (EXPR);                                                    \
+        }                                                                      \
+        for (size_t i = 0; i < chunk; i++)                                     \
+          *(C_TYPE *)(out + (base + i) * so) = obuf[i];                        \
+      }                                                                        \
+    }                                                                          \
+  }
+
+/* ── Stride-aware ternary kernel macro ─────────────────────────────
+ *
+ * Three runtime paths:
+ *   PATH 1 — Contiguous:              sc == sa == sb == so == sizeof(T)
+ *   PATH 2 — Condition scalar broadcast: sc == 0, rest contiguous
+ *   PATH 3 — Generic strided (tiled): arbitrary sc, sa, sb, so
+ */
+
+#define DEFINE_TERNARY_KERNEL(OP_NAME, TYPE_ENUM, C_TYPE, EXPR)                \
+  static void _kern_##OP_NAME##_##TYPE_ENUM(                                   \
+      const char *cond, const char *a, const char *b, char *out, size_t n,     \
+      intptr_t sc, intptr_t sa, intptr_t sb, intptr_t so) {                    \
+    const intptr_t es = (intptr_t)sizeof(C_TYPE);                              \
+    if (sc == es && sa == es && sb == es && so == es) {                         \
+      /* PATH 1: all contiguous */                                             \
+      const C_TYPE *restrict pc = (const C_TYPE *)cond;                        \
+      const C_TYPE *restrict pa = (const C_TYPE *)a;                           \
+      const C_TYPE *restrict pb = (const C_TYPE *)b;                           \
+      C_TYPE *restrict po = (C_TYPE *)out;                                     \
+      NUMC_OMP_FOR(                                                            \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                  \
+            C_TYPE in_cond = pc[i];                                            \
+            C_TYPE in_a = pa[i];                                               \
+            C_TYPE in_b = pb[i];                                               \
+            po[i] = (EXPR);                                                    \
+          });                                                                  \
+    } else if (sc == 0 && sa == es && sb == es && so == es) {                  \
+      /* PATH 2: condition scalar broadcast */                                 \
+      const C_TYPE in_cond = *(const C_TYPE *)cond;                            \
+      const C_TYPE *restrict pa = (const C_TYPE *)a;                           \
+      const C_TYPE *restrict pb = (const C_TYPE *)b;                           \
+      C_TYPE *restrict po = (C_TYPE *)out;                                     \
+      NUMC_OMP_FOR(                                                            \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                  \
+            C_TYPE in_a = pa[i];                                               \
+            C_TYPE in_b = pb[i];                                               \
+            po[i] = (EXPR);                                                    \
+          });                                                                  \
+    } else {                                                                   \
+      /* PATH 3: generic strided — tiled gather/compute/scatter */             \
+      for (size_t base = 0; base < n; base += NUMC_TILE_SIZE) {               \
+        size_t chunk = n - base < NUMC_TILE_SIZE ? n - base : NUMC_TILE_SIZE;  \
+        C_TYPE cbuf[NUMC_TILE_SIZE], abuf[NUMC_TILE_SIZE],                     \
+            bbuf[NUMC_TILE_SIZE], obuf[NUMC_TILE_SIZE];                        \
+        for (size_t i = 0; i < chunk; i++)                                     \
+          cbuf[i] = *(const C_TYPE *)(cond + (base + i) * sc);                 \
+        for (size_t i = 0; i < chunk; i++)                                     \
+          abuf[i] = *(const C_TYPE *)(a + (base + i) * sa);                    \
+        for (size_t i = 0; i < chunk; i++)                                     \
+          bbuf[i] = *(const C_TYPE *)(b + (base + i) * sb);                    \
+        for (size_t i = 0; i < chunk; i++) {                                   \
+          C_TYPE in_cond = cbuf[i];                                            \
+          C_TYPE in_a = abuf[i];                                               \
+          C_TYPE in_b = bbuf[i];                                               \
           obuf[i] = (EXPR);                                                    \
         }                                                                      \
         for (size_t i = 0; i < chunk; i++)                                     \

@@ -140,15 +140,6 @@ int numc_div_scalar_inplace(NumcArray *a, double scalar);
  */
 int numc_pow(NumcArray *a, NumcArray *b, NumcArray *out);
 
-/**
- * @brief Element-wise power in-place: a = a ^ b.
- *
- * @param a Base array (modified).
- * @param b Exponent array.
- * @return 0 on success, negative error code on failure.
- */
-int numc_pow_inplace(NumcArray *a, NumcArray *b);
-
 /* Element-wise unary: out = op a
  * Works on contiguous AND non-contiguous arrays. */
 
@@ -269,15 +260,6 @@ int numc_clip_inplace(NumcArray *a, double min, double max);
 int numc_maximum(const NumcArray *a, const NumcArray *b, NumcArray *out);
 
 /**
- * @brief Element-wise maximum in-place: a = max(a, b).
- *
- * @param a Base array (modified).
- * @param b Second input array.
- * @return 0 on success, negative error code on failure.
- */
-int numc_maximum_inplace(NumcArray *a, const NumcArray *b);
-
-/**
  * @brief Element-wise minimum: out = min(a, b).
  *
  * @param a   First input array.
@@ -288,13 +270,116 @@ int numc_maximum_inplace(NumcArray *a, const NumcArray *b);
 int numc_minimum(const NumcArray *a, const NumcArray *b, NumcArray *out);
 
 /**
- * @brief Element-wise minimum in-place: a = min(a, b).
+ * @brief Element-wise equality: out[i] = (a[i] == b[i]).
  *
- * @param a Base array (modified).
- * @param b Second input array.
+ * @param a   First input array.
+ * @param b   Second input array.
+ * @param out Output array (1 where equal, 0 otherwise).
  * @return 0 on success, negative error code on failure.
  */
-int numc_minimum_inplace(NumcArray *a, const NumcArray *b);
+int numc_eq(const NumcArray *a, const NumcArray *b, NumcArray *out);
+
+/**
+ * @brief Element-wise scalar equality: out[i] = (a[i] == scalar).
+ *
+ * @param a      Input array.
+ * @param scalar Scalar value.
+ * @param out    Output array.
+ * @return 0 on success, negative error code on failure.
+ */
+int numc_eq_scalar(const NumcArray *a, double scalar, NumcArray *out);
+
+/**
+ * @brief Element-wise greater-than: out[i] = (a[i] > b[i]).
+ *
+ * @param a   First input array.
+ * @param b   Second input array.
+ * @param out Output array (1 where true, 0 otherwise).
+ * @return 0 on success, negative error code on failure.
+ */
+int numc_gt(const NumcArray *a, const NumcArray *b, NumcArray *out);
+
+/**
+ * @brief Element-wise scalar greater-than: out[i] = (a[i] > scalar).
+ *
+ * @param a      Input array.
+ * @param scalar Scalar value.
+ * @param out    Output array.
+ * @return 0 on success, negative error code on failure.
+ */
+int numc_gt_scalar(const NumcArray *a, double scalar, NumcArray *out);
+
+/**
+ * @brief Element-wise less-than: out[i] = (a[i] < b[i]).
+ *
+ * @param a   First input array.
+ * @param b   Second input array.
+ * @param out Output array (1 where true, 0 otherwise).
+ * @return 0 on success, negative error code on failure.
+ */
+int numc_lt(const NumcArray *a, const NumcArray *b, NumcArray *out);
+
+/**
+ * @brief Element-wise scalar less-than: out[i] = (a[i] < scalar).
+ *
+ * @param a      Input array.
+ * @param scalar Scalar value.
+ * @param out    Output array.
+ * @return 0 on success, negative error code on failure.
+ */
+int numc_lt_scalar(const NumcArray *a, double scalar, NumcArray *out);
+
+/**
+ * @brief Element-wise greater-or-equal: out[i] = (a[i] >= b[i]).
+ *
+ * @param a   First input array.
+ * @param b   Second input array.
+ * @param out Output array (1 where true, 0 otherwise).
+ * @return 0 on success, negative error code on failure.
+ */
+int numc_ge(const NumcArray *a, const NumcArray *b, NumcArray *out);
+
+/**
+ * @brief Element-wise scalar greater-or-equal: out[i] = (a[i] >= scalar).
+ *
+ * @param a      Input array.
+ * @param scalar Scalar value.
+ * @param out    Output array.
+ * @return 0 on success, negative error code on failure.
+ */
+int numc_ge_scalar(const NumcArray *a, double scalar, NumcArray *out);
+
+/**
+ * @brief Element-wise less-or-equal: out[i] = (a[i] <= b[i]).
+ *
+ * @param a   First input array.
+ * @param b   Second input array.
+ * @param out Output array (1 where true, 0 otherwise).
+ * @return 0 on success, negative error code on failure.
+ */
+int numc_le(const NumcArray *a, const NumcArray *b, NumcArray *out);
+
+/**
+ * @brief Element-wise scalar less-or-equal: out[i] = (a[i] <= scalar).
+ *
+ * @param a      Input array.
+ * @param scalar Scalar value.
+ * @param out    Output array.
+ * @return 0 on success, negative error code on failure.
+ */
+int numc_le_scalar(const NumcArray *a, double scalar, NumcArray *out);
+
+/**
+ * @brief Element-wise ternary selection: out[i] = cond[i] ? a[i] : b[i].
+ *
+ * @param cond Condition array (nonzero = true).
+ * @param a    Values selected where condition is true.
+ * @param b    Values selected where condition is false.
+ * @param out  Output array.
+ * @return 0 on success, negative error code on failure.
+ */
+int numc_where(const NumcArray *cond, const NumcArray *a, const NumcArray *b,
+               NumcArray *out);
 
 /**
  * @brief Sum of all array elements.
