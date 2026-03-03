@@ -78,19 +78,6 @@ int numc_matmul_naive(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   return 0;
 }
 
-#ifdef HAVE_BLAS
-static bool blis_initialized = false;
-static void _ensure_blis_init(void) {
-  if (!blis_initialized) {
-    bli_init();
-#ifdef HAVE_OMP
-    bli_thread_set_num_threads(omp_get_max_threads());
-#endif
-    blis_initialized = true;
-  }
-}
-#endif
-
 int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   int err = _check_matmul(a, b, out);
   if (err)
@@ -100,8 +87,7 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   size_t total_ops =
       (size_t)a->shape[0] * (size_t)a->shape[1] * (size_t)b->shape[1];
   /* BLIS is usually slower for very small matrices due to setup overhead */
-  if (total_ops > 16384) {
-    _ensure_blis_init();
+  if (total_ops >= 4096) {
     if (a->dtype == NUMC_DTYPE_FLOAT32) {
       _matmul_blis_f32(a, b, out);
       return 0;
