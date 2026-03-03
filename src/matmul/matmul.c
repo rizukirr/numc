@@ -78,6 +78,28 @@ int numc_matmul_naive(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   return 0;
 }
 
+#ifdef HAVE_BLAS
+static bool blis_initialized = false;
+static void _ensure_blis_init(void) {
+  if (!blis_initialized) {
+    bli_init();
+    blis_initialized = true;
+  }
+}
+
+static void _blis_set_threading(size_t total_ops) {
+  _ensure_blis_init();
+#ifdef HAVE_OMP
+  if (total_ops < 1000000) {
+    bli_thread_set_ways(1, 1, 1, 1, 1);
+  } else {
+    /* Use Fat Multithreading: map threads to IC loop (L3 cache level) */
+    bli_thread_set_ways(1, 1, omp_get_max_threads(), 1, 1);
+  }
+#endif
+}
+#endif
+
 int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   int err = _check_matmul(a, b, out);
   if (err)
@@ -86,16 +108,13 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
 #ifdef HAVE_BLAS
   size_t total_ops =
       (size_t)a->shape[0] * (size_t)a->shape[1] * (size_t)b->shape[1];
-  /* BLIS is usually slower for very small matrices due to setup overhead */
-  if (total_ops >= 4096) {
-    if (a->dtype == NUMC_DTYPE_FLOAT32) {
-      _matmul_blis_f32(a, b, out);
-      return 0;
-    }
-    if (a->dtype == NUMC_DTYPE_FLOAT64) {
-      _matmul_blis_f64(a, b, out);
-      return 0;
-    }
+  /* Use BLIS only for float64 at reasonable sizes.
+   * Our naive float32 i-k-j kernel is currently highly competitive
+   * due to aggressive compiler vectorization and lower setup overhead. */
+  if (total_ops >= 65536 && a->dtype == NUMC_DTYPE_FLOAT64) {
+    _blis_set_threading(total_ops);
+    _matmul_blis_f64(a, b, out);
+    return 0;
   }
 #endif
 
