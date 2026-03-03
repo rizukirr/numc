@@ -9,7 +9,7 @@ GENERATE_NUMC_TYPES(STAMP_CLIP)
 
 /* ── Dispatch table (dtype -> kernel) ──────────────────────────────── */
 
-static const NumcClipKernel _clip_table[] = {
+static const NumcClipKernel clip_table[] = {
     E(clip, NUMC_DTYPE_INT8),    E(clip, NUMC_DTYPE_INT16),
     E(clip, NUMC_DTYPE_INT32),   E(clip, NUMC_DTYPE_INT64),
     E(clip, NUMC_DTYPE_UINT8),   E(clip, NUMC_DTYPE_UINT16),
@@ -26,7 +26,7 @@ int numc_clip(NumcArray *a, NumcArray *out, double min, double max) {
   if (err)
     return err;
 
-  NumcClipKernel kern = _clip_table[a->dtype];
+  NumcClipKernel kern = clip_table[a->dtype];
 
   if (a->is_contiguous && out->is_contiguous) {
     intptr_t es = (intptr_t)a->elem_size;
@@ -47,7 +47,7 @@ int numc_clip_inplace(NumcArray *a, double min, double max) {
     return NUMC_ERR_NULL;
   }
 
-  NumcClipKernel kern = _clip_table[a->dtype];
+  NumcClipKernel kern = clip_table[a->dtype];
 
   if (a->is_contiguous) {
     intptr_t es = (intptr_t)a->elem_size;

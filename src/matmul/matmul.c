@@ -58,7 +58,7 @@ void _matmul_blis_f64(const struct NumcArray *a, const struct NumcArray *b,
 
 #define E(TE) [TE] = _matmul_naive_##TE
 
-static const MatmulKernel _matmul_table[] = {
+static const MatmulKernel matmul_table[] = {
     E(NUMC_DTYPE_INT8),    E(NUMC_DTYPE_INT16),  E(NUMC_DTYPE_INT32),
     E(NUMC_DTYPE_INT64),   E(NUMC_DTYPE_UINT8),  E(NUMC_DTYPE_UINT16),
     E(NUMC_DTYPE_UINT32),  E(NUMC_DTYPE_UINT64), E(NUMC_DTYPE_FLOAT32),
@@ -72,7 +72,7 @@ int numc_matmul_naive(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   if (err)
     return err;
 
-  MatmulKernel kern = _matmul_table[a->dtype];
+  MatmulKernel kern = matmul_table[a->dtype];
   kern((const char *)a->data, (const char *)b->data, (char *)out->data,
        a->shape[0], b->shape[0], out->shape[1]);
   return 0;
@@ -84,17 +84,21 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
     return err;
 
 #ifdef HAVE_BLAS
-  if (a->dtype == NUMC_DTYPE_FLOAT32) {
-    _matmul_blis_f32(a, b, out);
-    return 0;
-  }
-  if (a->dtype == NUMC_DTYPE_FLOAT64) {
-    _matmul_blis_f64(a, b, out);
-    return 0;
+  size_t total_ops = (size_t)a->shape[0] * (size_t)a->shape[1] * (size_t)b->shape[1];
+  /* BLIS is usually slower for very small matrices due to setup overhead */
+  if (total_ops > 16384) {
+    if (a->dtype == NUMC_DTYPE_FLOAT32) {
+      _matmul_blis_f32(a, b, out);
+      return 0;
+    }
+    if (a->dtype == NUMC_DTYPE_FLOAT64) {
+      _matmul_blis_f64(a, b, out);
+      return 0;
+    }
   }
 #endif
 
-  MatmulKernel kern = _matmul_table[a->dtype];
+  MatmulKernel kern = matmul_table[a->dtype];
   kern((const char *)a->data, (const char *)b->data, (char *)out->data,
        a->shape[0], b->shape[0], out->shape[1]);
   return 0;

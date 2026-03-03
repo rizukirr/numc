@@ -13,7 +13,7 @@ typedef struct {
   size_t axis, start, stop, step;
 } NumcSlice;
 
-#define numc_slice(arr, ...) numc_array_slice((arr), &(NumcSlice){__VA_ARGS__})
+#define NUMC_SLICE(arr, ...) numc_array_slice((arr), &(NumcSlice){__VA_ARGS__})
 
 /* --- Context --- */
 

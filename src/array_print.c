@@ -1,17 +1,16 @@
-#include "internal.h"
 #include <numc/array.h>
 #include <stdio.h>
 
-#define NUMC_PRINT_TYPES(X)                                                    \
-  X(NUMC_DTYPE_INT8, NUMC_INT8, "d")                                           \
-  X(NUMC_DTYPE_UINT8, NUMC_UINT8, "u")                                         \
-  X(NUMC_DTYPE_INT16, NUMC_INT16, "d")                                         \
-  X(NUMC_DTYPE_UINT16, NUMC_UINT16, "u")                                       \
-  X(NUMC_DTYPE_INT32, NUMC_INT32, "d")                                         \
-  X(NUMC_DTYPE_UINT32, NUMC_UINT32, "u")                                       \
-  X(NUMC_DTYPE_INT64, NUMC_INT64, "ld")                                        \
-  X(NUMC_DTYPE_UINT64, NUMC_UINT64, "lu")                                      \
-  X(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, "g")                                     \
+#define NUMC_PRINT_TYPES(X)                \
+  X(NUMC_DTYPE_INT8, NUMC_INT8, "d")       \
+  X(NUMC_DTYPE_UINT8, NUMC_UINT8, "u")     \
+  X(NUMC_DTYPE_INT16, NUMC_INT16, "d")     \
+  X(NUMC_DTYPE_UINT16, NUMC_UINT16, "u")   \
+  X(NUMC_DTYPE_INT32, NUMC_INT32, "d")     \
+  X(NUMC_DTYPE_UINT32, NUMC_UINT32, "u")   \
+  X(NUMC_DTYPE_INT64, NUMC_INT64, "ld")    \
+  X(NUMC_DTYPE_UINT64, NUMC_UINT64, "lu")  \
+  X(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, "g") \
   X(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, "g")
 
 /**
@@ -25,7 +24,9 @@
 static int elem_width(const char *data, size_t byte_offset, NumcDType dtype) {
   const void *elem = data + byte_offset;
   switch (dtype) {
-#define X(DT, CT, FMT) case DT: return snprintf(NULL, 0, "%" FMT, *(const CT *)elem);
+#define X(DT, CT, FMT) \
+  case DT:             \
+    return snprintf(NULL, 0, "%" FMT, *(const CT *)elem);
     NUMC_PRINT_TYPES(X)
 #undef X
   }
@@ -44,14 +45,18 @@ static void print_element(const char *data, size_t byte_offset, NumcDType dtype,
                           int width) {
   const void *elem = data + byte_offset;
   switch (dtype) {
-#define X(DT, CT, FMT) case DT: printf("%*" FMT, width, *(const CT *)elem); break;
+#define X(DT, CT, FMT)                          \
+  case DT:                                      \
+    printf("%*" FMT, width, *(const CT *)elem); \
+    break;
     NUMC_PRINT_TYPES(X)
 #undef X
   }
 }
 
 /**
- * @brief Find the maximum printed width of any element in an array (or sub-array).
+ * @brief Find the maximum printed width of any element in an array (or
+ * sub-array).
  *
  * @param data    Pointer to the data buffer.
  * @param shape   Shape of the array.

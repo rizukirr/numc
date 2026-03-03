@@ -1,5 +1,5 @@
 /*
- * bench_matmul.c — numc_matmul_naive benchmark
+ * bench_matmul.c — numc_matmul benchmark
  *
  * Sections:
  *   1. Square size scaling  — float32, sizes 32..512, reports GFLOP/s
@@ -52,11 +52,11 @@ static void fill_scalar(NumcDType dt, char buf[static 8]) {
 static double run(NumcArray *a, NumcArray *b, NumcArray *out,
                   int warmup, int iters) {
     for (int i = 0; i < warmup; i++)
-        numc_matmul_naive(a, b, out);
+        numc_matmul(a, b, out);
 
     double t0 = time_us();
     for (int i = 0; i < iters; i++)
-        numc_matmul_naive(a, b, out);
+        numc_matmul(a, b, out);
     return (time_us() - t0) / iters;
 }
 
@@ -182,7 +182,7 @@ static void bench_shape_variants(void) {
 /* ── main ──────────────────────────────────────────────────────────── */
 
 int main(void) {
-    printf("\n  numc matmul_naive benchmark\n");
+    printf("\n  numc matmul benchmark\n");
     printf("  build: "
 #ifdef __clang__
            "clang " __clang_version__
@@ -195,7 +195,7 @@ int main(void) {
            " | OpenMP"
 #endif
 #ifdef HAVE_BLAS
-           " | BLAS"
+           " | BLAS (BLIS)"
 #endif
            "\n");
 

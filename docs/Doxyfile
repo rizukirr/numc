@@ -1,0 +1,60 @@
+# Doxyfile for numc — NumPy-inspired N-dimensional array library in C23
+
+PROJECT_NAME           = "numc"
+PROJECT_NUMBER         = 0.1.0
+PROJECT_BRIEF          = "High-performance N-dimensional array library in pure C23"
+OUTPUT_DIRECTORY       = docs/output
+
+# Input
+INPUT                  = include/numc
+FILE_PATTERNS          = *.h
+RECURSIVE              = NO
+STRIP_FROM_PATH        = include
+
+# Language
+OPTIMIZE_OUTPUT_FOR_C  = YES
+TYPEDEF_HIDES_STRUCT   = YES
+
+# Build options
+EXTRACT_ALL            = YES
+EXTRACT_STATIC         = NO
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_SCOPE_NAMES       = YES
+
+# Source browsing
+SOURCE_BROWSER         = NO
+INLINE_SOURCES         = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+
+# Output formats
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+GENERATE_MAN           = NO
+GENERATE_XML           = NO
+
+# Preprocessing — expand X-macros so generated kernels appear
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+PREDEFINED             = "GENERATE_NUMC_TYPES(M)=" \
+                         "NUMC_INT8=int8_t" \
+                         "NUMC_INT16=int16_t" \
+                         "NUMC_INT32=int32_t" \
+                         "NUMC_INT64=int64_t" \
+                         "NUMC_UINT8=uint8_t" \
+                         "NUMC_UINT16=uint16_t" \
+                         "NUMC_UINT32=uint32_t" \
+                         "NUMC_UINT64=uint64_t" \
+                         "NUMC_FLOAT32=float" \
+                         "NUMC_FLOAT64=double"
+
+# Warnings
+WARN_IF_UNDOCUMENTED   = YES
+WARN_NO_PARAMDOC       = YES
+
+# Misc
+QUIET                  = YES
+SORT_MEMBER_DOCS       = YES
+ALPHABETICAL_INDEX     = YES

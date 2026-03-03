@@ -93,37 +93,37 @@ static inline double _pairwise_sum_f64(const double *restrict a, size_t n) {
  * (no rounding error), so a flat multi-accumulator loop suffices.
  */
 
-#define NUMC_VMAX_(a, b) ((a) > (b) ? (a) : (b))
-#define NUMC_VMIN_(a, b) ((a) < (b) ? (a) : (b))
+#define NUMC_VMAX(a, b) ((a) > (b) ? (a) : (b))
+#define NUMC_VMIN(a, b) ((a) < (b) ? (a) : (b))
 
-#define DEFINE_VEC_MINMAX_(NAME, TYPE, INIT, OP)                               \
-  static inline TYPE _vec_##NAME(const TYPE *restrict a, size_t n) {           \
-    TYPE r0 = INIT, r1 = INIT, r2 = INIT, r3 = INIT;                          \
-    TYPE r4 = INIT, r5 = INIT, r6 = INIT, r7 = INIT;                          \
-    size_t i = 0, n8 = n & ~(size_t)7;                                        \
-    for (; i < n8; i += 8) {                                                   \
-      r0 = OP(a[i], r0);                                                      \
-      r1 = OP(a[i + 1], r1);                                                  \
-      r2 = OP(a[i + 2], r2);                                                  \
-      r3 = OP(a[i + 3], r3);                                                  \
-      r4 = OP(a[i + 4], r4);                                                  \
-      r5 = OP(a[i + 5], r5);                                                  \
-      r6 = OP(a[i + 6], r6);                                                  \
-      r7 = OP(a[i + 7], r7);                                                  \
-    }                                                                          \
-    TYPE m = OP(OP(OP(r0, r1), OP(r2, r3)), OP(OP(r4, r5), OP(r6, r7)));      \
-    for (; i < n; i++)                                                         \
-      m = OP(a[i], m);                                                         \
-    return m;                                                                  \
+#define DEFINE_VEC_MINMAX(NAME, TYPE, INIT, OP)                          \
+  static inline TYPE _vec_##NAME(const TYPE *restrict a, size_t n) {     \
+    TYPE r0 = INIT, r1 = INIT, r2 = INIT, r3 = INIT;                     \
+    TYPE r4 = INIT, r5 = INIT, r6 = INIT, r7 = INIT;                     \
+    size_t i = 0, n8 = n & ~(size_t)7;                                   \
+    for (; i < n8; i += 8) {                                             \
+      r0 = OP(a[i], r0);                                                 \
+      r1 = OP(a[i + 1], r1);                                             \
+      r2 = OP(a[i + 2], r2);                                             \
+      r3 = OP(a[i + 3], r3);                                             \
+      r4 = OP(a[i + 4], r4);                                             \
+      r5 = OP(a[i + 5], r5);                                             \
+      r6 = OP(a[i + 6], r6);                                             \
+      r7 = OP(a[i + 7], r7);                                             \
+    }                                                                    \
+    TYPE m = OP(OP(OP(r0, r1), OP(r2, r3)), OP(OP(r4, r5), OP(r6, r7))); \
+    for (; i < n; i++)                                                   \
+      m = OP(a[i], m);                                                   \
+    return m;                                                            \
   }
 
-DEFINE_VEC_MINMAX_(max_f32, float, -INFINITY, NUMC_VMAX_)
-DEFINE_VEC_MINMAX_(max_f64, double, -INFINITY, NUMC_VMAX_)
-DEFINE_VEC_MINMAX_(min_f32, float, INFINITY, NUMC_VMIN_)
-DEFINE_VEC_MINMAX_(min_f64, double, INFINITY, NUMC_VMIN_)
+DEFINE_VEC_MINMAX(max_f32, float, -INFINITY, NUMC_VMAX)
+DEFINE_VEC_MINMAX(max_f64, double, -INFINITY, NUMC_VMAX)
+DEFINE_VEC_MINMAX(min_f32, float, INFINITY, NUMC_VMIN)
+DEFINE_VEC_MINMAX(min_f64, double, INFINITY, NUMC_VMIN)
 
-#undef DEFINE_VEC_MINMAX_
-#undef NUMC_VMAX_
-#undef NUMC_VMIN_
+#undef DEFINE_VEC_MINMAX
+#undef NUMC_VMAX
+#undef NUMC_VMIN
 
 #endif

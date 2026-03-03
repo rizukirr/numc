@@ -15,6 +15,7 @@ add_library(numc::numc ALIAS numc)
 target_include_directories(numc
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
@@ -25,7 +26,7 @@ target_include_directories(numc
 )
 
 target_compile_options(numc PRIVATE
-    -Wall -Wextra -Wpedantic
+    -Wall -Wextra -Wpedantic -Werror
     $<$<CONFIG:Debug>:-g -O0 -fno-omit-frame-pointer>
     $<$<CONFIG:Release>:-O3 -march=native -fno-math-errno -fno-signed-zeros -fno-trapping-math -funroll-loops>
     $<$<CONFIG:RelWithDebInfo>:-O2 -g -march=native>

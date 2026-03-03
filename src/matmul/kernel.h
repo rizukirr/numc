@@ -8,8 +8,8 @@ typedef void (*MatmulKernel)(const char *a, const char *b, char *out, size_t M,
                              size_t K, size_t N);
 
 #define DEFINE_MATMUL_KERNEL(TE, CT)                                           \
-  static void _matmul_naive_##TE(const char *a, const char *b, char *out,      \
-                                 size_t M, size_t K, size_t N) {               \
+  static inline void _matmul_naive_##TE(                                       \
+      const char *a, const char *b, char *out, size_t M, size_t K, size_t N) { \
     const CT *restrict av = (const CT *)a;                                     \
     const CT *restrict bv = (const CT *)b;                                     \
     CT *restrict ov = (CT *)out;                                               \
@@ -25,8 +25,8 @@ typedef void (*MatmulKernel)(const char *a, const char *b, char *out, size_t M,
   }
 
 #define DEFINE_MATMUL_KERNEL_PROMOTED(TE, CT, ACC_CT)                          \
-  static void _matmul_naive_##TE(const char *a, const char *b, char *out,      \
-                                 size_t M, size_t K, size_t N) {               \
+  static inline void _matmul_naive_##TE(                                       \
+      const char *a, const char *b, char *out, size_t M, size_t K, size_t N) { \
     const CT *restrict av = (const CT *)a;                                     \
     const CT *restrict bv = (const CT *)b;                                     \
     CT *restrict ov = (CT *)out;                                               \

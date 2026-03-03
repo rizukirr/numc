@@ -68,14 +68,14 @@ static inline void _array_fill_with(struct NumcArray *arr, const void *value) {
   while (true) {
     memcpy(ptr, value, arr->elem_size);
 
-    int d = arr->dim - 1;
+    size_t d = arr->dim - 1;
     ptr += arr->strides[d];
     coordinate[d]++;
 
     if (coordinate[d] < arr->shape[d])
       continue;
 
-    while (d >= 0) {
+    while (true) {
       coordinate[d] = 0;
 
       if (d == 0)
@@ -115,7 +115,7 @@ NumcArray *numc_array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
     return NULL;
   }
 
-  size_t size = 1, capacity = 0, elem_size = numc_type_size[dtype];
+  size_t size = 1, capacity = 0, elem_size = numc_dtype_size(dtype);
 
   for (size_t i = 0; i < dim; i++) {
     size *= shape[i];
@@ -133,10 +133,8 @@ NumcArray *numc_array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
     return NULL;
 
   arr->data = arena_alloc(ctx->arena, capacity, NUMC_SIMD_ALIGN);
-  if (!arr->data) {
-    arena_free(ctx->arena);
+  if (!arr->data)
     return NULL;
-  }
 
   memcpy(arr->shape, shape, dim * sizeof(size_t));
 
@@ -153,8 +151,8 @@ NumcArray *numc_array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
 
 bool numc_array_is_contiguous(NumcArray *arr) {
   size_t expected = arr->elem_size;
-  for (int i = arr->dim - 1; i >= 0; i--) {
-    if (arr->strides[i] != expected)
+  for (size_t i = arr->dim; i-- > 0;) {
+    if ((size_t)arr->strides[i] != expected)
       return false;
     expected *= arr->shape[i];
   }
@@ -288,7 +286,7 @@ NumcArray *numc_array_copy(const NumcArray *arr) {
       /* Compute source offset from strides and coordinate */
       intptr_t offset = 0;
       for (size_t d = 0; d < arr->dim; d++)
-        offset += (intptr_t)coord[d] * arr->strides[d];
+        offset += (intptr_t)(coord[d] * arr->strides[d]);
       memcpy(dst, src_base + offset, arr->elem_size);
       dst += arr->elem_size;
       /* Advance coordinate (innermost dim first) */
@@ -355,7 +353,7 @@ int numc_array_transpose(NumcArray *arr, const size_t *axes) {
   size_t axes_buff[arr->dim];
   memcpy(axes_buff, axes, arr->dim * sizeof(size_t));
 
-  uint8_t seen = 0;
+  uint64_t seen = 0;
   size_t shape_buff[arr->dim];
   size_t stride_buff[arr->dim];
   for (size_t i = 0; i < arr->dim; i++) {
@@ -363,11 +361,10 @@ int numc_array_transpose(NumcArray *arr, const size_t *axes) {
     if (ax >= arr->dim)
       return -1;
 
-    uint8_t bit = 1u << ax;
-    if (seen & bit)
+    if (seen & (UINT64_C(1) << ax))
       return -1;
 
-    seen |= bit;
+    seen |= UINT64_C(1) << ax;
 
     shape_buff[i] = arr->shape[ax];
     stride_buff[i] = arr->strides[ax];
@@ -442,10 +439,18 @@ NumcArray *numc_array_slice(const NumcArray *arr, NumcSlice *slice) {
   return view;
 }
 
-size_t numc_array_size(const NumcArray *arr) { return arr->size; }
-size_t numc_array_capacity(const NumcArray *arr) { return arr->capacity; }
-size_t numc_array_elem_size(const NumcArray *arr) { return arr->elem_size; }
-size_t numc_array_ndim(const NumcArray *arr) { return arr->dim; }
+size_t numc_array_size(const NumcArray *arr) {
+  return arr->size;
+}
+size_t numc_array_capacity(const NumcArray *arr) {
+  return arr->capacity;
+}
+size_t numc_array_elem_size(const NumcArray *arr) {
+  return arr->elem_size;
+}
+size_t numc_array_ndim(const NumcArray *arr) {
+  return arr->dim;
+}
 void numc_array_shape(const NumcArray *arr, size_t *shape) {
   memcpy(shape, arr->shape, arr->dim * sizeof(size_t));
 }
@@ -453,8 +458,12 @@ void numc_array_strides(const NumcArray *arr, size_t *strides) {
   memcpy(strides, arr->strides, arr->dim * sizeof(size_t));
 }
 
-NumcDType numc_array_dtype(const NumcArray *arr) { return arr->dtype; }
-void *numc_array_data(const NumcArray *arr) { return arr->data; }
+NumcDType numc_array_dtype(const NumcArray *arr) {
+  return arr->dtype;
+}
+void *numc_array_data(const NumcArray *arr) {
+  return arr->data;
+}
 
 void numc_ctx_free(NumcCtx *ctx) {
   if (!ctx)

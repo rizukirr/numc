@@ -27,23 +27,23 @@ DEFINE_FLOAT_REDUCTION_KERNEL(sum, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, 0,
  * division — same overflow semantics as sum. */
 
 /* int8/int16: promote through float for division */
-#define STAMP_MEAN_SMALL(TE, CT)                                               \
-  static void _kern_mean_##TE(const char *a, char *out, size_t n,              \
-                              intptr_t sa) {                                   \
-    _kern_sum_##TE(a, out, n, sa);                                             \
-    if (n > 0)                                                                 \
-      *(CT *)out = (CT)((float)*(CT *)out / (float)n);                         \
+#define STAMP_MEAN_SMALL(TE, CT)                                  \
+  static void _kern_mean_##TE(const char *a, char *out, size_t n, \
+                              intptr_t sa) {                      \
+    _kern_sum_##TE(a, out, n, sa);                                \
+    if (n > 0)                                                    \
+      *(CT *)out = (CT)((float)*(CT *)out / (float)n);            \
   }
 GENERATE_INT8_INT16_NUMC_TYPES(STAMP_MEAN_SMALL)
 #undef STAMP_MEAN_SMALL
 
 /* int32/uint32/int64/uint64: promote through double for division */
-#define STAMP_MEAN_DBL(TE, CT)                                                 \
-  static void _kern_mean_##TE(const char *a, char *out, size_t n,              \
-                              intptr_t sa) {                                   \
-    _kern_sum_##TE(a, out, n, sa);                                             \
-    if (n > 0)                                                                 \
-      *(CT *)out = (CT)((double)*(CT *)out / (double)n);                       \
+#define STAMP_MEAN_DBL(TE, CT)                                    \
+  static void _kern_mean_##TE(const char *a, char *out, size_t n, \
+                              intptr_t sa) {                      \
+    _kern_sum_##TE(a, out, n, sa);                                \
+    if (n > 0)                                                    \
+      *(CT *)out = (CT)((double)*(CT *)out / (double)n);          \
   }
 GENERATE_INT32_NUMC_TYPES(STAMP_MEAN_DBL)
 STAMP_MEAN_DBL(NUMC_DTYPE_INT64, NUMC_INT64)
@@ -51,12 +51,12 @@ STAMP_MEAN_DBL(NUMC_DTYPE_UINT64, NUMC_UINT64)
 #undef STAMP_MEAN_DBL
 
 /* float32/float64: native division */
-#define STAMP_MEAN_FLOAT(TE, CT)                                               \
-  static void _kern_mean_##TE(const char *a, char *out, size_t n,              \
-                              intptr_t sa) {                                   \
-    _kern_sum_##TE(a, out, n, sa);                                             \
-    if (n > 0)                                                                 \
-      *(CT *)out /= (CT)n;                                                     \
+#define STAMP_MEAN_FLOAT(TE, CT)                                  \
+  static void _kern_mean_##TE(const char *a, char *out, size_t n, \
+                              intptr_t sa) {                      \
+    _kern_sum_##TE(a, out, n, sa);                                \
+    if (n > 0)                                                    \
+      *(CT *)out /= (CT)n;                                        \
   }
 STAMP_MEAN_FLOAT(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32)
 STAMP_MEAN_FLOAT(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64)
@@ -144,9 +144,9 @@ DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT16, NUMC_UINT16, 0, >)
 DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT32, NUMC_UINT32, 0, >)
 DEFINE_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_UINT64, NUMC_UINT64, 0, >)
 DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32,
-                                  -INFINITY, _vec_max_f32, >)
+                                 -INFINITY, _vec_max_f32, >)
 DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64,
-                                  -INFINITY, _vec_max_f64, >)
+                                 -INFINITY, _vec_max_f64, >)
 
 /* ── Argmin reduction kernels ────────────────────────────────────────
  *
@@ -165,15 +165,15 @@ DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_UINT32, NUMC_UINT32, UINT32_MAX,
 DEFINE_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_UINT64, NUMC_UINT64, UINT64_MAX,
                            <)
 DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32,
-                                  INFINITY, _vec_min_f32, <)
+                                 INFINITY, _vec_min_f32, <)
 DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64,
-                                  INFINITY, _vec_min_f64, <)
+                                 INFINITY, _vec_min_f64, <)
 
 /* ── Dispatch tables ─────────────────────────────────────────────── */
 
 #define R(OP, TE) [TE] = _kern_##OP##_##TE
 
-static const NumcReductionKernel _sum_table[] = {
+static const NumcReductionKernel sum_table[] = {
     R(sum, NUMC_DTYPE_INT8),    R(sum, NUMC_DTYPE_INT16),
     R(sum, NUMC_DTYPE_INT32),   R(sum, NUMC_DTYPE_INT64),
     R(sum, NUMC_DTYPE_UINT8),   R(sum, NUMC_DTYPE_UINT16),
@@ -181,7 +181,7 @@ static const NumcReductionKernel _sum_table[] = {
     R(sum, NUMC_DTYPE_FLOAT32), R(sum, NUMC_DTYPE_FLOAT64),
 };
 
-static const NumcReductionKernel _mean_table[] = {
+static const NumcReductionKernel mean_table[] = {
     R(mean, NUMC_DTYPE_INT8),    R(mean, NUMC_DTYPE_INT16),
     R(mean, NUMC_DTYPE_INT32),   R(mean, NUMC_DTYPE_INT64),
     R(mean, NUMC_DTYPE_UINT8),   R(mean, NUMC_DTYPE_UINT16),
@@ -189,7 +189,7 @@ static const NumcReductionKernel _mean_table[] = {
     R(mean, NUMC_DTYPE_FLOAT32), R(mean, NUMC_DTYPE_FLOAT64),
 };
 
-static const NumcReductionKernel _max_table[] = {
+static const NumcReductionKernel max_table[] = {
     R(max, NUMC_DTYPE_INT8),    R(max, NUMC_DTYPE_INT16),
     R(max, NUMC_DTYPE_INT32),   R(max, NUMC_DTYPE_INT64),
     R(max, NUMC_DTYPE_UINT8),   R(max, NUMC_DTYPE_UINT16),
@@ -197,7 +197,7 @@ static const NumcReductionKernel _max_table[] = {
     R(max, NUMC_DTYPE_FLOAT32), R(max, NUMC_DTYPE_FLOAT64),
 };
 
-static const NumcReductionKernel _min_table[] = {
+static const NumcReductionKernel min_table[] = {
     R(min, NUMC_DTYPE_INT8),    R(min, NUMC_DTYPE_INT16),
     R(min, NUMC_DTYPE_INT32),   R(min, NUMC_DTYPE_INT64),
     R(min, NUMC_DTYPE_UINT8),   R(min, NUMC_DTYPE_UINT16),
@@ -205,7 +205,7 @@ static const NumcReductionKernel _min_table[] = {
     R(min, NUMC_DTYPE_FLOAT32), R(min, NUMC_DTYPE_FLOAT64),
 };
 
-static const NumcReductionKernel _argmax_table[] = {
+static const NumcReductionKernel argmax_table[] = {
     R(argmax, NUMC_DTYPE_INT8),    R(argmax, NUMC_DTYPE_INT16),
     R(argmax, NUMC_DTYPE_INT32),   R(argmax, NUMC_DTYPE_INT64),
     R(argmax, NUMC_DTYPE_UINT8),   R(argmax, NUMC_DTYPE_UINT16),
@@ -213,7 +213,7 @@ static const NumcReductionKernel _argmax_table[] = {
     R(argmax, NUMC_DTYPE_FLOAT32), R(argmax, NUMC_DTYPE_FLOAT64),
 };
 
-static const NumcReductionKernel _argmin_table[] = {
+static const NumcReductionKernel argmin_table[] = {
     R(argmin, NUMC_DTYPE_INT8),    R(argmin, NUMC_DTYPE_INT16),
     R(argmin, NUMC_DTYPE_INT32),   R(argmin, NUMC_DTYPE_INT64),
     R(argmin, NUMC_DTYPE_UINT8),   R(argmin, NUMC_DTYPE_UINT16),
@@ -239,46 +239,46 @@ typedef void (*NumcRowReduceKernel)(const char *restrict base,
                                     char *restrict dst, size_t ncols);
 
 /* Sum: d[i] += s[r][i] */
-#define STAMP_SUM_FUSED(TE, CT)                                                \
-  static void _sum_fused_##TE(const char *restrict base, intptr_t row_stride,  \
-                              size_t nrows, char *restrict dst,                \
-                              size_t ncols) {                                  \
-    CT *restrict d = (CT *)dst;                                                \
-    for (size_t r = 0; r < nrows; r++) {                                       \
-      const CT *restrict s = (const CT *)(base + r * row_stride);              \
-      for (size_t i = 0; i < ncols; i++)                                       \
-        d[i] += s[i];                                                          \
-    }                                                                          \
+#define STAMP_SUM_FUSED(TE, CT)                                               \
+  static void _sum_fused_##TE(const char *restrict base, intptr_t row_stride, \
+                              size_t nrows, char *restrict dst,               \
+                              size_t ncols) {                                 \
+    CT *restrict d = (CT *)dst;                                               \
+    for (size_t r = 0; r < nrows; r++) {                                      \
+      const CT *restrict s = (const CT *)(base + r * row_stride);             \
+      for (size_t i = 0; i < ncols; i++)                                      \
+        d[i] += s[i];                                                         \
+    }                                                                         \
   }
 GENERATE_NUMC_TYPES(STAMP_SUM_FUSED)
 #undef STAMP_SUM_FUSED
 
 /* Max: d[i] = max(d[i], s[r][i]) */
-#define STAMP_MAX_FUSED(TE, CT)                                                \
-  static void _max_fused_##TE(const char *restrict base, intptr_t row_stride,  \
-                              size_t nrows, char *restrict dst,                \
-                              size_t ncols) {                                  \
-    CT *restrict d = (CT *)dst;                                                \
-    for (size_t r = 0; r < nrows; r++) {                                       \
-      const CT *restrict s = (const CT *)(base + r * row_stride);              \
-      for (size_t i = 0; i < ncols; i++)                                       \
-        d[i] = s[i] > d[i] ? s[i] : d[i];                                      \
-    }                                                                          \
+#define STAMP_MAX_FUSED(TE, CT)                                               \
+  static void _max_fused_##TE(const char *restrict base, intptr_t row_stride, \
+                              size_t nrows, char *restrict dst,               \
+                              size_t ncols) {                                 \
+    CT *restrict d = (CT *)dst;                                               \
+    for (size_t r = 0; r < nrows; r++) {                                      \
+      const CT *restrict s = (const CT *)(base + r * row_stride);             \
+      for (size_t i = 0; i < ncols; i++)                                      \
+        d[i] = s[i] > d[i] ? s[i] : d[i];                                     \
+    }                                                                         \
   }
 GENERATE_NUMC_TYPES(STAMP_MAX_FUSED)
 #undef STAMP_MAX_FUSED
 
 /* Min: d[i] = min(d[i], s[r][i]) */
-#define STAMP_MIN_FUSED(TE, CT)                                                \
-  static void _min_fused_##TE(const char *restrict base, intptr_t row_stride,  \
-                              size_t nrows, char *restrict dst,                \
-                              size_t ncols) {                                  \
-    CT *restrict d = (CT *)dst;                                                \
-    for (size_t r = 0; r < nrows; r++) {                                       \
-      const CT *restrict s = (const CT *)(base + r * row_stride);              \
-      for (size_t i = 0; i < ncols; i++)                                       \
-        d[i] = s[i] < d[i] ? s[i] : d[i];                                      \
-    }                                                                          \
+#define STAMP_MIN_FUSED(TE, CT)                                               \
+  static void _min_fused_##TE(const char *restrict base, intptr_t row_stride, \
+                              size_t nrows, char *restrict dst,               \
+                              size_t ncols) {                                 \
+    CT *restrict d = (CT *)dst;                                               \
+    for (size_t r = 0; r < nrows; r++) {                                      \
+      const CT *restrict s = (const CT *)(base + r * row_stride);             \
+      for (size_t i = 0; i < ncols; i++)                                      \
+        d[i] = s[i] < d[i] ? s[i] : d[i];                                     \
+    }                                                                         \
   }
 GENERATE_NUMC_TYPES(STAMP_MIN_FUSED)
 #undef STAMP_MIN_FUSED
@@ -293,63 +293,63 @@ typedef void (*NumcArgRowReduceKernel)(const char *restrict base,
                                        intptr_t row_stride, size_t nrows,
                                        char *restrict dst, size_t ncols);
 
-#define STAMP_ARGMAX_FUSED(TE, CT)                                             \
-  static void _argmax_fused_##TE(const char *restrict base,                    \
-                                  intptr_t row_stride, size_t nrows,           \
-                                  char *restrict dst, size_t ncols) {          \
-    int64_t *restrict idx = (int64_t *)dst;                                    \
-    CT best[ncols]; /* VLA scratch for best values */                          \
-    const CT *restrict first = (const CT *)base;                               \
-    for (size_t i = 0; i < ncols; i++) {                                       \
-      best[i] = first[i];                                                      \
-      idx[i] = 0;                                                              \
-    }                                                                          \
-    for (size_t r = 1; r < nrows; r++) {                                       \
-      const CT *restrict row = (const CT *)(base + r * row_stride);            \
-      for (size_t i = 0; i < ncols; i++) {                                     \
-        if (row[i] > best[i]) {                                                \
-          best[i] = row[i];                                                    \
-          idx[i] = (int64_t)r;                                                 \
-        }                                                                      \
-      }                                                                        \
-    }                                                                          \
+#define STAMP_ARGMAX_FUSED(TE, CT)                                   \
+  static void _argmax_fused_##TE(const char *restrict base,          \
+                                 intptr_t row_stride, size_t nrows,  \
+                                 char *restrict dst, size_t ncols) { \
+    int64_t *restrict idx = (int64_t *)dst;                          \
+    CT best[ncols]; /* VLA scratch for best values */                \
+    const CT *restrict first = (const CT *)base;                     \
+    for (size_t i = 0; i < ncols; i++) {                             \
+      best[i] = first[i];                                            \
+      idx[i] = 0;                                                    \
+    }                                                                \
+    for (size_t r = 1; r < nrows; r++) {                             \
+      const CT *restrict row = (const CT *)(base + r * row_stride);  \
+      for (size_t i = 0; i < ncols; i++) {                           \
+        if (row[i] > best[i]) {                                      \
+          best[i] = row[i];                                          \
+          idx[i] = (int64_t)r;                                       \
+        }                                                            \
+      }                                                              \
+    }                                                                \
   }
 GENERATE_NUMC_TYPES(STAMP_ARGMAX_FUSED)
 #undef STAMP_ARGMAX_FUSED
 
-#define STAMP_ARGMIN_FUSED(TE, CT)                                             \
-  static void _argmin_fused_##TE(const char *restrict base,                    \
-                                  intptr_t row_stride, size_t nrows,           \
-                                  char *restrict dst, size_t ncols) {          \
-    int64_t *restrict idx = (int64_t *)dst;                                    \
-    CT best[ncols]; /* VLA scratch for best values */                          \
-    const CT *restrict first = (const CT *)base;                               \
-    for (size_t i = 0; i < ncols; i++) {                                       \
-      best[i] = first[i];                                                      \
-      idx[i] = 0;                                                              \
-    }                                                                          \
-    for (size_t r = 1; r < nrows; r++) {                                       \
-      const CT *restrict row = (const CT *)(base + r * row_stride);            \
-      for (size_t i = 0; i < ncols; i++) {                                     \
-        if (row[i] < best[i]) {                                                \
-          best[i] = row[i];                                                    \
-          idx[i] = (int64_t)r;                                                 \
-        }                                                                      \
-      }                                                                        \
-    }                                                                          \
+#define STAMP_ARGMIN_FUSED(TE, CT)                                   \
+  static void _argmin_fused_##TE(const char *restrict base,          \
+                                 intptr_t row_stride, size_t nrows,  \
+                                 char *restrict dst, size_t ncols) { \
+    int64_t *restrict idx = (int64_t *)dst;                          \
+    CT best[ncols]; /* VLA scratch for best values */                \
+    const CT *restrict first = (const CT *)base;                     \
+    for (size_t i = 0; i < ncols; i++) {                             \
+      best[i] = first[i];                                            \
+      idx[i] = 0;                                                    \
+    }                                                                \
+    for (size_t r = 1; r < nrows; r++) {                             \
+      const CT *restrict row = (const CT *)(base + r * row_stride);  \
+      for (size_t i = 0; i < ncols; i++) {                           \
+        if (row[i] < best[i]) {                                      \
+          best[i] = row[i];                                          \
+          idx[i] = (int64_t)r;                                       \
+        }                                                            \
+      }                                                              \
+    }                                                                \
   }
 GENERATE_NUMC_TYPES(STAMP_ARGMIN_FUSED)
 #undef STAMP_ARGMIN_FUSED
 
 #define F(OP, TE) [TE] = _##OP##_fused_##TE
-static const NumcArgRowReduceKernel _argmax_fused_table[] = {
+static const NumcArgRowReduceKernel argmax_fused_table[] = {
     F(argmax, NUMC_DTYPE_INT8),    F(argmax, NUMC_DTYPE_INT16),
     F(argmax, NUMC_DTYPE_INT32),   F(argmax, NUMC_DTYPE_INT64),
     F(argmax, NUMC_DTYPE_UINT8),   F(argmax, NUMC_DTYPE_UINT16),
     F(argmax, NUMC_DTYPE_UINT32),  F(argmax, NUMC_DTYPE_UINT64),
     F(argmax, NUMC_DTYPE_FLOAT32), F(argmax, NUMC_DTYPE_FLOAT64),
 };
-static const NumcArgRowReduceKernel _argmin_fused_table[] = {
+static const NumcArgRowReduceKernel argmin_fused_table[] = {
     F(argmin, NUMC_DTYPE_INT8),    F(argmin, NUMC_DTYPE_INT16),
     F(argmin, NUMC_DTYPE_INT32),   F(argmin, NUMC_DTYPE_INT64),
     F(argmin, NUMC_DTYPE_UINT8),   F(argmin, NUMC_DTYPE_UINT16),
@@ -359,21 +359,21 @@ static const NumcArgRowReduceKernel _argmin_fused_table[] = {
 #undef F
 
 #define F(OP, TE) [TE] = _##OP##_fused_##TE
-static const NumcRowReduceKernel _sum_fused_table[] = {
+static const NumcRowReduceKernel sum_fused_table[] = {
     F(sum, NUMC_DTYPE_INT8),    F(sum, NUMC_DTYPE_INT16),
     F(sum, NUMC_DTYPE_INT32),   F(sum, NUMC_DTYPE_INT64),
     F(sum, NUMC_DTYPE_UINT8),   F(sum, NUMC_DTYPE_UINT16),
     F(sum, NUMC_DTYPE_UINT32),  F(sum, NUMC_DTYPE_UINT64),
     F(sum, NUMC_DTYPE_FLOAT32), F(sum, NUMC_DTYPE_FLOAT64),
 };
-static const NumcRowReduceKernel _max_fused_table[] = {
+static const NumcRowReduceKernel max_fused_table[] = {
     F(max, NUMC_DTYPE_INT8),    F(max, NUMC_DTYPE_INT16),
     F(max, NUMC_DTYPE_INT32),   F(max, NUMC_DTYPE_INT64),
     F(max, NUMC_DTYPE_UINT8),   F(max, NUMC_DTYPE_UINT16),
     F(max, NUMC_DTYPE_UINT32),  F(max, NUMC_DTYPE_UINT64),
     F(max, NUMC_DTYPE_FLOAT32), F(max, NUMC_DTYPE_FLOAT64),
 };
-static const NumcRowReduceKernel _min_fused_table[] = {
+static const NumcRowReduceKernel min_fused_table[] = {
     F(min, NUMC_DTYPE_INT8),    F(min, NUMC_DTYPE_INT16),
     F(min, NUMC_DTYPE_INT32),   F(min, NUMC_DTYPE_INT64),
     F(min, NUMC_DTYPE_UINT8),   F(min, NUMC_DTYPE_UINT16),
@@ -390,24 +390,24 @@ static const NumcRowReduceKernel _min_fused_table[] = {
 typedef void (*NumcDivCountKernel)(char *data, size_t n, size_t count);
 
 /* int8/int16: promote through float (vdivps — 8 lanes) */
-#define STAMP_DIV_COUNT_SMALL(TE, CT)                                          \
-  static void _div_count_##TE(char *data, size_t n, size_t count) {            \
-    CT *d = (CT *)data;                                                        \
-    float fc = (float)count;                                                   \
-    for (size_t i = 0; i < n; i++)                                             \
-      d[i] = (CT)((float)d[i] / fc);                                           \
+#define STAMP_DIV_COUNT_SMALL(TE, CT)                               \
+  static void _div_count_##TE(char *data, size_t n, size_t count) { \
+    CT *d = (CT *)data;                                             \
+    float fc = (float)count;                                        \
+    for (size_t i = 0; i < n; i++)                                  \
+      d[i] = (CT)((float)d[i] / fc);                                \
   }
 GENERATE_INT8_INT16_NUMC_TYPES(STAMP_DIV_COUNT_SMALL)
 #undef STAMP_DIV_COUNT_SMALL
 
 /* int32/uint32/int64/uint64: promote through double (vdivpd — 4 lanes).
  * int64/uint64 lose precision above 2^53, acceptable for mean. */
-#define STAMP_DIV_COUNT_DBL(TE, CT)                                            \
-  static void _div_count_##TE(char *data, size_t n, size_t count) {            \
-    CT *d = (CT *)data;                                                        \
-    double dc = (double)count;                                                 \
-    for (size_t i = 0; i < n; i++)                                             \
-      d[i] = (CT)((double)d[i] / dc);                                          \
+#define STAMP_DIV_COUNT_DBL(TE, CT)                                 \
+  static void _div_count_##TE(char *data, size_t n, size_t count) { \
+    CT *d = (CT *)data;                                             \
+    double dc = (double)count;                                      \
+    for (size_t i = 0; i < n; i++)                                  \
+      d[i] = (CT)((double)d[i] / dc);                               \
   }
 GENERATE_INT32_NUMC_TYPES(STAMP_DIV_COUNT_DBL)
 STAMP_DIV_COUNT_DBL(NUMC_DTYPE_INT64, NUMC_INT64)
@@ -444,7 +444,7 @@ static void _div_count_NUMC_DTYPE_FLOAT64(char *data, size_t n, size_t count) {
 }
 
 #define D(TE) [TE] = _div_count_##TE
-static const NumcDivCountKernel _div_count_table[] = {
+static const NumcDivCountKernel div_count_table[] = {
     D(NUMC_DTYPE_INT8),    D(NUMC_DTYPE_INT16),  D(NUMC_DTYPE_INT32),
     D(NUMC_DTYPE_INT64),   D(NUMC_DTYPE_UINT8),  D(NUMC_DTYPE_UINT16),
     D(NUMC_DTYPE_UINT32),  D(NUMC_DTYPE_UINT64), D(NUMC_DTYPE_FLOAT32),
@@ -458,7 +458,7 @@ int numc_sum(const NumcArray *a, NumcArray *out) {
   int err = _check_reduce_full(a, out);
   if (err)
     return err;
-  _reduce_full_op(a, out, _sum_table);
+  _reduce_full_op(a, out, sum_table);
   return 0;
 }
 
@@ -466,7 +466,7 @@ int numc_mean(const NumcArray *a, NumcArray *out) {
   int err = _check_reduce_full(a, out);
   if (err)
     return err;
-  _reduce_full_op(a, out, _mean_table);
+  _reduce_full_op(a, out, mean_table);
   return 0;
 }
 
@@ -485,14 +485,14 @@ int numc_mean_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out) {
     size_t slice_elems = out->size;
 
     memset(out->data, 0, slice_elems * a->elem_size);
-    _sum_fused_table[a->dtype]((const char *)a->data, reduce_stride, reduce_len,
-                               (char *)out->data, slice_elems);
-    _div_count_table[a->dtype]((char *)out->data, slice_elems, reduce_len);
+    sum_fused_table[a->dtype]((const char *)a->data, reduce_stride, reduce_len,
+                              (char *)out->data, slice_elems);
+    div_count_table[a->dtype]((char *)out->data, slice_elems, reduce_len);
     return 0;
   }
 
   /* Generic path: per-element reduction via ND iterator */
-  _reduce_axis_op(a, ax, keepdim, out, _mean_table);
+  _reduce_axis_op(a, ax, keepdim, out, mean_table);
   return 0;
 }
 
@@ -511,13 +511,13 @@ int numc_sum_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out) {
     size_t slice_elems = out->size;
 
     memset(out->data, 0, slice_elems * a->elem_size);
-    _sum_fused_table[a->dtype]((const char *)a->data, reduce_stride, reduce_len,
-                               (char *)out->data, slice_elems);
+    sum_fused_table[a->dtype]((const char *)a->data, reduce_stride, reduce_len,
+                              (char *)out->data, slice_elems);
     return 0;
   }
 
   /* Generic path: per-element reduction via ND iterator */
-  _reduce_axis_op(a, ax, keepdim, out, _sum_table);
+  _reduce_axis_op(a, ax, keepdim, out, sum_table);
   return 0;
 }
 
@@ -525,7 +525,7 @@ int numc_max(const NumcArray *a, NumcArray *out) {
   int err = _check_reduce_full(a, out);
   if (err)
     return err;
-  _reduce_full_op(a, out, _max_table);
+  _reduce_full_op(a, out, max_table);
   return 0;
 }
 
@@ -545,13 +545,13 @@ int numc_max_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out) {
 
     const char *base = (const char *)a->data;
     memcpy(out->data, base, slice_elems * a->elem_size);
-    _max_fused_table[a->dtype](base + reduce_stride, reduce_stride,
-                               reduce_len - 1, (char *)out->data, slice_elems);
+    max_fused_table[a->dtype](base + reduce_stride, reduce_stride,
+                              reduce_len - 1, (char *)out->data, slice_elems);
     return 0;
   }
 
   /* Generic path: per-element reduction via ND iterator */
-  _reduce_axis_op(a, ax, keepdim, out, _max_table);
+  _reduce_axis_op(a, ax, keepdim, out, max_table);
   return 0;
 }
 
@@ -559,7 +559,7 @@ int numc_min(const NumcArray *a, NumcArray *out) {
   int err = _check_reduce_full(a, out);
   if (err)
     return err;
-  _reduce_full_op(a, out, _min_table);
+  _reduce_full_op(a, out, min_table);
   return 0;
 }
 
@@ -579,13 +579,13 @@ int numc_min_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out) {
 
     const char *base = (const char *)a->data;
     memcpy(out->data, base, slice_elems * a->elem_size);
-    _min_fused_table[a->dtype](base + reduce_stride, reduce_stride,
-                               reduce_len - 1, (char *)out->data, slice_elems);
+    min_fused_table[a->dtype](base + reduce_stride, reduce_stride,
+                              reduce_len - 1, (char *)out->data, slice_elems);
     return 0;
   }
 
   /* Generic path: per-element reduction via ND iterator */
-  _reduce_axis_op(a, ax, keepdim, out, _min_table);
+  _reduce_axis_op(a, ax, keepdim, out, min_table);
   return 0;
 }
 
@@ -593,7 +593,7 @@ int numc_argmax(const NumcArray *a, NumcArray *out) {
   int err = _check_argreduce_full(a, out);
   if (err)
     return err;
-  _reduce_full_op(a, out, _argmax_table);
+  _reduce_full_op(a, out, argmax_table);
   return 0;
 }
 
@@ -611,13 +611,13 @@ int numc_argmax_axis(const NumcArray *a, int axis, int keepdim,
     intptr_t reduce_stride = (intptr_t)a->strides[ax];
     size_t slice_elems = out->size;
 
-    _argmax_fused_table[a->dtype]((const char *)a->data, reduce_stride,
-                                   reduce_len, (char *)out->data, slice_elems);
+    argmax_fused_table[a->dtype]((const char *)a->data, reduce_stride,
+                                 reduce_len, (char *)out->data, slice_elems);
     return 0;
   }
 
   /* Generic path: per-element reduction via ND iterator */
-  _reduce_axis_op(a, ax, keepdim, out, _argmax_table);
+  _reduce_axis_op(a, ax, keepdim, out, argmax_table);
   return 0;
 }
 
@@ -625,7 +625,7 @@ int numc_argmin(const NumcArray *a, NumcArray *out) {
   int err = _check_argreduce_full(a, out);
   if (err)
     return err;
-  _reduce_full_op(a, out, _argmin_table);
+  _reduce_full_op(a, out, argmin_table);
   return 0;
 }
 
@@ -643,12 +643,12 @@ int numc_argmin_axis(const NumcArray *a, int axis, int keepdim,
     intptr_t reduce_stride = (intptr_t)a->strides[ax];
     size_t slice_elems = out->size;
 
-    _argmin_fused_table[a->dtype]((const char *)a->data, reduce_stride,
-                                   reduce_len, (char *)out->data, slice_elems);
+    argmin_fused_table[a->dtype]((const char *)a->data, reduce_stride,
+                                 reduce_len, (char *)out->data, slice_elems);
     return 0;
   }
 
   /* Generic path: per-element reduction via ND iterator */
-  _reduce_axis_op(a, ax, keepdim, out, _argmin_table);
+  _reduce_axis_op(a, ax, keepdim, out, argmin_table);
   return 0;
 }

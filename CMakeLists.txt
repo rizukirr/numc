@@ -40,6 +40,13 @@ if(NUMC_USE_BLAS)
     endif()
 endif()
 
+# Generate version header from template
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/numc/version.h.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/include/numc/version.h"
+    @ONLY
+)
+
 # Library (always built)
 add_subdirectory(src)
 
@@ -72,6 +79,12 @@ if(NUMC_STANDALONE)
     # Install public headers
     install(DIRECTORY include/numc
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        PATTERN "*.in" EXCLUDE
+    )
+
+    # Install generated version header
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/include/numc/version.h"
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/numc
     )
 
     # Install export set

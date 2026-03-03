@@ -70,30 +70,45 @@ typedef enum {
   NUMC_DTYPE_FLOAT64,
 } NumcDType;
 
-static const size_t numc_type_size[] = {
-    [NUMC_DTYPE_INT8] = sizeof(NUMC_INT8),
-    [NUMC_DTYPE_INT16] = sizeof(NUMC_INT16),
-    [NUMC_DTYPE_INT32] = sizeof(NUMC_INT32),
-    [NUMC_DTYPE_INT64] = sizeof(NUMC_INT64),
-    [NUMC_DTYPE_UINT8] = sizeof(NUMC_UINT8),
-    [NUMC_DTYPE_UINT16] = sizeof(NUMC_UINT16),
-    [NUMC_DTYPE_UINT32] = sizeof(NUMC_UINT32),
-    [NUMC_DTYPE_UINT64] = sizeof(NUMC_UINT64),
-    [NUMC_DTYPE_FLOAT32] = sizeof(NUMC_FLOAT32),
-    [NUMC_DTYPE_FLOAT64] = sizeof(NUMC_FLOAT64),
-};
+/**
+ * @brief Return the byte size of a NumcDType element.
+ *
+ * Implemented as a static inline function so that only one copy exists
+ * per TU (the compiler folds the constant table into the function body).
+ */
+static inline size_t numc_dtype_size(NumcDType dt) {
+  static const size_t table[] = {
+      [NUMC_DTYPE_INT8]    = sizeof(NUMC_INT8),
+      [NUMC_DTYPE_INT16]   = sizeof(NUMC_INT16),
+      [NUMC_DTYPE_INT32]   = sizeof(NUMC_INT32),
+      [NUMC_DTYPE_INT64]   = sizeof(NUMC_INT64),
+      [NUMC_DTYPE_UINT8]   = sizeof(NUMC_UINT8),
+      [NUMC_DTYPE_UINT16]  = sizeof(NUMC_UINT16),
+      [NUMC_DTYPE_UINT32]  = sizeof(NUMC_UINT32),
+      [NUMC_DTYPE_UINT64]  = sizeof(NUMC_UINT64),
+      [NUMC_DTYPE_FLOAT32] = sizeof(NUMC_FLOAT32),
+      [NUMC_DTYPE_FLOAT64] = sizeof(NUMC_FLOAT64),
+  };
+  return table[dt];
+}
 
-static const size_t numc_type_align[] = {
-    [NUMC_DTYPE_INT8] = NUMC_ALIGNOF(NUMC_INT8),
-    [NUMC_DTYPE_INT16] = NUMC_ALIGNOF(NUMC_INT16),
-    [NUMC_DTYPE_INT32] = NUMC_ALIGNOF(NUMC_INT32),
-    [NUMC_DTYPE_INT64] = NUMC_ALIGNOF(NUMC_INT64),
-    [NUMC_DTYPE_UINT8] = NUMC_ALIGNOF(NUMC_UINT8),
-    [NUMC_DTYPE_UINT16] = NUMC_ALIGNOF(NUMC_UINT16),
-    [NUMC_DTYPE_UINT32] = NUMC_ALIGNOF(NUMC_UINT32),
-    [NUMC_DTYPE_UINT64] = NUMC_ALIGNOF(NUMC_UINT64),
-    [NUMC_DTYPE_FLOAT32] = NUMC_ALIGNOF(NUMC_FLOAT32),
-    [NUMC_DTYPE_FLOAT64] = NUMC_ALIGNOF(NUMC_FLOAT64),
-};
+/**
+ * @brief Return the alignment requirement of a NumcDType element.
+ */
+static inline size_t numc_dtype_align(NumcDType dt) {
+  static const size_t table[] = {
+      [NUMC_DTYPE_INT8]    = NUMC_ALIGNOF(NUMC_INT8),
+      [NUMC_DTYPE_INT16]   = NUMC_ALIGNOF(NUMC_INT16),
+      [NUMC_DTYPE_INT32]   = NUMC_ALIGNOF(NUMC_INT32),
+      [NUMC_DTYPE_INT64]   = NUMC_ALIGNOF(NUMC_INT64),
+      [NUMC_DTYPE_UINT8]   = NUMC_ALIGNOF(NUMC_UINT8),
+      [NUMC_DTYPE_UINT16]  = NUMC_ALIGNOF(NUMC_UINT16),
+      [NUMC_DTYPE_UINT32]  = NUMC_ALIGNOF(NUMC_UINT32),
+      [NUMC_DTYPE_UINT64]  = NUMC_ALIGNOF(NUMC_UINT64),
+      [NUMC_DTYPE_FLOAT32] = NUMC_ALIGNOF(NUMC_FLOAT32),
+      [NUMC_DTYPE_FLOAT64] = NUMC_ALIGNOF(NUMC_FLOAT64),
+  };
+  return table[dt];
+}
 
 #endif

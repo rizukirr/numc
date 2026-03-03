@@ -7,7 +7,7 @@ static int test_array_slice_basic(void) {
   int32_t data[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
   numc_array_write(arr, data);
 
-  NumcArray *view = numc_slice(arr, .axis = 0, .start = 2, .stop = 7);
+  NumcArray *view = NUMC_SLICE(arr, .axis = 0, .start = 2, .stop = 7);
   ASSERT_MSG(view != NULL, "slice should not return NULL");
   ASSERT_MSG(numc_array_size(view) == 5, "slice size should be 5");
 
@@ -28,7 +28,7 @@ static int test_array_slice_step(void) {
   numc_array_write(arr, data);
 
   NumcArray *view =
-      numc_slice(arr, .axis = 0, .start = 0, .stop = 10, .step = 2);
+      NUMC_SLICE(arr, .axis = 0, .start = 0, .stop = 10, .step = 2);
   ASSERT_MSG(view != NULL, "slice with step should not return NULL");
   ASSERT_MSG(numc_array_size(view) == 5, "slice size with step 2 should be 5");
 
@@ -42,7 +42,7 @@ static int test_array_slice_full(void) {
   NumcArray *arr = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT32);
 
   // stop=0 means full extent
-  NumcArray *view = numc_slice(arr, .axis = 0, .start = 0, .stop = 0);
+  NumcArray *view = NUMC_SLICE(arr, .axis = 0, .start = 0, .stop = 0);
   ASSERT_MSG(view != NULL, "full slice should not return NULL");
   ASSERT_MSG(numc_array_size(view) == 5, "full slice size should be 5");
 
@@ -56,7 +56,7 @@ static int test_array_slice_2d(void) {
   NumcArray *arr = numc_array_zeros(ctx, shape, 2, NUMC_DTYPE_INT32);
 
   // Slice axis 0: rows 1..3
-  NumcArray *view = numc_slice(arr, .axis = 0, .start = 1, .stop = 3);
+  NumcArray *view = NUMC_SLICE(arr, .axis = 0, .start = 1, .stop = 3);
   ASSERT_MSG(view != NULL, "2D slice should not return NULL");
   ASSERT_MSG(numc_array_size(view) == 12,
              "sliced shape should be {2, 6} = 12 elements");
@@ -76,7 +76,7 @@ static int test_array_slice_out_of_bounds(void) {
   NumcArray *arr = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT32);
 
   // axis >= ndim
-  NumcArray *view = numc_slice(arr, .axis = 1, .start = 0, .stop = 3);
+  NumcArray *view = NUMC_SLICE(arr, .axis = 1, .start = 0, .stop = 3);
   ASSERT_MSG(view == NULL, "slice with invalid axis should return NULL");
 
   numc_ctx_free(ctx);
@@ -84,7 +84,7 @@ static int test_array_slice_out_of_bounds(void) {
 }
 
 static int test_array_slice_null(void) {
-  NumcArray *view = numc_slice(NULL, .axis = 0, .start = 0, .stop = 3);
+  NumcArray *view = NUMC_SLICE(NULL, .axis = 0, .start = 0, .stop = 3);
   ASSERT_MSG(view == NULL, "slice of NULL should return NULL");
   return 0;
 }
@@ -96,7 +96,7 @@ static int test_array_slice_is_view(void) {
   int32_t data[] = {10, 20, 30, 40, 50, 60};
   numc_array_write(arr, data);
 
-  NumcArray *view = numc_slice(arr, .axis = 0, .start = 1, .stop = 4);
+  NumcArray *view = NUMC_SLICE(arr, .axis = 0, .start = 1, .stop = 4);
 
   // Modify original, view should reflect change
   int32_t *orig = (int32_t *)numc_array_data(arr);

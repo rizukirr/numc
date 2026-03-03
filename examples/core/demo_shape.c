@@ -46,7 +46,7 @@ static void demo_shape(NumcCtx *ctx) {
   numc_array_print(t);
 
   /* numc_array_slice — view, no data copy */
-  label("numc_slice (row 1 of 2x3 = 3 elements)");
+  label("NUMC_SLICE (row 1 of 2x3 = 3 elements)");
   size_t shape2[] = {2, 3};
   NumcArray *b = numc_array_create(ctx, shape2, 2, NUMC_DTYPE_INT32);
   int32_t data2[] = {10, 20, 30, 40, 50, 60};
@@ -54,7 +54,7 @@ static void demo_shape(NumcCtx *ctx) {
   printf("original:\n");
   numc_array_print(b);
 
-  NumcArray *row = numc_slice(b, .axis = 0, .start = 1, .stop = 2, .step = 1);
+  NumcArray *row = NUMC_SLICE(b, .axis = 0, .start = 1, .stop = 2, .step = 1);
   printf("slice [1:2, :] :\n");
   numc_array_print(row);
 }
