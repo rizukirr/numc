@@ -3,6 +3,7 @@
 
 #include "numc/array.h"
 #include "numc/dtype.h"
+#include "numc/export.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -14,7 +15,7 @@
  *
  * @param seed 64-bit seed value.
  */
-void numc_manual_seed(uint64_t seed);
+NUMC_API void numc_manual_seed(uint64_t seed);
 
 /**
  * @brief Create an array filled with uniform random values.
@@ -28,8 +29,8 @@ void numc_manual_seed(uint64_t seed);
  * @param dtype Data type of elements.
  * @return Pointer to the newly created array, or NULL on failure.
  */
-NumcArray *numc_array_rand(NumcCtx *ctx, const size_t *shape,
-                           size_t dim, NumcDType dtype);
+NUMC_API NumcArray *numc_array_rand(NumcCtx *ctx, const size_t *shape,
+                                    size_t dim, NumcDType dtype);
 
 /**
  * @brief Create an array filled with standard normal N(0,1) values.
@@ -43,8 +44,8 @@ NumcArray *numc_array_rand(NumcCtx *ctx, const size_t *shape,
  * @param dtype Data type of elements.
  * @return Pointer to the newly created array, or NULL on failure.
  */
-NumcArray *numc_array_randn(NumcCtx *ctx, const size_t *shape,
-                            size_t dim, NumcDType dtype);
+NUMC_API NumcArray *numc_array_randn(NumcCtx *ctx, const size_t *shape,
+                                     size_t dim, NumcDType dtype);
 
 /**
  * @brief He (Kaiming) initialization: N(0, sqrt(2 / fan_in)).
@@ -58,9 +59,9 @@ NumcArray *numc_array_randn(NumcCtx *ctx, const size_t *shape,
  * @param fan_in Number of input units (e.g. in_channels * kH * kW).
  * @return Pointer to the newly created array, or NULL on failure.
  */
-NumcArray *numc_array_random_he(NumcCtx *ctx, const size_t *shape,
-                                size_t dim, NumcDType dtype,
-                                size_t fan_in);
+NUMC_API NumcArray *numc_array_random_he(NumcCtx *ctx, const size_t *shape,
+                                         size_t dim, NumcDType dtype,
+                                         size_t fan_in);
 
 /**
  * @brief Xavier (Glorot) initialization: uniform [-limit, limit),
@@ -76,8 +77,8 @@ NumcArray *numc_array_random_he(NumcCtx *ctx, const size_t *shape,
  * @param fan_out Number of output units.
  * @return Pointer to the newly created array, or NULL on failure.
  */
-NumcArray *numc_array_random_xavier(NumcCtx *ctx, const size_t *shape,
-                                    size_t dim, NumcDType dtype,
-                                    size_t fan_in, size_t fan_out);
+NUMC_API NumcArray *numc_array_random_xavier(NumcCtx *ctx, const size_t *shape,
+                                             size_t dim, NumcDType dtype,
+                                             size_t fan_in, size_t fan_out);
 
 #endif /* NUMC_RANDOM_H */

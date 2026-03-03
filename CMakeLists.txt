@@ -2,10 +2,12 @@ cmake_minimum_required(VERSION 3.25)
 project(numc VERSION 0.1.0 LANGUAGES C)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+# Target standard
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -17,12 +19,14 @@ else()
     set(NUMC_STANDALONE OFF)
 endif()
 
-# Options (defaults depend on standalone vs subdirectory)
+# Options
 option(NUMC_BUILD_TESTS      "Build numc tests"             ${NUMC_STANDALONE})
 option(NUMC_BUILD_BENCHMARKS "Build numc benchmarks"        ${NUMC_STANDALONE})
 option(NUMC_BUILD_EXAMPLES   "Build numc examples"          ${NUMC_STANDALONE})
 option(NUMC_ENABLE_ASAN      "Enable AddressSanitizer"      OFF)
 option(NUMC_USE_BLAS         "Enable BLAS backend (BLIS)"   OFF)
+option(NUMC_WERROR           "Treat warnings as errors"     OFF)
+option(NUMC_OPTIMIZE_NATIVE  "Enable -march=native"         ON)
 
 # Dependencies (at root scope so install block can see results)
 find_package(OpenMP)

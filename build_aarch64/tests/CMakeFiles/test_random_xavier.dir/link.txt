@@ -1,0 +1,1 @@
+/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/test_random_xavier.dir/random/test_random_xavier.c.o -o ../bin/test_random_xavier  ../lib/libnumc.a -lm

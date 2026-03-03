@@ -1,0 +1,1 @@
+/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/demo_neg.dir/elemwise/demo_neg.c.o -o ../bin/demo_neg  ../lib/libnumc.a -lm

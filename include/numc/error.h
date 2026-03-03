@@ -1,61 +1,57 @@
 #ifndef NUMC_ERROR_H
 #define NUMC_ERROR_H
 
-#define NUMC_ERR_NULL -1
-#define NUMC_ERR_SHAPE -3
-#define NUMC_ERR_TYPE -4
+#include "numc/export.h"
+#include <stddef.h>
 
+/**
+ * @brief Error codes for numc operations.
+ */
+typedef enum {
+  NUMC_ERR_NONE = 0,
+  NUMC_ERR_NULL = -1,    /* NULL pointer where not allowed */
+  NUMC_ERR_MALLOC = -2,  /* Memory allocation failure */
+  NUMC_ERR_SHAPE = -3,   /* Shape/dimension mismatch */
+  NUMC_ERR_TYPE = -4,    /* Dtype mismatch or unsupported type */
+  NUMC_ERR_BOUNDS = -5,  /* Index out of bounds */
+  NUMC_ERR_INTERNAL = -99 /* Unspecified internal error */
+} NumcErrorCode;
+
+/**
+ * @brief Error information for the current thread.
+ */
 typedef struct {
   int code;
-  char *msg;
+  const char *msg;
 } NumcError;
 
 /**
- * @brief Low-level function to format and set an error with context.
+ * @brief Set the error for the current thread with formatting.
  *
- * @param code Error code.
- * @param func Function name where the error occurred.
- * @param file File name where the error occurred.
- * @param line Line number where the error occurred.
- * @param fmt  Format string for the error message.
- * @param ...  Arguments for the format string.
- * @return The error code.
+ * Usually called via the NUMC_SET_ERROR macro.
  */
-int numc_set_error_v(int code,
-                     const char *func,
-                     const char *file,
-                     int line,
-                     const char *fmt, ...);
-
-/* Capture caller context automatically */
-#define NUMC_SET_ERROR(code, fmt, ...) \
-  numc_set_error_v(code, __func__, __FILE__, __LINE__, fmt __VA_OPT__(,) __VA_ARGS__)
+NUMC_API int numc_set_error_v(int code, const char *func, const char *file,
+                             int line, const char *fmt, ...);
 
 /**
- * @brief Set an error message with a specific code.
- *
- * Backward-compatible convenience function.
- *
- * @param code Error code.
- * @param msg  Error message.
- * @return The error code.
+ * @brief Set a simple error message for the current thread.
  */
-int numc_set_error(int code, const char *msg);
+NUMC_API int numc_set_error(int code, const char *msg);
 
 /**
- * @brief Retrieve the current thread-local error.
- *
- * @return A copy of the current NumcError struct.
+ * @brief Get the last error that occurred on the current thread.
  */
-NumcError numc_get_error(void);
+NUMC_API NumcError numc_get_error(void);
 
 /**
- * @brief Print an error to stderr.
- *
- * Decorated for CLI/demo as "[ERROR] numc:<message>".
- *
- * @param err Pointer to the NumcError struct.
+ * @brief Log an error structure to stderr.
  */
-void numc_log_error(const NumcError *err);
+NUMC_API void numc_log_error(const NumcError *err);
 
-#endif
+/**
+ * @brief Macro to set an error with automatic context (function, file, line).
+ */
+#define NUMC_SET_ERROR(code, fmt, ...)                                         \
+  numc_set_error_v(code, __func__, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
+
+#endif /* NUMC_ERROR_H */

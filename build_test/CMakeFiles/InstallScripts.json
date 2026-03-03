@@ -1,0 +1,11 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/rizki/Projects/numc/build_test/cmake_install.cmake",
+		"/home/rizki/Projects/numc/build_test/src/cmake_install.cmake",
+		"/home/rizki/Projects/numc/build_test/examples/cmake_install.cmake",
+		"/home/rizki/Projects/numc/build_test/bench/cmake_install.cmake",
+		"/home/rizki/Projects/numc/build_test/tests/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

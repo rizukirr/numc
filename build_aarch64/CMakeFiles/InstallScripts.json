@@ -1,0 +1,11 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/rizki/Projects/numc/build_aarch64/cmake_install.cmake",
+		"/home/rizki/Projects/numc/build_aarch64/src/cmake_install.cmake",
+		"/home/rizki/Projects/numc/build_aarch64/examples/cmake_install.cmake",
+		"/home/rizki/Projects/numc/build_aarch64/bench/cmake_install.cmake",
+		"/home/rizki/Projects/numc/build_aarch64/tests/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

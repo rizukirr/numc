@@ -1,0 +1,1 @@
+/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/test_abs.dir/elemwise/test_abs.c.o -o ../bin/test_abs  ../lib/libnumc.a -lm

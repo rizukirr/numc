@@ -25,11 +25,26 @@ target_include_directories(numc
         ${CMAKE_CURRENT_SOURCE_DIR}/random
 )
 
+set(MARCH_FLAG "-march=native")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_C_COMPILER_TARGET MATCHES "aarch64")
+    set(MARCH_FLAG "-march=armv8-a")
+endif()
+
 target_compile_options(numc PRIVATE
-    -Wall -Wextra -Wpedantic -Werror
+    -Wall -Wextra -Wpedantic
+    $<$<BOOL:${NUMC_WERROR}>:-Werror>
     $<$<CONFIG:Debug>:-g -O0 -fno-omit-frame-pointer>
-    $<$<CONFIG:Release>:-O3 -march=native -fno-math-errno -fno-signed-zeros -fno-trapping-math -funroll-loops>
-    $<$<CONFIG:RelWithDebInfo>:-O2 -g -march=native>
+    $<$<CONFIG:Release>:-O3 ${MARCH_FLAG} -fno-math-errno -fno-signed-zeros -fno-trapping-math -funroll-loops>
+    $<$<CONFIG:RelWithDebInfo>:-O2 -g ${MARCH_FLAG}>
+)
+
+# Visibility and PIC
+set_target_properties(numc PROPERTIES
+    C_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+    POSITION_INDEPENDENT_CODE ON
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
 )
 
 # Enable debug error context (file/line) in Debug builds

@@ -1,0 +1,1 @@
+/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/bench_scalar.dir/bench_scalar.c.o -o ../bin/bench_scalar  ../lib/libnumc.a -lm

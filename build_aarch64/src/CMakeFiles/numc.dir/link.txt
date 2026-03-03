@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../lib/libnumc.a CMakeFiles/numc.dir/array_core.c.o CMakeFiles/numc.dir/array_print.c.o CMakeFiles/numc.dir/alloc.c.o CMakeFiles/numc.dir/elemwise/binary.c.o CMakeFiles/numc.dir/elemwise/unary.c.o CMakeFiles/numc.dir/elemwise/clip.c.o CMakeFiles/numc.dir/reduction/reduction.c.o CMakeFiles/numc.dir/matmul/matmul.c.o CMakeFiles/numc.dir/random/random.c.o CMakeFiles/numc.dir/error.c.o
+/usr/bin/ranlib ../lib/libnumc.a

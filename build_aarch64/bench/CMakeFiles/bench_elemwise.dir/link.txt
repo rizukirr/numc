@@ -1,0 +1,1 @@
+/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/bench_elemwise.dir/bench_elemwise.c.o -o ../bin/bench_elemwise  ../lib/libnumc.a -lm

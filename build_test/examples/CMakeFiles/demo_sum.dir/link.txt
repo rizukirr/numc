@@ -1,0 +1,1 @@
+/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/demo_sum.dir/link.d CMakeFiles/demo_sum.dir/reduction/demo_sum.c.o -o ../bin/demo_sum  ../lib/libnumc.a /usr/lib/libgomp.so /usr/lib/libpthread.a /usr/lib/libblis.so -lm

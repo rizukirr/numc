@@ -1,0 +1,1 @@
+/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/demo_clip.dir/elemwise/demo_clip.c.o -o ../bin/demo_clip  ../lib/libnumc.a -lm

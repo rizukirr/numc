@@ -1,0 +1,1 @@
+/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/test_argmin.dir/link.d CMakeFiles/test_argmin.dir/reduction/test_argmin.c.o -o ../bin/test_argmin  ../lib/libnumc.a /usr/lib/libgomp.so /usr/lib/libpthread.a /usr/lib/libblis.so -lm

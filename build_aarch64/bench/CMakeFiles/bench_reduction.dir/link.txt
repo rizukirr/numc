@@ -1,0 +1,1 @@
+/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/bench_reduction.dir/bench_reduction.c.o -o ../bin/bench_reduction  ../lib/libnumc.a -lm

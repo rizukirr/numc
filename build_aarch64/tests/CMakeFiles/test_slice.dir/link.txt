@@ -1,0 +1,1 @@
+/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/test_slice.dir/core/test_slice.c.o -o ../bin/test_slice  ../lib/libnumc.a -lm

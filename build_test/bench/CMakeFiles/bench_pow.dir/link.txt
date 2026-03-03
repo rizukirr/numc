@@ -1,0 +1,1 @@
+/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/bench_pow.dir/link.d CMakeFiles/bench_pow.dir/bench_pow.c.o -o ../bin/bench_pow  ../lib/libnumc.a /usr/lib/libgomp.so /usr/lib/libpthread.a /usr/lib/libblis.so -lm
