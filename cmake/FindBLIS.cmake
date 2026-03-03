@@ -9,7 +9,7 @@
 #   BLIS_ROOT         - Root directory of BLIS installation
 
 find_path(BLIS_INCLUDE_DIR
-    NAMES blis/blis.h blis.h
+    NAMES blis.h
     HINTS
         ${BLIS_ROOT}
         $ENV{BLIS_ROOT}

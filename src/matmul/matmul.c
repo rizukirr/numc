@@ -6,7 +6,7 @@
 #ifdef HAVE_BLAS
 
 #include "internal.h"
-#include <blis/blis.h>
+#include <blis.h>
 
 static bool blis_initialized = false;
 
