@@ -40,29 +40,6 @@ Comprehensive API documentation and usage guides are available in the [Project W
 ./run.sh bench          # Run performance benchmarks against industry baselines
 ```
 
-### Cross-Compilation
-
-`numc` supports AArch64 (ARM64) cross-compilation for cloud and embedded targets:
-
-```bash
-./run.sh cross-arm      # Cross-build for ARM64 and run via QEMU
-```
-
-### Build Options
-
-The library can be customized using environment variables or CMake flags:
-
-```bash
-CC=gcc ./run.sh release      # Use GCC instead of Clang
-NUMC_USE_BLAS=OFF ./run.sh   # Disable BLAS backend for minimal footprint
-```
-
-## Production Readiness
-
-- **Thread Safety:** Designed for integration into multi-threaded applications.
-- **Safety & Robustness:** Compiled with `-Wall -Wextra -Wpedantic` and verified with AddressSanitizer (ASan) and LeakSanitizer (LSan).
-- **Architecture Aware:** Optimized for both x86_64 (AVX/AVX-512) and AArch64 (NEON).
-
 ## License
 
 `numc` is released under the MIT License. See the [LICENSE](LICENSE) file for details.
