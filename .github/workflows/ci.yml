@@ -24,10 +24,10 @@ jobs:
 
     - name: Configure CMake
       run: |
-        cmake -S . -B build 
-          -DCMAKE_C_COMPILER=${{ matrix.compiler }} 
-          -DNUMC_USE_BLAS=${{ matrix.blas }} 
-          -DNUMC_BUILD_TESTS=ON 
+        cmake -S . -B build \
+          -DCMAKE_C_COMPILER=${{ matrix.compiler }} \
+          -DNUMC_USE_BLAS=${{ matrix.blas }} \
+          -DNUMC_BUILD_TESTS=ON \
           -DCMAKE_BUILD_TYPE=Release
 
     - name: Build
