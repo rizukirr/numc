@@ -9,7 +9,7 @@ test_simd_alignment
 Testing/Temporary
 .github/copilot-instructions.md
 *.s
-build-release
+build*
 /.claude/agents
 *.csv
 /notes

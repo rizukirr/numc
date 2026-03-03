@@ -1,1 +1,0 @@
-/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/test_where.dir/link.d CMakeFiles/test_where.dir/elemwise/test_where.c.o -o ../bin/test_where  ../lib/libnumc.a /usr/lib/libgomp.so /usr/lib/libpthread.a /usr/lib/libblis.so -lm

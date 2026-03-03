@@ -1,1 +1,0 @@
-/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/test_matmul_naive.dir/link.d CMakeFiles/test_matmul_naive.dir/matmul/test_matmul_naive.c.o -o ../bin/test_matmul_naive  ../lib/libnumc.a /usr/lib/libgomp.so /usr/lib/libpthread.a /usr/lib/libblis.so -lm

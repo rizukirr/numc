@@ -1,1 +1,0 @@
-/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/test_argmin.dir/reduction/test_argmin.c.o -o ../bin/test_argmin  ../lib/libnumc.a -lm

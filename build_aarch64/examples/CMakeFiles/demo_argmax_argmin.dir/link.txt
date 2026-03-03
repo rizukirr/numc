@@ -1,1 +1,0 @@
-/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/demo_argmax_argmin.dir/reduction/demo_argmax_argmin.c.o -o ../bin/demo_argmax_argmin  ../lib/libnumc.a -lm

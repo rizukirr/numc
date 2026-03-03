@@ -1,1 +1,0 @@
-/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/demo_abs.dir/link.d CMakeFiles/demo_abs.dir/elemwise/demo_abs.c.o -o ../bin/demo_abs  ../lib/libnumc.a /usr/lib/libgomp.so /usr/lib/libpthread.a /usr/lib/libblis.so -lm

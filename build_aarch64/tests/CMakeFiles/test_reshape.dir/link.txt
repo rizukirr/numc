@@ -1,1 +1,0 @@
-/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/test_reshape.dir/core/test_reshape.c.o -o ../bin/test_reshape  ../lib/libnumc.a -lm

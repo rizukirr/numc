@@ -1,1 +1,0 @@
-/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/bench_matmul.dir/link.d CMakeFiles/bench_matmul.dir/bench_matmul.c.o -o ../bin/bench_matmul  ../lib/libnumc.a /usr/lib/libgomp.so /usr/lib/libpthread.a /usr/lib/libblis.so -lm

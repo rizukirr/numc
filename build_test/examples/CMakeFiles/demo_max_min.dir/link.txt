@@ -1,1 +1,0 @@
-/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/demo_max_min.dir/link.d CMakeFiles/demo_max_min.dir/reduction/demo_max_min.c.o -o ../bin/demo_max_min  ../lib/libnumc.a /usr/lib/libgomp.so /usr/lib/libpthread.a /usr/lib/libblis.so -lm

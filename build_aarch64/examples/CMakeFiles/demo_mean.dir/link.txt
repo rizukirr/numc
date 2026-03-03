@@ -1,1 +1,0 @@
-/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/demo_mean.dir/reduction/demo_mean.c.o -o ../bin/demo_mean  ../lib/libnumc.a -lm

@@ -1,1 +1,0 @@
-/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/demo_maximum_minimum.dir/elemwise/demo_maximum_minimum.c.o -o ../bin/demo_maximum_minimum  ../lib/libnumc.a -lm

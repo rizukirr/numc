@@ -1,1 +1,0 @@
-/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/test_random_init.dir/link.d CMakeFiles/test_random_init.dir/random/test_random_init.c.o -o ../bin/test_random_init  ../lib/libnumc.a /usr/lib/libgomp.so /usr/lib/libpthread.a /usr/lib/libblis.so -lm

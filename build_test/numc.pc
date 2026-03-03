@@ -1,9 +1,0 @@
-prefix=/usr/local
-libdir=${prefix}/lib
-includedir=${prefix}/include
-
-Name: numc
-Description: Tensor library in C
-Version: 0.1.0
-Libs: -L${libdir} -lnumc -lm
-Cflags: -I${includedir}

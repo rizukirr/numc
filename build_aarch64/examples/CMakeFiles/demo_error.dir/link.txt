@@ -1,1 +1,0 @@
-/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/demo_error.dir/core/demo_error.c.o -o ../bin/demo_error  ../lib/libnumc.a -lm

@@ -1,1 +1,0 @@
-/usr/bin/cc -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/test_broadcast.dir/link.d CMakeFiles/test_broadcast.dir/elemwise/test_broadcast.c.o -o ../bin/test_broadcast  ../lib/libnumc.a /usr/lib/libgomp.so /usr/lib/libpthread.a /usr/lib/libblis.so -lm

@@ -1,1 +1,0 @@
-/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/demo_broadcast.dir/elemwise/demo_broadcast.c.o -o ../bin/demo_broadcast  ../lib/libnumc.a -lm

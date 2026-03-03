@@ -1,1 +1,0 @@
-/usr/bin/clang --target=aarch64-linux-gnu --target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -O3 -DNDEBUG CMakeFiles/test_ctx.dir/core/test_ctx.c.o -o ../bin/test_ctx  ../lib/libnumc.a -lm
