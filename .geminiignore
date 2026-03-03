@@ -1,0 +1,13 @@
+build/
+build_test/
+build_aarch64/
+.cache/
+.clangd/
+*.o
+*.a
+*.so
+bin/
+lib/
+check_blis
+check_blis_ways
+license_header.txt

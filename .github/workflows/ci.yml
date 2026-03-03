@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [clang, gcc]
+        blas: [ON, OFF]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake libblis-dev
+
+    - name: Configure CMake
+      run: |
+        cmake -S . -B build 
+          -DCMAKE_C_COMPILER=${{ matrix.compiler }} 
+          -DNUMC_USE_BLAS=${{ matrix.blas }} 
+          -DNUMC_BUILD_TESTS=ON 
+          -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build --parallel $(nproc)
+
+    - name: Run Tests
+      run: |
+        cd build
+        ctest --output-on-failure
