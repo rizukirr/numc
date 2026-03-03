@@ -21,7 +21,8 @@ typedef struct {
 /**
  * @brief Create a new context.
  *
- * All arrays allocated from this context are freed together via numc_ctx_free().
+ * All arrays allocated from this context are freed together via
+ * numc_ctx_free().
  *
  * @return Pointer to a newly created context, or NULL on failure.
  */
