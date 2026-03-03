@@ -1,148 +1,153 @@
 #!/bin/bash
 
+# run.sh — numc development helper script
+# Supports: debug, release, test, bench, cross-arm, clean, rebuild
+
 set -e
 
+# --- Configuration ---
+BUILD_DIR="build"
 CC="${CC:-clang}"
-CMAKE_OPTS="-DCMAKE_C_COMPILER=$CC -DNUMC_ENABLE_ASAN=OFF"
+PYTHON_VENV="/tmp/npvenv2/bin/python3"
+NUMC_USE_BLAS="${NUMC_USE_BLAS:-ON}"
+
+# --- Colors ---
+BLUE='\033[0;34m'
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# --- Helpers ---
+info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+success() { echo -e "${GREEN}[OK]${NC} $1"; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 build() {
     local build_type=$1
-    echo "Building in $build_type mode (compiler: $CC)"
-    build_start=$(date +%s%3N)
-    cmake -S . -B build -DCMAKE_BUILD_TYPE="$build_type" $CMAKE_OPTS
-    cmake --build build
-    build_end=$(date +%s%3N)
-    elapsed=$(awk "BEGIN { printf \"%.3f\", ($build_end - $build_start)/1000 }")
-    echo "Build took ${elapsed} seconds"
+    local asan=$2
+    local extra_opts=$3
+    
+    info "Configuring ${build_type} build (CC=${CC}, ASan=${asan}, BLAS=${NUMC_USE_BLAS})..."
+    
+    cmake -S . -B "$BUILD_DIR" \
+        -DCMAKE_BUILD_TYPE="$build_type" \
+        -DCMAKE_C_COMPILER="$CC" \
+        -DNUMC_ENABLE_ASAN="$asan" \
+        -DNUMC_USE_BLAS="$NUMC_USE_BLAS" \
+        $extra_opts
+        
+    info "Building..."
+    start_time=$(date +%s)
+    cmake --build "$BUILD_DIR" -j$(nproc)
+    end_time=$(date +%s)
+    
+    success "Build finished in $((end_time - start_time))s"
 }
 
-case $1 in
+run_demos() {
+    info "Running demos..."
+    for demo in "$BUILD_DIR"/bin/demo_*; do
+        [[ -x "$demo" ]] || continue
+        echo -e "\n${YELLOW}>>> $(basename "$demo")${NC}"
+        "$demo"
+    done
+}
+
+# --- Main Logic ---
+COMMAND=$1
+# Priority: Argument $2 > Environment $CC > Default clang
+COMPILER=${2:-${CC:-clang}}
+CC=$COMPILER
+
+case $COMMAND in
     "debug")
-        CMAKE_OPTS="$CMAKE_OPTS -DNUMC_ENABLE_ASAN=ON"
-        build Debug
+        build Debug ON
         export LSAN_OPTIONS="suppressions=$(pwd)/tests/lsan_suppressions.txt"
-        for demo in build/bin/demo_*; do
-            echo "=== $(basename "$demo") ==="
-            "$demo"
-            echo ""
-        done
-        exit 0
+        run_demos
         ;;
+        
     "release")
-        build Release
-        for demo in build/bin/demo_*; do
-            echo "=== $(basename "$demo") ==="
-            "$demo"
-            echo ""
-        done
-        exit 0
+        build Release OFF
+        run_demos
         ;;
+        
     "test")
-        echo "Running tests..."
-        CMAKE_OPTS="$CMAKE_OPTS -DNUMC_ENABLE_ASAN=ON"
-        build Debug
-        echo ""
-        # Suppress known OpenMP thread pool leak in LeakSanitizer
+        build Debug ON
+        info "Running tests..."
         export LSAN_OPTIONS="suppressions=$(pwd)/tests/lsan_suppressions.txt"
-        ctest --test-dir build
-        exit 0
+        ctest --test-dir "$BUILD_DIR" --output-on-failure
         ;;
+        
     "bench")
-        echo "Running benchmarks..."
-        build Release
-        echo ""
-        echo "=== Binary element-wise benchmark ==="
-        ./build/bin/bench_elemwise
-        echo ""
-        echo "=== Scalar element-wise benchmark ==="
-        ./build/bin/bench_scalar
-        echo ""
-        echo "=== Unary element-wise benchmark ==="
-        ./build/bin/bench_unary
-        echo ""
-        echo "=== Pow benchmark ==="
-        ./build/bin/bench_pow
-        echo ""
-        echo "=== Reduction benchmark ==="
-        ./build/bin/bench_reduction
-        exit 0
+        build Release OFF
+        info "Running all benchmarks..."
+        for b in elemwise scalar unary pow reduction matmul; do
+            echo -e "\n${GREEN}=== numc $b benchmark ===${NC}"
+            "./$BUILD_DIR/bin/bench_$b"
+            
+            if [[ -x "$PYTHON_VENV" ]]; then
+                echo -e "\n${BLUE}=== numpy $b comparison ===${NC}"
+                LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy_bench_$b.py" 2>/dev/null || warn "NumPy bench for $b failed"
+            fi
+        done
         ;;
-    "bench-elemwise")
-        build Release
-        ./build/bin/bench_elemwise
-        exit 0
-        ;;
-    "bench-scalar")
-        build Release
-        ./build/bin/bench_scalar
-        exit 0
-        ;;
-    "bench-unary")
-        build Release
-        ./build/bin/bench_unary
-        exit 0
-        ;;
-    "bench-pow")
-        build Release
-        ./build/bin/bench_pow
-        exit 0
-        ;;
-    "bench-reduction")
-        build Release
-        ./build/bin/bench_reduction
-        exit 0
-        ;;
+
     "bench-matmul")
-        build Release
-        ./build/bin/bench_matmul
-        exit 0
+        build Release OFF
+        info "Running matmul showdown..."
+        echo -e "\n${GREEN}=== numc matmul ===${NC}"
+        "./$BUILD_DIR/bin/bench_matmul"
+        if [[ -x "$PYTHON_VENV" ]]; then
+            echo -e "\n${BLUE}=== numpy matmul ===${NC}"
+            LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy_bench_matmul.py"
+        fi
         ;;
+
+    "cross-arm")
+        info "Cross-compiling for AArch64 (ARM64)..."
+        ARM_BUILD="build_aarch64"
+        cmake -S . -B "$ARM_BUILD" \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_C_FLAGS="--target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu" \
+            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DCMAKE_C_COMPILER_TARGET=aarch64-linux-gnu \
+            -DNUMC_USE_BLAS=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+        cmake --build "$ARM_BUILD" -j$(nproc)
+        
+        info "Running matmul bench via QEMU..."
+        /usr/bin/qemu-aarch64-static -L /usr/aarch64-linux-gnu "./$ARM_BUILD/bin/bench_matmul"
+        ;;
+
     "clean")
-        echo "Cleaning build directory..."
-        rm -rf build
-        echo "Clean complete"
-        exit 0
+        info "Cleaning build directories..."
+        rm -rf build build_aarch64 build_test
+        success "Clean complete"
         ;;
+
     "rebuild")
-        echo "Rebuilding from scratch..."
         rm -rf build
-        CMAKE_OPTS="$CMAKE_OPTS -DNUMC_ENABLE_ASAN=ON"
-        build Debug
-        exit 0
+        build Debug ON
         ;;
-    "help")
-        echo "Usage: $0 [command]"
+
+    "help"|*)
+        echo -e "${YELLOW}Usage:${NC} $0 {command} [compiler]"
         echo ""
-        echo "Commands:"
-        echo "  debug              Build in debug mode with AddressSanitizer"
-        echo "  release            Build in release mode with optimizations"
-        echo "  test               Build in debug mode and run all tests"
+        echo -e "${BLUE}Commands:${NC}"
+        echo "  debug [cc]     Build Debug + ASan and run demos"
+        echo "  release [cc]   Build Release and run demos"
+        echo "  test [cc]      Build Debug + ASan and run ctest"
+        echo "  bench [cc]     Build Release and run all benchmarks vs NumPy"
+        echo "  bench-matmul   Run specialized matmul benchmark vs NumPy"
+        echo "  cross-arm      Cross-build for AArch64 and run via QEMU"
+        echo "  clean          Remove all build directories"
+        echo "  rebuild [cc]   Fresh debug build"
         echo ""
-        echo "  bench              Build release and run all benchmarks"
-        echo "  bench-elemwise     Build release and run binary element-wise benchmark"
-        echo "  bench-scalar       Build release and run scalar element-wise benchmark"
-        echo "  bench-unary        Build release and run unary element-wise benchmark"
-        echo "  bench-pow          Build release and run pow benchmark"
-        echo "  bench-reduction    Build release and run reduction benchmark"
-        echo ""
-        echo "  clean              Remove build directory"
-        echo "  rebuild            Clean and rebuild in debug mode"
-        echo "  help               Show this help message"
-        echo "  (no args)          Show this help message"
-        echo ""
-        echo "Environment:"
-        echo "  CC=gcc ./run.sh release   Use GCC instead of Clang"
-        exit 0
-        ;;
-    "")
-        ./run.sh help
-        exit 0
-        ;;
-    *)
-        echo "Unknown argument: $1"
-        echo "Usage: $0 [debug|release|test|benchmark|clean|rebuild|help]"
-        echo "Run '$0 help' for more information"
-        exit 1
+        echo -e "${BLUE}Examples:${NC}"
+        echo "  $0 release          # Build with default (clang)"
+        echo "  $0 release gcc      # Build with gcc"
+        echo "  CC=gcc $0 release   # Also works via env var"
         ;;
 esac
-
