@@ -20,7 +20,7 @@ jobs:
     - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake libblis-dev
+        sudo apt-get install -y cmake libblis-dev libomp-dev
 
     - name: Configure CMake
       run: |
