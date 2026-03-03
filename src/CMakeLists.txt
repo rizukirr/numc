@@ -7,6 +7,7 @@ add_library(numc
     elemwise/clip.c
     reduction/reduction.c
     matmul/matmul.c
+    random/random.c
     error.c
 )
 add_library(numc::numc ALIAS numc)
@@ -20,6 +21,7 @@ target_include_directories(numc
         ${CMAKE_CURRENT_SOURCE_DIR}/elemwise
         ${CMAKE_CURRENT_SOURCE_DIR}/reduction
         ${CMAKE_CURRENT_SOURCE_DIR}/matmul
+        ${CMAKE_CURRENT_SOURCE_DIR}/random
 )
 
 target_compile_options(numc PRIVATE
@@ -45,6 +47,7 @@ endif()
 # OpenMP (find_package is at root scope)
 if(OpenMP_C_FOUND)
     target_link_libraries(numc PUBLIC OpenMP::OpenMP_C)
+    target_compile_definitions(numc PRIVATE HAVE_OMP=1)
 endif()
 
 if(NUMC_USE_BLAS AND BLAS_FOUND)

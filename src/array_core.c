@@ -62,32 +62,32 @@ static inline int _init_dims(struct NumcArray *arr, struct NumcCtx *ctx,
  */
 static inline void _array_fill_with(struct NumcArray *arr, const void *value) {
   char *ptr = arr->data;
-  size_t cordinate[arr->dim];
-  memset(cordinate, 0, sizeof(cordinate));
+  size_t coordinate[arr->dim];
+  memset(coordinate, 0, sizeof(coordinate));
 
   while (true) {
     memcpy(ptr, value, arr->elem_size);
 
     int d = arr->dim - 1;
     ptr += arr->strides[d];
-    cordinate[d]++;
+    coordinate[d]++;
 
-    if (cordinate[d] < arr->shape[d])
+    if (coordinate[d] < arr->shape[d])
       continue;
 
     while (d >= 0) {
-      cordinate[d] = 0;
+      coordinate[d] = 0;
 
       if (d == 0)
         return;
 
       d--;
 
-      cordinate[d]++;
+      coordinate[d]++;
 
       ptr += arr->strides[d] - arr->shape[d + 1] * arr->strides[d + 1];
 
-      if (cordinate[d] < arr->shape[d])
+      if (coordinate[d] < arr->shape[d])
         break;
     }
   }
@@ -275,8 +275,32 @@ NumcArray *numc_array_copy(const NumcArray *arr) {
   if (!copy)
     return NULL;
 
-  memcpy(copy->data, arr->data, arr->capacity);
-  copy->is_contiguous = arr->is_contiguous;
+  if (arr->is_contiguous) {
+    /* Fast path: source is contiguous, direct memcpy */
+    memcpy(copy->data, arr->data, arr->capacity);
+  } else {
+    /* Slow path: source is non-contiguous (e.g. transposed view),
+     * iterate element-by-element using the source's strides */
+    char *dst = (char *)copy->data;
+    const char *src_base = (const char *)arr->data;
+    size_t coord[NUMC_MAX_DIMENSIONS] = {0};
+    for (size_t i = 0; i < arr->size; i++) {
+      /* Compute source offset from strides and coordinate */
+      intptr_t offset = 0;
+      for (size_t d = 0; d < arr->dim; d++)
+        offset += (intptr_t)coord[d] * arr->strides[d];
+      memcpy(dst, src_base + offset, arr->elem_size);
+      dst += arr->elem_size;
+      /* Advance coordinate (innermost dim first) */
+      for (int d = (int)arr->dim - 1; d >= 0; d--) {
+        coord[d]++;
+        if (coord[d] < arr->shape[d])
+          break;
+        coord[d] = 0;
+      }
+    }
+  }
+  /* copy is always contiguous (freshly allocated by numc_array_create) */
   return copy;
 }
 

@@ -12,11 +12,13 @@ GENERATE_NUMC_TYPES(STAMP_NEG)
 
 /* ── Stamp unary abs loop typed kernels ────────────────────*/
 
+/* Signed types: conditional negate */
 #define STAMP_ABS(TE, CT)                                                      \
   DEFINE_UNARY_KERNEL(abs, TE, CT, (CT)(in1 < 0 ? -in1 : in1))
 GENERATE_SIGNED_INT8_INT16_INT32_NUMC_TYPES(STAMP_ABS)
 GENERATE_SIGNED_64BIT_NUMC_TYPES(STAMP_ABS)
 #undef STAMP_ABS
+/* Float types: branchless conditional */
 DEFINE_UNARY_KERNEL(abs, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32,
                     (NUMC_FLOAT32)(in1 < 0.0f ? -in1 : in1))
 DEFINE_UNARY_KERNEL(abs, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64,
@@ -174,7 +176,31 @@ static const NumcUnaryKernel _sqrt_table[] = {
   }
 
 DEFINE_ELEMWISE_UNARY(neg,  _neg_table)
-DEFINE_ELEMWISE_UNARY(abs,  _abs_table)
+
+/* abs: unsigned types are always non-negative — just copy (or no-op). */
+static inline bool _dtype_is_unsigned(NumcDType dt) {
+  return dt == NUMC_DTYPE_UINT8  || dt == NUMC_DTYPE_UINT16 ||
+         dt == NUMC_DTYPE_UINT32 || dt == NUMC_DTYPE_UINT64;
+}
+
+int numc_abs(NumcArray *a, NumcArray *out) {
+  int err = _check_unary(a, out);
+  if (err)
+    return err;
+  if (_dtype_is_unsigned(a->dtype)) {
+    memcpy(out->data, a->data, a->capacity);
+    return 0;
+  }
+  return _unary_op(a, out, _abs_table);
+}
+
+int numc_abs_inplace(NumcArray *a) {
+  if (!a)
+    return NUMC_ERR_NULL;
+  if (_dtype_is_unsigned(a->dtype))
+    return 0; /* already non-negative, nothing to do */
+  return _unary_op_inplace(a, _abs_table);
+}
 DEFINE_ELEMWISE_UNARY(log,  _log_table)
 DEFINE_ELEMWISE_UNARY(exp,  _exp_table)
 DEFINE_ELEMWISE_UNARY(sqrt, _sqrt_table)

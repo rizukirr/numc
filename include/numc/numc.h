@@ -5,5 +5,6 @@
 #include "numc/dtype.h"
 #include "numc/error.h"
 #include "numc/math.h"
+#include "numc/random.h"
 
 #endif

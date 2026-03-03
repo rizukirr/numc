@@ -48,3 +48,8 @@ numc_test(test_argmin           reduction/test_argmin.c)
 
 # ── matmul ────────────────────────────────────────────────────────────────
 numc_test(test_matmul_naive     matmul/test_matmul_naive.c)
+
+# ── random ────────────────────────────────────────────────────────────────
+numc_test(test_rand             random/test_rand.c)
+numc_test(test_randn            random/test_randn.c)
+numc_test(test_random_init      random/test_random_init.c)

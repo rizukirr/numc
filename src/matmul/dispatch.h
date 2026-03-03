@@ -1,5 +1,5 @@
-#ifndef NUMC_MATH_MATMUL_DISPACTH_H
-#define NUMC_MATH_MATMUL_DISPACTH_H
+#ifndef NUMC_MATH_MATMUL_DISPATCH_H
+#define NUMC_MATH_MATMUL_DISPATCH_H
 
 #include "internal.h"
 #include "numc/error.h"

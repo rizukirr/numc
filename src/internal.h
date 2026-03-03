@@ -52,7 +52,7 @@ void numc_free(void *ptr);
 
 /* --- OMP macros (private) --- */
 
-#ifdef _OPENMP
+#if defined(_OPENMP) || defined(HAVE_OMP)
 #include <omp.h>
 #endif
 

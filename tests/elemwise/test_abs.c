@@ -82,6 +82,87 @@ static int test_abs_int64(void) {
   return 0;
 }
 
+static int test_abs_uint8(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_UINT8);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_UINT8);
+
+  uint8_t da[] = {0, 1, 127, 255};
+  numc_array_write(a, da);
+
+  int err = numc_abs(a, out);
+  ASSERT_MSG(err == 0, "abs uint8 should succeed");
+
+  uint8_t *r = (uint8_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 0 && r[1] == 1 && r[2] == 127 && r[3] == 255,
+             "abs uint8 should return values as-is");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_uint16(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_UINT16);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_UINT16);
+
+  uint16_t da[] = {0, 1, 1000, 65535};
+  numc_array_write(a, da);
+
+  int err = numc_abs(a, out);
+  ASSERT_MSG(err == 0, "abs uint16 should succeed");
+
+  uint16_t *r = (uint16_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 0 && r[1] == 1 && r[2] == 1000 && r[3] == 65535,
+             "abs uint16 should return values as-is");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_uint32(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_UINT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_UINT32);
+
+  uint32_t da[] = {0, 1, 100000, 4294967295u};
+  numc_array_write(a, da);
+
+  int err = numc_abs(a, out);
+  ASSERT_MSG(err == 0, "abs uint32 should succeed");
+
+  uint32_t *r = (uint32_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 0 && r[1] == 1 && r[2] == 100000 && r[3] == 4294967295u,
+             "abs uint32 should return values as-is");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_uint64(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_UINT64);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_UINT64);
+
+  uint64_t da[] = {0, 1, 1000000000ULL, 18446744073709551615ULL};
+  numc_array_write(a, da);
+
+  int err = numc_abs(a, out);
+  ASSERT_MSG(err == 0, "abs uint64 should succeed");
+
+  uint64_t *r = (uint64_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 0 && r[1] == 1 && r[2] == 1000000000ULL &&
+                 r[3] == 18446744073709551615ULL,
+             "abs uint64 should return values as-is");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
 static int test_abs_float32(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
@@ -381,6 +462,44 @@ static int test_abs_inplace_zeros(void) {
   return 0;
 }
 
+static int test_abs_inplace_uint8(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_UINT8);
+
+  uint8_t da[] = {0, 42, 127, 255};
+  numc_array_write(a, da);
+
+  int err = numc_abs_inplace(a);
+  ASSERT_MSG(err == 0, "abs_inplace uint8 should succeed");
+
+  uint8_t *r = (uint8_t *)numc_array_data(a);
+  ASSERT_MSG(r[0] == 0 && r[1] == 42 && r[2] == 127 && r[3] == 255,
+             "abs_inplace uint8 should leave values unchanged");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_abs_inplace_uint32(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_UINT32);
+
+  uint32_t da[] = {0, 1, 100000, 4294967295u};
+  numc_array_write(a, da);
+
+  int err = numc_abs_inplace(a);
+  ASSERT_MSG(err == 0, "abs_inplace uint32 should succeed");
+
+  uint32_t *r = (uint32_t *)numc_array_data(a);
+  ASSERT_MSG(r[0] == 0 && r[1] == 1 && r[2] == 100000 && r[3] == 4294967295u,
+             "abs_inplace uint32 should leave values unchanged");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
 static int test_abs_inplace_null(void) {
   ASSERT_MSG(numc_abs_inplace(NULL) != 0, "abs_inplace with NULL should fail");
   return 0;
@@ -395,6 +514,10 @@ int main(void) {
   RUN_TEST(test_abs_int16);
   RUN_TEST(test_abs_int32);
   RUN_TEST(test_abs_int64);
+  RUN_TEST(test_abs_uint8);
+  RUN_TEST(test_abs_uint16);
+  RUN_TEST(test_abs_uint32);
+  RUN_TEST(test_abs_uint64);
   RUN_TEST(test_abs_float32);
   RUN_TEST(test_abs_float64);
   RUN_TEST(test_abs_2d);
@@ -413,6 +536,8 @@ int main(void) {
   RUN_TEST(test_abs_inplace_float64);
   RUN_TEST(test_abs_inplace_2d);
   RUN_TEST(test_abs_inplace_zeros);
+  RUN_TEST(test_abs_inplace_uint8);
+  RUN_TEST(test_abs_inplace_uint32);
   RUN_TEST(test_abs_inplace_null);
 
   printf("\n=== Results: %d passed, %d failed ===\n", passes, fails);
