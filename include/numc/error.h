@@ -52,6 +52,6 @@ NUMC_API void numc_log_error(const NumcError *err);
  * @brief Macro to set an error with automatic context (function, file, line).
  */
 #define NUMC_SET_ERROR(code, fmt, ...)                                         \
-  numc_set_error_v(code, __func__, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
+  numc_set_error_v(code, __func__, __FILE__, __LINE__, fmt __VA_OPT__(, ) __VA_ARGS__)
 
 #endif /* NUMC_ERROR_H */
