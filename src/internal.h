@@ -81,6 +81,7 @@ void numc_free(void *ptr);
       NUMC_PRAGMA(omp parallel for schedule(static) num_threads(_nthreads))    \
       loop                                                                     \
     } else {                                                                   \
+      NUMC_PRAGMA(omp simd)                                                    \
       loop                                                                     \
     }                                                                          \
   } while (0)
@@ -96,6 +97,7 @@ void numc_free(void *ptr);
                       schedule(static) num_threads(_nthreads))                 \
       loop                                                                     \
     } else {                                                                   \
+      NUMC_PRAGMA(omp simd reduction(omp_op : acc))                            \
       loop                                                                     \
     }                                                                          \
   } while (0)
