@@ -173,6 +173,23 @@ static inline int _log2_u64(uint64_t n) { return 63 - __builtin_clzll(n); }
             });                                                               \
           }                                                                   \
           return;                                                             \
+        } else if (!(IS_SIGNED) && sizeof(C_TYPE) <= 4) {                     \
+          /* Fast path: Magic number for non-power-of-two unsigned division */\
+          uint64_t shift_amt = sizeof(C_TYPE) * 8;                            \
+          uint64_t inv = (1ULL << shift_amt) / in2 + 1;                       \
+          if (a == out) {                                                     \
+            C_TYPE *restrict p = (C_TYPE *)__builtin_assume_aligned(out, 32); \
+            NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {   \
+              p[i] = (C_TYPE)(((uint64_t)p[i] * inv) >> shift_amt);           \
+            });                                                               \
+          } else {                                                            \
+            const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
+            C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32); \
+            NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {   \
+              po[i] = (C_TYPE)(((uint64_t)pa[i] * inv) >> shift_amt);          \
+            });                                                               \
+          }                                                                   \
+          return;                                                             \
         }                                                                     \
         float inv = 1.0f / (float)in2;                                        \
         C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);     \
@@ -353,7 +370,7 @@ static inline int _log2_u64(uint64_t n) { return 63 - __builtin_clzll(n); }
     const intptr_t es = (intptr_t)sizeof(CT);                                  \
     if (sa == es && so == es && a != out) {                                    \
       const CT *restrict pa = (const CT *)__builtin_assume_aligned(a, 32);     \
-      CT *restrict po = (const CT *)__builtin_assume_aligned(out, 32);         \
+      CT *restrict po = (CT *)__builtin_assume_aligned(out, 32);               \
       NUMC_OMP_FOR(                                                            \
           n, sizeof(CT), for (size_t i = 0; i < n; i++) {                      \
             CT v = pa[i];                                                      \
@@ -374,7 +391,7 @@ static inline int _log2_u64(uint64_t n) { return 63 - __builtin_clzll(n); }
             *(CT *)(out + i * so) = (v < lo) ? lo : (v > hi) ? hi : v;         \
           });                                                                  \
     } else if (so == es) {                                                     \
-      CT *restrict po = (const CT *)__builtin_assume_aligned(out, 32);         \
+      CT *restrict po = (CT *)__builtin_assume_aligned(out, 32);               \
       NUMC_OMP_FOR(                                                            \
           n, sizeof(CT), for (size_t i = 0; i < n; i++) {                      \
             __builtin_prefetch(a + (i + 16) * sa, 0, 3);                      \
