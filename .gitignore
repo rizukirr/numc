@@ -15,3 +15,8 @@ build*
 /notes
 /GEMINI.md
 /.geminiignore
+
+# BLIS build artifacts (vendored submodule)
+external/blis/lib/
+external/blis/include/blis/blis.h
+external/blis/obj/

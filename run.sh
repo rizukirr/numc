@@ -10,6 +10,8 @@ BUILD_DIR="build"
 CC="${CC:-clang}"
 PYTHON_VENV="/tmp/npvenv2/bin/python3"
 NUMC_USE_BLAS="${NUMC_USE_BLAS:-ON}"
+NUMC_VENDOR_BLIS="${NUMC_VENDOR_BLIS:-ON}"
+BLIS_CONFIG="${BLIS_CONFIG:-x86_64}"
 
 # --- Colors ---
 BLUE='\033[0;34m'
@@ -29,13 +31,15 @@ build() {
     local asan=$2
     local extra_opts=$3
     
-    info "Configuring ${build_type} build (CC=${CC}, ASan=${asan}, BLAS=${NUMC_USE_BLAS})..."
+    info "Configuring ${build_type} build (CC=${CC}, ASan=${asan}, BLAS=${NUMC_USE_BLAS}, VendorBLIS=${NUMC_VENDOR_BLIS})..."
     
     cmake -S . -B "$BUILD_DIR" \
         -DCMAKE_BUILD_TYPE="$build_type" \
         -DCMAKE_C_COMPILER="$CC" \
         -DNUMC_ENABLE_ASAN="$asan" \
         -DNUMC_USE_BLAS="$NUMC_USE_BLAS" \
+        -DNUMC_VENDOR_BLIS="$NUMC_VENDOR_BLIS" \
+        -DBLIS_CONFIG="$BLIS_CONFIG" \
         $extra_opts
         
     info "Building..."

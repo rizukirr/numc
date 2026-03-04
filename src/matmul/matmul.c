@@ -10,9 +10,24 @@
 
 static bool blis_initialized = false;
 
-/**
- * @brief Initialize BLIS and configure hierarchical threading.
- */
+/* libomp defaults to KMP_BLOCKTIME=0, immediately sleeping OpenMP
+ * threads after each parallel region.  Waking them from OS idle
+ * states costs 40-70 ms — catastrophic for sub-ms sgemm calls.
+ * Setting KMP_BLOCKTIME=200 (the MKL default) keeps threads spinning
+ * for 200 ms between calls.  Must run before the first OpenMP
+ * parallel region; overwrite=0 respects user-set values.
+ *
+ * On Intel hybrid CPUs (P-core + E-core), users should additionally
+ * set OMP_PLACES=cores and BLIS_NUM_THREADS=<P-core count> to avoid
+ * scheduling BLIS threads on slower E-cores. */
+#ifdef NUMC_BLIS_OPTIMIZED
+__attribute__((constructor)) static void _numc_omp_init(void) {
+  if (!getenv("KMP_BLOCKTIME") && !getenv("OMP_WAIT_POLICY")) {
+    setenv("KMP_BLOCKTIME", "200", 0);
+  }
+}
+#endif
+
 static void _ensure_blis_init(void) {
   if (!blis_initialized) {
     bli_init();
@@ -21,26 +36,32 @@ static void _ensure_blis_init(void) {
 }
 
 /**
- * @brief Set BLIS threading topology based on problem size.
+ * @brief Set BLIS threading for the current call.
  *
- * BLIS uses 5 nested loops (JC, PC, IC, JR, IR).
- * We map threads to the IC loop (L3 cache level) to maximize reuse
- * of the B matrix panel across cores sharing an L3.
+ * Optimized BLIS: all calls here are >= 32k ops (dispatch threshold),
+ *   so we always use full threading with BLIS auto-factorization.
+ *
+ * System/generic BLIS:
+ *   - < 65k ops:  serial (avoids fork/join overhead).
+ *   - >= 65k ops: all threads on IC loop.
  */
 static void _blis_set_threading(size_t total_ops) {
   _ensure_blis_init();
 #ifdef HAVE_OMP
   int nthreads = omp_get_max_threads();
-  /* Bypassing multithreading for small matrices avoids sync overhead.
-   * Modern BLIS "Supersonic" kernels are often faster in serial mode
-   * for small problem sizes. */
-  if (total_ops < 1000000) {
+
+#ifdef NUMC_BLIS_OPTIMIZED
+  (void)total_ops;
+  bli_thread_set_num_threads(nthreads);
+#else
+  if (total_ops < 65536) {
     bli_thread_set_ways(1, 1, 1, 1, 1);
   } else {
-    /* Fat Multithreading: map all threads to IC loop. */
     bli_thread_set_ways(1, 1, nthreads, 1, 1);
   }
-#endif
+#endif /* NUMC_BLIS_OPTIMIZED */
+
+#endif /* HAVE_OMP */
 }
 
 void _matmul_blis_f32(const struct NumcArray *a, const struct NumcArray *b,
@@ -112,19 +133,37 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   size_t total_ops =
       (size_t)a->shape[0] * (size_t)a->shape[1] * (size_t)b->shape[1];
 
-  /* 
-   * Performance Strategy:
-   * 1. Use naive kernels for float32. Our C23 i-k-j loop is currently 
-   *    more efficient than BLIS for common shapes in this environment.
-   * 2. Use refined BLIS for large float64 (> 65k ops).
-   * 3. Use naive kernels for ALL integer types.
+#ifdef NUMC_BLIS_OPTIMIZED
+  /*
+   * Optimized BLIS (vendored, auto-configured with CPU kernels):
+   * - sgemm for float32 >= 32k ops
+   * - dgemm for float64 >= 32k ops
+   * - Below 32k: falls through to naive kernels (no BLIS overhead)
+   */
+  if (total_ops >= 32768 && a->dtype == NUMC_DTYPE_FLOAT32) {
+    _blis_set_threading(total_ops);
+    _matmul_blis_f32(a, b, out);
+    return 0;
+  }
+  if (total_ops >= 32768 && a->dtype == NUMC_DTYPE_FLOAT64) {
+    _blis_set_threading(total_ops);
+    _matmul_blis_f64(a, b, out);
+    return 0;
+  }
+#else
+  /*
+   * System/generic BLIS:
+   * - dgemm only for float64 >= 65k ops (generic sgemm is unreliable)
+   * - IC-only threading
    */
   if (total_ops >= 65536 && a->dtype == NUMC_DTYPE_FLOAT64) {
     _blis_set_threading(total_ops);
     _matmul_blis_f64(a, b, out);
     return 0;
   }
-#endif
+#endif /* NUMC_BLIS_OPTIMIZED */
+
+#endif /* HAVE_BLAS */
 
   /* Fallback to optimized naive kernels (C23 + OpenMP) */
   MatmulKernel kern = matmul_table[a->dtype];

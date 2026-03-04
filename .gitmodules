@@ -1,0 +1,3 @@
+[submodule "external/blis"]
+	path = external/blis
+	url = https://github.com/flame/blis

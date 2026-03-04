@@ -74,13 +74,15 @@ static void bench_square_scaling(void) {
            "N", "iters", "time(us)", "time(ms)", "GFLOP/s");
     printf("  ─────────────────────────────────────────────────────\n");
 
-    /* Adaptive iters: fewer for larger matrices to keep runtime sane */
+    /* Adaptive iters: fewer for larger matrices to keep runtime sane.
+     * Warmup must be sufficient to bring the OpenMP thread pool to
+     * steady state (threads migrated to cores, caches warm). */
     static const struct { size_t n; int warmup; int iters; } sizes[] = {
-        {  32, 50, 500 },
-        {  64, 20, 200 },
-        { 128, 10, 50  },
-        { 256,  5, 20  },
-        { 512,  2, 5   },
+        {  32, 100, 500 },
+        {  64,  50, 200 },
+        { 128,  50,  50 },
+        { 256,  50,  20 },
+        { 512,  10,   5 },
     };
     static const int nsizes = sizeof(sizes) / sizeof(sizes[0]);
 
@@ -132,7 +134,11 @@ static void bench_dtype_comparison(void) {
         NumcArray *out = numc_array_zeros(ctx, sh, 2, dt);
         if (!a || !b || !out) { numc_ctx_free(ctx); continue; }
 
-        double us = run(a, b, out, 5, 20);
+        /* Float types use BLIS threading; need extra warmup to
+         * stabilize the OpenMP thread pool after naive-kernel gaps. */
+        int warmup = (dt == NUMC_DTYPE_FLOAT32 || dt == NUMC_DTYPE_FLOAT64)
+                     ? 50 : 5;
+        double us = run(a, b, out, warmup, 20);
         printf("  %-8s  %8.2f  %8.3f\n",
                dtype_name(dt), us, gflops(N, N, N, us));
         numc_ctx_free(ctx);
@@ -169,7 +175,7 @@ static void bench_shape_variants(void) {
         NumcArray *out = numc_array_zeros(ctx, sho, 2, NUMC_DTYPE_FLOAT32);
         if (!a || !b || !out) { numc_ctx_free(ctx); continue; }
 
-        double us = run(a, b, out, 5, 20);
+        double us = run(a, b, out, 50, 20);
         double total_flops = 2.0 * (double)M * (double)K * (double)N;
         printf("  %-24s  %8.2f  %8.3f  %8.0f K\n",
                shapes[s].label, us,

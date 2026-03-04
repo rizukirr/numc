@@ -66,13 +66,15 @@ if(OpenMP_C_FOUND)
     target_compile_definitions(numc PRIVATE HAVE_OMP=1)
 endif()
 
-if(NUMC_USE_BLAS AND BLAS_FOUND)
+if(NUMC_VENDOR_BLIS AND BLAS_FOUND)
+    target_compile_definitions(numc PRIVATE HAVE_BLAS=1 NUMC_BLIS_OPTIMIZED=1)
+    target_link_libraries(numc PRIVATE BLIS::BLIS_Vendored pthread)
+elseif(NUMC_USE_BLAS AND BLAS_FOUND)
     target_compile_definitions(numc PRIVATE HAVE_BLAS=1)
     target_link_libraries(numc PRIVATE ${BLAS_LIBRARIES})
     if(BLAS_INCLUDE_DIRS)
         target_include_directories(numc PRIVATE ${BLAS_INCLUDE_DIRS})
     endif()
-
 endif()
 
 # Math library

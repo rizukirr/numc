@@ -13,20 +13,44 @@ jobs:
       matrix:
         compiler: [clang, gcc]
         blas: [ON, OFF]
+        vendor_blis: [OFF]
+        include:
+          - compiler: clang
+            blas: ON
+            vendor_blis: ON
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
     - name: Install Dependencies
+      env:
+        VENDOR_BLIS: ${{ matrix.vendor_blis }}
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake libblis-dev libomp-dev
+        sudo apt-get install -y cmake libomp-dev
+        if [ "$VENDOR_BLIS" != "ON" ]; then
+          sudo apt-get install -y libblis-dev
+        fi
+
+    - name: Cache vendored BLIS
+      if: matrix.vendor_blis == 'ON'
+      uses: actions/cache@v4
+      with:
+        path: build/_deps/blis-*
+        key: blis-vendored-${{ runner.os }}-${{ hashFiles('external/blis/version') }}
 
     - name: Configure CMake
+      env:
+        CC_COMPILER: ${{ matrix.compiler }}
+        USE_BLAS: ${{ matrix.blas }}
+        VENDOR_BLIS: ${{ matrix.vendor_blis }}
       run: |
         cmake -S . -B build \
-          -DCMAKE_C_COMPILER=${{ matrix.compiler }} \
-          -DNUMC_USE_BLAS=${{ matrix.blas }} \
+          -DCMAKE_C_COMPILER="$CC_COMPILER" \
+          -DNUMC_USE_BLAS="$USE_BLAS" \
+          -DNUMC_VENDOR_BLIS="$VENDOR_BLIS" \
           -DNUMC_BUILD_TESTS=ON \
           -DCMAKE_BUILD_TYPE=Release
 
