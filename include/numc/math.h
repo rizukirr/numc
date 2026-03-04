@@ -529,6 +529,18 @@ NUMC_API int numc_argmin_axis(const NumcArray *a, int axis, int keepdim, NumcArr
 NUMC_API int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out);
 
 /**
+ * @brief Compute the dot product of two arrays: sum(a * b).
+ *
+ * The arrays must have the same number of elements.
+ *
+ * @param a   First input array.
+ * @param b   Second input array.
+ * @param out Output array (must be 0-d or 1-element array).
+ * @return 0 on success, negative error code on failure.
+ */
+NUMC_API int numc_dot(const NumcArray *a, const NumcArray *b, NumcArray *out);
+
+/**
  * @brief Naive matrix multiplication: out = a @ b.
  *
  * @param a   First input matrix (M x K).

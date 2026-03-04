@@ -47,6 +47,7 @@ numc_test(test_max              reduction/test_max.c)
 numc_test(test_min              reduction/test_min.c)
 numc_test(test_argmax           reduction/test_argmax.c)
 numc_test(test_argmin           reduction/test_argmin.c)
+numc_test(test_dot              reduction/test_dot.c)
 
 # ── matmul ────────────────────────────────────────────────────────────────
 numc_test(test_matmul_naive     matmul/test_matmul_naive.c)

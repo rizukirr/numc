@@ -169,6 +169,18 @@ DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32,
 DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64,
                                  INFINITY, _vec_min_f64, <)
 
+/* ── Dot product reduction kernels ─────────────────────────────────── */
+
+#define STAMP_DOT(TE, CT) \
+  DEFINE_BINARY_REDUCTION_KERNEL(dot, TE, CT, 0, acc + (val_a * val_b), +)
+GENERATE_INT8_INT16_NUMC_TYPES(STAMP_DOT)
+GENERATE_INT32_NUMC_TYPES(STAMP_DOT)
+STAMP_DOT(NUMC_DTYPE_INT64, NUMC_INT64)
+STAMP_DOT(NUMC_DTYPE_UINT64, NUMC_UINT64)
+STAMP_DOT(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32)
+STAMP_DOT(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64)
+#undef STAMP_DOT
+
 /* ── Dispatch tables ─────────────────────────────────────────────── */
 
 #define R(OP, TE) [TE] = _kern_##OP##_##TE
@@ -219,6 +231,14 @@ static const NumcReductionKernel argmin_table[] = {
     R(argmin, NUMC_DTYPE_UINT8),   R(argmin, NUMC_DTYPE_UINT16),
     R(argmin, NUMC_DTYPE_UINT32),  R(argmin, NUMC_DTYPE_UINT64),
     R(argmin, NUMC_DTYPE_FLOAT32), R(argmin, NUMC_DTYPE_FLOAT64),
+};
+
+static const NumcBinaryReductionKernel dot_table[] = {
+    R(dot, NUMC_DTYPE_INT8),    R(dot, NUMC_DTYPE_INT16),
+    R(dot, NUMC_DTYPE_INT32),   R(dot, NUMC_DTYPE_INT64),
+    R(dot, NUMC_DTYPE_UINT8),   R(dot, NUMC_DTYPE_UINT16),
+    R(dot, NUMC_DTYPE_UINT32),  R(dot, NUMC_DTYPE_UINT64),
+    R(dot, NUMC_DTYPE_FLOAT32), R(dot, NUMC_DTYPE_FLOAT64),
 };
 
 #undef R
@@ -650,5 +670,33 @@ int numc_argmin_axis(const NumcArray *a, int axis, int keepdim,
 
   /* Generic path: per-element reduction via ND iterator */
   _reduce_axis_op(a, ax, keepdim, out, argmin_table);
+  return 0;
+}
+
+static inline void _reduce_dot_op(const struct NumcArray *a,
+                                  const struct NumcArray *b,
+                                  struct NumcArray *out,
+                                  const NumcBinaryReductionKernel *table) {
+  NumcBinaryReductionKernel kern = table[a->dtype];
+
+  if (a->is_contiguous && b->is_contiguous) {
+    kern((const char *)a->data, (const char *)b->data, (char *)out->data,
+         a->size, (intptr_t)a->elem_size, (intptr_t)b->elem_size);
+  } else {
+    /* Fallback: perform element-wise multiplication into a temporary, then sum.
+     * This is slower but handles all strided/broadcast cases correctly. */
+    NumcArray *tmp = numc_array_create(a->ctx, a->shape, a->dim, a->dtype);
+    if (!tmp)
+      return;
+    numc_mul(a, b, tmp);
+    numc_sum(tmp, out);
+  }
+}
+
+int numc_dot(const NumcArray *a, const NumcArray *b, NumcArray *out) {
+  int err = _check_dot(a, b, out);
+  if (err)
+    return err;
+  _reduce_dot_op(a, b, out, dot_table);
   return 0;
 }

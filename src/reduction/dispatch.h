@@ -192,6 +192,32 @@ static inline void _reduce_axis_op(const struct NumcArray *a, size_t axis,
   }
 }
 
+static inline int _check_dot(const struct NumcArray *a,
+                             const struct NumcArray *b,
+                             const struct NumcArray *out) {
+  if (!a || !b || !out) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "dot: NULL pointer (a=%p b=%p out=%p)", a, b,
+                   out);
+    return NUMC_ERR_NULL;
+  }
+  if (a->dtype != b->dtype || a->dtype != out->dtype) {
+    NUMC_SET_ERROR(NUMC_ERR_TYPE, "dot: dtype mismatch (a=%d b=%d out=%d)",
+                   a->dtype, b->dtype, out->dtype);
+    return NUMC_ERR_TYPE;
+  }
+  if (a->size != b->size) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "dot: size mismatch (a=%zu b=%zu)", a->size,
+                   b->size);
+    return NUMC_ERR_SHAPE;
+  }
+  if (out->size != 1) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "dot: output not scalar (out.size=%zu)",
+                   out->size);
+    return NUMC_ERR_SHAPE;
+  }
+  return 0;
+}
+
 /**
  * @brief Validate full reduction operation.
  *
