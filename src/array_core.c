@@ -108,6 +108,9 @@ NumcCtx *numc_ctx_create(void) {
     return NULL;
   }
 
+  /* Pre-warm runtime resources (BLIS, OpenMP) to eliminate first-call latency */
+  _numc_runtime_init();
+
   return ctx;
 }
 

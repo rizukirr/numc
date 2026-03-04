@@ -100,4 +100,11 @@ void numc_free(void *ptr);
     }                                                                          \
   } while (0)
 
+/**
+ * @brief Initialize runtime resources (BLIS, thread pools).
+ *
+ * Called during context creation to avoid first-call latency.
+ */
+void _numc_runtime_init(void);
+
 #endif

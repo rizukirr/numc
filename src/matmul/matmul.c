@@ -2,10 +2,9 @@
 #include "kernel.h"
 #include "numc/dtype.h"
 #include "numc/math.h"
+#include "internal.h"
 
 #ifdef HAVE_BLAS
-
-#include "internal.h"
 #include <blis.h>
 #include <pthread.h>
 
@@ -30,7 +29,24 @@ __attribute__((constructor)) static void _numc_omp_init(void) {
 #endif
 
 static void _blis_init_once(void) { bli_init(); }
+#endif
 
+void _numc_runtime_init(void) {
+#ifdef HAVE_BLAS
+  pthread_once(&blis_once, _blis_init_once);
+#endif
+
+#ifdef HAVE_OMP
+  /* Pre-warm OpenMP thread pool by running a dummy parallel loop.
+   * This avoids the ~50ms 'cold start' penalty on the first math call. */
+  #pragma omp parallel
+  {
+    (void)0; 
+  }
+#endif
+}
+
+#ifdef HAVE_BLAS
 /**
  * @brief Set BLIS threading for the current call.
  *
