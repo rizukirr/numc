@@ -18,6 +18,10 @@ jobs:
           - compiler: clang
             blas: ON
             vendor_blis: ON
+          - compiler: clang
+            blas: OFF
+            vendor_blis: OFF
+            asan: ON
 
     steps:
     - uses: actions/checkout@v4
@@ -46,18 +50,28 @@ jobs:
         CC_COMPILER: ${{ matrix.compiler }}
         USE_BLAS: ${{ matrix.blas }}
         VENDOR_BLIS: ${{ matrix.vendor_blis }}
+        ENABLE_ASAN: ${{ matrix.asan || 'OFF' }}
       run: |
+        BUILD_TYPE="Release"
+        ASAN_FLAG="OFF"
+        if [ "${ENABLE_ASAN}" = "ON" ]; then
+          BUILD_TYPE="Debug"
+          ASAN_FLAG="ON"
+        fi
         cmake -S . -B build \
           -DCMAKE_C_COMPILER="$CC_COMPILER" \
           -DNUMC_USE_BLAS="$USE_BLAS" \
           -DNUMC_VENDOR_BLIS="$VENDOR_BLIS" \
+          -DNUMC_ENABLE_ASAN="$ASAN_FLAG" \
           -DNUMC_BUILD_TESTS=ON \
-          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
 
     - name: Build
       run: cmake --build build --parallel $(nproc)
 
     - name: Run Tests
+      env:
+        LSAN_OPTIONS: suppressions=${{ github.workspace }}/tests/lsan_suppressions.txt
       run: |
         cd build
         ctest --output-on-failure

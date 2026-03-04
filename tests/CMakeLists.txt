@@ -48,6 +48,8 @@ numc_test(test_argmin           reduction/test_argmin.c)
 
 # ── matmul ────────────────────────────────────────────────────────────────
 numc_test(test_matmul_naive     matmul/test_matmul_naive.c)
+numc_test(test_matmul           matmul/test_matmul.c)
+target_link_libraries(test_matmul PRIVATE m)
 
 # ── random ────────────────────────────────────────────────────────────────
 numc_test(test_rand             random/test_rand.c)

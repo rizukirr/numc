@@ -258,7 +258,9 @@ void *arena_alloc(Arena *arena, size_t size, size_t alignment) {
 
   // Lazily allocate first block.
   if (!arena->current) {
-    size_t min_needed = size + alignment - 1;
+    size_t min_needed;
+    if (__builtin_add_overflow(size, alignment - 1, &min_needed))
+      return NULL;
     size_t block_size =
         (min_needed > arena->default_block_size) ? min_needed : arena->default_block_size;
 
@@ -281,9 +283,15 @@ void *arena_alloc(Arena *arena, size_t size, size_t alignment) {
   size_t padding = align_up(current_ptr, alignment);
 
   // If insufficient space, allocate a new block.
-  if (arena->current->index + padding + size > arena->current->capacity) {
+  size_t used;
+  if (__builtin_add_overflow(arena->current->index, padding, &used) ||
+      __builtin_add_overflow(used, size, &used))
+    return NULL;
+  if (used > arena->current->capacity) {
 
-    size_t min_needed = size + alignment - 1;
+    size_t min_needed;
+    if (__builtin_add_overflow(size, alignment - 1, &min_needed))
+      return NULL;
     size_t next_capacity =
         (min_needed > arena->default_block_size) ? min_needed : arena->default_block_size;
 

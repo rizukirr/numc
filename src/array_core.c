@@ -19,12 +19,14 @@
  * @param dim       Number of dimensions.
  * @param elem_size Size of one element in bytes.
  */
-static inline void _calculate_strides(size_t *strides, const size_t *shape,
+static inline bool _calculate_strides(size_t *strides, const size_t *shape,
                                       size_t dim, size_t elem_size) {
   strides[dim - 1] = elem_size;
   for (size_t i = dim - 1; i > 0; i--) {
-    strides[i - 1] = strides[i] * shape[i];
+    if (__builtin_mul_overflow(strides[i], shape[i], &strides[i - 1]))
+      return false;
   }
+  return true;
 }
 
 /**
@@ -118,10 +120,12 @@ NumcArray *numc_array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
   size_t size = 1, capacity = 0, elem_size = numc_dtype_size(dtype);
 
   for (size_t i = 0; i < dim; i++) {
-    size *= shape[i];
+    if (__builtin_mul_overflow(size, shape[i], &size))
+      return NULL;
   }
 
-  capacity = size * elem_size;
+  if (__builtin_mul_overflow(size, elem_size, &capacity))
+    return NULL;
 
   NumcArray *arr =
       arena_alloc(ctx->arena, sizeof(NumcArray), NUMC_ALIGNOF(NumcArray));
@@ -138,7 +142,8 @@ NumcArray *numc_array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
 
   memcpy(arr->shape, shape, dim * sizeof(size_t));
 
-  _calculate_strides(arr->strides, shape, dim, elem_size);
+  if (!_calculate_strides(arr->strides, shape, dim, elem_size))
+    return NULL;
   arr->dim = dim;
   arr->is_contiguous = true;
   arr->elem_size = elem_size;
@@ -230,7 +235,8 @@ int numc_array_contiguous(NumcArray *arr) {
   }
 
   arr->data = new_data;
-  _calculate_strides(arr->strides, arr->shape, arr->dim, arr->elem_size);
+  if (!_calculate_strides(arr->strides, arr->shape, arr->dim, arr->elem_size))
+    return -1;
   arr->is_contiguous = true;
   return 0;
 }
@@ -309,7 +315,8 @@ int numc_array_reshape(NumcArray *arr, const size_t *new_shape,
 
   size_t size = 1;
   for (size_t i = 0; i < new_dim; i++) {
-    size *= new_shape[i];
+    if (__builtin_mul_overflow(size, new_shape[i], &size))
+      return -1;
   }
 
   if (size != arr->size) {
@@ -325,7 +332,8 @@ int numc_array_reshape(NumcArray *arr, const size_t *new_shape,
   arr->dim = new_dim;
   memcpy(arr->shape, new_shape, new_dim * sizeof(size_t));
 
-  _calculate_strides(arr->strides, new_shape, new_dim, arr->elem_size);
+  if (!_calculate_strides(arr->strides, new_shape, new_dim, arr->elem_size))
+    return -1;
   arr->is_contiguous = numc_array_is_contiguous(arr);
   return 0;
 }
@@ -400,13 +408,17 @@ NumcArray *numc_array_slice(const NumcArray *arr, NumcSlice *slice) {
 
   size_t dim_size = arr->shape[slice->axis];
 
+  /* Reject slicing on zero-sized dimensions */
+  if (dim_size == 0)
+    return NULL;
+
   // Default: step=0 -> 1, stop=0 -> full extent
   if (slice->step == 0)
     slice->step = 1;
   if (slice->stop == 0 || slice->stop > dim_size)
     slice->stop = dim_size;
   if (slice->start >= dim_size)
-    slice->start = dim_size - 1;
+    return NULL;
   if (slice->start >= slice->stop)
     return NULL;
 

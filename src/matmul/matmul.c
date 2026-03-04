@@ -7,8 +7,9 @@
 
 #include "internal.h"
 #include <blis.h>
+#include <pthread.h>
 
-static bool blis_initialized = false;
+static pthread_once_t blis_once = PTHREAD_ONCE_INIT;
 
 /* libomp defaults to KMP_BLOCKTIME=0, immediately sleeping OpenMP
  * threads after each parallel region.  Waking them from OS idle
@@ -28,12 +29,7 @@ __attribute__((constructor)) static void _numc_omp_init(void) {
 }
 #endif
 
-static void _ensure_blis_init(void) {
-  if (!blis_initialized) {
-    bli_init();
-    blis_initialized = true;
-  }
-}
+static void _blis_init_once(void) { bli_init(); }
 
 /**
  * @brief Set BLIS threading for the current call.
@@ -46,7 +42,7 @@ static void _ensure_blis_init(void) {
  *   - >= 65k ops: all threads on IC loop.
  */
 static void _blis_set_threading(size_t total_ops) {
-  _ensure_blis_init();
+  pthread_once(&blis_once, _blis_init_once);
 #ifdef HAVE_OMP
   int nthreads = omp_get_max_threads();
 
@@ -69,7 +65,12 @@ void _matmul_blis_f32(const struct NumcArray *a, const struct NumcArray *b,
   float alpha = 1.0f, beta = 0.0f;
   dim_t m = (dim_t)a->shape[0], k = (dim_t)a->shape[1], n = (dim_t)b->shape[1];
 
-  /* BLIS Stride Support: allows zero-copy multiplication of views/slices */
+  /* BLIS Stride Support: allows zero-copy multiplication of views/slices.
+   * Strides must be aligned to element size; guaranteed by arena allocator. */
+  assert(a->strides[0] % sizeof(float) == 0 && "stride not aligned to float");
+  assert(a->strides[1] % sizeof(float) == 0 && "stride not aligned to float");
+  assert(b->strides[0] % sizeof(float) == 0 && "stride not aligned to float");
+  assert(b->strides[1] % sizeof(float) == 0 && "stride not aligned to float");
   inc_t rs_a = (inc_t)(a->strides[0] / sizeof(float));
   inc_t cs_a = (inc_t)(a->strides[1] / sizeof(float));
   inc_t rs_b = (inc_t)(b->strides[0] / sizeof(float));
@@ -87,6 +88,10 @@ void _matmul_blis_f64(const struct NumcArray *a, const struct NumcArray *b,
   double alpha = 1.0, beta = 0.0;
   dim_t m = (dim_t)a->shape[0], k = (dim_t)a->shape[1], n = (dim_t)b->shape[1];
 
+  assert(a->strides[0] % sizeof(double) == 0 && "stride not aligned to double");
+  assert(a->strides[1] % sizeof(double) == 0 && "stride not aligned to double");
+  assert(b->strides[0] % sizeof(double) == 0 && "stride not aligned to double");
+  assert(b->strides[1] % sizeof(double) == 0 && "stride not aligned to double");
   inc_t rs_a = (inc_t)(a->strides[0] / sizeof(double));
   inc_t cs_a = (inc_t)(a->strides[1] / sizeof(double));
   inc_t rs_b = (inc_t)(b->strides[0] / sizeof(double));
@@ -130,22 +135,25 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
     return err;
 
 #ifdef HAVE_BLAS
-  size_t total_ops =
-      (size_t)a->shape[0] * (size_t)a->shape[1] * (size_t)b->shape[1];
+  /* Saturating multiply: overflow → SIZE_MAX (always dispatches to BLIS) */
+  size_t total_ops;
+  if (__builtin_mul_overflow(a->shape[0], a->shape[1], &total_ops) ||
+      __builtin_mul_overflow(total_ops, b->shape[1], &total_ops))
+    total_ops = SIZE_MAX;
 
 #ifdef NUMC_BLIS_OPTIMIZED
   /*
    * Optimized BLIS (vendored, auto-configured with CPU kernels):
-   * - sgemm for float32 >= 32k ops
-   * - dgemm for float64 >= 32k ops
-   * - Below 32k: falls through to naive kernels (no BLIS overhead)
+   * - sgemm for float32 >= 64k ops
+   * - dgemm for float64 >= 64k ops
+   * - Below 64k: falls through to naive kernels (no BLIS overhead)
    */
-  if (total_ops >= 32768 && a->dtype == NUMC_DTYPE_FLOAT32) {
+  if (total_ops >= 65536 && a->dtype == NUMC_DTYPE_FLOAT32) {
     _blis_set_threading(total_ops);
     _matmul_blis_f32(a, b, out);
     return 0;
   }
-  if (total_ops >= 32768 && a->dtype == NUMC_DTYPE_FLOAT64) {
+  if (total_ops >= 65536 && a->dtype == NUMC_DTYPE_FLOAT64) {
     _blis_set_threading(total_ops);
     _matmul_blis_f64(a, b, out);
     return 0;

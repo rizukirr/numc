@@ -23,10 +23,13 @@ typedef void (*NumcTernaryKernel)(const char *cond, const char *a,
 
 /* ── Stride-aware binary kernel macro ──────────────────────────────
  *
- * Five runtime paths:
+ * Eight runtime paths:
  *   PATH 1 — Contiguous:              sa == sb == so == sizeof(T)
  *   PATH 2 — Right scalar broadcast:  sb == 0, a and out contiguous
  *   PATH 2.5 — Left scalar broadcast: sa == 0, b and out contiguous
+ *   PATH 2.6 — Contiguous a/out:      sa == so == es, sb strided
+ *   PATH 2.7 — Contiguous b/out:      sb == so == es, sa strided
+ *   PATH 2.8 — Contiguous a/b:        sa == sb == es, so strided
  *   PATH 3 — Generic strided (tiled): arbitrary sa, sb, so
  */
 
@@ -56,7 +59,7 @@ typedef void (*NumcTernaryKernel)(const char *cond, const char *a,
         NUMC_OMP_FOR(                                                         \
             n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {               \
               C_TYPE in1 = p[i];                                              \
-              C_TYPE in2 = pb[i];                                             \
+              C_TYPE in2 = pb[i];                                              \
               p[i] = (EXPR);                                                  \
             });                                                               \
       }                                                                       \
@@ -82,9 +85,7 @@ typedef void (*NumcTernaryKernel)(const char *cond, const char *a,
             });                                                               \
       }                                                                       \
     } else if (sa == 0 && sb == es && so == es) {                             \
-      /* PATH 2.5: left scalar broadcast (a is scalar, b and out contiguous)  \
-       * Mirrors PATH 2 but for the opposite operand. Hits when outer         \
-       * broadcast places a size-1 dim on the left after axis sorting. */     \
+      /* PATH 2.5: left scalar broadcast (a is scalar, b and out contiguous)  */ \
       const C_TYPE in1 = *(const C_TYPE *)a;                                  \
       const C_TYPE *restrict pb = (const C_TYPE *)b;                          \
       C_TYPE *restrict po = (C_TYPE *)out;                                    \
@@ -93,10 +94,38 @@ typedef void (*NumcTernaryKernel)(const char *cond, const char *a,
             C_TYPE in2 = pb[i];                                               \
             po[i] = (EXPR);                                                   \
           });                                                                 \
+    } else if (sa == es && so == es) {                                        \
+      /* PATH 2.6: a and out contiguous, b strided */                         \
+      const C_TYPE *restrict pa = (const C_TYPE *)a;                          \
+      C_TYPE *restrict po = (C_TYPE *)out;                                    \
+      NUMC_OMP_FOR(                                                           \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
+            C_TYPE in1 = pa[i];                                               \
+            C_TYPE in2 = *(const C_TYPE *)(b + i * sb);                       \
+            po[i] = (EXPR);                                                   \
+          });                                                                 \
+    } else if (sb == es && so == es) {                                        \
+      /* PATH 2.7: b and out contiguous, a strided */                         \
+      const C_TYPE *restrict pb = (const C_TYPE *)b;                          \
+      C_TYPE *restrict po = (C_TYPE *)out;                                    \
+      NUMC_OMP_FOR(                                                           \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
+            C_TYPE in1 = *(const C_TYPE *)(a + i * sa);                       \
+            C_TYPE in2 = pb[i];                                               \
+            po[i] = (EXPR);                                                   \
+          });                                                                 \
+    } else if (sa == es && sb == es) {                                        \
+      /* PATH 2.8: a and b contiguous, out strided */                         \
+      const C_TYPE *restrict pa = (const C_TYPE *)a;                          \
+      const C_TYPE *restrict pb = (const C_TYPE *)b;                          \
+      NUMC_OMP_FOR(                                                           \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
+            C_TYPE in1 = pa[i];                                               \
+            C_TYPE in2 = pb[i];                                               \
+            *(C_TYPE *)(out + i * so) = (EXPR);                               \
+          });                                                                 \
     } else {                                                                  \
-      /* PATH 3: generic strided — tiled gather/compute/scatter.            \
-       * Gathers elements into contiguous tile buffers so the compute         \
-       * loop auto-vectorizes, then scatters results back. */                 \
+      /* PATH 3: generic strided — tiled gather/compute/scatter. */           \
       for (size_t base = 0; base < n; base += NUMC_TILE_SIZE) {               \
         size_t chunk = n - base < NUMC_TILE_SIZE ? n - base : NUMC_TILE_SIZE; \
         C_TYPE abuf[NUMC_TILE_SIZE], bbuf[NUMC_TILE_SIZE],                    \
@@ -116,13 +145,7 @@ typedef void (*NumcTernaryKernel)(const char *cond, const char *a,
     }                                                                         \
   }
 
-/* ── Stride-aware ternary kernel macro ─────────────────────────────
- *
- * Three runtime paths:
- *   PATH 1 — Contiguous:              sc == sa == sb == so == sizeof(T)
- *   PATH 2 — Condition scalar broadcast: sc == 0, rest contiguous
- *   PATH 3 — Generic strided (tiled): arbitrary sc, sa, sb, so
- */
+/* ── Stride-aware ternary kernel macro ───────────────────────────── */
 
 #define DEFINE_TERNARY_KERNEL(OP_NAME, TYPE_ENUM, C_TYPE, EXPR)               \
   static void _kern_##OP_NAME##_##TYPE_ENUM(                                  \
@@ -178,13 +201,7 @@ typedef void (*NumcTernaryKernel)(const char *cond, const char *a,
     }                                                                         \
   }
 
-/* ── Stride-aware unary kernel macro ───────────────────────────────
- *
- * Three runtime paths:
- *   PATH 1 — Contiguous, distinct buffers: sa == so == sizeof(T), a != out
- *   PATH 2 — Contiguous inplace:           a == out
- *   PATH 3 — Generic strided (tiled):      arbitrary sa, so
- */
+/* ── Stride-aware unary kernel macro ─────────────────────────────── */
 
 #define DEFINE_UNARY_KERNEL(OP_NAME, TYPE_ENUM, C_TYPE, EXPR)                 \
   static void _kern_##OP_NAME##_##TYPE_ENUM(                                  \
@@ -207,6 +224,22 @@ typedef void (*NumcTernaryKernel)(const char *cond, const char *a,
             C_TYPE in1 = p[i];                                                \
             p[i] = (EXPR);                                                    \
           });                                                                 \
+    } else if (sa == es) {                                                    \
+      /* PATH 2.1: a contiguous, out strided */                               \
+      const C_TYPE *restrict pa = (const C_TYPE *)a;                          \
+      NUMC_OMP_FOR(                                                           \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
+            C_TYPE in1 = pa[i];                                               \
+            *(C_TYPE *)(out + i * so) = (EXPR);                               \
+          });                                                                 \
+    } else if (so == es) {                                                    \
+      /* PATH 2.2: out contiguous, a strided */                               \
+      C_TYPE *restrict po = (C_TYPE *)out;                                    \
+      NUMC_OMP_FOR(                                                           \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
+            C_TYPE in1 = *(const C_TYPE *)(a + i * sa);                       \
+            po[i] = (EXPR);                                                   \
+          });                                                                 \
     } else {                                                                  \
       /* PATH 3: generic strided — tiled gather/compute/scatter */            \
       for (size_t base = 0; base < n; base += NUMC_TILE_SIZE) {               \
@@ -224,10 +257,7 @@ typedef void (*NumcTernaryKernel)(const char *cond, const char *a,
     }                                                                         \
   }
 
-/* ── Stride-aware clip kernel macro ────────────────────────────────
- *
- * Same three paths as unary, but takes (double min, double max) params.
- */
+/* ── Stride-aware clip kernel macro ──────────────────────────────── */
 
 #define DEFINE_CLIP_KERNEL(TE, CT)                                             \
   static void _kern_clip_##TE(const char *a, char *out, size_t n, intptr_t sa, \
@@ -252,6 +282,20 @@ typedef void (*NumcTernaryKernel)(const char *cond, const char *a,
             CT v = p[i];                                                       \
             p[i] = (v < lo) ? lo : (v > hi) ? hi : v;                          \
           });                                                                  \
+    } else if (sa == es) {                                                     \
+      const CT *restrict pa = (const CT *)a;                                   \
+      NUMC_OMP_FOR(                                                            \
+          n, sizeof(CT), for (size_t i = 0; i < n; i++) {                      \
+            CT v = pa[i];                                                      \
+            *(CT *)(out + i * so) = (v < lo) ? lo : (v > hi) ? hi : v;         \
+          });                                                                  \
+    } else if (so == es) {                                                     \
+      CT *restrict po = (CT *)out;                                             \
+      NUMC_OMP_FOR(                                                            \
+          n, sizeof(CT), for (size_t i = 0; i < n; i++) {                      \
+            CT v = *(const CT *)(a + i * sa);                                  \
+            po[i] = (v < lo) ? lo : (v > hi) ? hi : v;                         \
+          });                                                                  \
     } else {                                                                   \
       /* PATH 3: generic strided */                                            \
       for (size_t i = 0; i < n; i++) {                                         \
@@ -260,8 +304,6 @@ typedef void (*NumcTernaryKernel)(const char *cond, const char *a,
       }                                                                        \
     }                                                                          \
   }
-
-/* ── Dispatch table entry helper ───────────────────────────────────── */
 
 #define E(OP, TE) [TE] = _kern_##OP##_##TE
 
