@@ -1,1 +1,2 @@
 leak:libomp
+leak:libomp.so

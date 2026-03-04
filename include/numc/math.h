@@ -372,6 +372,18 @@ NUMC_API int numc_le(const NumcArray *a, const NumcArray *b, NumcArray *out);
 NUMC_API int numc_le_scalar(const NumcArray *a, double scalar, NumcArray *out);
 
 /**
+ * @brief Element-wise fused multiply-add: out = a * b + c.
+ *
+ * @param a   Multiplicand array.
+ * @param b   Multiplier array.
+ * @param c   Addend array.
+ * @param out Output array.
+ * @return 0 on success, negative error code on failure.
+ */
+NUMC_API int numc_fma(const NumcArray *a, const NumcArray *b, const NumcArray *c,
+                      NumcArray *out);
+
+/**
  * @brief Element-wise ternary selection: out[i] = cond[i] ? a[i] : b[i].
  *
  * @param cond Condition array (nonzero = true).

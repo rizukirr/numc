@@ -133,6 +133,38 @@ static inline void _elemwise_ternary_nd(NumcTernaryKernel kern, const char *cond
   }
 }
 
+/**
+ * @brief Recursive N-dimensional iteration for quaternary operations.
+ *
+ * @param kern  Quaternary kernel function.
+ * @param a     Pointer to first input data.
+ * @param sa    Strides for first input.
+ * @param b     Pointer to second input data.
+ * @param sb    Strides for second input.
+ * @param c     Pointer to third input data.
+ * @param sc    Strides for third input.
+ * @param out   Pointer to output data.
+ * @param so    Strides for output.
+ * @param shape Array of dimensions.
+ * @param ndim  Number of dimensions.
+ */
+static inline void _elemwise_quaternary_nd(
+    NumcQuaternaryKernel kern, const char *a, const size_t *sa, const char *b,
+    const size_t *sb, const char *c, const size_t *sc, char *out,
+    const size_t *so, const size_t *shape, size_t ndim) {
+  if (ndim == 1) {
+    kern(a, b, c, out, shape[0], (intptr_t)sa[0], (intptr_t)sb[0],
+         (intptr_t)sc[0], (intptr_t)so[0]);
+    return;
+  }
+
+  for (size_t i = 0; i < shape[0]; i++) {
+    _elemwise_quaternary_nd(kern, a + i * sa[0], sa + 1, b + i * sb[0], sb + 1,
+                            c + i * sc[0], sc + 1, out + i * so[0], so + 1,
+                            shape + 1, ndim - 1);
+  }
+}
+
 /* ── Axis sorting for optimal iteration order ────────────────────────
  *
  * Sort dimensions by descending stride sum so the smallest-stride axis
@@ -230,6 +262,52 @@ static inline void _sort_axes_ternary(size_t ndim, const size_t *shape,
     pc[i] = sc[perm[i]];
     pa[i] = sa[perm[i]];
     pb[i] = sb[perm[i]];
+    po[i] = so[perm[i]];
+  }
+}
+
+/**
+ * @brief Sort axes for optimal quaternary operation performance.
+ *
+ * @param ndim  Number of dimensions.
+ * @param shape Original shape.
+ * @param sa    Original strides of a.
+ * @param sb    Original strides of b.
+ * @param sc    Original strides of c.
+ * @param so    Original strides of out.
+ * @param ps    Permuted shape (output).
+ * @param pa    Permuted strides of a (output).
+ * @param pb    Permuted strides of b (output).
+ * @param pc    Permuted strides of c (output).
+ * @param po    Permuted strides of out (output).
+ */
+static inline void _sort_axes_quaternary(
+    size_t ndim, const size_t *shape, const size_t *sa, const size_t *sb,
+    const size_t *sc, const size_t *so, size_t *ps, size_t *pa, size_t *pb,
+    size_t *pc, size_t *po) {
+  size_t perm[ndim];
+  for (size_t i = 0; i < ndim; i++)
+    perm[i] = i;
+
+  for (size_t i = 1; i < ndim; i++) {
+    size_t key = perm[i];
+    size_t kv = sa[key] + sb[key] + sc[key] + so[key];
+    size_t j = i;
+    while (j > 0) {
+      size_t p = perm[j - 1];
+      if (sa[p] + sb[p] + sc[p] + so[p] >= kv)
+        break;
+      perm[j] = perm[j - 1];
+      j--;
+    }
+    perm[j] = key;
+  }
+
+  for (size_t i = 0; i < ndim; i++) {
+    ps[i] = shape[perm[i]];
+    pa[i] = sa[perm[i]];
+    pb[i] = sb[perm[i]];
+    pc[i] = sc[perm[i]];
     po[i] = so[perm[i]];
   }
 }
@@ -416,6 +494,46 @@ static inline int _check_ternary(const struct NumcArray *cond,
 
 /* ── Binary op dispatch ───────────────────────────────────────────── */
 
+static inline int _check_quaternary(const struct NumcArray *a,
+                                   const struct NumcArray *b,
+                                   const struct NumcArray *c,
+                                   const struct NumcArray *out) {
+  if (!a || !b || !c || !out) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL,
+                   "quaternary op: NULL pointer (a=%p b=%p c=%p out=%p)", a, b,
+                   c, out);
+    return NUMC_ERR_NULL;
+  }
+  if (a->dtype != b->dtype || a->dtype != c->dtype || a->dtype != out->dtype) {
+    NUMC_SET_ERROR(NUMC_ERR_TYPE,
+                   "quaternary op: dtype mismatch (a=%d b=%d c=%d out=%d)",
+                   a->dtype, b->dtype, c->dtype, out->dtype);
+    return NUMC_ERR_TYPE;
+  }
+
+  /* All four must have the same shape (broadcasting not supported for FMA yet)
+   */
+  size_t ndim = a->dim;
+  if (b->dim != ndim || c->dim != ndim || out->dim != ndim) {
+    NUMC_SET_ERROR(
+        NUMC_ERR_SHAPE,
+        "quaternary op: ndim mismatch (a=%zu b=%zu c=%zu out=%zu)", a->dim,
+        b->dim, c->dim, out->dim);
+    return NUMC_ERR_SHAPE;
+  }
+  for (size_t d = 0; d < ndim; d++) {
+    if (a->shape[d] != out->shape[d] || b->shape[d] != out->shape[d] ||
+        c->shape[d] != out->shape[d]) {
+      NUMC_SET_ERROR(
+          NUMC_ERR_SHAPE,
+          "quaternary op: shape mismatch at dim %zu (a=%zu b=%zu c=%zu out=%zu)",
+          d, a->shape[d], b->shape[d], c->shape[d], out->shape[d]);
+      return NUMC_ERR_SHAPE;
+    }
+  }
+  return 0;
+}
+
 /**
  * @brief Dispatch element-wise binary operation.
  *
@@ -511,6 +629,39 @@ static inline void _ternary_op(const struct NumcArray *cond,
     _elemwise_ternary_nd(kern, (const char *)cond->data, pc,
                          (const char *)a->data, pa, (const char *)b->data, pb,
                          (char *)out->data, po, ps, a->dim);
+  }
+}
+
+/**
+ * @brief Dispatch element-wise quaternary operation.
+ *
+ * @param a     First input array.
+ * @param b     Second input array.
+ * @param c     Third input array.
+ * @param out   Output array.
+ * @param table Kernel function table for the operation.
+ */
+static inline void _quaternary_op(const struct NumcArray *a,
+                                  const struct NumcArray *b,
+                                  const struct NumcArray *c,
+                                  struct NumcArray *out,
+                                  const NumcQuaternaryKernel *table) {
+  NumcQuaternaryKernel kern = table[a->dtype];
+  intptr_t es = (intptr_t)a->elem_size;
+
+  if (a->is_contiguous && b->is_contiguous && c->is_contiguous &&
+      out->is_contiguous) {
+    kern((const char *)a->data, (const char *)b->data, (const char *)c->data,
+         (char *)out->data, a->size, es, es, es, es);
+  } else {
+    size_t ps[NUMC_MAX_DIMENSIONS], pa[NUMC_MAX_DIMENSIONS],
+        pb[NUMC_MAX_DIMENSIONS], pc[NUMC_MAX_DIMENSIONS],
+        po[NUMC_MAX_DIMENSIONS];
+    _sort_axes_quaternary(a->dim, a->shape, a->strides, b->strides, c->strides,
+                          out->strides, ps, pa, pb, pc, po);
+    _elemwise_quaternary_nd(kern, (const char *)a->data, pa,
+                            (const char *)b->data, pb, (const char *)c->data,
+                            pc, (char *)out->data, po, ps, a->dim);
   }
 }
 

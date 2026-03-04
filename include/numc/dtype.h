@@ -57,6 +57,16 @@ typedef enum {
   NUMC_DTYPE(NUMC_DTYPE_UINT32, NUMC_UINT32)                                   \
   NUMC_DTYPE(NUMC_DTYPE_UINT64, NUMC_UINT64)
 
+#define GENERATE_INT_NUMC_TYPES(NUMC_DTYPE)                                    \
+  NUMC_DTYPE(NUMC_DTYPE_INT8, NUMC_INT8)                                       \
+  NUMC_DTYPE(NUMC_DTYPE_INT16, NUMC_INT16)                                     \
+  NUMC_DTYPE(NUMC_DTYPE_INT32, NUMC_INT32)                                     \
+  NUMC_DTYPE(NUMC_DTYPE_INT64, NUMC_INT64)                                     \
+  NUMC_DTYPE(NUMC_DTYPE_UINT8, NUMC_UINT8)                                     \
+  NUMC_DTYPE(NUMC_DTYPE_UINT16, NUMC_UINT16)                                   \
+  NUMC_DTYPE(NUMC_DTYPE_UINT32, NUMC_UINT32)                                   \
+  NUMC_DTYPE(NUMC_DTYPE_UINT64, NUMC_UINT64)
+
 #define GENERATE_FLOAT_NUMC_TYPES(NUMC_DTYPE)                                  \
   NUMC_DTYPE(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32)                                 \
   NUMC_DTYPE(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64)

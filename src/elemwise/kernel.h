@@ -21,6 +21,11 @@ typedef void (*NumcTernaryKernel)(const char *cond, const char *a,
                                   intptr_t sc, intptr_t sa, intptr_t sb,
                                   intptr_t so);
 
+typedef void (*NumcQuaternaryKernel)(const char *a, const char *b,
+                                     const char *c, char *out, size_t n,
+                                     intptr_t sa, intptr_t sb, intptr_t sc,
+                                     intptr_t so);
+
 /* ── Stride-aware binary kernel macro ────────────────────────────── */
 
 #define NUMC_TILE_SIZE 256
@@ -415,6 +420,54 @@ static inline int _log2_u64(uint64_t n) { return 63 - __builtin_clzll(n); }
         *(CT *)(out + i * so) = (v < lo) ? lo : (v > hi) ? hi : v;             \
       }                                                                        \
     }                                                                          \
+  }
+
+#define DEFINE_QUATERNARY_KERNEL(OP_NAME, TYPE_ENUM, C_TYPE, EXPR)            \
+  static void _kern_##OP_NAME##_##TYPE_ENUM(                                  \
+      const char *a, const char *b, const char *c, char *out, size_t n,       \
+      intptr_t sa, intptr_t sb, intptr_t sc, intptr_t so) {                   \
+    const intptr_t es = (intptr_t)sizeof(C_TYPE);                             \
+    if (sa == es && sb == es && sc == es && so == es) {                       \
+      const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
+      const C_TYPE *restrict pb = (const C_TYPE *)__builtin_assume_aligned(b, 32); \
+      const C_TYPE *restrict pc = (const C_TYPE *)__builtin_assume_aligned(c, 32); \
+      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);               \
+      NUMC_OMP_FOR(                                                           \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
+            C_TYPE in_a = pa[i];                                              \
+            C_TYPE in_b = pb[i];                                              \
+            C_TYPE in_c = pc[i];                                              \
+            po[i] = (EXPR);                                                   \
+          });                                                                 \
+    } else {                                                                  \
+      for (size_t base = 0; base < n; base += NUMC_TILE_SIZE) {               \
+        size_t chunk = n - base < NUMC_TILE_SIZE ? n - base : NUMC_TILE_SIZE; \
+        C_TYPE abuf[NUMC_TILE_SIZE], bbuf[NUMC_TILE_SIZE],                    \
+            cbuf[NUMC_TILE_SIZE], obuf[NUMC_TILE_SIZE];                       \
+        for (size_t i = 0; i < chunk; i++) {                                  \
+          __builtin_prefetch(a + (base + i + 16) * sa, 0, 3);                 \
+          abuf[i] = *(const C_TYPE *)(a + (base + i) * sa);                   \
+        }                                                                     \
+        for (size_t i = 0; i < chunk; i++) {                                  \
+          __builtin_prefetch(b + (base + i + 16) * sb, 0, 3);                 \
+          bbuf[i] = *(const C_TYPE *)(b + (base + i) * sb);                   \
+        }                                                                     \
+        for (size_t i = 0; i < chunk; i++) {                                  \
+          __builtin_prefetch(c + (base + i + 16) * sc, 0, 3);                 \
+          cbuf[i] = *(const C_TYPE *)(c + (base + i) * sc);                   \
+        }                                                                     \
+        for (size_t i = 0; i < chunk; i++) {                                  \
+          C_TYPE in_a = abuf[i];                                              \
+          C_TYPE in_b = bbuf[i];                                              \
+          C_TYPE in_c = cbuf[i];                                              \
+          obuf[i] = (EXPR);                                                   \
+        }                                                                     \
+        for (size_t i = 0; i < chunk; i++) {                                  \
+          __builtin_prefetch(out + (base + i + 16) * so, 1, 3);               \
+          *(C_TYPE *)(out + (base + i) * so) = obuf[i];                       \
+        }                                                                     \
+      }                                                                       \
+    }                                                                         \
   }
 
 #define E(OP, TE) [TE] = _kern_##OP##_##TE
