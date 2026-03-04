@@ -19,6 +19,14 @@ typedef struct {
 /* --- Context --- */
 
 /**
+ * @brief Opaque checkpoint for saving/restoring context state.
+ */
+typedef struct {
+  void *_block;
+  size_t _index;
+} NumcCheckpoint;
+
+/**
  * @brief Create a new context.
  *
  * All arrays allocated from this context are freed together via
@@ -36,6 +44,25 @@ NUMC_API NumcCtx *numc_ctx_create(void);
  * @param ctx Pointer to the context to be freed.
  */
 NUMC_API void numc_ctx_free(NumcCtx *ctx);
+
+/**
+ * @brief Save the current allocation state of the context.
+ *
+ * @param ctx Pointer to the context.
+ * @return Checkpoint representing the current state.
+ */
+NUMC_API NumcCheckpoint numc_ctx_checkpoint(NumcCtx *ctx);
+
+/**
+ * @brief Restore the context to a previously saved checkpoint.
+ *
+ * All arrays allocated after the checkpoint are freed. Pointers to arrays
+ * created before the checkpoint remain valid.
+ *
+ * @param ctx        Pointer to the context.
+ * @param checkpoint Saved checkpoint to restore to.
+ */
+NUMC_API void numc_ctx_restore(NumcCtx *ctx, NumcCheckpoint checkpoint);
 
 /* --- Array creation --- */
 

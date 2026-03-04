@@ -8,6 +8,7 @@ endmacro()
 
 # ── core ────────────────────────────────────────────────────────────────────
 numc_test(test_ctx              core/test_ctx.c)
+numc_test(test_checkpoint       core/test_checkpoint.c)
 numc_test(test_create           core/test_create.c)
 numc_test(test_properties       core/test_properties.c)
 numc_test(test_zeros            core/test_zeros.c)

@@ -484,3 +484,16 @@ void numc_ctx_free(NumcCtx *ctx) {
   arena_free(ctx->arena);
   free(ctx);
 }
+
+NumcCheckpoint numc_ctx_checkpoint(NumcCtx *ctx) {
+  assert(ctx != NULL);
+  ArenaCheckpoint cp = arena_checkpoint(ctx->arena);
+  return (NumcCheckpoint){._block = cp.block, ._index = cp.index};
+}
+
+void numc_ctx_restore(NumcCtx *ctx, NumcCheckpoint checkpoint) {
+  assert(ctx != NULL);
+  ArenaCheckpoint cp = {.block = (struct ArenaBlock *)checkpoint._block,
+                        .index = checkpoint._index};
+  arena_restore(ctx->arena, cp);
+}

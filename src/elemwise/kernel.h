@@ -150,9 +150,19 @@ static inline int _log2_u64(uint64_t n) { return 63 - __builtin_clzll(n); }
       const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
       const C_TYPE *restrict pb = (const C_TYPE *)__builtin_assume_aligned(b, 32); \
       C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);     \
-      NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {        \
-        po[i] = pa[i] / pb[i];                                                \
-      });                                                                     \
+      if (sizeof(C_TYPE) <= 2) {                                              \
+        NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {      \
+          po[i] = (C_TYPE)((float)pa[i] / (float)pb[i]);                      \
+        });                                                                   \
+      } else if (sizeof(C_TYPE) == 4) {                                       \
+        NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {      \
+          po[i] = (C_TYPE)((double)pa[i] / (double)pb[i]);                    \
+        });                                                                   \
+      } else {                                                                \
+        NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {      \
+          po[i] = pa[i] / pb[i];                                              \
+        });                                                                   \
+      }                                                                       \
     } else if (sb == 0 && sa == es && so == es) {                             \
       const C_TYPE in2 = *(const C_TYPE *)b;                                  \
       if (in2 != 0) {                                                         \
