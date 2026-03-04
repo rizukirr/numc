@@ -1,6 +1,7 @@
 #ifndef NUMC_DTYPE_H
 #define NUMC_DTYPE_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -17,6 +18,21 @@
 #define NUMC_FLOAT32 float
 #define NUMC_FLOAT64 double
 
+typedef enum {
+  NUMC_DTYPE_INT8,
+  NUMC_DTYPE_INT16,
+  NUMC_DTYPE_INT32,
+  NUMC_DTYPE_INT64,
+  NUMC_DTYPE_UINT8,
+  NUMC_DTYPE_UINT16,
+  NUMC_DTYPE_UINT32,
+  NUMC_DTYPE_UINT64,
+  NUMC_DTYPE_FLOAT32,
+  NUMC_DTYPE_FLOAT64,
+} NumcDType;
+
+/* ── Type Group Generators ────────────────────────────────────────── */
+
 #define GENERATE_NUMC_TYPES(NUMC_DTYPE)                                        \
   NUMC_DTYPE(NUMC_DTYPE_INT8, NUMC_INT8)                                       \
   NUMC_DTYPE(NUMC_DTYPE_INT16, NUMC_INT16)                                     \
@@ -29,6 +45,23 @@
   NUMC_DTYPE(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32)                                 \
   NUMC_DTYPE(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64)
 
+#define GENERATE_SIGNED_INT_NUMC_TYPES(NUMC_DTYPE)                             \
+  NUMC_DTYPE(NUMC_DTYPE_INT8, NUMC_INT8)                                       \
+  NUMC_DTYPE(NUMC_DTYPE_INT16, NUMC_INT16)                                     \
+  NUMC_DTYPE(NUMC_DTYPE_INT32, NUMC_INT32)                                     \
+  NUMC_DTYPE(NUMC_DTYPE_INT64, NUMC_INT64)
+
+#define GENERATE_UNSIGNED_INT_NUMC_TYPES(NUMC_DTYPE)                           \
+  NUMC_DTYPE(NUMC_DTYPE_UINT8, NUMC_UINT8)                                     \
+  NUMC_DTYPE(NUMC_DTYPE_UINT16, NUMC_UINT16)                                   \
+  NUMC_DTYPE(NUMC_DTYPE_UINT32, NUMC_UINT32)                                   \
+  NUMC_DTYPE(NUMC_DTYPE_UINT64, NUMC_UINT64)
+
+#define GENERATE_FLOAT_NUMC_TYPES(NUMC_DTYPE)                                  \
+  NUMC_DTYPE(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32)                                 \
+  NUMC_DTYPE(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64)
+
+/* Fixed compatibility macros */
 #define GENERATE_INT8_INT16_NUMC_TYPES(NUMC_DTYPE)                             \
   NUMC_DTYPE(NUMC_DTYPE_INT8, NUMC_INT8)                                       \
   NUMC_DTYPE(NUMC_DTYPE_INT16, NUMC_INT16)                                     \
@@ -57,24 +90,20 @@
   NUMC_DTYPE(NUMC_DTYPE_UINT32, NUMC_UINT32)                                   \
   NUMC_DTYPE(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32)
 
-typedef enum {
-  NUMC_DTYPE_INT8,
-  NUMC_DTYPE_INT16,
-  NUMC_DTYPE_INT32,
-  NUMC_DTYPE_INT64,
-  NUMC_DTYPE_UINT8,
-  NUMC_DTYPE_UINT16,
-  NUMC_DTYPE_UINT32,
-  NUMC_DTYPE_UINT64,
-  NUMC_DTYPE_FLOAT32,
-  NUMC_DTYPE_FLOAT64,
-} NumcDType;
+/* ── Helpers ──────────────────────────────────────────────────────── */
+
+static inline bool numc_dtype_is_float(NumcDType dt) {
+  return dt == NUMC_DTYPE_FLOAT32 || dt == NUMC_DTYPE_FLOAT64;
+}
+
+static inline bool numc_dtype_is_signed(NumcDType dt) {
+  return dt == NUMC_DTYPE_INT8 || dt == NUMC_DTYPE_INT16 ||
+         dt == NUMC_DTYPE_INT32 || dt == NUMC_DTYPE_INT64 ||
+         dt == NUMC_DTYPE_FLOAT32 || dt == NUMC_DTYPE_FLOAT64;
+}
 
 /**
  * @brief Return the byte size of a NumcDType element.
- *
- * Implemented as a static inline function so that only one copy exists
- * per TU (the compiler folds the constant table into the function body).
  */
 static inline size_t numc_dtype_size(NumcDType dt) {
   static const size_t table[] = {

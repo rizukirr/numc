@@ -20,22 +20,21 @@ GENERATE_NUMC_TYPES(STAMP_SUB)
 GENERATE_NUMC_TYPES(STAMP_MUL)
 #undef STAMP_MUL
 
-/* div: int8/int16 -> cast through float, int32 -> through double, rest native
- */
-#define STAMP_DIV_SMALL(TE, CT) \
-  DEFINE_BINARY_KERNEL(div, TE, CT, (CT)((float)in1 / (float)in2))
-GENERATE_INT8_INT16_NUMC_TYPES(STAMP_DIV_SMALL)
-#undef STAMP_DIV_SMALL
+/* div: specialized kernel with reciprocal optimization for scalars */
+#define STAMP_DIV_S(TE, CT) \
+  DEFINE_INT_DIV_KERNEL(TE, CT, true)
+GENERATE_SIGNED_INT_NUMC_TYPES(STAMP_DIV_S)
+#undef STAMP_DIV_S
 
-#define STAMP_DIV_I32(TE, CT) \
-  DEFINE_BINARY_KERNEL(div, TE, CT, (CT)((double)in1 / (double)in2))
-GENERATE_INT32_NUMC_TYPES(STAMP_DIV_I32)
-#undef STAMP_DIV_I32
+#define STAMP_DIV_U(TE, CT) \
+  DEFINE_INT_DIV_KERNEL(TE, CT, false)
+GENERATE_UNSIGNED_INT_NUMC_TYPES(STAMP_DIV_U)
+#undef STAMP_DIV_U
 
-#define STAMP_DIV_NATIVE(TE, CT) DEFINE_BINARY_KERNEL(div, TE, CT, in1 / in2)
-GENERATE_64BIT_NUMC_TYPES(STAMP_DIV_NATIVE)
-DEFINE_BINARY_KERNEL(div, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, in1 / in2)
-#undef STAMP_DIV_NATIVE
+#define STAMP_DIV_F(TE, CT) \
+  DEFINE_FLOAT_DIV_KERNEL(TE, CT)
+GENERATE_FLOAT_NUMC_TYPES(STAMP_DIV_F)
+#undef STAMP_DIV_F
 
 /* ── Stamp out pow loop kernels ──────────────────────────────────────── */
 
