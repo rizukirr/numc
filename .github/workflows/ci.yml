@@ -27,8 +27,8 @@ jobs:
 
       - name: Check Formatting
         run: |
-          # Find all source files and check formatting
-          find src include tests examples bench -iname *.c -o -iname *.h | xargs clang-format --dry-run --Werror
+          # Find all source files and check formatting (exclude .venv/vendor dirs)
+          find src include tests examples bench -type f \( -name '*.c' -o -name '*.h' \) -not -path '*/.venv/*' -not -path '*/vendor/*' | xargs clang-format --dry-run --Werror
 
       - name: Static Analysis (Clang-Tidy)
         run: |
@@ -119,13 +119,14 @@ jobs:
 
       - name: Configure & Build for Coverage
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DNUMC_BUILD_TESTS=ON -DNUMC_USE_BLAS=ON
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DNUMC_BUILD_TESTS=ON -DNUMC_USE_BLAS=ON \
+            -DCMAKE_C_FLAGS="--coverage"
           cmake --build build --parallel $(nproc)
 
       - name: Generate Coverage Report
         run: |
           cd build
-          ctest
+          ctest --output-on-failure --parallel $(nproc)
           lcov --capture --directory . --output-file coverage.info
           lcov --remove coverage.info '/usr/*' '*/external/*' '*/tests/*' --output-file coverage.info
           lcov --list coverage.info
