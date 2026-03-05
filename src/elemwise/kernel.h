@@ -139,6 +139,59 @@ typedef void (*NumcQuaternaryKernel)(const char *a, const char *b,
     }                                                                         \
   }
 
+#define DEFINE_BINARY_KERNEL_NOSIMD(OP_NAME, TYPE_ENUM, C_TYPE, EXPR)         \
+  static void _kern_##OP_NAME##_##TYPE_ENUM(const char *a, const char *b,     \
+                                            char *out, size_t n, intptr_t sa, \
+                                            intptr_t sb, intptr_t so) {       \
+    const intptr_t es = (intptr_t)sizeof(C_TYPE);                             \
+    if (sa == es && sb == es && so == es) {                                   \
+      if (a != out) {                                                         \
+        const C_TYPE *pa = (const C_TYPE *)a;                                 \
+        const C_TYPE *pb = (const C_TYPE *)b;                                 \
+        C_TYPE *po = (C_TYPE *)out;                                           \
+        NUMC_OMP_FOR_NOSIMD(                                                  \
+            n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {               \
+              C_TYPE in1 = pa[i];                                             \
+              C_TYPE in2 = pb[i];                                             \
+              po[i] = (EXPR);                                                 \
+            });                                                               \
+      } else {                                                                \
+        C_TYPE *p = (C_TYPE *)out;                                            \
+        const C_TYPE *pb = (const C_TYPE *)b;                                 \
+        NUMC_OMP_FOR_NOSIMD(                                                  \
+            n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {               \
+              C_TYPE in1 = p[i];                                              \
+              C_TYPE in2 = pb[i];                                             \
+              p[i] = (EXPR);                                                  \
+            });                                                               \
+      }                                                                       \
+    } else if (sb == 0 && sa == es && so == es) {                             \
+      const C_TYPE in2 = *(const C_TYPE *)b;                                  \
+      if (a == out) {                                                         \
+        C_TYPE *p = (C_TYPE *)out;                                            \
+        NUMC_OMP_FOR_NOSIMD(                                                  \
+            n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {               \
+              C_TYPE in1 = p[i];                                              \
+              p[i] = (EXPR);                                                  \
+            });                                                               \
+      } else {                                                                \
+        const C_TYPE *pa = (const C_TYPE *)a;                                 \
+        C_TYPE *po = (C_TYPE *)out;                                           \
+        NUMC_OMP_FOR_NOSIMD(                                                  \
+            n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {               \
+              C_TYPE in1 = pa[i];                                             \
+              po[i] = (EXPR);                                                 \
+            });                                                               \
+      }                                                                       \
+    } else {                                                                  \
+      for (size_t i = 0; i < n; i++) {                                         \
+        C_TYPE in1 = *(const C_TYPE *)(a + i * sa);                           \
+        C_TYPE in2 = *(const C_TYPE *)(b + i * sb);                           \
+        *(C_TYPE *)(out + i * so) = (EXPR);                                   \
+      }                                                                       \
+    }                                                                         \
+  }
+
 /* ── Optimized division common logic ────────────────────────────────── */
 
 static inline bool _is_pow2(uint64_t n) { return n > 0 && (n & (n - 1)) == 0; }
@@ -371,6 +424,33 @@ static inline int _log2_u64(uint64_t n) { return 63 - __builtin_clzll(n); }
           __builtin_prefetch(out + (base + i + 16) * so, 1, 3);               \
           *(C_TYPE *)(out + (base + i) * so) = obuf[i];                       \
         }                                                                     \
+      }                                                                       \
+    }                                                                         \
+  }
+
+#define DEFINE_UNARY_KERNEL_NOSIMD(OP_NAME, TYPE_ENUM, C_TYPE, EXPR)          \
+  static void _kern_##OP_NAME##_##TYPE_ENUM(                                  \
+      const char *a, char *out, size_t n, intptr_t sa, intptr_t so) {         \
+    const intptr_t es = (intptr_t)sizeof(C_TYPE);                             \
+    if (sa == es && so == es && a != out) {                                   \
+      const C_TYPE *pa = (const C_TYPE *)a;                                   \
+      C_TYPE *po = (C_TYPE *)out;                                             \
+      NUMC_OMP_FOR_NOSIMD(                                                    \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
+            C_TYPE in1 = pa[i];                                               \
+            po[i] = (EXPR);                                                   \
+          });                                                                 \
+    } else if (sa == es && so == es) {                                        \
+      C_TYPE *p = (C_TYPE *)out;                                               \
+      NUMC_OMP_FOR_NOSIMD(                                                    \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
+            C_TYPE in1 = p[i];                                                \
+            p[i] = (EXPR);                                                    \
+          });                                                                 \
+    } else {                                                                  \
+      for (size_t i = 0; i < n; i++) {                                         \
+        C_TYPE in1 = *(const C_TYPE *)(a + i * sa);                           \
+        *(C_TYPE *)(out + i * so) = (EXPR);                                   \
       }                                                                       \
     }                                                                         \
   }

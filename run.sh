@@ -11,7 +11,7 @@ CC="${CC:-clang}"
 PYTHON_VENV="/tmp/npvenv2/bin/python3"
 NUMC_USE_BLAS="${NUMC_USE_BLAS:-ON}"
 NUMC_VENDOR_BLIS="${NUMC_VENDOR_BLIS:-ON}"
-BLIS_CONFIG="${BLIS_CONFIG:-x86_64}"
+BLIS_CONFIG="${BLIS_CONFIG:-auto}"
 
 # --- Colors ---
 BLUE='\033[0;34m'
@@ -87,7 +87,7 @@ case $COMMAND in
     "bench")
         build Release OFF
         info "Running all benchmarks..."
-        for b in elemwise scalar unary pow reduction matmul; do
+        for b in elemwise scalar unary pow random reduction matmul; do
             echo -e "\n${GREEN}=== numc $b benchmark ===${NC}"
             "./$BUILD_DIR/bin/bench_$b"
             

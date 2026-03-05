@@ -11,10 +11,10 @@
 
 /* --- Constants --- */
 
-#define NUMC_MAX_DIMENSIONS 64
+#define NUMC_MAX_DIMENSIONS  64
 #define NUMC_MAX_INLINE_DIMS 8
-#define NUMC_MAX_MEMORY 8388608 // 8MB
-#define NUMC_SIMD_ALIGN 32
+#define NUMC_MAX_MEMORY      8388608 // 8MB
+#define NUMC_SIMD_ALIGN      32
 
 /* --- Opaque struct definitions (private) --- */
 
@@ -56,8 +56,8 @@ void numc_free(void *ptr);
 #include <omp.h>
 #endif
 
-#define NUMC_STR_(x) #x
-#define NUMC_STR(x) NUMC_STR_(x)
+#define NUMC_STR_(x)   #x
+#define NUMC_STR(x)    NUMC_STR_(x)
 #define NUMC_PRAGMA(x) _Pragma(NUMC_STR(x))
 
 #if defined(__clang__)
@@ -68,38 +68,79 @@ void numc_free(void *ptr);
 #define NUMC_UNROLL(n)
 #endif
 
-#define NUMC_OMP_BYTE_THRESHOLD (1 << 20)   // 1 MB total to enable OMP
+#define NUMC_OMP_BYTE_THRESHOLD   (1 << 20) // 1 MB total to enable OMP
 #define NUMC_OMP_BYTES_PER_THREAD (1 << 20) // 1 MB minimum work per thread
 
-#define NUMC_OMP_FOR(n, elem_size, loop)                                       \
-  do {                                                                         \
-    size_t _total_bytes = (n) * (elem_size);                                   \
-    if (_total_bytes > NUMC_OMP_BYTE_THRESHOLD) {                              \
-      int _nthreads = (int)(_total_bytes / NUMC_OMP_BYTES_PER_THREAD);         \
-      if (_nthreads < 1)                                                       \
-        _nthreads = 1;                                                         \
-      NUMC_PRAGMA(omp parallel for schedule(static) num_threads(_nthreads))    \
-      loop                                                                     \
-    } else {                                                                   \
-      NUMC_PRAGMA(omp simd)                                                    \
-      loop                                                                     \
-    }                                                                          \
+#if defined(__clang__)
+/* Clang's "omp simd" is very strict and warns if vectorization fails.
+ * Even "vectorize(enable)" can be noisy. */
+#define NUMC_LOOP_SIMD
+#define NUMC_LOOP_NOSIMD _Pragma("clang loop vectorize(disable)")
+#else
+#define NUMC_LOOP_SIMD NUMC_PRAGMA(omp simd)
+#define NUMC_LOOP_NOSIMD
+#endif
+
+#define NUMC_OMP_FOR(n, elem_size, loop)                                    \
+  do {                                                                      \
+    size_t _total_bytes = (n) * (elem_size);                                \
+    if (_total_bytes > NUMC_OMP_BYTE_THRESHOLD) {                           \
+      int _nthreads = (int)(_total_bytes / NUMC_OMP_BYTES_PER_THREAD);      \
+      if (_nthreads < 1)                                                    \
+        _nthreads = 1;                                                      \
+      NUMC_PRAGMA(omp parallel for schedule(static) num_threads(_nthreads)) \
+      loop                                                                  \
+    } else {                                                                \
+      NUMC_LOOP_SIMD                                                        \
+      loop                                                                  \
+    }                                                                       \
   } while (0)
 
-#define NUMC_OMP_REDUCE_FOR(n, elem_size, omp_op, acc, loop)                   \
-  do {                                                                         \
-    size_t _total_bytes = (n) * (elem_size);                                   \
-    if (_total_bytes > NUMC_OMP_BYTE_THRESHOLD) {                              \
-      int _nthreads = (int)(_total_bytes / NUMC_OMP_BYTES_PER_THREAD);         \
-      if (_nthreads < 1)                                                       \
-        _nthreads = 1;                                                         \
+#define NUMC_OMP_FOR_NOSIMD(n, elem_size, loop)                             \
+  do {                                                                      \
+    size_t _total_bytes = (n) * (elem_size);                                \
+    if (_total_bytes > NUMC_OMP_BYTE_THRESHOLD) {                           \
+      int _nthreads = (int)(_total_bytes / NUMC_OMP_BYTES_PER_THREAD);      \
+      if (_nthreads < 1)                                                    \
+        _nthreads = 1;                                                      \
+      NUMC_PRAGMA(omp parallel for schedule(static) num_threads(_nthreads)) \
+      loop                                                                  \
+    } else {                                                                \
+      NUMC_LOOP_NOSIMD                                                      \
+      loop                                                                  \
+    }                                                                       \
+  } while (0)
+
+#define NUMC_OMP_REDUCE_FOR(n, elem_size, omp_op, acc, loop)           \
+  do {                                                                 \
+    size_t _total_bytes = (n) * (elem_size);                           \
+    if (_total_bytes > NUMC_OMP_BYTE_THRESHOLD) {                      \
+      int _nthreads = (int)(_total_bytes / NUMC_OMP_BYTES_PER_THREAD); \
+      if (_nthreads < 1)                                               \
+        _nthreads = 1;                                                 \
       NUMC_PRAGMA(omp parallel for reduction(omp_op : acc)                     \
-                      schedule(static) num_threads(_nthreads))                 \
-      loop                                                                     \
-    } else {                                                                   \
-      NUMC_PRAGMA(omp simd reduction(omp_op : acc))                            \
-      loop                                                                     \
-    }                                                                          \
+                      schedule(static) num_threads(_nthreads))         \
+      loop                                                             \
+    } else {                                                           \
+      NUMC_LOOP_SIMD                                                   \
+      loop                                                             \
+    }                                                                  \
+  } while (0)
+
+#define NUMC_OMP_REDUCE_FOR_NOSIMD(n, elem_size, omp_op, acc, loop)    \
+  do {                                                                 \
+    size_t _total_bytes = (n) * (elem_size);                           \
+    if (_total_bytes > NUMC_OMP_BYTE_THRESHOLD) {                      \
+      int _nthreads = (int)(_total_bytes / NUMC_OMP_BYTES_PER_THREAD); \
+      if (_nthreads < 1)                                               \
+        _nthreads = 1;                                                 \
+      NUMC_PRAGMA(omp parallel for reduction(omp_op : acc)                     \
+                      schedule(static) num_threads(_nthreads))         \
+      loop                                                             \
+    } else {                                                           \
+      NUMC_LOOP_NOSIMD                                                 \
+      loop                                                             \
+    }                                                                  \
   } while (0)
 
 /**

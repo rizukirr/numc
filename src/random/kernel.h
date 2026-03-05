@@ -430,7 +430,7 @@ static inline int _prng_get_tid(void) {
 #define DEFINE_RANDN_KERNEL(TYPE_ENUM, C_TYPE, EXPR)         \
   static void _kern_randn_##TYPE_ENUM(char *out, size_t n) { \
     C_TYPE *restrict po = (C_TYPE *)out;                     \
-    NUMC_OMP_FOR(                                            \
+    NUMC_OMP_FOR_NOSIMD(                                     \
         n, sizeof(C_TYPE),                                   \
         for (size_t i = 0; i < n; i++) { po[i] = (EXPR); }); \
   }

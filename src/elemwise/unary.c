@@ -28,55 +28,55 @@ DEFINE_UNARY_KERNEL(abs, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64,
 
 /* < 32-bit integers: cast through float */
 #define STAMP_LOG_SMALL(TE, CT) \
-  DEFINE_UNARY_KERNEL(log, TE, CT, (CT)_log_f32((float)in1))
+  DEFINE_UNARY_KERNEL_NOSIMD(log, TE, CT, (CT)_log_f32((float)in1))
 GENERATE_INT8_INT16_NUMC_TYPES(STAMP_LOG_SMALL)
 #undef STAMP_LOG_SMALL
 
 /* 32-bit integers: cast through double */
 #define STAMP_LOG_I32(TE, CT) \
-  DEFINE_UNARY_KERNEL(log, TE, CT, (CT)_log_f64((double)in1))
+  DEFINE_UNARY_KERNEL_NOSIMD(log, TE, CT, (CT)_log_f64((double)in1))
 GENERATE_INT32_NUMC_TYPES(STAMP_LOG_I32)
 #undef STAMP_LOG_I32
 
 /* 64-bit integers: cast through double */
 #define STAMP_LOG_I64(TE, CT) \
-  DEFINE_UNARY_KERNEL(log, TE, CT, (CT)_log_f64((double)in1))
+  DEFINE_UNARY_KERNEL_NOSIMD(log, TE, CT, (CT)_log_f64((double)in1))
 GENERATE_SIGNED_64BIT_NUMC_TYPES(STAMP_LOG_I64)
 #undef STAMP_LOG_I64
-DEFINE_UNARY_KERNEL(log, NUMC_DTYPE_UINT64, NUMC_UINT64,
-                    (NUMC_UINT64)_log_f64((double)in1))
+DEFINE_UNARY_KERNEL_NOSIMD(log, NUMC_DTYPE_UINT64, NUMC_UINT64,
+                           (NUMC_UINT64)_log_f64((double)in1))
 
 /* float types: call their own bit-manipulation helpers directly */
-DEFINE_UNARY_KERNEL(log, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, _log_f32(in1))
-DEFINE_UNARY_KERNEL(log, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _log_f64(in1))
+DEFINE_UNARY_KERNEL_NOSIMD(log, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, _log_f32(in1))
+DEFINE_UNARY_KERNEL_NOSIMD(log, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _log_f64(in1))
 
 /* ── Stamp out exp loop kernels ─────────────────────────────────────── */
 
 /* int8/int16/uint8/uint16: cast through float32 */
 #define STAMP_EXP_SMALL(TE, CT) \
-  DEFINE_UNARY_KERNEL(exp, TE, CT, (CT)_exp_f32((float)in1))
+  DEFINE_UNARY_KERNEL_NOSIMD(exp, TE, CT, (CT)_exp_f32((float)in1))
 GENERATE_INT8_INT16_NUMC_TYPES(STAMP_EXP_SMALL)
 #undef STAMP_EXP_SMALL
 
 /* int32/uint32: cast through float64 */
 #define STAMP_EXP_I32(TE, CT) \
-  DEFINE_UNARY_KERNEL(exp, TE, CT, (CT)_exp_f64((double)in1))
+  DEFINE_UNARY_KERNEL_NOSIMD(exp, TE, CT, (CT)_exp_f64((double)in1))
 GENERATE_INT32_NUMC_TYPES(STAMP_EXP_I32)
 #undef STAMP_EXP_I32
 
 /* int64: cast through float64 */
 #define STAMP_EXP_I64(TE, CT) \
-  DEFINE_UNARY_KERNEL(exp, TE, CT, (CT)_exp_f64((double)in1))
+  DEFINE_UNARY_KERNEL_NOSIMD(exp, TE, CT, (CT)_exp_f64((double)in1))
 GENERATE_SIGNED_64BIT_NUMC_TYPES(STAMP_EXP_I64)
 #undef STAMP_EXP_I64
 
 /* uint64: explicit — no X-macro covers just uint64 */
-DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_UINT64, NUMC_UINT64,
-                    (NUMC_UINT64)_exp_f64((double)in1))
+DEFINE_UNARY_KERNEL_NOSIMD(exp, NUMC_DTYPE_UINT64, NUMC_UINT64,
+                           (NUMC_UINT64)_exp_f64((double)in1))
 
 /* float32/float64: call helpers directly */
-DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, _exp_f32(in1))
-DEFINE_UNARY_KERNEL(exp, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _exp_f64(in1))
+DEFINE_UNARY_KERNEL_NOSIMD(exp, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, _exp_f32(in1))
+DEFINE_UNARY_KERNEL_NOSIMD(exp, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _exp_f64(in1))
 
 /* ── Stamp unary sqrt loop typed kernels ─────────────────────────────────
  * float32: sqrtf -> hardware vsqrtps (auto-vectorized, -O3 -march=native)
