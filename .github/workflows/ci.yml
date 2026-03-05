@@ -3,13 +3,48 @@ name: CI
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
 
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # ── LINT & FORMAT ──────────────────────────────────────────────────────────
+  # Fast feedback for contributors on code style
+  lint-and-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linting Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format clang-tidy
+
+      - name: Check Formatting
+        run: |
+          # Find all source files and check formatting
+          find src include tests examples bench -iname *.c -o -iname *.h | xargs clang-format --dry-run --Werror
+
+      - name: Static Analysis (Clang-Tidy)
+        run: |
+          # Generate compilation database for clang-tidy
+          sudo apt-get install -y cmake libomp-dev libblis-dev
+          cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DNUMC_BUILD_TESTS=ON
+          # Run clang-tidy on core sources
+          find src -name "*.c" | xargs clang-tidy -p build --warnings-as-errors='*'
+
+  # ── BUILD & TEST ───────────────────────────────────────────────────────────
+  # Comprehensive matrix testing across compilers and configurations
   build-and-test:
+    needs: lint-and-format
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         compiler: [clang, gcc]
         blas: [ON, OFF]
@@ -17,11 +52,11 @@ jobs:
         include:
           - compiler: clang
             blas: ON
-            vendor_blis: ON
+            vendor_blis: ON  # Test the heavy vendored build
           - compiler: clang
             blas: OFF
             vendor_blis: OFF
-            asan: ON
+            asan: ON         # Test with AddressSanitizer
 
     steps:
     - uses: actions/checkout@v4
@@ -29,12 +64,10 @@ jobs:
         submodules: recursive
 
     - name: Install Dependencies
-      env:
-        VENDOR_BLIS: ${{ matrix.vendor_blis }}
       run: |
         sudo apt-get update
         sudo apt-get install -y cmake libomp-dev
-        if [ "$VENDOR_BLIS" != "ON" ]; then
+        if [ "${{ matrix.vendor_blis }}" != "ON" ]; then
           sudo apt-get install -y libblis-dev
         fi
 
@@ -42,27 +75,22 @@ jobs:
       if: matrix.vendor_blis == 'ON'
       uses: actions/cache@v4
       with:
-        path: build/_deps/blis-*
-        key: blis-vendored-${{ runner.os }}-${{ hashFiles('external/blis/version') }}
+        path: build/external/blis
+        key: blis-vendored-${{ runner.os }}-${{ hashFiles('external/blis/version', 'external/blis/config_registry') }}
 
     - name: Configure CMake
       env:
-        CC_COMPILER: ${{ matrix.compiler }}
-        USE_BLAS: ${{ matrix.blas }}
-        VENDOR_BLIS: ${{ matrix.vendor_blis }}
-        ENABLE_ASAN: ${{ matrix.asan || 'OFF' }}
+        CC: ${{ matrix.compiler }}
       run: |
         BUILD_TYPE="Release"
-        ASAN_FLAG="OFF"
-        if [ "${ENABLE_ASAN}" = "ON" ]; then
+        if [ "${{ matrix.asan }}" = "ON" ]; then
           BUILD_TYPE="Debug"
-          ASAN_FLAG="ON"
         fi
         cmake -S . -B build \
-          -DCMAKE_C_COMPILER="$CC_COMPILER" \
-          -DNUMC_USE_BLAS="$USE_BLAS" \
-          -DNUMC_VENDOR_BLIS="$VENDOR_BLIS" \
-          -DNUMC_ENABLE_ASAN="$ASAN_FLAG" \
+          -DCMAKE_C_COMPILER=${{ matrix.compiler }} \
+          -DNUMC_USE_BLAS=${{ matrix.blas }} \
+          -DNUMC_VENDOR_BLIS=${{ matrix.vendor_blis }} \
+          -DNUMC_ENABLE_ASAN=${{ matrix.asan || 'OFF' }} \
           -DNUMC_BUILD_TESTS=ON \
           -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
 
@@ -74,4 +102,36 @@ jobs:
         LSAN_OPTIONS: suppressions=${{ github.workspace }}/tests/lsan_suppressions.txt
       run: |
         cd build
-        ctest --output-on-failure
+        ctest --output-on-failure --parallel $(nproc)
+
+  # ── CODE COVERAGE ──────────────────────────────────────────────────────────
+  coverage:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake libomp-dev libblis-dev lcov
+
+      - name: Configure & Build for Coverage
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DNUMC_BUILD_TESTS=ON -DNUMC_USE_BLAS=ON
+          cmake --build build --parallel $(nproc)
+
+      - name: Generate Coverage Report
+        run: |
+          cd build
+          ctest
+          lcov --capture --directory . --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' '*/external/*' '*/tests/*' --output-file coverage.info
+          lcov --list coverage.info
+
+      # You can integrate with Codecov here in the future
+      # - name: Upload to Codecov
+      #   uses: codecov/codecov-action@v4
+      #   with:
+      #     file: build/coverage.info
