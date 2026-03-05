@@ -8,7 +8,7 @@ set -e
 # --- Configuration ---
 BUILD_DIR="build"
 CC="${CC:-clang}"
-PYTHON_VENV="/tmp/npvenv2/bin/python3"
+PYTHON_VENV="bench/numpy/.venv/bin/python3"
 NUMC_USE_BLAS="${NUMC_USE_BLAS:-ON}"
 NUMC_VENDOR_BLIS="${NUMC_VENDOR_BLIS:-ON}"
 BLIS_CONFIG="${BLIS_CONFIG:-auto}"
@@ -99,6 +99,15 @@ case $COMMAND in
             success "numpy results -> $NUMPY_OUT ($(wc -l < "$NUMPY_OUT") rows)"
         else
             warn "Python venv not found at $PYTHON_VENV — skipping numpy benchmark"
+        fi
+
+        GRAPH_VENV="bench/graph/.venv/bin/python3"
+        if [[ -x "$GRAPH_VENV" ]] && [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
+            info "Generating comparison charts..."
+            "$GRAPH_VENV" bench/graph/plot.py
+            success "Charts saved to bench/graph/output/"
+        else
+            warn "Graph venv not found or CSV files missing — skipping chart generation"
         fi
         ;;
 

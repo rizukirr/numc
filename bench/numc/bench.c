@@ -627,11 +627,18 @@ static void bench_reduce_axis(const char *name, ReduceAxisFn fn, int axis,
 /* ── Matmul ───────────────────────────────────────────────────────── */
 
 static void bench_matmul(size_t M, size_t K, size_t N, int warmup, int iters) {
+  /* Re-warm OMP thread pool: after heavy naive integer matmuls from previous
+   * sizes, libomp threads may be sleeping (KMP_BLOCKTIME expired). A dummy
+   * parallel region wakes them before BLIS sgemm/dgemm timing. */
+#ifdef _OPENMP
+#pragma omp parallel
+  { (void)0; }
+#endif
   NumcDType dtypes[] = {
-      NUMC_DTYPE_INT8,    NUMC_DTYPE_INT16,  NUMC_DTYPE_INT32,
-      NUMC_DTYPE_INT64,   NUMC_DTYPE_UINT8,  NUMC_DTYPE_UINT16,
-      NUMC_DTYPE_UINT32,  NUMC_DTYPE_UINT64, NUMC_DTYPE_FLOAT32,
-      NUMC_DTYPE_FLOAT64,
+      NUMC_DTYPE_FLOAT32, NUMC_DTYPE_FLOAT64, NUMC_DTYPE_INT8,
+      NUMC_DTYPE_INT16,   NUMC_DTYPE_INT32,   NUMC_DTYPE_INT64,
+      NUMC_DTYPE_UINT8,   NUMC_DTYPE_UINT16,  NUMC_DTYPE_UINT32,
+      NUMC_DTYPE_UINT64,
   };
 
   for (int d = 0; d < 10; d++) {
@@ -823,7 +830,7 @@ int main(void) {
   bench_matmul(64, 64, 64, 50, 200);
   bench_matmul(128, 128, 128, 50, 50);
   bench_matmul(256, 256, 256, 50, 20);
-  bench_matmul(512, 512, 512, 10, 5);
+  bench_matmul(512, 512, 512, 50, 10);
 
   /* Dot product */
   bench_dot(SIZE);

@@ -71,7 +71,7 @@ def save(fig, name):
 
 
 def grouped_bar(ax, labels, numc_vals, numpy_vals, ylabel="Time (us)"):
-    """Side-by-side bar chart."""
+    """Side-by-side bar chart with log scale when range exceeds 10x."""
     x = np.arange(len(labels))
     w = 0.35
     ax.bar(x - w/2, numc_vals, w, label="numc", color=C_NUMC, zorder=3)
@@ -82,6 +82,10 @@ def grouped_bar(ax, labels, numc_vals, numpy_vals, ylabel="Time (us)"):
     ax.legend(fontsize=8)
     ax.grid(axis="y", alpha=0.3, zorder=0)
     ax.set_facecolor(BG)
+    all_vals = np.concatenate([numc_vals, numpy_vals])
+    if all_vals.max() / max(all_vals[all_vals > 0].min(), 1e-9) > 10:
+        ax.set_yscale("log")
+        ax.set_ylabel(ylabel + " (log scale)", fontsize=9)
 
 
 def speedup_bar(ax, labels, speedups):

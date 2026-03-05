@@ -4,6 +4,8 @@
 #include "numc/math.h"
 #include "internal.h"
 
+#include <stdio.h>
+
 #ifdef HAVE_BLAS
 #include <blis.h>
 #include <pthread.h>
@@ -57,10 +59,97 @@ void _numc_runtime_init(void) {
  *   - < 65k ops:  serial (avoids fork/join overhead).
  *   - >= 65k ops: all threads on IC loop.
  */
+/**
+ * @brief Detect number of performance cores on Linux.
+ *
+ * On Intel hybrid CPUs (Alder Lake+), E-cores lack AVX2/AVX-512.
+ * Scheduling BLIS threads on E-cores causes severe performance loss.
+ *
+ * Detection strategy:
+ *   1. Read core_type sysfs (kernel 6.2+): "performance" vs "efficiency"
+ *   2. Fallback: compare cpufreq max frequencies — E-cores have lower max
+ *
+ * Returns 0 if not a hybrid CPU or detection fails.
+ */
+static int _detect_perf_cores(void) {
+  static int cached = -1;
+  if (cached >= 0)
+    return cached;
+#ifdef __linux__
+  int total = 0, perf = 0;
+  long max_freq = 0;
+  long freqs[256];
+
+  /* Pass 1: try core_type sysfs (most reliable) */
+  for (int i = 0; i < 256; i++) {
+    char path[128];
+    snprintf(path, sizeof(path),
+             "/sys/devices/system/cpu/cpu%d/topology/core_type", i);
+    FILE *f = fopen(path, "r");
+    if (!f)
+      break;
+    total++;
+    char buf[32] = {0};
+    (void)fgets(buf, sizeof(buf), f);
+    fclose(f);
+    if (buf[0] == 'p' || buf[0] == 'P')
+      perf++;
+  }
+  if (perf > 0 && perf < total) {
+    cached = perf;
+    return cached;
+  }
+
+  /* Pass 2: frequency-based detection */
+  total = 0;
+  for (int i = 0; i < 256; i++) {
+    char path[128];
+    snprintf(path, sizeof(path),
+             "/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_max_freq", i);
+    FILE *f = fopen(path, "r");
+    if (!f)
+      break;
+    long freq = 0;
+    int ok = fscanf(f, "%ld", &freq);
+    fclose(f);
+    if (ok != 1)
+      continue;
+    freqs[total] = freq;
+    if (freq > max_freq)
+      max_freq = freq;
+    total++;
+  }
+  /* Hybrid if some cores have ≥20% lower max frequency */
+  if (total > 1 && max_freq > 0) {
+    long threshold = max_freq * 80 / 100;
+    perf = 0;
+    for (int i = 0; i < total; i++) {
+      if (freqs[i] >= threshold)
+        perf++;
+    }
+    if (perf > 0 && perf < total) {
+      cached = perf;
+      return cached;
+    }
+  }
+
+  cached = 0;
+#else
+  cached = 0;
+#endif
+  return cached;
+}
+
 static void _blis_set_threading(size_t total_ops) {
   pthread_once(&blis_once, _blis_init_once);
 #ifdef HAVE_OMP
   int nthreads = omp_get_max_threads();
+
+  /* On Intel hybrid CPUs, restrict to P-cores only to avoid scheduling
+   * AVX2 BLIS microkernels on E-cores (which lack AVX2 support). */
+  int pcores = _detect_perf_cores();
+  if (pcores > 0 && pcores < nthreads)
+    nthreads = pcores;
 
 #ifdef NUMC_BLIS_OPTIMIZED
   (void)total_ops;

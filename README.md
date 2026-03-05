@@ -25,9 +25,26 @@ By synthesizing modern language features with hardware-aware architectural patte
 - **Universal Broadcasting:** Strict adherence to NumPy-style broadcasting semantics across all dimension-mismatched operations.
 - **N-Dimensional Support:** Every mathematical operation (excluding strictly 2D `matmul`) supports arbitrary N-D tensor shapes and strided memory layouts.
 
+## Benchmarks
+
+numc is rigorously benchmarked against NumPy across all supported operations, data types, and array configurations. The benchmark suite runs identical workloads on both libraries to ensure a fair comparison.
+
+![Overview](bench/graph/output/overview.png)
+
+For the complete set of benchmark charts, device specifications, and per-operation breakdowns, see the [benchmark results](bench/graph/README.md).
+
+To reproduce benchmarks on your own hardware:
+
+```bash
+./run.sh bench                                        # Run numc + numpy benchmarks
+bench/graph/.venv/bin/python3 bench/graph/plot.py     # Generate comparison charts
+```
+
+Detailed benchmark methodology, CSV format documentation, and environment setup instructions are available in the [bench README](bench/README.md).
+
 ## Documentation
 
-For detailed API specifications, architecture deep-dives, and comprehensive usage guides, please visit the [**numc Project Wiki**](https://github.com/rizukirr/numc/wiki).
+For detailed API specifications, architecture deep-dives, and comprehensive usage guides, visit the [**numc Project Wiki**](https://github.com/rizukirr/numc/wiki).
 
 ## Build and Development
 
@@ -57,6 +74,18 @@ cd numc
 | `NUMC_VENDOR_BLIS` | `ON` | Build BLIS from internal submodule |
 | `NUMC_USE_BLAS` | `ON` | Enable BLAS/BLIS acceleration |
 | `BLIS_CONFIG` | `auto` | BLIS target (e.g., `haswell`, `zen`, `skx`) |
+
+## Contributing
+
+Contributions are welcome. Whether it is a bug fix, new operation, performance optimization, or documentation improvement, all contributions help strengthen the library.
+
+Please refer to the [contributing guide](https://github.com/rizukirr/numc/blob/main/CONTRIBUTING.md) for coding standards, commit conventions, and pull request guidelines. For benchmark-related contributions, see the [bench README](bench/README.md).
+
+## Support
+
+If you find this library useful, consider supporting its development:
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/rizukirr)
 
 ## License
 

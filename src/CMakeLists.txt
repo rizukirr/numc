@@ -31,7 +31,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_C_COMPILER_TARGET MATCHES "
 endif()
 
 target_compile_options(numc PRIVATE
-    -Wall -Wextra -Wpedantic
+    -Wall -Wextra -Wpedantic -Wno-pass-failed
     $<$<BOOL:${NUMC_WERROR}>:-Werror>
     $<$<CONFIG:Debug>:-g -O0 -fno-omit-frame-pointer>
     $<$<CONFIG:Release>:-O3 ${MARCH_FLAG} -fno-math-errno -fno-signed-zeros -fno-trapping-math -funroll-loops>
