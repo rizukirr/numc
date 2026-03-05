@@ -259,7 +259,8 @@ NUMC_API int numc_clip_inplace(NumcArray *a, double min, double max);
  * @param out Output array.
  * @return 0 on success, negative error code on failure.
  */
-NUMC_API int numc_maximum(const NumcArray *a, const NumcArray *b, NumcArray *out);
+NUMC_API int numc_maximum(const NumcArray *a, const NumcArray *b,
+                          NumcArray *out);
 
 /**
  * @brief Element-wise minimum: out = min(a, b).
@@ -269,7 +270,8 @@ NUMC_API int numc_maximum(const NumcArray *a, const NumcArray *b, NumcArray *out
  * @param out Output array.
  * @return 0 on success, negative error code on failure.
  */
-NUMC_API int numc_minimum(const NumcArray *a, const NumcArray *b, NumcArray *out);
+NUMC_API int numc_minimum(const NumcArray *a, const NumcArray *b,
+                          NumcArray *out);
 
 /**
  * @brief Element-wise equality: out[i] = (a[i] == b[i]).
@@ -380,8 +382,8 @@ NUMC_API int numc_le_scalar(const NumcArray *a, double scalar, NumcArray *out);
  * @param out Output array.
  * @return 0 on success, negative error code on failure.
  */
-NUMC_API int numc_fma(const NumcArray *a, const NumcArray *b, const NumcArray *c,
-                      NumcArray *out);
+NUMC_API int numc_fma(const NumcArray *a, const NumcArray *b,
+                      const NumcArray *c, NumcArray *out);
 
 /**
  * @brief Element-wise ternary selection: out[i] = cond[i] ? a[i] : b[i].
@@ -392,8 +394,8 @@ NUMC_API int numc_fma(const NumcArray *a, const NumcArray *b, const NumcArray *c
  * @param out  Output array.
  * @return 0 on success, negative error code on failure.
  */
-NUMC_API int numc_where(const NumcArray *cond, const NumcArray *a, const NumcArray *b,
-               NumcArray *out);
+NUMC_API int numc_where(const NumcArray *cond, const NumcArray *a,
+                        const NumcArray *b, NumcArray *out);
 
 /**
  * @brief Sum of all array elements.
@@ -413,7 +415,8 @@ NUMC_API int numc_sum(const NumcArray *a, NumcArray *out);
  * @param out     Output array.
  * @return 0 on success, negative error code on failure.
  */
-NUMC_API int numc_sum_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
+NUMC_API int numc_sum_axis(const NumcArray *a, int axis, int keepdim,
+                           NumcArray *out);
 
 /**
  * @brief Mean of all array elements.
@@ -433,7 +436,8 @@ NUMC_API int numc_mean(const NumcArray *a, NumcArray *out);
  * @param out     Output array.
  * @return 0 on success, negative error code on failure.
  */
-NUMC_API int numc_mean_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
+NUMC_API int numc_mean_axis(const NumcArray *a, int axis, int keepdim,
+                            NumcArray *out);
 
 /**
  * @brief Maximum of all array elements.
@@ -453,7 +457,8 @@ NUMC_API int numc_max(const NumcArray *a, NumcArray *out);
  * @param out     Output array.
  * @return 0 on success, negative error code on failure.
  */
-NUMC_API int numc_max_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
+NUMC_API int numc_max_axis(const NumcArray *a, int axis, int keepdim,
+                           NumcArray *out);
 
 /**
  * @brief Minimum of all array elements.
@@ -473,7 +478,8 @@ NUMC_API int numc_min(const NumcArray *a, NumcArray *out);
  * @param out     Output array.
  * @return 0 on success, negative error code on failure.
  */
-NUMC_API int numc_min_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
+NUMC_API int numc_min_axis(const NumcArray *a, int axis, int keepdim,
+                           NumcArray *out);
 
 /**
  * @brief Index of the maximum element in the flattened array.
@@ -493,7 +499,8 @@ NUMC_API int numc_argmax(const NumcArray *a, NumcArray *out);
  * @param out     Output array (must be of integer type).
  * @return 0 on success, negative error code on failure.
  */
-NUMC_API int numc_argmax_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
+NUMC_API int numc_argmax_axis(const NumcArray *a, int axis, int keepdim,
+                              NumcArray *out);
 
 /**
  * @brief Index of the minimum element in the flattened array.
@@ -513,7 +520,8 @@ NUMC_API int numc_argmin(const NumcArray *a, NumcArray *out);
  * @param out     Output array (must be of integer type).
  * @return 0 on success, negative error code on failure.
  */
-NUMC_API int numc_argmin_axis(const NumcArray *a, int axis, int keepdim, NumcArray *out);
+NUMC_API int numc_argmin_axis(const NumcArray *a, int axis, int keepdim,
+                              NumcArray *out);
 
 /**
  * @brief Matrix multiplication: out = a @ b.
@@ -526,7 +534,8 @@ NUMC_API int numc_argmin_axis(const NumcArray *a, int axis, int keepdim, NumcArr
  * @param out Output matrix (M x N).
  * @return 0 on success, negative error code on failure.
  */
-NUMC_API int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out);
+NUMC_API int numc_matmul(const NumcArray *a, const NumcArray *b,
+                         NumcArray *out);
 
 /**
  * @brief Compute the dot product of two arrays according to NumPy semantics.
@@ -535,7 +544,8 @@ NUMC_API int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out)
  * - If both are 1-D, it is the inner product of vectors.
  * - If both are 2-D, it is matrix multiplication.
  * - If either is 0-D (scalar), it is equivalent to element-wise multiplication.
- * - If a is N-D and b is 1-D, it is a sum-product over the last axis of a and b.
+ * - If a is N-D and b is 1-D, it is a sum-product over the last axis of a and
+ * b.
  * - If a is N-D and b is M-D (M>=2), it is a sum-product over the last axis
  *   of a and the second-to-last axis of b.
  *
@@ -554,6 +564,7 @@ NUMC_API int numc_dot(const NumcArray *a, const NumcArray *b, NumcArray *out);
  * @param out Output matrix (M x N).
  * @return 0 on success, negative error code on failure.
  */
-NUMC_API int numc_matmul_naive(const NumcArray *a, const NumcArray *b, NumcArray *out);
+NUMC_API int numc_matmul_naive(const NumcArray *a, const NumcArray *b,
+                               NumcArray *out);
 
 #endif

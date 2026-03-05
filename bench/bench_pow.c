@@ -14,7 +14,7 @@
 /* ── Config ────────────────────────────────────────────────────────── */
 
 #define WARMUP 20
-#define ITERS 200
+#define ITERS  200
 
 typedef int (*PowOp)(NumcArray *, NumcArray *, NumcArray *);
 typedef int (*PowInplace)(NumcArray *, NumcArray *);

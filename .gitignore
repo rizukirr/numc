@@ -12,6 +12,7 @@ Testing/Temporary
 build*
 /.claude/agents
 *.csv
+.venv/
 /notes
 /GEMINI.md
 /.geminiignore

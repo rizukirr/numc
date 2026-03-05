@@ -3,7 +3,7 @@
 static int test_sqrt_float32(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
 
   float da[] = {0.0f, 1.0f, 4.0f, 9.0f};
@@ -25,7 +25,7 @@ static int test_sqrt_float32(void) {
 static int test_sqrt_float64(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
 
   double da[] = {0.0, 1.0, 4.0, 9.0};
@@ -49,7 +49,7 @@ static int test_sqrt_int8(void) {
    * sqrt(0)=0, sqrt(1)=1, sqrt(4)=2, sqrt(9)=3 */
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT8);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT8);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT8);
 
   int8_t da[] = {0, 1, 4, 9};
@@ -72,7 +72,7 @@ static int test_sqrt_int8_negative(void) {
   /* Negative inputs are clamped to 0 before sqrt. */
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {3};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT8);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT8);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT8);
 
   int8_t da[] = {-4, -1, -9};
@@ -94,7 +94,7 @@ static int test_sqrt_int32(void) {
   /* int32 casts through float64; result truncated. */
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT32);
 
   int32_t da[] = {0, 1, 100, 10000};
@@ -104,9 +104,9 @@ static int test_sqrt_int32(void) {
   ASSERT_MSG(err == 0, "sqrt int32 should succeed");
 
   int32_t *r = (int32_t *)numc_array_data(out);
-  ASSERT_MSG(r[0] == 0,   "sqrt(0)     -> int32 0");
-  ASSERT_MSG(r[1] == 1,   "sqrt(1)     -> int32 1");
-  ASSERT_MSG(r[2] == 10,  "sqrt(100)   -> int32 10");
+  ASSERT_MSG(r[0] == 0, "sqrt(0)     -> int32 0");
+  ASSERT_MSG(r[1] == 1, "sqrt(1)     -> int32 1");
+  ASSERT_MSG(r[2] == 10, "sqrt(100)   -> int32 10");
   ASSERT_MSG(r[3] == 100, "sqrt(10000) -> int32 100");
 
   numc_ctx_free(ctx);
@@ -117,7 +117,7 @@ static int test_sqrt_uint8(void) {
   /* Unsigned — always non-negative, cast through float32. */
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_UINT8);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_UINT8);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_UINT8);
 
   uint8_t da[] = {0, 1, 4, 9};
@@ -139,7 +139,7 @@ static int test_sqrt_uint8(void) {
 static int test_sqrt_2d(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {2, 2};
-  NumcArray *a   = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
   NumcArray *out = numc_array_zeros(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
 
   float da[] = {1.0f, 4.0f, 9.0f, 16.0f};
@@ -174,7 +174,7 @@ static int test_sqrt_null(void) {
 static int test_sqrt_type_mismatch(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
 
   int err = numc_sqrt(a, out);
@@ -188,7 +188,7 @@ static int test_sqrt_type_mismatch(void) {
 static int test_sqrt_shape_mismatch(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t sa[] = {4}, sb[] = {6};
-  NumcArray *a   = numc_array_create(ctx, sa, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *a = numc_array_create(ctx, sa, 1, NUMC_DTYPE_FLOAT32);
   NumcArray *out = numc_array_zeros(ctx, sb, 1, NUMC_DTYPE_FLOAT32);
 
   int err = numc_sqrt(a, out);
@@ -202,7 +202,7 @@ static int test_sqrt_shape_mismatch(void) {
 static int test_sqrt_inplace_float32(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
 
   float da[] = {0.0f, 1.0f, 4.0f, 9.0f};
   numc_array_write(a, da);
@@ -223,7 +223,7 @@ static int test_sqrt_inplace_float32(void) {
 static int test_sqrt_inplace_float64(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
 
   double da[] = {0.0, 1.0, 4.0, 9.0};
   numc_array_write(a, da);

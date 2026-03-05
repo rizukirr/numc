@@ -28,7 +28,9 @@ __attribute__((constructor)) static void _numc_omp_init(void) {
 }
 #endif
 
-static void _blis_init_once(void) { bli_init(); }
+static void _blis_init_once(void) {
+  bli_init();
+}
 #endif
 
 void _numc_runtime_init(void) {
@@ -37,12 +39,10 @@ void _numc_runtime_init(void) {
 #endif
 
 #ifdef HAVE_OMP
-  /* Pre-warm OpenMP thread pool by running a dummy parallel loop.
-   * This avoids the ~50ms 'cold start' penalty on the first math call. */
-  #pragma omp parallel
-  {
-    (void)0; 
-  }
+/* Pre-warm OpenMP thread pool by running a dummy parallel loop.
+ * This avoids the ~50ms 'cold start' penalty on the first math call. */
+#pragma omp parallel
+  { (void)0; }
 #endif
 }
 

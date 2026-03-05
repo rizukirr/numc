@@ -14,7 +14,7 @@
 /* ── Config ────────────────────────────────────────────────────────── */
 
 #define WARMUP 20
-#define ITERS 200
+#define ITERS  200
 
 /* ── Timer ─────────────────────────────────────────────────────────── */
 
@@ -74,10 +74,9 @@ static void fill_value(NumcDType dt, char buf[static 8]) {
 }
 
 static const NumcDType ALL_DTYPES[] = {
-    NUMC_DTYPE_INT8,    NUMC_DTYPE_UINT8,   NUMC_DTYPE_INT16,
-    NUMC_DTYPE_UINT16,  NUMC_DTYPE_INT32,   NUMC_DTYPE_UINT32,
-    NUMC_DTYPE_INT64,   NUMC_DTYPE_UINT64,  NUMC_DTYPE_FLOAT32,
-    NUMC_DTYPE_FLOAT64,
+    NUMC_DTYPE_INT8,    NUMC_DTYPE_UINT8,   NUMC_DTYPE_INT16, NUMC_DTYPE_UINT16,
+    NUMC_DTYPE_INT32,   NUMC_DTYPE_UINT32,  NUMC_DTYPE_INT64, NUMC_DTYPE_UINT64,
+    NUMC_DTYPE_FLOAT32, NUMC_DTYPE_FLOAT64,
 };
 static const int N_DTYPES = sizeof(ALL_DTYPES) / sizeof(ALL_DTYPES[0]);
 
@@ -91,7 +90,8 @@ typedef int (*ReduceAxisFn)(const NumcArray *, int, int, NumcArray *);
 static void bench_full(const char *name, ReduceFullFn fn, size_t size) {
   printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-  printf("  %s (full reduction)  (%zu elements, %d iters)\n", name, size, ITERS);
+  printf("  %s (full reduction)  (%zu elements, %d iters)\n", name, size,
+         ITERS);
   printf("\n  %-8s %10s %10s\n", "dtype", "time (us)", "Mop/s");
   printf("  ────────────────────────────────\n");
 
@@ -218,8 +218,8 @@ static void bench_axis_arg(const char *name, ReduceAxisFn fn, int axis,
   size_t total = rows * cols;
   printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-  printf("  %s AXIS=%d  (%zux%zu = %zu elements, %d iters)\n", name, axis,
-         rows, cols, total, ITERS);
+  printf("  %s AXIS=%d  (%zux%zu = %zu elements, %d iters)\n", name, axis, rows,
+         cols, total, ITERS);
   printf("\n  %-8s %10s %10s\n", "dtype", "time (us)", "Mop/s");
   printf("  ────────────────────────────────\n");
 

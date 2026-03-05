@@ -400,16 +400,18 @@ static inline int _prng_get_tid(void) {
       prng_s[3][0] = base[3];                                            \
       /* advance lanes 1-3 by n steps to keep all lanes in sync */       \
       for (int _lane = 1; _lane < NUMC_PRNG_LANES; _lane++) {            \
-        uint64_t _ls[4] = {                                               \
-            prng_s[0][_lane], prng_s[1][_lane],                          \
-            prng_s[2][_lane], prng_s[3][_lane],                          \
-        };                                                                \
-        prng_skip(_ls, n);                                                \
-        prng_s[0][_lane] = _ls[0];                                        \
-        prng_s[1][_lane] = _ls[1];                                        \
-        prng_s[2][_lane] = _ls[2];                                        \
-        prng_s[3][_lane] = _ls[3];                                        \
-      }                                                                   \
+        uint64_t _ls[4] = {                                              \
+            prng_s[0][_lane],                                            \
+            prng_s[1][_lane],                                            \
+            prng_s[2][_lane],                                            \
+            prng_s[3][_lane],                                            \
+        };                                                               \
+        prng_skip(_ls, n);                                               \
+        prng_s[0][_lane] = _ls[0];                                       \
+        prng_s[1][_lane] = _ls[1];                                       \
+        prng_s[2][_lane] = _ls[2];                                       \
+        prng_s[3][_lane] = _ls[3];                                       \
+      }                                                                  \
     }                                                                    \
   }
 

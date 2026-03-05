@@ -11,14 +11,15 @@ static _Thread_local NumcError error = {0, NULL};
 
 int numc_set_error_v(int code, const char *func, const char *file, int line,
                      const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+
 #ifndef NUMC_DEBUG_ERROR_CONTEXT
   (void)file;
   (void)line;
 #endif
   char formatted[NUMC_ERROR_MSG_SIZE / 2];
-  va_list ap;
-  va_start(ap, fmt);
-  vsnprintf(formatted, sizeof(formatted), fmt, ap);
+  vsnprintf(formatted, sizeof(formatted), fmt, ap); // NOLINT
   va_end(ap);
 
 #ifdef NUMC_DEBUG_ERROR_CONTEXT

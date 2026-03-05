@@ -114,12 +114,12 @@ static inline void _elemwise_clip_nd(NumcClipKernel kern, const char *a,
  * @param shape Array of dimensions.
  * @param ndim  Number of dimensions.
  */
-static inline void _elemwise_ternary_nd(NumcTernaryKernel kern, const char *cond,
-                                        const size_t *sc, const char *a,
-                                        const size_t *sa, const char *b,
-                                        const size_t *sb, char *out,
-                                        const size_t *so, const size_t *shape,
-                                        size_t ndim) {
+static inline void _elemwise_ternary_nd(NumcTernaryKernel kern,
+                                        const char *cond, const size_t *sc,
+                                        const char *a, const size_t *sa,
+                                        const char *b, const size_t *sb,
+                                        char *out, const size_t *so,
+                                        const size_t *shape, size_t ndim) {
   if (ndim == 1) {
     kern(cond, a, b, out, shape[0], (intptr_t)sc[0], (intptr_t)sa[0],
          (intptr_t)sb[0], (intptr_t)so[0]);
@@ -148,10 +148,12 @@ static inline void _elemwise_ternary_nd(NumcTernaryKernel kern, const char *cond
  * @param shape Array of dimensions.
  * @param ndim  Number of dimensions.
  */
-static inline void _elemwise_quaternary_nd(
-    NumcQuaternaryKernel kern, const char *a, const size_t *sa, const char *b,
-    const size_t *sb, const char *c, const size_t *sc, char *out,
-    const size_t *so, const size_t *shape, size_t ndim) {
+static inline void _elemwise_quaternary_nd(NumcQuaternaryKernel kern,
+                                           const char *a, const size_t *sa,
+                                           const char *b, const size_t *sb,
+                                           const char *c, const size_t *sc,
+                                           char *out, const size_t *so,
+                                           const size_t *shape, size_t ndim) {
   if (ndim == 1) {
     kern(a, b, c, out, shape[0], (intptr_t)sa[0], (intptr_t)sb[0],
          (intptr_t)sc[0], (intptr_t)so[0]);
@@ -281,10 +283,11 @@ static inline void _sort_axes_ternary(size_t ndim, const size_t *shape,
  * @param pc    Permuted strides of c (output).
  * @param po    Permuted strides of out (output).
  */
-static inline void _sort_axes_quaternary(
-    size_t ndim, const size_t *shape, const size_t *sa, const size_t *sb,
-    const size_t *sc, const size_t *so, size_t *ps, size_t *pa, size_t *pb,
-    size_t *pc, size_t *po) {
+static inline void _sort_axes_quaternary(size_t ndim, const size_t *shape,
+                                         const size_t *sa, const size_t *sb,
+                                         const size_t *sc, const size_t *so,
+                                         size_t *ps, size_t *pa, size_t *pb,
+                                         size_t *pc, size_t *po) {
   size_t perm[ndim];
   for (size_t i = 0; i < ndim; i++)
     perm[i] = i;
@@ -378,10 +381,9 @@ static inline int _check_binary(const struct NumcArray *a,
 
   size_t bcast_ndim = a->dim > b->dim ? a->dim : b->dim;
   if (out->dim != bcast_ndim) {
-    NUMC_SET_ERROR(
-        NUMC_ERR_SHAPE,
-        "binary op: output ndim mismatch (expected %zu, got %zu)",
-        bcast_ndim, out->dim);
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "binary op: output ndim mismatch (expected %zu, got %zu)",
+                   bcast_ndim, out->dim);
     return NUMC_ERR_SHAPE;
   }
 
@@ -422,20 +424,26 @@ static inline int _check_binary(const struct NumcArray *a,
 static inline int _check_unary(const struct NumcArray *a,
                                const struct NumcArray *out) {
   if (!a || !out) {
-    NUMC_SET_ERROR(NUMC_ERR_NULL, "unary op: NULL pointer (a=%p out=%p)", a, out);
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "unary op: NULL pointer (a=%p out=%p)", a,
+                   out);
     return NUMC_ERR_NULL;
   }
   if (a->dtype != out->dtype) {
-    NUMC_SET_ERROR(NUMC_ERR_TYPE, "unary op: dtype mismatch (a=%d out=%d)", a->dtype, out->dtype);
+    NUMC_SET_ERROR(NUMC_ERR_TYPE, "unary op: dtype mismatch (a=%d out=%d)",
+                   a->dtype, out->dtype);
     return NUMC_ERR_TYPE;
   }
   if (a->dim != out->dim) {
-    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "unary op: ndim mismatch (a.dim=%zu out.dim=%zu)", a->dim, out->dim);
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "unary op: ndim mismatch (a.dim=%zu out.dim=%zu)", a->dim,
+                   out->dim);
     return NUMC_ERR_SHAPE;
   }
   for (size_t d = 0; d < a->dim; d++) {
     if (a->shape[d] != out->shape[d]) {
-      NUMC_SET_ERROR(NUMC_ERR_SHAPE, "unary op: shape mismatch at dim %zu (a=%zu out=%zu)", d, a->shape[d], out->shape[d]);
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                     "unary op: shape mismatch at dim %zu (a=%zu out=%zu)", d,
+                     a->shape[d], out->shape[d]);
       return NUMC_ERR_SHAPE;
     }
   }
@@ -463,29 +471,28 @@ static inline int _check_ternary(const struct NumcArray *cond,
   }
   if (cond->dtype != a->dtype || a->dtype != b->dtype ||
       a->dtype != out->dtype) {
-    NUMC_SET_ERROR(
-        NUMC_ERR_TYPE,
-        "ternary op: dtype mismatch (cond=%d a=%d b=%d out=%d)", cond->dtype,
-        a->dtype, b->dtype, out->dtype);
+    NUMC_SET_ERROR(NUMC_ERR_TYPE,
+                   "ternary op: dtype mismatch (cond=%d a=%d b=%d out=%d)",
+                   cond->dtype, a->dtype, b->dtype, out->dtype);
     return NUMC_ERR_TYPE;
   }
 
   /* All four must have the same shape */
   size_t ndim = cond->dim;
   if (a->dim != ndim || b->dim != ndim || out->dim != ndim) {
-    NUMC_SET_ERROR(
-        NUMC_ERR_SHAPE,
-        "ternary op: ndim mismatch (cond=%zu a=%zu b=%zu out=%zu)", cond->dim,
-        a->dim, b->dim, out->dim);
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "ternary op: ndim mismatch (cond=%zu a=%zu b=%zu out=%zu)",
+                   cond->dim, a->dim, b->dim, out->dim);
     return NUMC_ERR_SHAPE;
   }
   for (size_t d = 0; d < ndim; d++) {
     if (cond->shape[d] != out->shape[d] || a->shape[d] != out->shape[d] ||
         b->shape[d] != out->shape[d]) {
-      NUMC_SET_ERROR(
-          NUMC_ERR_SHAPE,
-          "ternary op: shape mismatch at dim %zu (cond=%zu a=%zu b=%zu out=%zu)",
-          d, cond->shape[d], a->shape[d], b->shape[d], out->shape[d]);
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                     "ternary op: shape mismatch at dim %zu (cond=%zu a=%zu "
+                     "b=%zu out=%zu)",
+                     d, cond->shape[d], a->shape[d], b->shape[d],
+                     out->shape[d]);
       return NUMC_ERR_SHAPE;
     }
   }
@@ -495,9 +502,9 @@ static inline int _check_ternary(const struct NumcArray *cond,
 /* ── Binary op dispatch ───────────────────────────────────────────── */
 
 static inline int _check_quaternary(const struct NumcArray *a,
-                                   const struct NumcArray *b,
-                                   const struct NumcArray *c,
-                                   const struct NumcArray *out) {
+                                    const struct NumcArray *b,
+                                    const struct NumcArray *c,
+                                    const struct NumcArray *out) {
   if (!a || !b || !c || !out) {
     NUMC_SET_ERROR(NUMC_ERR_NULL,
                    "quaternary op: NULL pointer (a=%p b=%p c=%p out=%p)", a, b,
@@ -515,19 +522,18 @@ static inline int _check_quaternary(const struct NumcArray *a,
    */
   size_t ndim = a->dim;
   if (b->dim != ndim || c->dim != ndim || out->dim != ndim) {
-    NUMC_SET_ERROR(
-        NUMC_ERR_SHAPE,
-        "quaternary op: ndim mismatch (a=%zu b=%zu c=%zu out=%zu)", a->dim,
-        b->dim, c->dim, out->dim);
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "quaternary op: ndim mismatch (a=%zu b=%zu c=%zu out=%zu)",
+                   a->dim, b->dim, c->dim, out->dim);
     return NUMC_ERR_SHAPE;
   }
   for (size_t d = 0; d < ndim; d++) {
     if (a->shape[d] != out->shape[d] || b->shape[d] != out->shape[d] ||
         c->shape[d] != out->shape[d]) {
-      NUMC_SET_ERROR(
-          NUMC_ERR_SHAPE,
-          "quaternary op: shape mismatch at dim %zu (a=%zu b=%zu c=%zu out=%zu)",
-          d, a->shape[d], b->shape[d], c->shape[d], out->shape[d]);
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                     "quaternary op: shape mismatch at dim %zu (a=%zu b=%zu "
+                     "c=%zu out=%zu)",
+                     d, a->shape[d], b->shape[d], c->shape[d], out->shape[d]);
       return NUMC_ERR_SHAPE;
     }
   }
@@ -591,9 +597,8 @@ static inline void _binary_op(const struct NumcArray *a,
         pb[NUMC_MAX_DIMENSIONS], po[NUMC_MAX_DIMENSIONS];
     _sort_axes_binary(bcast_ndim, out->shape, va, vb, out->strides, ps, pa, pb,
                       po);
-    _elemwise_binary_nd(kern, (const char *)a->data, pa,
-                        (const char *)b->data, pb, (char *)out->data, po, ps,
-                        bcast_ndim);
+    _elemwise_binary_nd(kern, (const char *)a->data, pa, (const char *)b->data,
+                        pb, (char *)out->data, po, ps, bcast_ndim);
   }
 }
 
@@ -609,17 +614,16 @@ static inline void _binary_op(const struct NumcArray *a,
  * @param table Kernel function table for the operation.
  */
 static inline void _ternary_op(const struct NumcArray *cond,
-                                const struct NumcArray *a,
-                                const struct NumcArray *b,
-                                struct NumcArray *out,
-                                const NumcTernaryKernel *table) {
+                               const struct NumcArray *a,
+                               const struct NumcArray *b, struct NumcArray *out,
+                               const NumcTernaryKernel *table) {
   NumcTernaryKernel kern = table[a->dtype];
   intptr_t es = (intptr_t)a->elem_size;
 
   if (cond->is_contiguous && a->is_contiguous && b->is_contiguous &&
       out->is_contiguous) {
-    kern((const char *)cond->data, (const char *)a->data,
-         (const char *)b->data, (char *)out->data, a->size, es, es, es, es);
+    kern((const char *)cond->data, (const char *)a->data, (const char *)b->data,
+         (char *)out->data, a->size, es, es, es, es);
   } else {
     size_t ps[NUMC_MAX_DIMENSIONS], pc[NUMC_MAX_DIMENSIONS],
         pa[NUMC_MAX_DIMENSIONS], pb[NUMC_MAX_DIMENSIONS],

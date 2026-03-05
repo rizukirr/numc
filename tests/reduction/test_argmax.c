@@ -131,8 +131,7 @@ static int test_argmax_transposed(void) {
 
 static int test_argmax_null(void) {
   int err = numc_argmax(NULL, NULL);
-  ASSERT_MSG(err == NUMC_ERR_NULL,
-             "argmax(NULL) should return NUMC_ERR_NULL");
+  ASSERT_MSG(err == NUMC_ERR_NULL, "argmax(NULL) should return NUMC_ERR_NULL");
   return 0;
 }
 

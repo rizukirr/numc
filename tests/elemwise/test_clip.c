@@ -3,7 +3,7 @@
 static int test_clip_float32(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {6};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
 
   float da[] = {-1.0f, 0.0f, 2.5f, 5.0f, 7.5f, 10.0f};
@@ -27,7 +27,7 @@ static int test_clip_float32(void) {
 static int test_clip_float64(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
 
   double da[] = {-100.0, -0.5, 0.5, 100.0};
@@ -39,8 +39,8 @@ static int test_clip_float64(void) {
   double *r = (double *)numc_array_data(out);
   ASSERT_MSG(r[0] == -1.0, "clip(-100, -1, 1) == -1.0");
   ASSERT_MSG(r[1] == -0.5, "clip(-0.5, -1, 1) == -0.5");
-  ASSERT_MSG(r[2] == 0.5,  "clip(0.5, -1, 1)  ==  0.5");
-  ASSERT_MSG(r[3] == 1.0,  "clip(100, -1, 1)  ==  1.0");
+  ASSERT_MSG(r[2] == 0.5, "clip(0.5, -1, 1)  ==  0.5");
+  ASSERT_MSG(r[3] == 1.0, "clip(100, -1, 1)  ==  1.0");
 
   numc_ctx_free(ctx);
   return 0;
@@ -49,7 +49,7 @@ static int test_clip_float64(void) {
 static int test_clip_int32(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {5};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT32);
 
   int32_t da[] = {-50, -5, 0, 5, 50};
@@ -60,10 +60,10 @@ static int test_clip_int32(void) {
 
   int32_t *r = (int32_t *)numc_array_data(out);
   ASSERT_MSG(r[0] == -10, "clip(-50, -10, 10) == -10");
-  ASSERT_MSG(r[1] == -5,  "clip(-5, -10, 10)  == -5");
-  ASSERT_MSG(r[2] == 0,   "clip(0, -10, 10)   == 0");
-  ASSERT_MSG(r[3] == 5,   "clip(5, -10, 10)   == 5");
-  ASSERT_MSG(r[4] == 10,  "clip(50, -10, 10)  == 10");
+  ASSERT_MSG(r[1] == -5, "clip(-5, -10, 10)  == -5");
+  ASSERT_MSG(r[2] == 0, "clip(0, -10, 10)   == 0");
+  ASSERT_MSG(r[3] == 5, "clip(5, -10, 10)   == 5");
+  ASSERT_MSG(r[4] == 10, "clip(50, -10, 10)  == 10");
 
   numc_ctx_free(ctx);
   return 0;
@@ -72,7 +72,7 @@ static int test_clip_int32(void) {
 static int test_clip_int8(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT8);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT8);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT8);
 
   int8_t da[] = {-100, -1, 1, 100};
@@ -83,9 +83,9 @@ static int test_clip_int8(void) {
 
   int8_t *r = (int8_t *)numc_array_data(out);
   ASSERT_MSG(r[0] == -10, "clip(-100, -10, 10) == -10");
-  ASSERT_MSG(r[1] == -1,  "clip(-1, -10, 10)   == -1");
-  ASSERT_MSG(r[2] == 1,   "clip(1, -10, 10)    == 1");
-  ASSERT_MSG(r[3] == 10,  "clip(100, -10, 10)  == 10");
+  ASSERT_MSG(r[1] == -1, "clip(-1, -10, 10)   == -1");
+  ASSERT_MSG(r[2] == 1, "clip(1, -10, 10)    == 1");
+  ASSERT_MSG(r[3] == 10, "clip(100, -10, 10)  == 10");
 
   numc_ctx_free(ctx);
   return 0;
@@ -94,7 +94,7 @@ static int test_clip_int8(void) {
 static int test_clip_2d(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {2, 3};
-  NumcArray *a   = numc_array_create(ctx, shape, 2, NUMC_DTYPE_INT32);
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_INT32);
   NumcArray *out = numc_array_zeros(ctx, shape, 2, NUMC_DTYPE_INT32);
 
   int32_t da[] = {-50, -5, 0, 5, 50, 100};
@@ -105,11 +105,11 @@ static int test_clip_2d(void) {
 
   int32_t *r = (int32_t *)numc_array_data(out);
   ASSERT_MSG(r[0] == -10, "2d clip [0][0]");
-  ASSERT_MSG(r[1] == -5,  "2d clip [0][1]");
-  ASSERT_MSG(r[2] == 0,   "2d clip [0][2]");
-  ASSERT_MSG(r[3] == 5,   "2d clip [1][0]");
-  ASSERT_MSG(r[4] == 10,  "2d clip [1][1]");
-  ASSERT_MSG(r[5] == 10,  "2d clip [1][2]");
+  ASSERT_MSG(r[1] == -5, "2d clip [0][1]");
+  ASSERT_MSG(r[2] == 0, "2d clip [0][2]");
+  ASSERT_MSG(r[3] == 5, "2d clip [1][0]");
+  ASSERT_MSG(r[4] == 10, "2d clip [1][1]");
+  ASSERT_MSG(r[5] == 10, "2d clip [1][2]");
 
   numc_ctx_free(ctx);
   return 0;
@@ -119,7 +119,7 @@ static int test_clip_all_within(void) {
   /* All values already within [min, max] — should pass through unchanged */
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
 
   float da[] = {1.0f, 2.0f, 3.0f, 4.0f};
@@ -154,7 +154,7 @@ static int test_clip_null(void) {
 static int test_clip_type_mismatch(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
 
   int err = numc_clip(a, out, 0.0, 1.0);
@@ -168,7 +168,7 @@ static int test_clip_type_mismatch(void) {
 static int test_clip_shape_mismatch(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t sa[] = {4}, sb[] = {6};
-  NumcArray *a   = numc_array_create(ctx, sa, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *a = numc_array_create(ctx, sa, 1, NUMC_DTYPE_FLOAT32);
   NumcArray *out = numc_array_zeros(ctx, sb, 1, NUMC_DTYPE_FLOAT32);
 
   int err = numc_clip(a, out, 0.0, 1.0);
@@ -213,9 +213,9 @@ static int test_clip_inplace_int32(void) {
 
   int32_t *r = (int32_t *)numc_array_data(a);
   ASSERT_MSG(r[0] == -10, "clip_inplace(-50, -10, 10) == -10");
-  ASSERT_MSG(r[1] == 0,   "clip_inplace(0, -10, 10)   == 0");
-  ASSERT_MSG(r[2] == 5,   "clip_inplace(5, -10, 10)   == 5");
-  ASSERT_MSG(r[3] == 10,  "clip_inplace(50, -10, 10)  == 10");
+  ASSERT_MSG(r[1] == 0, "clip_inplace(0, -10, 10)   == 0");
+  ASSERT_MSG(r[2] == 5, "clip_inplace(5, -10, 10)   == 5");
+  ASSERT_MSG(r[3] == 10, "clip_inplace(50, -10, 10)  == 10");
 
   numc_ctx_free(ctx);
   return 0;

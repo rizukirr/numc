@@ -49,12 +49,12 @@ extern "C" {
 #include <stdalign.h>
 #define ARENA_ALIGNOF(type) alignof(type)
 #else
-#define ARENA_ALIGNOF(type)                                                    \
-  offsetof(                                                                    \
-      struct {                                                                 \
-        char c;                                                                \
-        type d;                                                                \
-      },                                                                       \
+#define ARENA_ALIGNOF(type) \
+  offsetof(                 \
+      struct {              \
+        char c;             \
+        type d;             \
+      },                    \
       d)
 #endif
 
@@ -261,8 +261,9 @@ void *arena_alloc(Arena *arena, size_t size, size_t alignment) {
     size_t min_needed;
     if (__builtin_add_overflow(size, alignment - 1, &min_needed))
       return NULL;
-    size_t block_size =
-        (min_needed > arena->default_block_size) ? min_needed : arena->default_block_size;
+    size_t block_size = (min_needed > arena->default_block_size)
+                            ? min_needed
+                            : arena->default_block_size;
 
     struct ArenaBlock *block =
         (struct ArenaBlock *)malloc(sizeof(struct ArenaBlock) + block_size);
@@ -292,8 +293,9 @@ void *arena_alloc(Arena *arena, size_t size, size_t alignment) {
     size_t min_needed;
     if (__builtin_add_overflow(size, alignment - 1, &min_needed))
       return NULL;
-    size_t next_capacity =
-        (min_needed > arena->default_block_size) ? min_needed : arena->default_block_size;
+    size_t next_capacity = (min_needed > arena->default_block_size)
+                               ? min_needed
+                               : arena->default_block_size;
 
     struct ArenaBlock *new_block =
         (struct ArenaBlock *)malloc(sizeof(struct ArenaBlock) + next_capacity);

@@ -43,24 +43,20 @@ static double bench(ElemwiseOp op, const NumcArray *a, const NumcArray *b,
 
 static const char *dtype_name(NumcDType dt) {
   static const char *names[] = {
-    [NUMC_DTYPE_INT8]    = "int8",    [NUMC_DTYPE_INT16]   = "int16",
-    [NUMC_DTYPE_INT32]   = "int32",   [NUMC_DTYPE_INT64]   = "int64",
-    [NUMC_DTYPE_UINT8]   = "uint8",   [NUMC_DTYPE_UINT16]  = "uint16",
-    [NUMC_DTYPE_UINT32]  = "uint32",  [NUMC_DTYPE_UINT64]  = "uint64",
-    [NUMC_DTYPE_FLOAT32] = "float32", [NUMC_DTYPE_FLOAT64] = "float64",
+      [NUMC_DTYPE_INT8] = "int8",       [NUMC_DTYPE_INT16] = "int16",
+      [NUMC_DTYPE_INT32] = "int32",     [NUMC_DTYPE_INT64] = "int64",
+      [NUMC_DTYPE_UINT8] = "uint8",     [NUMC_DTYPE_UINT16] = "uint16",
+      [NUMC_DTYPE_UINT32] = "uint32",   [NUMC_DTYPE_UINT64] = "uint64",
+      [NUMC_DTYPE_FLOAT32] = "float32", [NUMC_DTYPE_FLOAT64] = "float64",
   };
   return names[dt];
 }
 
 static void print_header(const char *title) {
-  printf("\n  %-8s %8s %8s %8s %8s   %8s %8s %8s %8s\n",
-         title,
-         "add", "sub", "mul", "div",
-         "add", "sub", "mul", "div");
-  printf("  %-8s %8s %8s %8s %8s   %8s %8s %8s %8s\n",
-         "",
-         "(us)", "(us)", "(us)", "(us)",
-         "(Mop/s)", "(Mop/s)", "(Mop/s)", "(Mop/s)");
+  printf("\n  %-8s %8s %8s %8s %8s   %8s %8s %8s %8s\n", title, "add", "sub",
+         "mul", "div", "add", "sub", "mul", "div");
+  printf("  %-8s %8s %8s %8s %8s   %8s %8s %8s %8s\n", "", "(us)", "(us)",
+         "(us)", "(us)", "(Mop/s)", "(Mop/s)", "(Mop/s)", "(Mop/s)");
   printf("  ────────────────────────────────────────────"
          "──────────────────────────────────────\n");
 }
@@ -68,25 +64,43 @@ static void print_header(const char *title) {
 static void fill_value(NumcDType dt, char buf[static 8]) {
   memset(buf, 0, 8);
   switch (dt) {
-    case NUMC_DTYPE_INT8:    *(int8_t *)buf   = 3;    break;
-    case NUMC_DTYPE_INT16:   *(int16_t *)buf  = 7;    break;
-    case NUMC_DTYPE_INT32:   *(int32_t *)buf  = 42;   break;
-    case NUMC_DTYPE_INT64:   *(int64_t *)buf  = 42;   break;
-    case NUMC_DTYPE_UINT8:   *(uint8_t *)buf  = 3;    break;
-    case NUMC_DTYPE_UINT16:  *(uint16_t *)buf = 7;    break;
-    case NUMC_DTYPE_UINT32:  *(uint32_t *)buf = 42;   break;
-    case NUMC_DTYPE_UINT64:  *(uint64_t *)buf = 42;   break;
-    case NUMC_DTYPE_FLOAT32: *(float *)buf    = 1.5f; break;
-    case NUMC_DTYPE_FLOAT64: *(double *)buf   = 1.5;  break;
+  case NUMC_DTYPE_INT8:
+    *(int8_t *)buf = 3;
+    break;
+  case NUMC_DTYPE_INT16:
+    *(int16_t *)buf = 7;
+    break;
+  case NUMC_DTYPE_INT32:
+    *(int32_t *)buf = 42;
+    break;
+  case NUMC_DTYPE_INT64:
+    *(int64_t *)buf = 42;
+    break;
+  case NUMC_DTYPE_UINT8:
+    *(uint8_t *)buf = 3;
+    break;
+  case NUMC_DTYPE_UINT16:
+    *(uint16_t *)buf = 7;
+    break;
+  case NUMC_DTYPE_UINT32:
+    *(uint32_t *)buf = 42;
+    break;
+  case NUMC_DTYPE_UINT64:
+    *(uint64_t *)buf = 42;
+    break;
+  case NUMC_DTYPE_FLOAT32:
+    *(float *)buf = 1.5f;
+    break;
+  case NUMC_DTYPE_FLOAT64:
+    *(double *)buf = 1.5;
+    break;
   }
 }
 
 static const NumcDType ALL_DTYPES[] = {
-  NUMC_DTYPE_INT8,    NUMC_DTYPE_UINT8,
-  NUMC_DTYPE_INT16,   NUMC_DTYPE_UINT16,
-  NUMC_DTYPE_INT32,   NUMC_DTYPE_UINT32,
-  NUMC_DTYPE_INT64,   NUMC_DTYPE_UINT64,
-  NUMC_DTYPE_FLOAT32, NUMC_DTYPE_FLOAT64,
+    NUMC_DTYPE_INT8,    NUMC_DTYPE_UINT8,   NUMC_DTYPE_INT16, NUMC_DTYPE_UINT16,
+    NUMC_DTYPE_INT32,   NUMC_DTYPE_UINT32,  NUMC_DTYPE_INT64, NUMC_DTYPE_UINT64,
+    NUMC_DTYPE_FLOAT32, NUMC_DTYPE_FLOAT64,
 };
 static const int N_DTYPES = sizeof(ALL_DTYPES) / sizeof(ALL_DTYPES[0]);
 
@@ -106,8 +120,8 @@ static void bench_contiguous(NumcCtx *ctx, size_t size) {
 
     char val[8];
     fill_value(dt, val);
-    NumcArray *a   = numc_array_fill(ctx, shape, 1, dt, val);
-    NumcArray *b   = numc_array_fill(ctx, shape, 1, dt, val);
+    NumcArray *a = numc_array_fill(ctx, shape, 1, dt, val);
+    NumcArray *b = numc_array_fill(ctx, shape, 1, dt, val);
     NumcArray *out = numc_array_zeros(ctx, shape, 1, dt);
     if (!a || !b || !out) {
       fprintf(stderr, "  alloc failed for %s\n", dtype_name(dt));
@@ -116,14 +130,13 @@ static void bench_contiguous(NumcCtx *ctx, size_t size) {
 
     double us[4], mops[4];
     for (int op = 0; op < 4; op++) {
-      us[op]   = bench(ops[op], a, b, out, ITERS);
+      us[op] = bench(ops[op], a, b, out, ITERS);
       mops[op] = size / us[op];
     }
 
     printf("  %-8s %8.2f %8.2f %8.2f %8.2f   %8.1f %8.1f %8.1f %8.1f\n",
-           dtype_name(dt),
-           us[0], us[1], us[2], us[3],
-           mops[0], mops[1], mops[2], mops[3]);
+           dtype_name(dt), us[0], us[1], us[2], us[3], mops[0], mops[1],
+           mops[2], mops[3]);
   }
 }
 
@@ -134,13 +147,14 @@ static void bench_strided(NumcCtx *ctx, size_t rows, size_t cols) {
 
   printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-  printf("  STRIDED  (%zux%zu transposed, %zu elements, %d iters)\n",
-         rows, cols, total, ITERS);
+  printf("  STRIDED  (%zux%zu transposed, %zu elements, %d iters)\n", rows,
+         cols, total, ITERS);
   print_header("dtype");
 
   ElemwiseOp ops[] = {numc_add, numc_sub, numc_mul, numc_div};
 
-  NumcDType dtypes[] = {NUMC_DTYPE_INT32, NUMC_DTYPE_FLOAT32, NUMC_DTYPE_FLOAT64};
+  NumcDType dtypes[] = {NUMC_DTYPE_INT32, NUMC_DTYPE_FLOAT32,
+                        NUMC_DTYPE_FLOAT64};
   const int ndtypes = sizeof(dtypes) / sizeof(dtypes[0]);
 
   for (int d = 0; d < ndtypes; d++) {
@@ -149,10 +163,11 @@ static void bench_strided(NumcCtx *ctx, size_t rows, size_t cols) {
 
     char val[8];
     fill_value(dt, val);
-    NumcArray *a   = numc_array_fill(ctx, shape, 2, dt, val);
-    NumcArray *b   = numc_array_fill(ctx, shape, 2, dt, val);
+    NumcArray *a = numc_array_fill(ctx, shape, 2, dt, val);
+    NumcArray *b = numc_array_fill(ctx, shape, 2, dt, val);
     NumcArray *out = numc_array_zeros(ctx, shape, 2, dt);
-    if (!a || !b || !out) continue;
+    if (!a || !b || !out)
+      continue;
 
     size_t axes[] = {1, 0};
     numc_array_transpose(a, axes);
@@ -162,14 +177,13 @@ static void bench_strided(NumcCtx *ctx, size_t rows, size_t cols) {
 
     double us[4], mops[4];
     for (int op = 0; op < 4; op++) {
-      us[op]   = bench(ops[op], a, b, out, ITERS);
+      us[op] = bench(ops[op], a, b, out, ITERS);
       mops[op] = total / us[op];
     }
 
     printf("  %-8s %8.2f %8.2f %8.2f %8.2f   %8.1f %8.1f %8.1f %8.1f\n",
-           dtype_name(dt),
-           us[0], us[1], us[2], us[3],
-           mops[0], mops[1], mops[2], mops[3]);
+           dtype_name(dt), us[0], us[1], us[2], us[3], mops[0], mops[1],
+           mops[2], mops[3]);
   }
 }
 
@@ -179,27 +193,28 @@ static void bench_bcast_pattern(NumcCtx *ctx, const size_t *sa, size_t na,
                                 const size_t *sb, size_t nb, const size_t *so,
                                 size_t no, size_t total) {
   ElemwiseOp ops[] = {numc_add, numc_sub, numc_mul, numc_div};
-  NumcDType dtypes[] = {NUMC_DTYPE_INT32, NUMC_DTYPE_FLOAT32, NUMC_DTYPE_FLOAT64};
+  NumcDType dtypes[] = {NUMC_DTYPE_INT32, NUMC_DTYPE_FLOAT32,
+                        NUMC_DTYPE_FLOAT64};
 
   for (int d = 0; d < 3; d++) {
     NumcDType dt = dtypes[d];
     char val[8];
     fill_value(dt, val);
-    NumcArray *a   = numc_array_fill(ctx, sa, na, dt, val);
-    NumcArray *b   = numc_array_fill(ctx, sb, nb, dt, val);
+    NumcArray *a = numc_array_fill(ctx, sa, na, dt, val);
+    NumcArray *b = numc_array_fill(ctx, sb, nb, dt, val);
     NumcArray *out = numc_array_zeros(ctx, so, no, dt);
-    if (!a || !b || !out) continue;
+    if (!a || !b || !out)
+      continue;
 
     double us[4], mops[4];
     for (int op = 0; op < 4; op++) {
-      us[op]   = bench(ops[op], a, b, out, ITERS);
+      us[op] = bench(ops[op], a, b, out, ITERS);
       mops[op] = total / us[op];
     }
 
     printf("  %-8s %8.2f %8.2f %8.2f %8.2f   %8.1f %8.1f %8.1f %8.1f\n",
-           dtype_name(dt),
-           us[0], us[1], us[2], us[3],
-           mops[0], mops[1], mops[2], mops[3]);
+           dtype_name(dt), us[0], us[1], us[2], us[3], mops[0], mops[1],
+           mops[2], mops[3]);
   }
 }
 
@@ -209,8 +224,8 @@ static void bench_broadcast(NumcCtx *ctx, size_t M, size_t N) {
   /* Row broadcast: (1,N) + (M,N) → (M,N) */
   printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-  printf("  BROADCAST ROW  (1,%zu) + (%zu,%zu) -> (%zu,%zu), %d iters\n",
-         N, M, N, M, N, ITERS);
+  printf("  BROADCAST ROW  (1,%zu) + (%zu,%zu) -> (%zu,%zu), %d iters\n", N, M,
+         N, M, N, ITERS);
   print_header("dtype");
   {
     size_t sa[] = {1, N}, sb[] = {M, N}, so[] = {M, N};
@@ -220,8 +235,8 @@ static void bench_broadcast(NumcCtx *ctx, size_t M, size_t N) {
   /* Outer broadcast: (M,1) + (1,N) → (M,N) */
   printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-  printf("  BROADCAST OUTER  (%zu,1) + (1,%zu) -> (%zu,%zu), %d iters\n",
-         M, N, M, N, ITERS);
+  printf("  BROADCAST OUTER  (%zu,1) + (1,%zu) -> (%zu,%zu), %d iters\n", M, N,
+         M, N, ITERS);
   print_header("dtype");
   {
     size_t sa[] = {M, 1}, sb[] = {1, N}, so[] = {M, N};
@@ -231,8 +246,8 @@ static void bench_broadcast(NumcCtx *ctx, size_t M, size_t N) {
   /* Rank broadcast: (N,) + (M,N) → (M,N) */
   printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-  printf("  BROADCAST RANK  (%zu,) + (%zu,%zu) -> (%zu,%zu), %d iters\n",
-         N, M, N, M, N, ITERS);
+  printf("  BROADCAST RANK  (%zu,) + (%zu,%zu) -> (%zu,%zu), %d iters\n", N, M,
+         N, M, N, ITERS);
   print_header("dtype");
   {
     size_t sa[] = {N}, sb[] = {M, N}, so[] = {M, N};
@@ -246,7 +261,8 @@ static void bench_scaling(NumcCtx *ctx) {
   printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
   printf("  SIZE SCALING  (float32 add, %d iters)\n", ITERS);
-  printf("\n  %10s %10s %10s %10s\n", "elements", "time (us)", "Mops/s", "GB/s");
+  printf("\n  %10s %10s %10s %10s\n", "elements", "time (us)", "Mops/s",
+         "GB/s");
   printf("  ──────────────────────────────────────────\n");
 
   size_t sizes[] = {100, 1000, 10000, 100000, 1000000};
@@ -256,10 +272,11 @@ static void bench_scaling(NumcCtx *ctx) {
     size_t n = sizes[s];
     size_t shape[] = {n};
     float va = 1.5f, vb = 2.5f;
-    NumcArray *a   = numc_array_fill(ctx, shape, 1, NUMC_DTYPE_FLOAT32, &va);
-    NumcArray *b   = numc_array_fill(ctx, shape, 1, NUMC_DTYPE_FLOAT32, &vb);
+    NumcArray *a = numc_array_fill(ctx, shape, 1, NUMC_DTYPE_FLOAT32, &va);
+    NumcArray *b = numc_array_fill(ctx, shape, 1, NUMC_DTYPE_FLOAT32, &vb);
     NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
-    if (!a || !b || !out) continue;
+    if (!a || !b || !out)
+      continue;
 
     double us = bench(numc_add, a, b, out, ITERS);
     double mops = n / us;

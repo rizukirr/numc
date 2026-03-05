@@ -5,7 +5,7 @@
 static int test_mean_1d_float32(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {6};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
   size_t sshape[] = {1};
   NumcArray *out = numc_array_zeros(ctx, sshape, 1, NUMC_DTYPE_FLOAT32);
 
@@ -25,7 +25,7 @@ static int test_mean_1d_float32(void) {
 static int test_mean_1d_int32(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {5};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
   size_t sshape[] = {1};
   NumcArray *out = numc_array_zeros(ctx, sshape, 1, NUMC_DTYPE_INT32);
 
@@ -46,7 +46,7 @@ static int test_mean_1d_int32_truncates(void) {
   /* 150 / 4 = 37.5 -> truncates to 37 */
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
   size_t sshape[] = {1};
   NumcArray *out = numc_array_zeros(ctx, sshape, 1, NUMC_DTYPE_INT32);
 
@@ -66,7 +66,7 @@ static int test_mean_1d_int32_truncates(void) {
 static int test_mean_2d_float64(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {2, 3};
-  NumcArray *a   = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT64);
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT64);
   size_t sshape[] = {1};
   NumcArray *out = numc_array_zeros(ctx, sshape, 1, NUMC_DTYPE_FLOAT64);
 
@@ -95,7 +95,8 @@ static int test_mean_transposed(void) {
 
   size_t axes[] = {1, 0};
   numc_array_transpose(a, axes);
-  ASSERT_MSG(!numc_array_is_contiguous(a), "transposed should be non-contiguous");
+  ASSERT_MSG(!numc_array_is_contiguous(a),
+             "transposed should be non-contiguous");
 
   int err = numc_mean(a, out);
   ASSERT_MSG(err == 0, "mean transposed should succeed");
@@ -116,12 +117,13 @@ static int test_mean_null(void) {
 static int test_mean_type_mismatch(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
   size_t sshape[] = {1};
   NumcArray *out = numc_array_zeros(ctx, sshape, 1, NUMC_DTYPE_FLOAT32);
 
   int err = numc_mean(a, out);
-  ASSERT_MSG(err == NUMC_ERR_TYPE, "mean type mismatch should return NUMC_ERR_TYPE");
+  ASSERT_MSG(err == NUMC_ERR_TYPE,
+             "mean type mismatch should return NUMC_ERR_TYPE");
 
   numc_ctx_free(ctx);
   return 0;
@@ -130,11 +132,12 @@ static int test_mean_type_mismatch(void) {
 static int test_mean_out_not_scalar(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT32);
 
   int err = numc_mean(a, out);
-  ASSERT_MSG(err == NUMC_ERR_SHAPE, "mean with non-scalar out should return NUMC_ERR_SHAPE");
+  ASSERT_MSG(err == NUMC_ERR_SHAPE,
+             "mean with non-scalar out should return NUMC_ERR_SHAPE");
 
   numc_ctx_free(ctx);
   return 0;
@@ -219,19 +222,19 @@ static int test_mean_axis0_3d(void) {
   size_t oshape[] = {2, 3};
   NumcArray *out = numc_array_zeros(ctx, oshape, 2, NUMC_DTYPE_FLOAT32);
 
-  float da[] = {1,2,3, 4,5,6, 7,8,9, 10,11,12};
+  float da[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
   numc_array_write(a, da);
 
   int err = numc_mean_axis(a, 0, 0, out);
   ASSERT_MSG(err == 0, "mean_axis(0) 3d should succeed");
 
   float *r = (float *)numc_array_data(out);
-  ASSERT_MSG(r[0] == 4.0f,  "r[0] == (1+7)/2");
-  ASSERT_MSG(r[1] == 5.0f,  "r[1] == (2+8)/2");
-  ASSERT_MSG(r[2] == 6.0f,  "r[2] == (3+9)/2");
-  ASSERT_MSG(r[3] == 7.0f,  "r[3] == (4+10)/2");
-  ASSERT_MSG(r[4] == 8.0f,  "r[4] == (5+11)/2");
-  ASSERT_MSG(r[5] == 9.0f,  "r[5] == (6+12)/2");
+  ASSERT_MSG(r[0] == 4.0f, "r[0] == (1+7)/2");
+  ASSERT_MSG(r[1] == 5.0f, "r[1] == (2+8)/2");
+  ASSERT_MSG(r[2] == 6.0f, "r[2] == (3+9)/2");
+  ASSERT_MSG(r[3] == 7.0f, "r[3] == (4+10)/2");
+  ASSERT_MSG(r[4] == 8.0f, "r[4] == (5+11)/2");
+  ASSERT_MSG(r[5] == 9.0f, "r[5] == (6+12)/2");
 
   numc_ctx_free(ctx);
   return 0;
@@ -248,16 +251,16 @@ static int test_mean_axis2_3d(void) {
   size_t oshape[] = {2, 2};
   NumcArray *out = numc_array_zeros(ctx, oshape, 2, NUMC_DTYPE_FLOAT32);
 
-  float da[] = {1,2,3, 4,5,6, 7,8,9, 10,11,12};
+  float da[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
   numc_array_write(a, da);
 
   int err = numc_mean_axis(a, 2, 0, out);
   ASSERT_MSG(err == 0, "mean_axis(2) 3d should succeed");
 
   float *r = (float *)numc_array_data(out);
-  ASSERT_MSG(r[0] == 2.0f,  "r[0] == (1+2+3)/3");
-  ASSERT_MSG(r[1] == 5.0f,  "r[1] == (4+5+6)/3");
-  ASSERT_MSG(r[2] == 8.0f,  "r[2] == (7+8+9)/3");
+  ASSERT_MSG(r[0] == 2.0f, "r[0] == (1+2+3)/3");
+  ASSERT_MSG(r[1] == 5.0f, "r[1] == (4+5+6)/3");
+  ASSERT_MSG(r[2] == 8.0f, "r[2] == (7+8+9)/3");
   ASSERT_MSG(r[3] == 11.0f, "r[3] == (10+11+12)/3");
 
   numc_ctx_free(ctx);
@@ -265,7 +268,8 @@ static int test_mean_axis2_3d(void) {
 }
 
 static int test_mean_axis_keepdim(void) {
-  /* [[1, 2, 3], [4, 5, 6]] -> mean axis=0, keepdim=1 -> [[2.5, 3.5, 4.5]] (1x3) */
+  /* [[1, 2, 3], [4, 5, 6]] -> mean axis=0, keepdim=1 -> [[2.5, 3.5, 4.5]] (1x3)
+   */
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {2, 3};
   NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
@@ -366,14 +370,15 @@ static int test_mean_axis_int32_truncates(void) {
 
 static int test_mean_axis_null(void) {
   int err = numc_mean_axis(NULL, 0, 0, NULL);
-  ASSERT_MSG(err == NUMC_ERR_NULL, "mean_axis(NULL) should return NUMC_ERR_NULL");
+  ASSERT_MSG(err == NUMC_ERR_NULL,
+             "mean_axis(NULL) should return NUMC_ERR_NULL");
   return 0;
 }
 
 static int test_mean_axis_type_mismatch(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {2, 3};
-  NumcArray *a   = numc_array_create(ctx, shape, 2, NUMC_DTYPE_INT32);
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_INT32);
   size_t oshape[] = {3};
   NumcArray *out = numc_array_zeros(ctx, oshape, 1, NUMC_DTYPE_FLOAT32);
 
@@ -409,7 +414,8 @@ static int test_mean_axis_shape_mismatch(void) {
   NumcArray *out = numc_array_zeros(ctx, oshape, 1, NUMC_DTYPE_INT32);
 
   int err = numc_mean_axis(a, 0, 0, out);
-  ASSERT_MSG(err == NUMC_ERR_SHAPE, "mean_axis with wrong output shape should fail");
+  ASSERT_MSG(err == NUMC_ERR_SHAPE,
+             "mean_axis with wrong output shape should fail");
 
   numc_ctx_free(ctx);
   return 0;

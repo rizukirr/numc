@@ -101,8 +101,8 @@ static int test_xavier_null_ctx(void) {
 
 static int test_xavier_zero_fan_in(void) {
   NumcCtx *ctx = numc_ctx_create();
-  NumcArray *a = numc_array_random_xavier(ctx, (size_t[]){4}, 1,
-                                          NUMC_DTYPE_FLOAT32, 0, 4);
+  NumcArray *a =
+      numc_array_random_xavier(ctx, (size_t[]){4}, 1, NUMC_DTYPE_FLOAT32, 0, 4);
   ASSERT_MSG(a == NULL, "random_xavier with fan_in=0 must return NULL");
   numc_ctx_free(ctx);
   return 0;
@@ -110,8 +110,8 @@ static int test_xavier_zero_fan_in(void) {
 
 static int test_xavier_zero_fan_out(void) {
   NumcCtx *ctx = numc_ctx_create();
-  NumcArray *a = numc_array_random_xavier(ctx, (size_t[]){4}, 1,
-                                          NUMC_DTYPE_FLOAT32, 4, 0);
+  NumcArray *a =
+      numc_array_random_xavier(ctx, (size_t[]){4}, 1, NUMC_DTYPE_FLOAT32, 4, 0);
   ASSERT_MSG(a == NULL, "random_xavier with fan_out=0 must return NULL");
   numc_ctx_free(ctx);
   return 0;

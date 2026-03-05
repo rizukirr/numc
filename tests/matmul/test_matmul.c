@@ -67,8 +67,8 @@ static int test_matmul_f32_known_result(void) {
 
   float *rc = (float *)numc_array_data(c);
   for (size_t i = 0; i < 4; i++) {
-    ASSERT_MSG_CTX(rc[i] == (float)N,
-                   "matmul f32 ones result should equal N", ctx);
+    ASSERT_MSG_CTX(rc[i] == (float)N, "matmul f32 ones result should equal N",
+                   ctx);
   }
 
   numc_ctx_free(ctx);
@@ -126,8 +126,8 @@ static int test_matmul_f64_known_result(void) {
 
   double *rc = (double *)numc_array_data(c);
   for (size_t i = 0; i < 4; i++) {
-    ASSERT_MSG_CTX(rc[i] == (double)N,
-                   "matmul f64 ones result should equal N", ctx);
+    ASSERT_MSG_CTX(rc[i] == (double)N, "matmul f64 ones result should equal N",
+                   ctx);
   }
 
   numc_ctx_free(ctx);
@@ -159,8 +159,8 @@ static int test_matmul_f32_rect(void) {
 
   float *rc = (float *)numc_array_data(c);
   for (size_t i = 0; i < (size_t)M * NN; i++) {
-    ASSERT_MSG_CTX(rc[i] == (float)K,
-                   "matmul f32 rect result should equal K", ctx);
+    ASSERT_MSG_CTX(rc[i] == (float)K, "matmul f32 rect result should equal K",
+                   ctx);
   }
 
   numc_ctx_free(ctx);
@@ -188,14 +188,15 @@ static int test_matmul_blis_vs_naive_f32(void) {
 
   int err1 = numc_matmul(a, b, c_blis);
   int err2 = numc_matmul_naive(a, b, c_naive);
-  ASSERT_MSG_CTX(err1 == 0 && err2 == 0, "both matmul paths should succeed", ctx);
+  ASSERT_MSG_CTX(err1 == 0 && err2 == 0, "both matmul paths should succeed",
+                 ctx);
 
   float *rb = (float *)numc_array_data(c_blis);
   float *rn = (float *)numc_array_data(c_naive);
   for (size_t i = 0; i < (size_t)N * N; i++) {
     float diff = fabsf(rb[i] - rn[i]);
-    ASSERT_MSG_CTX(diff < 1e-3f,
-                   "BLIS and naive f32 results should match", ctx);
+    ASSERT_MSG_CTX(diff < 1e-3f, "BLIS and naive f32 results should match",
+                   ctx);
   }
 
   numc_ctx_free(ctx);
@@ -220,14 +221,15 @@ static int test_matmul_blis_vs_naive_f64(void) {
 
   int err1 = numc_matmul(a, b, c_blis);
   int err2 = numc_matmul_naive(a, b, c_naive);
-  ASSERT_MSG_CTX(err1 == 0 && err2 == 0, "both matmul paths should succeed", ctx);
+  ASSERT_MSG_CTX(err1 == 0 && err2 == 0, "both matmul paths should succeed",
+                 ctx);
 
   double *rb = (double *)numc_array_data(c_blis);
   double *rn = (double *)numc_array_data(c_naive);
   for (size_t i = 0; i < (size_t)N * N; i++) {
     double diff = fabs(rb[i] - rn[i]);
-    ASSERT_MSG_CTX(diff < 1e-10,
-                   "BLIS and naive f64 results should match", ctx);
+    ASSERT_MSG_CTX(diff < 1e-10, "BLIS and naive f64 results should match",
+                   ctx);
   }
 
   numc_ctx_free(ctx);

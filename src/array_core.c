@@ -108,7 +108,8 @@ NumcCtx *numc_ctx_create(void) {
     return NULL;
   }
 
-  /* Pre-warm runtime resources (BLIS, OpenMP) to eliminate first-call latency */
+  /* Pre-warm runtime resources (BLIS, OpenMP) to eliminate first-call latency
+   */
   _numc_runtime_init();
 
   return ctx;
@@ -116,15 +117,17 @@ NumcCtx *numc_ctx_create(void) {
 
 NumcArray *numc_array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
                              NumcDType dtype) {
-  if (!ctx || !shape || dim == 0) {
+  if (!ctx || (!shape && dim > 0)) {
     return NULL;
   }
 
   size_t size = 1, capacity = 0, elem_size = numc_dtype_size(dtype);
 
-  for (size_t i = 0; i < dim; i++) {
-    if (__builtin_mul_overflow(size, shape[i], &size))
-      return NULL;
+  if (dim > 0) {
+    for (size_t i = 0; i < dim; i++) {
+      if (__builtin_mul_overflow(size, shape[i], &size))
+        return NULL;
+    }
   }
 
   if (__builtin_mul_overflow(size, elem_size, &capacity))
@@ -143,10 +146,12 @@ NumcArray *numc_array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
   if (!arr->data)
     return NULL;
 
-  memcpy(arr->shape, shape, dim * sizeof(size_t));
+  if (dim > 0) {
+    memcpy(arr->shape, shape, dim * sizeof(size_t));
+    if (!_calculate_strides(arr->strides, shape, dim, elem_size))
+      return NULL;
+  }
 
-  if (!_calculate_strides(arr->strides, shape, dim, elem_size))
-    return NULL;
   arr->dim = dim;
   arr->is_contiguous = true;
   arr->elem_size = elem_size;
@@ -261,7 +266,11 @@ NumcArray *numc_array_fill(NumcCtx *ctx, const size_t *shape, size_t dim,
   if (!arr)
     return NULL;
 
-  _array_fill_with(arr, value);
+  if (dim == 0) {
+    memcpy(arr->data, value, arr->elem_size);
+  } else {
+    _array_fill_with(arr, value);
+  }
   return arr;
 }
 
@@ -269,7 +278,6 @@ void numc_array_write(NumcArray *arr, const void *data) {
   if (!arr || !data)
     return;
 
-  memset(arr->data, 0, arr->capacity);
   memcpy(arr->data, data, arr->capacity);
 }
 
@@ -282,8 +290,8 @@ NumcArray *numc_array_copy(const NumcArray *arr) {
   if (!copy)
     return NULL;
 
-  if (arr->is_contiguous) {
-    /* Fast path: source is contiguous, direct memcpy */
+  if (arr->is_contiguous || arr->dim == 0) {
+    /* Fast path: source is contiguous or scalar, direct memcpy */
     memcpy(copy->data, arr->data, arr->capacity);
   } else {
     /* Slow path: source is non-contiguous (e.g. transposed view),

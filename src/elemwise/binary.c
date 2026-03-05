@@ -21,18 +21,15 @@ GENERATE_NUMC_TYPES(STAMP_MUL)
 #undef STAMP_MUL
 
 /* div: specialized kernel with reciprocal optimization for scalars */
-#define STAMP_DIV_S(TE, CT) \
-  DEFINE_INT_DIV_KERNEL(TE, CT, true)
+#define STAMP_DIV_S(TE, CT) DEFINE_INT_DIV_KERNEL(TE, CT, true)
 GENERATE_SIGNED_INT_NUMC_TYPES(STAMP_DIV_S)
 #undef STAMP_DIV_S
 
-#define STAMP_DIV_U(TE, CT) \
-  DEFINE_INT_DIV_KERNEL(TE, CT, false)
+#define STAMP_DIV_U(TE, CT) DEFINE_INT_DIV_KERNEL(TE, CT, false)
 GENERATE_UNSIGNED_INT_NUMC_TYPES(STAMP_DIV_U)
 #undef STAMP_DIV_U
 
-#define STAMP_DIV_F(TE, CT) \
-  DEFINE_FLOAT_DIV_KERNEL(TE, CT)
+#define STAMP_DIV_F(TE, CT) DEFINE_FLOAT_DIV_KERNEL(TE, CT)
 GENERATE_FLOAT_NUMC_TYPES(STAMP_DIV_F)
 #undef STAMP_DIV_F
 
@@ -47,18 +44,18 @@ DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT8, NUMC_UINT8, _powi_u8(in1, in2))
 DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_UINT16, NUMC_UINT16, _powi_u16(in1, in2))
 
 /* 32/64-bit: variable-iteration early-exit (scalar, fast for small exp) */
-DEFINE_BINARY_KERNEL_NOSIMD(
-    pow, NUMC_DTYPE_INT32, NUMC_INT32,
-    (NUMC_INT32)_powi_signed((NUMC_INT64)in1, (NUMC_INT64)in2))
-DEFINE_BINARY_KERNEL_NOSIMD(
-    pow, NUMC_DTYPE_UINT32, NUMC_UINT32,
-    (NUMC_UINT32)_powi_unsigned((NUMC_UINT64)in1, (NUMC_UINT64)in2))
-DEFINE_BINARY_KERNEL_NOSIMD(
-    pow, NUMC_DTYPE_INT64, NUMC_INT64,
-    (NUMC_INT64)_powi_signed((NUMC_INT64)in1, (NUMC_INT64)in2))
-DEFINE_BINARY_KERNEL_NOSIMD(
-    pow, NUMC_DTYPE_UINT64, NUMC_UINT64,
-    (NUMC_UINT64)_powi_unsigned((NUMC_UINT64)in1, (NUMC_UINT64)in2))
+DEFINE_BINARY_KERNEL_NOSIMD(pow, NUMC_DTYPE_INT32, NUMC_INT32,
+                            (NUMC_INT32)_powi_signed((NUMC_INT64)in1,
+                                                     (NUMC_INT64)in2))
+DEFINE_BINARY_KERNEL_NOSIMD(pow, NUMC_DTYPE_UINT32, NUMC_UINT32,
+                            (NUMC_UINT32)_powi_unsigned((NUMC_UINT64)in1,
+                                                        (NUMC_UINT64)in2))
+DEFINE_BINARY_KERNEL_NOSIMD(pow, NUMC_DTYPE_INT64, NUMC_INT64,
+                            (NUMC_INT64)_powi_signed((NUMC_INT64)in1,
+                                                     (NUMC_INT64)in2))
+DEFINE_BINARY_KERNEL_NOSIMD(pow, NUMC_DTYPE_UINT64, NUMC_UINT64,
+                            (NUMC_UINT64)_powi_unsigned((NUMC_UINT64)in1,
+                                                        (NUMC_UINT64)in2))
 
 /* float32: fused exp(in2 * log(in1)), single-precision */
 DEFINE_BINARY_KERNEL_NOSIMD(pow, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32,
@@ -111,7 +108,8 @@ GENERATE_NUMC_TYPES(STAMP_WHERE)
 
 /* ── Stamp out quaternary fma ─────────────────────────────────────── */
 
-#define STAMP_FMA(TE, CT) DEFINE_QUATERNARY_KERNEL(fma, TE, CT, in_a * in_b + in_c)
+#define STAMP_FMA(TE, CT) \
+  DEFINE_QUATERNARY_KERNEL(fma, TE, CT, in_a *in_b + in_c)
 GENERATE_INT_NUMC_TYPES(STAMP_FMA)
 #undef STAMP_FMA
 
@@ -238,42 +236,66 @@ static const NumcQuaternaryKernel fma_table[] = {
 #ifdef HAVE_BLAS
 #include <blis.h>
 
-static void _add_blis_f32(const NumcArray *a, const NumcArray *b, NumcArray *out) {
-  bli_scopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (float *)a->data, 1, (float *)out->data, 1);
-  bli_saddv(BLIS_NO_CONJUGATE, (dim_t)b->size, (float *)b->data, 1, (float *)out->data, 1);
+static void _add_blis_f32(const NumcArray *a, const NumcArray *b,
+                          NumcArray *out) {
+  bli_scopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (float *)a->data, 1,
+             (float *)out->data, 1);
+  bli_saddv(BLIS_NO_CONJUGATE, (dim_t)b->size, (float *)b->data, 1,
+            (float *)out->data, 1);
 }
-static void _add_blis_f64(const NumcArray *a, const NumcArray *b, NumcArray *out) {
-  bli_dcopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (double *)a->data, 1, (double *)out->data, 1);
-  bli_daddv(BLIS_NO_CONJUGATE, (dim_t)b->size, (double *)b->data, 1, (double *)out->data, 1);
-}
-
-static void _sub_blis_f32(const NumcArray *a, const NumcArray *b, NumcArray *out) {
-  bli_scopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (float *)a->data, 1, (float *)out->data, 1);
-  bli_ssubv(BLIS_NO_CONJUGATE, (dim_t)b->size, (float *)b->data, 1, (float *)out->data, 1);
-}
-static void _sub_blis_f64(const NumcArray *a, const NumcArray *b, NumcArray *out) {
-  bli_dcopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (double *)a->data, 1, (double *)out->data, 1);
-  bli_dsubv(BLIS_NO_CONJUGATE, (dim_t)b->size, (double *)b->data, 1, (double *)out->data, 1);
+static void _add_blis_f64(const NumcArray *a, const NumcArray *b,
+                          NumcArray *out) {
+  bli_dcopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (double *)a->data, 1,
+             (double *)out->data, 1);
+  bli_daddv(BLIS_NO_CONJUGATE, (dim_t)b->size, (double *)b->data, 1,
+            (double *)out->data, 1);
 }
 
-static void _mul_scalar_blis_f32(const NumcArray *a, float scalar, NumcArray *out) {
-  bli_scopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (float *)a->data, 1, (float *)out->data, 1);
-  bli_sscalv(BLIS_NO_CONJUGATE, (dim_t)out->size, &scalar, (float *)out->data, 1);
+static void _sub_blis_f32(const NumcArray *a, const NumcArray *b,
+                          NumcArray *out) {
+  bli_scopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (float *)a->data, 1,
+             (float *)out->data, 1);
+  bli_ssubv(BLIS_NO_CONJUGATE, (dim_t)b->size, (float *)b->data, 1,
+            (float *)out->data, 1);
 }
-static void _mul_scalar_blis_f64(const NumcArray *a, double scalar, NumcArray *out) {
-  bli_dcopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (double *)a->data, 1, (double *)out->data, 1);
-  bli_dscalv(BLIS_NO_CONJUGATE, (dim_t)out->size, &scalar, (double *)out->data, 1);
+static void _sub_blis_f64(const NumcArray *a, const NumcArray *b,
+                          NumcArray *out) {
+  bli_dcopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (double *)a->data, 1,
+             (double *)out->data, 1);
+  bli_dsubv(BLIS_NO_CONJUGATE, (dim_t)b->size, (double *)b->data, 1,
+            (double *)out->data, 1);
 }
 
-static void _add_scalar_blis_f32(const NumcArray *a, float scalar, NumcArray *out) {
-  bli_scopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (float *)a->data, 1, (float *)out->data, 1);
-  /* y = y + alpha. BLIS doesn't have a direct vector + scalar. 
+static void _mul_scalar_blis_f32(const NumcArray *a, float scalar,
+                                 NumcArray *out) {
+  bli_scopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (float *)a->data, 1,
+             (float *)out->data, 1);
+  bli_sscalv(BLIS_NO_CONJUGATE, (dim_t)out->size, &scalar, (float *)out->data,
+             1);
+}
+static void _mul_scalar_blis_f64(const NumcArray *a, double scalar,
+                                 NumcArray *out) {
+  bli_dcopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (double *)a->data, 1,
+             (double *)out->data, 1);
+  bli_dscalv(BLIS_NO_CONJUGATE, (dim_t)out->size, &scalar, (double *)out->data,
+             1);
+}
+
+static void _add_scalar_blis_f32(const NumcArray *a, float scalar,
+                                 NumcArray *out) {
+  bli_scopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (float *)a->data, 1,
+             (float *)out->data, 1);
+  /* y = y + alpha. BLIS doesn't have a direct vector + scalar.
    * But we can use bli_saddv with incx=0 if we had a single element. */
-  bli_saddv(BLIS_NO_CONJUGATE, (dim_t)out->size, &scalar, 0, (float *)out->data, 1);
+  bli_saddv(BLIS_NO_CONJUGATE, (dim_t)out->size, &scalar, 0, (float *)out->data,
+            1);
 }
-static void _add_scalar_blis_f64(const NumcArray *a, double scalar, NumcArray *out) {
-  bli_dcopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (double *)a->data, 1, (double *)out->data, 1);
-  bli_daddv(BLIS_NO_CONJUGATE, (dim_t)out->size, &scalar, 0, (double *)out->data, 1);
+static void _add_scalar_blis_f64(const NumcArray *a, double scalar,
+                                 NumcArray *out) {
+  bli_dcopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (double *)a->data, 1,
+             (double *)out->data, 1);
+  bli_daddv(BLIS_NO_CONJUGATE, (dim_t)out->size, &scalar, 0,
+            (double *)out->data, 1);
 }
 #endif
 
@@ -291,12 +313,24 @@ static void _add_scalar_blis_f64(const NumcArray *a, double scalar, NumcArray *o
     if (a->is_contiguous && b->is_contiguous && out->is_contiguous &&       \
         a->size == b->size && a->size == out->size) {                       \
       if (a->dtype == NUMC_DTYPE_FLOAT32) {                                 \
-        if (strcmp(#NAME, "add") == 0) { _add_blis_f32(a, b, out); return 0; } \
-        if (strcmp(#NAME, "sub") == 0) { _sub_blis_f32(a, b, out); return 0; } \
+        if (strcmp(#NAME, "add") == 0) {                                    \
+          _add_blis_f32(a, b, out);                                         \
+          return 0;                                                         \
+        }                                                                   \
+        if (strcmp(#NAME, "sub") == 0) {                                    \
+          _sub_blis_f32(a, b, out);                                         \
+          return 0;                                                         \
+        }                                                                   \
       }                                                                     \
       if (a->dtype == NUMC_DTYPE_FLOAT64) {                                 \
-        if (strcmp(#NAME, "add") == 0) { _add_blis_f64(a, b, out); return 0; } \
-        if (strcmp(#NAME, "sub") == 0) { _sub_blis_f64(a, b, out); return 0; } \
+        if (strcmp(#NAME, "add") == 0) {                                    \
+          _add_blis_f64(a, b, out);                                         \
+          return 0;                                                         \
+        }                                                                   \
+        if (strcmp(#NAME, "sub") == 0) {                                    \
+          _sub_blis_f64(a, b, out);                                         \
+          return 0;                                                         \
+        }                                                                   \
       }                                                                     \
     }                                                                       \
                                                                             \
@@ -304,34 +338,51 @@ static void _add_scalar_blis_f64(const NumcArray *a, double scalar, NumcArray *o
     return 0;                                                               \
   }
 
-#define DEFINE_ELEMWISE_SCALAR(NAME, TABLE)                       \
-  int numc_##NAME##_scalar(const NumcArray *a, double scalar,     \
-                           NumcArray *out) {                      \
-    int err = _check_unary(a, out);                               \
-    if (err)                                                      \
-      return err;                                                 \
-                                                                  \
-    if (a->is_contiguous && out->is_contiguous &&                 \
-        a->size == out->size) {                                   \
-      if (a->dtype == NUMC_DTYPE_FLOAT32) {                       \
-        if (strcmp(#NAME, "mul") == 0) { _mul_scalar_blis_f32(a, (float)scalar, out); return 0; } \
-        if (strcmp(#NAME, "add") == 0) { _add_scalar_blis_f32(a, (float)scalar, out); return 0; } \
-        if (strcmp(#NAME, "sub") == 0) { _add_scalar_blis_f32(a, (float)-scalar, out); return 0; } \
-      }                                                           \
-      if (a->dtype == NUMC_DTYPE_FLOAT64) {                       \
-        if (strcmp(#NAME, "mul") == 0) { _mul_scalar_blis_f64(a, scalar, out); return 0; } \
-        if (strcmp(#NAME, "add") == 0) { _add_scalar_blis_f64(a, scalar, out); return 0; } \
-        if (strcmp(#NAME, "sub") == 0) { _add_scalar_blis_f64(a, -scalar, out); return 0; } \
-      }                                                           \
-    }                                                             \
-                                                                  \
-    char buf[8];                                                  \
-    _double_to_dtype(scalar, a->dtype, buf);                      \
-    _scalar_op(a, buf, out, TABLE);                               \
-    return 0;                                                     \
-  }                                                               \
-  int numc_##NAME##_scalar_inplace(NumcArray *a, double scalar) { \
-    return _scalar_op_inplace(a, scalar, TABLE);                  \
+#define DEFINE_ELEMWISE_SCALAR(NAME, TABLE)                               \
+  int numc_##NAME##_scalar(const NumcArray *a, double scalar,             \
+                           NumcArray *out) {                              \
+    int err = _check_unary(a, out);                                       \
+    if (err)                                                              \
+      return err;                                                         \
+                                                                          \
+    if (a->is_contiguous && out->is_contiguous && a->size == out->size) { \
+      if (a->dtype == NUMC_DTYPE_FLOAT32) {                               \
+        if (strcmp(#NAME, "mul") == 0) {                                  \
+          _mul_scalar_blis_f32(a, (float)scalar, out);                    \
+          return 0;                                                       \
+        }                                                                 \
+        if (strcmp(#NAME, "add") == 0) {                                  \
+          _add_scalar_blis_f32(a, (float)scalar, out);                    \
+          return 0;                                                       \
+        }                                                                 \
+        if (strcmp(#NAME, "sub") == 0) {                                  \
+          _add_scalar_blis_f32(a, (float)-scalar, out);                   \
+          return 0;                                                       \
+        }                                                                 \
+      }                                                                   \
+      if (a->dtype == NUMC_DTYPE_FLOAT64) {                               \
+        if (strcmp(#NAME, "mul") == 0) {                                  \
+          _mul_scalar_blis_f64(a, scalar, out);                           \
+          return 0;                                                       \
+        }                                                                 \
+        if (strcmp(#NAME, "add") == 0) {                                  \
+          _add_scalar_blis_f64(a, scalar, out);                           \
+          return 0;                                                       \
+        }                                                                 \
+        if (strcmp(#NAME, "sub") == 0) {                                  \
+          _add_scalar_blis_f64(a, -scalar, out);                          \
+          return 0;                                                       \
+        }                                                                 \
+      }                                                                   \
+    }                                                                     \
+                                                                          \
+    char buf[8];                                                          \
+    _double_to_dtype(scalar, a->dtype, buf);                              \
+    _scalar_op(a, buf, out, TABLE);                                       \
+    return 0;                                                             \
+  }                                                                       \
+  int numc_##NAME##_scalar_inplace(NumcArray *a, double scalar) {         \
+    return _scalar_op_inplace(a, scalar, TABLE);                          \
   }
 
 DEFINE_ELEMWISE_BINARY(add, add_table)

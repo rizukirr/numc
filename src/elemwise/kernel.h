@@ -37,9 +37,11 @@ typedef void (*NumcQuaternaryKernel)(const char *a, const char *b,
     const intptr_t es = (intptr_t)sizeof(C_TYPE);                             \
     if (sa == es && sb == es && so == es) {                                   \
       if (a != out) {                                                         \
-        const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
-        const C_TYPE *restrict pb = (const C_TYPE *)__builtin_assume_aligned(b, 32); \
-        C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);     \
+        const C_TYPE *restrict pa =                                           \
+            (const C_TYPE *)__builtin_assume_aligned(a, 32);                  \
+        const C_TYPE *restrict pb =                                           \
+            (const C_TYPE *)__builtin_assume_aligned(b, 32);                  \
+        C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);    \
         NUMC_OMP_FOR(                                                         \
             n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {               \
               C_TYPE in1 = pa[i];                                             \
@@ -48,7 +50,8 @@ typedef void (*NumcQuaternaryKernel)(const char *a, const char *b,
             });                                                               \
       } else {                                                                \
         C_TYPE *restrict p = (C_TYPE *)__builtin_assume_aligned(out, 32);     \
-        const C_TYPE *restrict pb = (const C_TYPE *)__builtin_assume_aligned(b, 32); \
+        const C_TYPE *restrict pb =                                           \
+            (const C_TYPE *)__builtin_assume_aligned(b, 32);                  \
         NUMC_OMP_FOR(                                                         \
             n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {               \
               C_TYPE in1 = p[i];                                              \
@@ -66,8 +69,9 @@ typedef void (*NumcQuaternaryKernel)(const char *a, const char *b,
               p[i] = (EXPR);                                                  \
             });                                                               \
       } else {                                                                \
-        const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
-        C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);     \
+        const C_TYPE *restrict pa =                                           \
+            (const C_TYPE *)__builtin_assume_aligned(a, 32);                  \
+        C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);    \
         NUMC_OMP_FOR(                                                         \
             n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {               \
               C_TYPE in1 = pa[i];                                             \
@@ -76,16 +80,18 @@ typedef void (*NumcQuaternaryKernel)(const char *a, const char *b,
       }                                                                       \
     } else if (sa == 0 && sb == es && so == es) {                             \
       const C_TYPE in1 = *(const C_TYPE *)a;                                  \
-      const C_TYPE *restrict pb = (const C_TYPE *)__builtin_assume_aligned(b, 32); \
-      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);       \
+      const C_TYPE *restrict pb =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(b, 32);                    \
+      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);      \
       NUMC_OMP_FOR(                                                           \
           n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
             C_TYPE in2 = pb[i];                                               \
             po[i] = (EXPR);                                                   \
           });                                                                 \
     } else if (sa == es && so == es) {                                        \
-      const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
-      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);       \
+      const C_TYPE *restrict pa =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(a, 32);                    \
+      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);      \
       NUMC_OMP_FOR(                                                           \
           n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
             __builtin_prefetch(b + (i + 16) * sb, 0, 3);                      \
@@ -94,8 +100,9 @@ typedef void (*NumcQuaternaryKernel)(const char *a, const char *b,
             po[i] = (EXPR);                                                   \
           });                                                                 \
     } else if (sb == es && so == es) {                                        \
-      const C_TYPE *restrict pb = (const C_TYPE *)__builtin_assume_aligned(b, 32); \
-      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);       \
+      const C_TYPE *restrict pb =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(b, 32);                    \
+      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);      \
       NUMC_OMP_FOR(                                                           \
           n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
             __builtin_prefetch(a + (i + 16) * sa, 0, 3);                      \
@@ -104,8 +111,10 @@ typedef void (*NumcQuaternaryKernel)(const char *a, const char *b,
             po[i] = (EXPR);                                                   \
           });                                                                 \
     } else if (sa == es && sb == es) {                                        \
-      const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
-      const C_TYPE *restrict pb = (const C_TYPE *)__builtin_assume_aligned(b, 32); \
+      const C_TYPE *restrict pa =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(a, 32);                    \
+      const C_TYPE *restrict pb =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(b, 32);                    \
       NUMC_OMP_FOR(                                                           \
           n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
             __builtin_prefetch(out + (i + 16) * so, 1, 3);                    \
@@ -184,7 +193,7 @@ typedef void (*NumcQuaternaryKernel)(const char *a, const char *b,
             });                                                               \
       }                                                                       \
     } else {                                                                  \
-      for (size_t i = 0; i < n; i++) {                                         \
+      for (size_t i = 0; i < n; i++) {                                        \
         C_TYPE in1 = *(const C_TYPE *)(a + i * sa);                           \
         C_TYPE in2 = *(const C_TYPE *)(b + i * sb);                           \
         *(C_TYPE *)(out + i * so) = (EXPR);                                   \
@@ -194,121 +203,148 @@ typedef void (*NumcQuaternaryKernel)(const char *a, const char *b,
 
 /* ── Optimized division common logic ────────────────────────────────── */
 
-static inline bool _is_pow2(uint64_t n) { return n > 0 && (n & (n - 1)) == 0; }
-static inline int _log2_u64(uint64_t n) { return 63 - __builtin_clzll(n); }
+static inline bool _is_pow2(uint64_t n) {
+  return n > 0 && (n & (n - 1)) == 0;
+}
+static inline int _log2_u64(uint64_t n) {
+  return 63 - __builtin_clzll(n);
+}
 
 /* ── Integer division macro (with power-of-two optimization) ───────── */
 
-#define DEFINE_INT_DIV_KERNEL(TYPE_ENUM, C_TYPE, IS_SIGNED)                   \
-  static void _kern_div_##TYPE_ENUM(const char *a, const char *b,             \
-                                    char *out, size_t n, intptr_t sa,         \
-                                    intptr_t sb, intptr_t so) {               \
-    const intptr_t es = (intptr_t)sizeof(C_TYPE);                             \
-    if (sa == es && sb == es && so == es) {                                   \
-      const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
-      const C_TYPE *restrict pb = (const C_TYPE *)__builtin_assume_aligned(b, 32); \
-      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);     \
-      if (sizeof(C_TYPE) <= 2) {                                              \
-        NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {      \
-          po[i] = (C_TYPE)((float)pa[i] / (float)pb[i]);                      \
-        });                                                                   \
-      } else if (sizeof(C_TYPE) == 4) {                                       \
-        NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {      \
-          po[i] = (C_TYPE)((double)pa[i] / (double)pb[i]);                    \
-        });                                                                   \
-      } else {                                                                \
-        NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {      \
-          po[i] = pa[i] / pb[i];                                              \
-        });                                                                   \
-      }                                                                       \
-    } else if (sb == 0 && sa == es && so == es) {                             \
-      const C_TYPE in2 = *(const C_TYPE *)b;                                  \
-      if (in2 != 0) {                                                         \
-        uint64_t abs_d = (uint64_t)(in2 > 0 ? in2 : -in2);                    \
-        if (_is_pow2(abs_d)) {                                                \
-          int shift = _log2_u64(abs_d);                                       \
+#define DEFINE_INT_DIV_KERNEL(TYPE_ENUM, C_TYPE, IS_SIGNED)                    \
+  static void _kern_div_##TYPE_ENUM(const char *a, const char *b, char *out,   \
+                                    size_t n, intptr_t sa, intptr_t sb,        \
+                                    intptr_t so) {                             \
+    const intptr_t es = (intptr_t)sizeof(C_TYPE);                              \
+    if (sa == es && sb == es && so == es) {                                    \
+      const C_TYPE *restrict pa =                                              \
+          (const C_TYPE *)__builtin_assume_aligned(a, 32);                     \
+      const C_TYPE *restrict pb =                                              \
+          (const C_TYPE *)__builtin_assume_aligned(b, 32);                     \
+      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);       \
+      if (sizeof(C_TYPE) <= 2) {                                               \
+        NUMC_OMP_FOR(                                                          \
+            n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                \
+              C_TYPE divisor = pb[i];                                          \
+              po[i] = (divisor == 0)                                           \
+                          ? 0                                                  \
+                          : (C_TYPE)((float)pa[i] / (float)divisor);           \
+            });                                                                \
+      } else if (sizeof(C_TYPE) == 4) {                                        \
+        NUMC_OMP_FOR(                                                          \
+            n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                \
+              C_TYPE divisor = pb[i];                                          \
+              po[i] = (divisor == 0)                                           \
+                          ? 0                                                  \
+                          : (C_TYPE)((double)pa[i] / (double)divisor);         \
+            });                                                                \
+      } else {                                                                 \
+        NUMC_OMP_FOR(                                                          \
+            n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                \
+              C_TYPE divisor = pb[i];                                          \
+              po[i] = (divisor == 0) ? 0 : pa[i] / divisor;                    \
+            });                                                                \
+      }                                                                        \
+    } else if (sb == 0 && sa == es && so == es) {                              \
+      const C_TYPE in2 = *(const C_TYPE *)b;                                   \
+      if (in2 != 0) {                                                          \
+        uint64_t abs_d = (uint64_t)(in2 > 0 ? in2 : -in2);                     \
+        if (_is_pow2(abs_d)) {                                                 \
+          int shift = _log2_u64(abs_d);                                        \
           C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);   \
-          const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
-          if (IS_SIGNED) {                                                    \
-            NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {   \
-              C_TYPE x = pa[i];                                               \
-              C_TYPE bias = (x < 0) ? (C_TYPE)(abs_d - 1) : 0;                \
-              po[i] = (C_TYPE)((x + bias) >> shift);                          \
-            });                                                               \
-          } else {                                                            \
-            NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {   \
-              po[i] = (C_TYPE)((uint64_t)pa[i] >> shift);                     \
-            });                                                               \
-          }                                                                   \
-          return;                                                             \
-        } else if (!(IS_SIGNED) && sizeof(C_TYPE) <= 4) {                     \
-          /* Fast path: Magic number for non-power-of-two unsigned division */\
-          uint64_t shift_amt = sizeof(C_TYPE) * 8;                            \
-          uint64_t inv = (1ULL << shift_amt) / in2 + 1;                       \
-          if (a == out) {                                                     \
-            C_TYPE *restrict p = (C_TYPE *)__builtin_assume_aligned(out, 32); \
-            NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {   \
-              p[i] = (C_TYPE)(((uint64_t)p[i] * inv) >> shift_amt);           \
-            });                                                               \
-          } else {                                                            \
-            const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
+          const C_TYPE *restrict pa =                                          \
+              (const C_TYPE *)__builtin_assume_aligned(a, 32);                 \
+          if (IS_SIGNED) {                                                     \
+            NUMC_OMP_FOR(                                                      \
+                n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {            \
+                  C_TYPE x = pa[i];                                            \
+                  C_TYPE bias = (x < 0) ? (C_TYPE)(abs_d - 1) : 0;             \
+                  po[i] = (C_TYPE)((x + bias) >> shift);                       \
+                });                                                            \
+          } else {                                                             \
+            NUMC_OMP_FOR(                                                      \
+                n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {            \
+                  po[i] = (C_TYPE)((uint64_t)pa[i] >> shift);                  \
+                });                                                            \
+          }                                                                    \
+          return;                                                              \
+        } else if (!(IS_SIGNED) && sizeof(C_TYPE) <= 4) {                      \
+          /* Fast path: Magic number for non-power-of-two unsigned division */ \
+          uint64_t shift_amt = sizeof(C_TYPE) * 8;                             \
+          uint64_t inv = (1ULL << shift_amt) / in2 + 1;                        \
+          if (a == out) {                                                      \
+            C_TYPE *restrict p = (C_TYPE *)__builtin_assume_aligned(out, 32);  \
+            NUMC_OMP_FOR(                                                      \
+                n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {            \
+                  p[i] = (C_TYPE)(((uint64_t)p[i] * inv) >> shift_amt);        \
+                });                                                            \
+          } else {                                                             \
+            const C_TYPE *restrict pa =                                        \
+                (const C_TYPE *)__builtin_assume_aligned(a, 32);               \
             C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32); \
-            NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {   \
-              po[i] = (C_TYPE)(((uint64_t)pa[i] * inv) >> shift_amt);          \
-            });                                                               \
-          }                                                                   \
-          return;                                                             \
-        }                                                                     \
-        float inv = 1.0f / (float)in2;                                        \
+            NUMC_OMP_FOR(                                                      \
+                n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {            \
+                  po[i] = (C_TYPE)(((uint64_t)pa[i] * inv) >> shift_amt);      \
+                });                                                            \
+          }                                                                    \
+          return;                                                              \
+        }                                                                      \
+        float inv = 1.0f / (float)in2;                                         \
         C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);     \
-        const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
-        NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {      \
-          po[i] = (C_TYPE)((float)pa[i] * inv);                               \
-        });                                                                   \
-      } else {                                                                \
+        const C_TYPE *restrict pa =                                            \
+            (const C_TYPE *)__builtin_assume_aligned(a, 32);                   \
+        NUMC_OMP_FOR(                                                          \
+            n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                \
+              po[i] = (C_TYPE)((float)pa[i] * inv);                            \
+            });                                                                \
+      } else {                                                                 \
         C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);     \
-        const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
-        for (size_t i = 0; i < n; i++) po[i] = pa[i] / in2;                   \
-      }                                                                       \
-    } else {                                                                  \
+        for (size_t i = 0; i < n; i++)                                         \
+          po[i] = 0;                                                           \
+      }                                                                        \
+    } else {                                                                   \
       for (size_t i = 0; i < n; i++) {                                         \
-        __builtin_prefetch(a + (i + 16) * sa, 0, 3);                          \
-        C_TYPE in1 = *(const C_TYPE *)(a + i * sa);                           \
-        C_TYPE in2 = *(const C_TYPE *)(b + i * sb);                           \
-        *(C_TYPE *)(out + i * so) = in1 / in2;                                \
-      }                                                                       \
-    }                                                                         \
+        __builtin_prefetch(a + (i + 16) * sa, 0, 3);                           \
+        C_TYPE in1 = *(const C_TYPE *)(a + i * sa);                            \
+        C_TYPE in2 = *(const C_TYPE *)(b + i * sb);                            \
+        *(C_TYPE *)(out + i * so) = (in2 == 0) ? 0 : in1 / in2;                \
+      }                                                                        \
+    }                                                                          \
   }
 
 /* ── Float division macro (with reciprocal optimization) ───────────── */
 
-#define DEFINE_FLOAT_DIV_KERNEL(TYPE_ENUM, C_TYPE)                            \
-  static void _kern_div_##TYPE_ENUM(const char *a, const char *b,             \
-                                    char *out, size_t n, intptr_t sa,         \
-                                    intptr_t sb, intptr_t so) {               \
-    const intptr_t es = (intptr_t)sizeof(C_TYPE);                             \
-    if (sa == es && sb == es && so == es) {                                   \
-      const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
-      const C_TYPE *restrict pb = (const C_TYPE *)__builtin_assume_aligned(b, 32); \
+#define DEFINE_FLOAT_DIV_KERNEL(TYPE_ENUM, C_TYPE)                           \
+  static void _kern_div_##TYPE_ENUM(const char *a, const char *b, char *out, \
+                                    size_t n, intptr_t sa, intptr_t sb,      \
+                                    intptr_t so) {                           \
+    const intptr_t es = (intptr_t)sizeof(C_TYPE);                            \
+    if (sa == es && sb == es && so == es) {                                  \
+      const C_TYPE *restrict pa =                                            \
+          (const C_TYPE *)__builtin_assume_aligned(a, 32);                   \
+      const C_TYPE *restrict pb =                                            \
+          (const C_TYPE *)__builtin_assume_aligned(b, 32);                   \
       C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);     \
-      NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {        \
-        po[i] = pa[i] / pb[i];                                                \
-      });                                                                     \
-    } else if (sb == 0 && sa == es && so == es) {                             \
-      const C_TYPE in2 = *(const C_TYPE *)b;                                  \
-      C_TYPE inv = (C_TYPE)1.0 / in2;                                         \
-      const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
+      NUMC_OMP_FOR(                                                          \
+          n, sizeof(C_TYPE),                                                 \
+          for (size_t i = 0; i < n; i++) { po[i] = pa[i] / pb[i]; });        \
+    } else if (sb == 0 && sa == es && so == es) {                            \
+      const C_TYPE in2 = *(const C_TYPE *)b;                                 \
+      C_TYPE inv = (C_TYPE)1.0 / in2;                                        \
+      const C_TYPE *restrict pa =                                            \
+          (const C_TYPE *)__builtin_assume_aligned(a, 32);                   \
       C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);     \
-      NUMC_OMP_FOR(n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {        \
-        po[i] = pa[i] * inv;                                                  \
-      });                                                                     \
-    } else {                                                                  \
-      for (size_t i = 0; i < n; i++) {                                         \
-        C_TYPE in1 = *(const C_TYPE *)(a + i * sa);                           \
-        C_TYPE in2 = *(const C_TYPE *)(b + i * sb);                           \
-        *(C_TYPE *)(out + i * so) = in1 / in2;                                \
-      }                                                                       \
-    }                                                                         \
+      NUMC_OMP_FOR(                                                          \
+          n, sizeof(C_TYPE),                                                 \
+          for (size_t i = 0; i < n; i++) { po[i] = pa[i] * inv; });          \
+    } else {                                                                 \
+      for (size_t i = 0; i < n; i++) {                                       \
+        C_TYPE in1 = *(const C_TYPE *)(a + i * sa);                          \
+        C_TYPE in2 = *(const C_TYPE *)(b + i * sb);                          \
+        *(C_TYPE *)(out + i * so) = in1 / in2;                               \
+      }                                                                      \
+    }                                                                        \
   }
 
 /* ── Stride-aware ternary kernel macro ───────────────────────────── */
@@ -319,10 +355,13 @@ static inline int _log2_u64(uint64_t n) { return 63 - __builtin_clzll(n); }
       intptr_t sc, intptr_t sa, intptr_t sb, intptr_t so) {                   \
     const intptr_t es = (intptr_t)sizeof(C_TYPE);                             \
     if (sc == es && sa == es && sb == es && so == es) {                       \
-      const C_TYPE *restrict pc = (const C_TYPE *)__builtin_assume_aligned(cond, 32); \
-      const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32);    \
-      const C_TYPE *restrict pb = (const C_TYPE *)__builtin_assume_aligned(b, 32);    \
-      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);               \
+      const C_TYPE *restrict pc =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(cond, 32);                 \
+      const C_TYPE *restrict pa =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(a, 32);                    \
+      const C_TYPE *restrict pb =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(b, 32);                    \
+      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);      \
       NUMC_OMP_FOR(                                                           \
           n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
             C_TYPE in_cond = pc[i];                                           \
@@ -332,9 +371,11 @@ static inline int _log2_u64(uint64_t n) { return 63 - __builtin_clzll(n); }
           });                                                                 \
     } else if (sc == 0 && sa == es && sb == es && so == es) {                 \
       const C_TYPE in_cond = *(const C_TYPE *)cond;                           \
-      const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32);    \
-      const C_TYPE *restrict pb = (const C_TYPE *)__builtin_assume_aligned(b, 32);    \
-      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);         \
+      const C_TYPE *restrict pa =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(a, 32);                    \
+      const C_TYPE *restrict pb =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(b, 32);                    \
+      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);      \
       NUMC_OMP_FOR(                                                           \
           n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
             C_TYPE in_a = pa[i];                                              \
@@ -379,8 +420,9 @@ static inline int _log2_u64(uint64_t n) { return 63 - __builtin_clzll(n); }
       const char *a, char *out, size_t n, intptr_t sa, intptr_t so) {         \
     const intptr_t es = (intptr_t)sizeof(C_TYPE);                             \
     if (sa == es && so == es && a != out) {                                   \
-      const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
-      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);       \
+      const C_TYPE *restrict pa =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(a, 32);                    \
+      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);      \
       NUMC_OMP_FOR(                                                           \
           n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
             C_TYPE in1 = pa[i];                                               \
@@ -394,14 +436,15 @@ static inline int _log2_u64(uint64_t n) { return 63 - __builtin_clzll(n); }
             p[i] = (EXPR);                                                    \
           });                                                                 \
     } else if (sa == es) {                                                    \
-      const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
+      const C_TYPE *restrict pa =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(a, 32);                    \
       NUMC_OMP_FOR(                                                           \
           n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
             C_TYPE in1 = pa[i];                                               \
             *(C_TYPE *)(out + i * so) = (EXPR);                               \
           });                                                                 \
     } else if (so == es) {                                                    \
-      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);       \
+      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);      \
       NUMC_OMP_FOR(                                                           \
           n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
             __builtin_prefetch(a + (i + 16) * sa, 0, 3);                      \
@@ -428,31 +471,31 @@ static inline int _log2_u64(uint64_t n) { return 63 - __builtin_clzll(n); }
     }                                                                         \
   }
 
-#define DEFINE_UNARY_KERNEL_NOSIMD(OP_NAME, TYPE_ENUM, C_TYPE, EXPR)          \
-  static void _kern_##OP_NAME##_##TYPE_ENUM(                                  \
-      const char *a, char *out, size_t n, intptr_t sa, intptr_t so) {         \
-    const intptr_t es = (intptr_t)sizeof(C_TYPE);                             \
-    if (sa == es && so == es && a != out) {                                   \
-      const C_TYPE *pa = (const C_TYPE *)a;                                   \
-      C_TYPE *po = (C_TYPE *)out;                                             \
-      NUMC_OMP_FOR_NOSIMD(                                                    \
-          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
-            C_TYPE in1 = pa[i];                                               \
-            po[i] = (EXPR);                                                   \
-          });                                                                 \
-    } else if (sa == es && so == es) {                                        \
-      C_TYPE *p = (C_TYPE *)out;                                               \
-      NUMC_OMP_FOR_NOSIMD(                                                    \
-          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
-            C_TYPE in1 = p[i];                                                \
-            p[i] = (EXPR);                                                    \
-          });                                                                 \
-    } else {                                                                  \
-      for (size_t i = 0; i < n; i++) {                                         \
-        C_TYPE in1 = *(const C_TYPE *)(a + i * sa);                           \
-        *(C_TYPE *)(out + i * so) = (EXPR);                                   \
-      }                                                                       \
-    }                                                                         \
+#define DEFINE_UNARY_KERNEL_NOSIMD(OP_NAME, TYPE_ENUM, C_TYPE, EXPR)  \
+  static void _kern_##OP_NAME##_##TYPE_ENUM(                          \
+      const char *a, char *out, size_t n, intptr_t sa, intptr_t so) { \
+    const intptr_t es = (intptr_t)sizeof(C_TYPE);                     \
+    if (sa == es && so == es && a != out) {                           \
+      const C_TYPE *pa = (const C_TYPE *)a;                           \
+      C_TYPE *po = (C_TYPE *)out;                                     \
+      NUMC_OMP_FOR_NOSIMD(                                            \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {         \
+            C_TYPE in1 = pa[i];                                       \
+            po[i] = (EXPR);                                           \
+          });                                                         \
+    } else if (sa == es && so == es) {                                \
+      C_TYPE *p = (C_TYPE *)out;                                      \
+      NUMC_OMP_FOR_NOSIMD(                                            \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {         \
+            C_TYPE in1 = p[i];                                        \
+            p[i] = (EXPR);                                            \
+          });                                                         \
+    } else {                                                          \
+      for (size_t i = 0; i < n; i++) {                                \
+        C_TYPE in1 = *(const C_TYPE *)(a + i * sa);                   \
+        *(C_TYPE *)(out + i * so) = (EXPR);                           \
+      }                                                               \
+    }                                                                 \
   }
 
 /* ── Stride-aware clip kernel macro ──────────────────────────────── */
@@ -489,13 +532,13 @@ static inline int _log2_u64(uint64_t n) { return 63 - __builtin_clzll(n); }
       CT *restrict po = (CT *)__builtin_assume_aligned(out, 32);               \
       NUMC_OMP_FOR(                                                            \
           n, sizeof(CT), for (size_t i = 0; i < n; i++) {                      \
-            __builtin_prefetch(a + (i + 16) * sa, 0, 3);                      \
+            __builtin_prefetch(a + (i + 16) * sa, 0, 3);                       \
             CT v = *(const CT *)(a + i * sa);                                  \
             po[i] = (v < lo) ? lo : (v > hi) ? hi : v;                         \
           });                                                                  \
     } else {                                                                   \
       for (size_t i = 0; i < n; i++) {                                         \
-        __builtin_prefetch(a + (i + 16) * sa, 0, 3);                          \
+        __builtin_prefetch(a + (i + 16) * sa, 0, 3);                           \
         CT v = *(const CT *)(a + i * sa);                                      \
         *(CT *)(out + i * so) = (v < lo) ? lo : (v > hi) ? hi : v;             \
       }                                                                        \
@@ -508,10 +551,13 @@ static inline int _log2_u64(uint64_t n) { return 63 - __builtin_clzll(n); }
       intptr_t sa, intptr_t sb, intptr_t sc, intptr_t so) {                   \
     const intptr_t es = (intptr_t)sizeof(C_TYPE);                             \
     if (sa == es && sb == es && sc == es && so == es) {                       \
-      const C_TYPE *restrict pa = (const C_TYPE *)__builtin_assume_aligned(a, 32); \
-      const C_TYPE *restrict pb = (const C_TYPE *)__builtin_assume_aligned(b, 32); \
-      const C_TYPE *restrict pc = (const C_TYPE *)__builtin_assume_aligned(c, 32); \
-      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);               \
+      const C_TYPE *restrict pa =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(a, 32);                    \
+      const C_TYPE *restrict pb =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(b, 32);                    \
+      const C_TYPE *restrict pc =                                             \
+          (const C_TYPE *)__builtin_assume_aligned(c, 32);                    \
+      C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);      \
       NUMC_OMP_FOR(                                                           \
           n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                 \
             C_TYPE in_a = pa[i];                                              \

@@ -86,26 +86,19 @@ case $COMMAND in
         
     "bench")
         build Release OFF
-        info "Running all benchmarks..."
-        for b in elemwise scalar unary pow random reduction matmul; do
-            echo -e "\n${GREEN}=== numc $b benchmark ===${NC}"
-            "./$BUILD_DIR/bin/bench_$b"
-            
-            if [[ -x "$PYTHON_VENV" ]]; then
-                echo -e "\n${BLUE}=== numpy $b comparison ===${NC}"
-                LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy_bench_$b.py" 2>/dev/null || warn "NumPy bench for $b failed"
-            fi
-        done
-        ;;
+        BENCH_OUT="bench/numc/results.csv"
+        NUMPY_OUT="bench/numpy/results.csv"
 
-    "bench-matmul")
-        build Release OFF
-        info "Running matmul showdown..."
-        echo -e "\n${GREEN}=== numc matmul ===${NC}"
-        "./$BUILD_DIR/bin/bench_matmul"
+        info "Running numc CSV benchmark..."
+        "./$BUILD_DIR/bin/bench_numc_csv" > "$BENCH_OUT"
+        success "numc results -> $BENCH_OUT ($(wc -l < "$BENCH_OUT") rows)"
+
         if [[ -x "$PYTHON_VENV" ]]; then
-            echo -e "\n${BLUE}=== numpy matmul ===${NC}"
-            LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy_bench_matmul.py"
+            info "Running numpy CSV benchmark..."
+            LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy/bench.py" > "$NUMPY_OUT"
+            success "numpy results -> $NUMPY_OUT ($(wc -l < "$NUMPY_OUT") rows)"
+        else
+            warn "Python venv not found at $PYTHON_VENV — skipping numpy benchmark"
         fi
         ;;
 
@@ -130,28 +123,69 @@ case $COMMAND in
         rm -rf build build_aarch64 build_test
         success "Clean complete"
         ;;
+"rebuild")
+    rm -rf build
+    build Debug ON
+    ;;
 
-    "rebuild")
-        rm -rf build
-        build Debug ON
-        ;;
+    "check")
+        info "Running CI-simulation check..."
+        
+        # 1. Formatting
+        info "Step 1/3: Checking code formatting (clang-format)..."
+        if ! command -v clang-format &> /dev/null; then
+            warn "clang-format not found, skipping..."
+        else
+            # Use -P for parallel execution; exclude vendored/venv dirs
+            FORMAT_ERRS=$(find src include tests examples bench -type f \( -name '*.c' -o -name '*.h' \) -not -path '*/\.venv/*' -not -path '*/vendor/*' | xargs -P "$(nproc)" clang-format --dry-run --Werror 2>&1 || true)
+            if [ -n "$FORMAT_ERRS" ]; then
+                error "Formatting check failed! Please run: find src include tests examples bench -type f \( -name '*.c' -o -name '*.h' \) | xargs clang-format -i"
+            fi
+            success "Formatting is correct"
+        fi
 
-    "help"|*)
-        echo -e "${YELLOW}Usage:${NC} $0 {command} [compiler]"
-        echo ""
-        echo -e "${BLUE}Commands:${NC}"
-        echo "  debug [cc]     Build Debug + ASan and run demos"
-        echo "  release [cc]   Build Release and run demos"
-        echo "  test [cc]      Build Debug + ASan and run ctest"
-        echo "  bench [cc]     Build Release and run all benchmarks vs NumPy"
-        echo "  bench-matmul   Run specialized matmul benchmark vs NumPy"
-        echo "  cross-arm      Cross-build for AArch64 and run via QEMU"
-        echo "  clean          Remove all build directories"
-        echo "  rebuild [cc]   Fresh debug build"
-        echo ""
-        echo -e "${BLUE}Examples:${NC}"
-        echo "  $0 release          # Build with default (clang)"
-        echo "  $0 release gcc      # Build with gcc"
-        echo "  CC=gcc $0 release   # Also works via env var"
-        ;;
+        # 2. Static Analysis
+        info "Step 2/3: Running static analysis (clang-tidy)..."
+        if ! command -v clang-tidy &> /dev/null; then
+            warn "clang-tidy not found, skipping..."
+        else
+            # Ensure compilation database exists
+            cmake -S . -B "$BUILD_DIR" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DNUMC_BUILD_TESTS=ON > /dev/null
+            # Run clang-tidy in parallel using xargs
+            TIDY_ERRS=$(find src -name "*.c" | xargs -P "$(nproc)" clang-tidy -p "$BUILD_DIR" --warnings-as-errors='*' 2>&1 || true)
+            if echo "$TIDY_ERRS" | grep -q "error:"; then
+                echo -e "$TIDY_ERRS"
+                error "Static analysis (clang-tidy) failed!"
+            fi
+            success "Static analysis passed"
+        fi
+
+    # 3. Comprehensive Tests
+    info "Step 3/3: Running all tests with ASan..."
+    build Debug ON "-DNUMC_BUILD_TESTS=ON"
+    export LSAN_OPTIONS="suppressions=$(pwd)/tests/lsan_suppressions.txt"
+    ctest --test-dir "$BUILD_DIR" --output-on-failure --parallel $(nproc)
+
+    success "ALL CHECKS PASSED"
+    ;;
+
+"help"|*)
+    echo -e "${YELLOW}Usage:${NC} $0 {command} [compiler]"
+    echo ""
+    echo -e "${BLUE}Commands:${NC}"
+    echo "  check [cc]     Run CI simulation (format, tidy, test+ASan)"
+    echo "  debug [cc]     Build Debug + ASan and run demos"
+    echo "  release [cc]   Build Release and run demos"
+    echo "  test [cc]      Build Debug + ASan and run ctest"
+    echo "  bench [cc]     Build Release and run CSV benchmarks"
+    echo "  cross-arm      Cross-build for AArch64 and run via QEMU"
+    echo "  clean          Remove all build directories"
+    echo "  rebuild [cc]   Fresh debug build"
+    echo ""
+    echo -e "${BLUE}Examples:${NC}"
+    echo "  $0 check            # Run CI simulation"
+    echo "  $0 release          # Build with default (clang)"
+    echo "  $0 release gcc      # Build with gcc"
+    echo "  CC=gcc $0 release   # Also works via env var"
+    ;;
 esac

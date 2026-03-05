@@ -10,7 +10,8 @@
  * Walk from last dim backwards (skipping reduction axis), verify
  * strides match C-order contiguous layout. */
 /**
- * @brief Check if the non-reduced dimensions of an array form a contiguous block.
+ * @brief Check if the non-reduced dimensions of an array form a contiguous
+ * block.
  *
  * @param a    Input array.
  * @param axis The reduction axis.
@@ -57,7 +58,8 @@ static inline void _reduce_axis_nd(NumcReductionKernel kern, const char *a,
 }
 
 /**
- * @brief Dispatch a full reduction operation (all elements reduced to a scalar).
+ * @brief Dispatch a full reduction operation (all elements reduced to a
+ * scalar).
  *
  * @param a     Input array.
  * @param out   Output array (scalar).
@@ -77,8 +79,7 @@ static inline void _reduce_full_op(const struct NumcArray *a,
      * Single allocation (vs. numc_array_copy + numc_array_contiguous
      * which allocates twice and misses elements for strided views). */
     size_t cap = a->size * a->elem_size;
-    char *buf =
-        (char *)arena_alloc(a->ctx->arena, cap, NUMC_SIMD_ALIGN);
+    char *buf = (char *)arena_alloc(a->ctx->arena, cap, NUMC_SIMD_ALIGN);
     if (!buf)
       return;
 
@@ -134,8 +135,7 @@ static inline void _reduce_full_op(const struct NumcArray *a,
       }
     }
 
-    kern((const char *)buf, (char *)out->data, a->size,
-         (intptr_t)a->elem_size);
+    kern((const char *)buf, (char *)out->data, a->size, (intptr_t)a->elem_size);
   }
 }
 
@@ -211,7 +211,7 @@ static inline int _check_dot(const struct NumcArray *a,
    * 2. If both a and b are 2-D, matrix multiplication.
    * 3. If either a or b is 0-D (scalar), it is equivalent to multiply(a, b).
    * 4. If a is N-D and b is 1-D, sum-product over the last axis of a and b.
-   * 5. If a is N-D and b is M-D (M>=2), sum-product over last axis of a and 
+   * 5. If a is N-D and b is M-D (M>=2), sum-product over last axis of a and
    *    second-to-last axis of b.
    */
 
@@ -219,7 +219,8 @@ static inline int _check_dot(const struct NumcArray *a,
   if (a->dim == 0 || b->dim == 0) {
     const struct NumcArray *other = (a->dim == 0) ? b : a;
     if (out->dim != other->dim) {
-      NUMC_SET_ERROR(NUMC_ERR_SHAPE, "dot: output ndim mismatch (out.dim=%zu other.dim=%zu)",
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                     "dot: output ndim mismatch (out.dim=%zu other.dim=%zu)",
                      out->dim, other->dim);
       return NUMC_ERR_SHAPE;
     }
@@ -238,33 +239,40 @@ static inline int _check_dot(const struct NumcArray *a,
   size_t b_reduce_axis = (b->dim == 1) ? 0 : b->dim - 2;
 
   if (a->shape[a_last_axis] != b->shape[b_reduce_axis]) {
-    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "dot: axis mismatch (a.shape[%zu]=%zu b.shape[%zu]=%zu)",
-                   a_last_axis, a->shape[a_last_axis], b_reduce_axis, b->shape[b_reduce_axis]);
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "dot: axis mismatch (a.shape[%zu]=%zu b.shape[%zu]=%zu)",
+                   a_last_axis, a->shape[a_last_axis], b_reduce_axis,
+                   b->shape[b_reduce_axis]);
     return NUMC_ERR_SHAPE;
   }
 
   /* Calculate expected output dimensions */
   size_t expected_dim = (a->dim - 1) + (b->dim > 1 ? b->dim - 1 : 0);
-  
+
   /* Allow 1D size-1 array as scalar output for 0D expected */
-  bool is_scalar_out = (expected_dim == 0 && out->dim == 1 && out->size == 1) || (expected_dim == 0 && out->dim == 0);
+  bool is_scalar_out = (expected_dim == 0 && out->dim == 1 && out->size == 1) ||
+                       (expected_dim == 0 && out->dim == 0);
   if (!is_scalar_out && out->dim != expected_dim) {
-      NUMC_SET_ERROR(NUMC_ERR_SHAPE, "dot: output ndim mismatch (out.dim=%zu expected=%zu)",
-                     out->dim, expected_dim);
-      return NUMC_ERR_SHAPE;
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "dot: output ndim mismatch (out.dim=%zu expected=%zu)",
+                   out->dim, expected_dim);
+    return NUMC_ERR_SHAPE;
   }
 
   /* Check output shape: a.shape[:-1] + b.shape[:-2] + b.shape[-1:] */
   if (!is_scalar_out) {
     size_t out_idx = 0;
     for (size_t i = 0; i < a->dim - 1; i++) {
-      if (out->shape[out_idx++] != a->shape[i]) goto shape_err;
+      if (out->shape[out_idx++] != a->shape[i])
+        goto shape_err;
     }
     if (b->dim > 1) {
       for (size_t i = 0; i < b->dim - 2; i++) {
-        if (out->shape[out_idx++] != b->shape[i]) goto shape_err;
+        if (out->shape[out_idx++] != b->shape[i])
+          goto shape_err;
       }
-      if (out->shape[out_idx++] != b->shape[b->dim - 1]) goto shape_err;
+      if (out->shape[out_idx++] != b->shape[b->dim - 1])
+        goto shape_err;
     }
   }
 
@@ -285,15 +293,18 @@ shape_err:
 static inline int _check_reduce_full(const struct NumcArray *a,
                                      const struct NumcArray *out) {
   if (!a || !out) {
-    NUMC_SET_ERROR(NUMC_ERR_NULL, "reduce full: NULL pointer (a=%p out=%p)", a, out);
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "reduce full: NULL pointer (a=%p out=%p)", a,
+                   out);
     return NUMC_ERR_NULL;
   }
   if (a->dtype != out->dtype) {
-    NUMC_SET_ERROR(NUMC_ERR_TYPE, "reduce full: dtype mismatch (a=%d out=%d)", a->dtype, out->dtype);
+    NUMC_SET_ERROR(NUMC_ERR_TYPE, "reduce full: dtype mismatch (a=%d out=%d)",
+                   a->dtype, out->dtype);
     return NUMC_ERR_TYPE;
   }
   if (out->size != 1) {
-    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "reduce full: output not scalar (out.size=%zu)", out->size);
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "reduce full: output not scalar (out.size=%zu)", out->size);
     return NUMC_ERR_SHAPE;
   }
   return 0;
@@ -309,37 +320,46 @@ static inline int _check_reduce_full(const struct NumcArray *a,
  * @return 0 on success, negative error code on failure.
  */
 static inline int _check_reduce_axis(const struct NumcArray *a, int axis,
-                                     int keepdim,
-                                     const struct NumcArray *out) {
+                                     int keepdim, const struct NumcArray *out) {
   if (!a || !out) {
-    NUMC_SET_ERROR(NUMC_ERR_NULL, "reduce axis: NULL pointer (a=%p out=%p)", a, out);
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "reduce axis: NULL pointer (a=%p out=%p)", a,
+                   out);
     return NUMC_ERR_NULL;
   }
   if (a->dtype != out->dtype) {
-    NUMC_SET_ERROR(NUMC_ERR_TYPE, "reduce axis: dtype mismatch (a=%d out=%d)", a->dtype, out->dtype);
+    NUMC_SET_ERROR(NUMC_ERR_TYPE, "reduce axis: dtype mismatch (a=%d out=%d)",
+                   a->dtype, out->dtype);
     return NUMC_ERR_TYPE;
   }
   if (axis < 0 || (size_t)axis >= a->dim) {
-    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "reduce axis: invalid axis %d (ndim=%zu)", axis, a->dim);
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "reduce axis: invalid axis %d (ndim=%zu)",
+                   axis, a->dim);
     return NUMC_ERR_SHAPE;
   }
 
   if (keepdim) {
     /* Output has same ndim, with shape[axis] == 1 */
-    if (out->dim != a->dim)
-      {
-        NUMC_SET_ERROR(NUMC_ERR_SHAPE, "reduce axis: keepdim expects out.dim == a.dim (out.dim=%zu a.dim=%zu)", out->dim, a->dim);
-        return NUMC_ERR_SHAPE;
-      }
+    if (out->dim != a->dim) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                     "reduce axis: keepdim expects out.dim == a.dim "
+                     "(out.dim=%zu a.dim=%zu)",
+                     out->dim, a->dim);
+      return NUMC_ERR_SHAPE;
+    }
     for (size_t i = 0; i < a->dim; i++) {
       if (i == (size_t)axis) {
         if (out->shape[i] != 1) {
-          NUMC_SET_ERROR(NUMC_ERR_SHAPE, "reduce axis: expected out.shape[%zu] == 1 (got %zu)", i, out->shape[i]);
+          NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                         "reduce axis: expected out.shape[%zu] == 1 (got %zu)",
+                         i, out->shape[i]);
           return NUMC_ERR_SHAPE;
         }
       } else {
         if (out->shape[i] != a->shape[i]) {
-          NUMC_SET_ERROR(NUMC_ERR_SHAPE, "reduce axis: shape mismatch at dim %zu (a=%zu out=%zu)", i, a->shape[i], out->shape[i]);
+          NUMC_SET_ERROR(
+              NUMC_ERR_SHAPE,
+              "reduce axis: shape mismatch at dim %zu (a=%zu out=%zu)", i,
+              a->shape[i], out->shape[i]);
           return NUMC_ERR_SHAPE;
         }
       }
@@ -349,20 +369,27 @@ static inline int _check_reduce_axis(const struct NumcArray *a, int axis,
     size_t expected_ndim = a->dim - 1;
     if (expected_ndim == 0) {
       if (out->size != 1) {
-        NUMC_SET_ERROR(NUMC_ERR_SHAPE, "reduce axis: expected scalar output for 1D reduction (out.size=%zu)", out->size);
+        NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                       "reduce axis: expected scalar output for 1D reduction "
+                       "(out.size=%zu)",
+                       out->size);
         return NUMC_ERR_SHAPE;
       }
     } else {
-      if (out->dim != expected_ndim)
-        {
-          NUMC_SET_ERROR(NUMC_ERR_SHAPE, "reduce axis: expected out.dim=%zu but got %zu", expected_ndim, out->dim);
-          return NUMC_ERR_SHAPE;
-        }
+      if (out->dim != expected_ndim) {
+        NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                       "reduce axis: expected out.dim=%zu but got %zu",
+                       expected_ndim, out->dim);
+        return NUMC_ERR_SHAPE;
+      }
       for (size_t i = 0, j = 0; i < a->dim; i++) {
         if (i == (size_t)axis)
           continue;
         if (out->shape[j] != a->shape[i]) {
-          NUMC_SET_ERROR(NUMC_ERR_SHAPE, "reduce axis: shape mismatch at output dim %zu (a=%zu out=%zu)", j, a->shape[i], out->shape[j]);
+          NUMC_SET_ERROR(
+              NUMC_ERR_SHAPE,
+              "reduce axis: shape mismatch at output dim %zu (a=%zu out=%zu)",
+              j, a->shape[i], out->shape[j]);
           return NUMC_ERR_SHAPE;
         }
         j++;
@@ -414,8 +441,8 @@ static inline int _check_argreduce_axis(const struct NumcArray *a, int axis,
                                         int keepdim,
                                         const struct NumcArray *out) {
   if (!a || !out) {
-    NUMC_SET_ERROR(NUMC_ERR_NULL,
-                   "argreduce axis: NULL pointer (a=%p out=%p)", a, out);
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "argreduce axis: NULL pointer (a=%p out=%p)",
+                   a, out);
     return NUMC_ERR_NULL;
   }
   if (out->dtype != NUMC_DTYPE_INT64) {
@@ -425,8 +452,8 @@ static inline int _check_argreduce_axis(const struct NumcArray *a, int axis,
     return NUMC_ERR_TYPE;
   }
   if (axis < 0 || (size_t)axis >= a->dim) {
-    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
-                   "argreduce axis: invalid axis %d (ndim=%zu)", axis, a->dim);
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "argreduce axis: invalid axis %d (ndim=%zu)",
+                   axis, a->dim);
     return NUMC_ERR_SHAPE;
   }
 

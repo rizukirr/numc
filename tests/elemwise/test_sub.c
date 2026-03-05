@@ -96,7 +96,7 @@ static int test_sub_null(void) {
 
   ASSERT_MSG_CTX(numc_sub(NULL, a, out) != 0, "sub NULL a should fail", ctx);
   ASSERT_MSG_CTX(numc_sub(a, NULL, out) != 0, "sub NULL b should fail", ctx);
-  ASSERT_MSG_CTX(numc_sub(a, a, NULL) != 0,   "sub NULL out should fail", ctx);
+  ASSERT_MSG_CTX(numc_sub(a, a, NULL) != 0, "sub NULL out should fail", ctx);
 
   numc_ctx_free(ctx);
   return 0;
@@ -105,8 +105,8 @@ static int test_sub_null(void) {
 static int test_sub_dtype_mismatch(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
-  NumcArray *b   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *b = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
 
   ASSERT_MSG_CTX(numc_sub(a, b, out) != 0,

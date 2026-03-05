@@ -131,18 +131,27 @@ void numc_array_print(const NumcArray *array) {
     return;
   }
 
-  if (numc_array_size(array) == 0) {
+  size_t size = numc_array_size(array);
+  if (size == 0) {
     printf("[]\n");
     return;
   }
 
   void *data = numc_array_data(array);
   size_t dim = numc_array_ndim(array);
+  NumcDType dtype = numc_array_dtype(array);
+
+  if (dim == 0) {
+    /* Scalar case */
+    print_element((const char *)data, 0, dtype, 0);
+    printf("\n");
+    return;
+  }
+
   size_t shape[dim];
   numc_array_shape(array, shape);
   size_t strides[dim];
   numc_array_strides(array, strides);
-  NumcDType dtype = numc_array_dtype(array);
 
   int width =
       max_elem_width((const char *)data, shape, strides, dim, 0, 0, dtype);

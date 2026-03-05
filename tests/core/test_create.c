@@ -54,9 +54,10 @@ static int test_array_create_null_shape(void) {
 
 static int test_array_create_zero_dim(void) {
   NumcCtx *ctx = numc_ctx_create();
-  size_t shape[] = {3};
-  NumcArray *arr = numc_array_create(ctx, shape, 0, NUMC_DTYPE_INT32);
-  ASSERT_MSG(arr == NULL, "should return NULL with zero dim");
+  NumcArray *arr = numc_array_create(ctx, NULL, 0, NUMC_DTYPE_INT32);
+  ASSERT_MSG(arr != NULL, "should allow creating 0D scalar");
+  ASSERT_MSG(numc_array_size(arr) == 1, "0D scalar should have size 1");
+  ASSERT_MSG(numc_array_ndim(arr) == 0, "0D scalar should have dim 0");
   numc_ctx_free(ctx);
   return 0;
 }

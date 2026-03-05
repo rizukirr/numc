@@ -10,4 +10,6 @@ static void section(const char *title) {
   printf("══════════════════════════════════════════\n\n");
 }
 
-static void label(const char *name) { printf("--- %s ---\n", name); }
+static void label(const char *name) {
+  printf("--- %s ---\n", name);
+}

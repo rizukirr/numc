@@ -176,7 +176,7 @@ static inline double _exp_f64(double x) {
   static const double log2e = 1.44269504088896338700e+00,
                       ln2hi =
                           6.93147180369123816490e-01, /* lower 28 bits zero */
-      ln2lo = 1.90821492927058770002e-10,              /* remainder          */
+      ln2lo = 1.90821492927058770002e-10,             /* remainder          */
       /* Taylor coefficients 1/n! for n = 2..12 */
       c2 = 5.00000000000000000000e-01, c3 = 1.66666666666666666667e-01,
                       c4 = 4.16666666666666666667e-02,
@@ -367,8 +367,8 @@ static inline double _sin_f64(double x) {
                       c7 = 4.4725281109379788459e-14;
   /* Three-part pi/2 for compensated subtraction */
   static const double pio2_hi = 1.57079632679489655800e+00, /* upper 28 bits */
-      pio2_lo = 6.12323399573676603587e-17,                  /* remainder     */
-      fopi = 6.36619772367581382433e-01;                     /* 2/pi          */
+      pio2_lo = 6.12323399573676603587e-17,                 /* remainder     */
+      fopi = 6.36619772367581382433e-01;                    /* 2/pi          */
 
   double xabs = x < 0.0 ? -x : x;
   int q = (int)(xabs * fopi + 0.5);

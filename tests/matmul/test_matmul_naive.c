@@ -196,7 +196,7 @@ static int test_matmul_wrong_out_shape(void) {
 
 static int test_matmul_wrong_ndim(void) {
   NumcCtx *ctx = numc_ctx_create();
-  size_t sh1[] = {6};      /* 1D */
+  size_t sh1[] = {6}; /* 1D */
   size_t sh2[] = {2, 2};
   NumcArray *a = numc_array_create(ctx, sh1, 1, NUMC_DTYPE_FLOAT32);
   NumcArray *b = numc_array_create(ctx, sh2, 2, NUMC_DTYPE_FLOAT32);
@@ -225,14 +225,17 @@ static int test_matmul_dtype_mismatch(void) {
 
 static int test_matmul_null(void) {
   NumcCtx *ctx = numc_ctx_create();
-  size_t sh[]  = {2, 2};
+  size_t sh[] = {2, 2};
   NumcArray *a = numc_array_create(ctx, sh, 2, NUMC_DTYPE_FLOAT32);
   NumcArray *b = numc_array_create(ctx, sh, 2, NUMC_DTYPE_FLOAT32);
   NumcArray *c = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT32);
 
-  ASSERT_MSG(numc_matmul_naive(NULL, b, c) == NUMC_ERR_NULL, "NULL a should fail");
-  ASSERT_MSG(numc_matmul_naive(a, NULL, c) == NUMC_ERR_NULL, "NULL b should fail");
-  ASSERT_MSG(numc_matmul_naive(a, b, NULL) == NUMC_ERR_NULL, "NULL out should fail");
+  ASSERT_MSG(numc_matmul_naive(NULL, b, c) == NUMC_ERR_NULL,
+             "NULL a should fail");
+  ASSERT_MSG(numc_matmul_naive(a, NULL, c) == NUMC_ERR_NULL,
+             "NULL b should fail");
+  ASSERT_MSG(numc_matmul_naive(a, b, NULL) == NUMC_ERR_NULL,
+             "NULL out should fail");
 
   numc_ctx_free(ctx);
   return 0;

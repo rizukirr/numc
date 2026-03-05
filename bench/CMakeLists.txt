@@ -35,3 +35,7 @@ elseif(NUMC_USE_BLAS AND BLAS_FOUND)
         target_include_directories(bench_matmul PRIVATE ${BLAS_INCLUDE_DIRS})
     endif()
 endif()
+
+# Comprehensive CSV benchmark (bench/numc/)
+add_executable(bench_numc_csv numc/bench.c)
+target_link_libraries(bench_numc_csv PRIVATE numc::numc)

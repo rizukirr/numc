@@ -91,12 +91,12 @@ static int test_div_scalar_inplace(void) {
 static int test_div_null(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
 
   ASSERT_MSG_CTX(numc_div(NULL, a, out) != 0, "div NULL a should fail", ctx);
   ASSERT_MSG_CTX(numc_div(a, NULL, out) != 0, "div NULL b should fail", ctx);
-  ASSERT_MSG_CTX(numc_div(a, a, NULL) != 0,   "div NULL out should fail", ctx);
+  ASSERT_MSG_CTX(numc_div(a, a, NULL) != 0, "div NULL out should fail", ctx);
 
   numc_ctx_free(ctx);
   return 0;
@@ -105,8 +105,8 @@ static int test_div_null(void) {
 static int test_div_dtype_mismatch(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t shape[] = {4};
-  NumcArray *a   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
-  NumcArray *b   = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *b = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
 
   ASSERT_MSG_CTX(numc_div(a, b, out) != 0,

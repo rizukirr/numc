@@ -2,7 +2,7 @@
 
 /* Simple absolute-value helpers — avoid math.h dependency in the test file */
 #define FABSF_T(x) ((x) >= 0.0f ? (x) : -(x))
-#define FABS_T(x) ((x) >= 0.0 ? (x) : -(x))
+#define FABS_T(x)  ((x) >= 0.0 ? (x) : -(x))
 
 /* < 1 ULP for float32 at |x|~1 is ~1.2e-7; 1e-5 gives comfortable headroom */
 #define EXP_EPS32 1e-5f

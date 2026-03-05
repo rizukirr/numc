@@ -9,8 +9,7 @@ static int test_randn_consecutive_differ(void) {
   NumcCtx *ctx = numc_ctx_create();
   numc_manual_seed(42);
 
-  NumcArray *a =
-      numc_array_randn(ctx, (size_t[]){64}, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *a = numc_array_randn(ctx, (size_t[]){64}, 1, NUMC_DTYPE_FLOAT32);
   ASSERT_MSG(a != NULL, "randn float32 must not be NULL");
 
   float *p = (float *)numc_array_data(a);
@@ -35,8 +34,7 @@ static int test_randn_float32_stats(void) {
   numc_manual_seed(1234);
 
   const size_t n = 4096;
-  NumcArray *a =
-      numc_array_randn(ctx, (size_t[]){n}, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *a = numc_array_randn(ctx, (size_t[]){n}, 1, NUMC_DTYPE_FLOAT32);
   ASSERT_MSG(a != NULL, "randn float32 large must not be NULL");
 
   float *p = (float *)numc_array_data(a);
@@ -46,16 +44,14 @@ static int test_randn_float32_stats(void) {
     sum2 += (double)p[i] * p[i];
   }
   double mean = sum / (double)n;
-  double var  = sum2 / (double)n - mean * mean;
-  double std  = sqrt(var);
+  double var = sum2 / (double)n - mean * mean;
+  double std = sqrt(var);
 
   /* With n=4096 the CLT gives very tight bounds:
    * |mean| < 3 * (1/sqrt(n)) ~ 0.047   =>  use 0.15 for safety
    * std in (0.9, 1.1)                                              */
-  ASSERT_MSG(fabs(mean) < 0.15,
-             "randn float32 mean should be close to 0");
-  ASSERT_MSG(std > 0.9 && std < 1.1,
-             "randn float32 std should be close to 1");
+  ASSERT_MSG(fabs(mean) < 0.15, "randn float32 mean should be close to 0");
+  ASSERT_MSG(std > 0.9 && std < 1.1, "randn float32 std should be close to 1");
 
   numc_ctx_free(ctx);
   return 0;
@@ -68,24 +64,21 @@ static int test_randn_float64_stats(void) {
   numc_manual_seed(5678);
 
   const size_t n = 4096;
-  NumcArray *a =
-      numc_array_randn(ctx, (size_t[]){n}, 1, NUMC_DTYPE_FLOAT64);
+  NumcArray *a = numc_array_randn(ctx, (size_t[]){n}, 1, NUMC_DTYPE_FLOAT64);
   ASSERT_MSG(a != NULL, "randn float64 large must not be NULL");
 
   double *p = (double *)numc_array_data(a);
   double sum = 0.0, sum2 = 0.0;
   for (size_t i = 0; i < n; i++) {
-    sum  += p[i];
+    sum += p[i];
     sum2 += p[i] * p[i];
   }
   double mean = sum / (double)n;
-  double var  = sum2 / (double)n - mean * mean;
-  double std  = sqrt(var);
+  double var = sum2 / (double)n - mean * mean;
+  double std = sqrt(var);
 
-  ASSERT_MSG(fabs(mean) < 0.15,
-             "randn float64 mean should be close to 0");
-  ASSERT_MSG(std > 0.9 && std < 1.1,
-             "randn float64 std should be close to 1");
+  ASSERT_MSG(fabs(mean) < 0.15, "randn float64 mean should be close to 0");
+  ASSERT_MSG(std > 0.9 && std < 1.1, "randn float64 std should be close to 1");
 
   numc_ctx_free(ctx);
   return 0;
@@ -97,20 +90,17 @@ static int test_randn_seed_reproducible(void) {
   NumcCtx *ctx = numc_ctx_create();
 
   numc_manual_seed(99);
-  NumcArray *a =
-      numc_array_randn(ctx, (size_t[]){16}, 1, NUMC_DTYPE_FLOAT64);
+  NumcArray *a = numc_array_randn(ctx, (size_t[]){16}, 1, NUMC_DTYPE_FLOAT64);
 
   numc_manual_seed(99);
-  NumcArray *b =
-      numc_array_randn(ctx, (size_t[]){16}, 1, NUMC_DTYPE_FLOAT64);
+  NumcArray *b = numc_array_randn(ctx, (size_t[]){16}, 1, NUMC_DTYPE_FLOAT64);
 
   ASSERT_MSG(a != NULL && b != NULL, "randn arrays must not be NULL");
 
   double *pa = (double *)numc_array_data(a);
   double *pb = (double *)numc_array_data(b);
   for (size_t i = 0; i < 16; i++) {
-    ASSERT_MSG(pa[i] == pb[i],
-               "same seed must produce same randn sequence");
+    ASSERT_MSG(pa[i] == pb[i], "same seed must produce same randn sequence");
   }
 
   numc_ctx_free(ctx);
@@ -124,8 +114,7 @@ static int test_randn_int32_near_zero(void) {
   numc_manual_seed(77);
 
   const size_t n = 512;
-  NumcArray *a =
-      numc_array_randn(ctx, (size_t[]){n}, 1, NUMC_DTYPE_INT32);
+  NumcArray *a = numc_array_randn(ctx, (size_t[]){n}, 1, NUMC_DTYPE_INT32);
   ASSERT_MSG(a != NULL, "randn int32 must not be NULL");
 
   int32_t *p = (int32_t *)numc_array_data(a);
@@ -136,8 +125,7 @@ static int test_randn_int32_near_zero(void) {
       in_range++;
   }
   /* Expect at least 95% in [-3, 3] */
-  ASSERT_MSG(in_range > n * 95 / 100,
-             "randn int32 should mostly be near zero");
+  ASSERT_MSG(in_range > n * 95 / 100, "randn int32 should mostly be near zero");
 
   numc_ctx_free(ctx);
   return 0;
@@ -162,8 +150,7 @@ static int test_randn_2d(void) {
 /* ── error cases ────────────────────────────────────────────────────*/
 
 static int test_randn_null_ctx(void) {
-  NumcArray *a =
-      numc_array_randn(NULL, (size_t[]){4}, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *a = numc_array_randn(NULL, (size_t[]){4}, 1, NUMC_DTYPE_FLOAT32);
   ASSERT_MSG(a == NULL, "randn with NULL ctx must return NULL");
   return 0;
 }

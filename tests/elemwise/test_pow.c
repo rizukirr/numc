@@ -1,7 +1,7 @@
 #include "../helpers.h"
 
 #define FABSF_T(x) ((x) >= 0.0f ? (x) : -(x))
-#define FABS_T(x) ((x) >= 0.0 ? (x) : -(x))
+#define FABS_T(x)  ((x) >= 0.0 ? (x) : -(x))
 
 #define POW_EPS32 1e-4f
 #define POW_EPS64 1e-10

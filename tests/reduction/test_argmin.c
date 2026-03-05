@@ -131,8 +131,7 @@ static int test_argmin_transposed(void) {
 
 static int test_argmin_null(void) {
   int err = numc_argmin(NULL, NULL);
-  ASSERT_MSG(err == NUMC_ERR_NULL,
-             "argmin(NULL) should return NUMC_ERR_NULL");
+  ASSERT_MSG(err == NUMC_ERR_NULL, "argmin(NULL) should return NUMC_ERR_NULL");
   return 0;
 }
 

@@ -798,13 +798,42 @@ static const DotNaiveKernel dot_naive_table[] = {
     [NUMC_DTYPE_FLOAT64] = _dot_naive_NUMC_DTYPE_FLOAT64,
 };
 
+static double _to_double(const void *ptr, NumcDType dt) {
+  switch (dt) {
+  case NUMC_DTYPE_INT8:
+    return (double)*(const int8_t *)ptr;
+  case NUMC_DTYPE_INT16:
+    return (double)*(const int16_t *)ptr;
+  case NUMC_DTYPE_INT32:
+    return (double)*(const int32_t *)ptr;
+  case NUMC_DTYPE_INT64:
+    return (double)*(const int64_t *)ptr;
+  case NUMC_DTYPE_UINT8:
+    return (double)*(const uint8_t *)ptr;
+  case NUMC_DTYPE_UINT16:
+    return (double)*(const uint16_t *)ptr;
+  case NUMC_DTYPE_UINT32:
+    return (double)*(const uint32_t *)ptr;
+  case NUMC_DTYPE_UINT64:
+    return (double)*(const uint64_t *)ptr;
+  case NUMC_DTYPE_FLOAT32:
+    return (double)*(const float *)ptr;
+  case NUMC_DTYPE_FLOAT64:
+    return *(const double *)ptr;
+  }
+  return 0.0;
+}
+
 static inline void _reduce_dot_op(const struct NumcArray *a,
                                   const struct NumcArray *b,
                                   struct NumcArray *out,
                                   const NumcBinaryReductionKernel *table) {
   /* Case 3: Either is 0-D (scalar) */
   if (a->dim == 0 || b->dim == 0) {
-    numc_mul(a, b, out);
+    const struct NumcArray *scalar_arr = (a->dim == 0) ? a : b;
+    const struct NumcArray *other_arr = (a->dim == 0) ? b : a;
+    double val = _to_double(scalar_arr->data, scalar_arr->dtype);
+    numc_mul_scalar(other_arr, val, out);
     return;
   }
 
@@ -829,10 +858,10 @@ static inline void _reduce_dot_op(const struct NumcArray *a,
   /* Unified ND support: Collapse to (M, K) @ (P, K, N)
    * Results in out(M, P, N) where P is the batch of b.
    */
-  size_t K = a->shape[a->dim - 1];
-  size_t M = a->size / K;
-  size_t N = (b->dim == 1) ? 1 : b->shape[b->dim - 1];
-  size_t P = b->size / (K * N);
+  size_t k_dim = a->shape[a->dim - 1];
+  size_t m_dim = a->size / k_dim;
+  size_t n_dim = (b->dim == 1) ? 1 : b->shape[b->dim - 1];
+  size_t p_batch = b->size / (k_dim * n_dim);
 
   /* a is (M, K). Row stride is stride[0], Col stride is stride[last] */
   intptr_t rsa =
@@ -857,22 +886,22 @@ static inline void _reduce_dot_op(const struct NumcArray *a,
   /* If a or b are not essentially 2D (matrix) after collapsing M/P,
    * we must use a more careful batching loop. */
 
-  if (P == 1) {
+  if (p_batch == 1) {
 #ifdef HAVE_BLAS
     if (a->dtype == NUMC_DTYPE_FLOAT32 && a->is_contiguous &&
         b->is_contiguous) {
-      _dot_blis_gemm_f32(a, b, out, M, K, N);
+      _dot_blis_gemm_f32(a, b, out, m_dim, k_dim, n_dim);
       return;
     }
     if (a->dtype == NUMC_DTYPE_FLOAT64 && a->is_contiguous &&
         b->is_contiguous) {
-      _dot_blis_gemm_f64(a, b, out, M, K, N);
+      _dot_blis_gemm_f64(a, b, out, m_dim, k_dim, n_dim);
       return;
     }
 #endif
     dot_naive_table[a->dtype]((const char *)a->data, (const char *)b->data,
-                              (char *)out->data, M, K, N, rsa, csa, rsb, csb,
-                              rso, cso);
+                              (char *)out->data, m_dim, k_dim, n_dim, rsa, csa,
+                              rsb, csb, rso, cso);
     return;
   }
 
@@ -884,20 +913,21 @@ static inline void _reduce_dot_op(const struct NumcArray *a,
    * - base pointer offset: p * out->strides[1] (if 3D)
    */
 
-  for (size_t p = 0; p < P; p++) {
+  for (size_t p_idx = 0; p_idx < p_batch; p_idx++) {
     /* Calculate base pointers for this batch p */
-    const char *bp = (const char *)b->data + p * K * N * b->elem_size;
-    char *op = (char *)out->data + p * N * out->elem_size;
+    const char *bp =
+        (const char *)b->data + p_idx * k_dim * n_dim * b->elem_size;
+    char *op = (char *)out->data + p_idx * n_dim * out->elem_size;
 
     /* Note: This assumes b and out are contiguous in their batch/N dimensions.
      * If they are not, we'd need more complex pointer arithmetic.
      * For (M, P, N) out, the pointer to out[0, p, 0] is data + p*stride[1].
      */
     if (out->dim == 3) {
-      op = (char *)out->data + p * out->strides[1];
+      op = (char *)out->data + p_idx * out->strides[1];
     }
     if (b->dim == 3) {
-      bp = (const char *)b->data + p * b->strides[0];
+      bp = (const char *)b->data + p_idx * b->strides[0];
     }
 
 #ifdef HAVE_BLAS
@@ -905,16 +935,16 @@ static inline void _reduce_dot_op(const struct NumcArray *a,
         b->is_contiguous && out->is_contiguous) {
       /* We can use BLIS sgemm for each slice */
       float alpha = 1.0f, beta = 0.0f;
-      bli_sgemm(BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE, (dim_t)M, (dim_t)N,
-                (dim_t)K, &alpha, (float *)a->data, (inc_t)rsa, (inc_t)csa,
-                (float *)bp, (inc_t)rsb, (inc_t)csb, &beta, (float *)op,
-                (inc_t)rso, (inc_t)cso);
+      bli_sgemm(BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE, (dim_t)m_dim,
+                (dim_t)n_dim, (dim_t)k_dim, &alpha, (float *)a->data,
+                (inc_t)rsa, (inc_t)csa, (float *)bp, (inc_t)rsb, (inc_t)csb,
+                &beta, (float *)op, (inc_t)rso, (inc_t)cso);
       continue;
     }
 #endif
     dot_naive_table[a->dtype]((const char *)a->data, (const char *)bp,
-                              (char *)op, M, K, N, rsa, csa, rsb, csb, rso,
-                              cso);
+                              (char *)op, m_dim, k_dim, n_dim, rsa, csa, rsb,
+                              csb, rso, cso);
   }
 }
 

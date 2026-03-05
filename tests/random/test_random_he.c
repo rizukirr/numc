@@ -17,16 +17,15 @@ static int test_he_float32_stats(void) {
   float *p = (float *)numc_array_data(a);
   double sum = 0.0, sum2 = 0.0;
   for (size_t i = 0; i < n; i++) {
-    sum  += p[i];
+    sum += p[i];
     sum2 += (double)p[i] * p[i];
   }
-  double mean  = sum / (double)n;
-  double var   = sum2 / (double)n - mean * mean;
-  double std   = sqrt(var);
+  double mean = sum / (double)n;
+  double var = sum2 / (double)n - mean * mean;
+  double std = sqrt(var);
   double expected_std = sqrt(2.0 / (double)fan_in);
 
-  ASSERT_MSG(fabs(mean) < 0.1,
-             "random_he float32 mean should be close to 0");
+  ASSERT_MSG(fabs(mean) < 0.1, "random_he float32 mean should be close to 0");
   /* allow ±25% tolerance on std */
   ASSERT_MSG(std > expected_std * 0.75 && std < expected_std * 1.25,
              "random_he float32 std should be close to sqrt(2/fan_in)");
@@ -48,16 +47,15 @@ static int test_he_float64_stats(void) {
   double *p = (double *)numc_array_data(a);
   double sum = 0.0, sum2 = 0.0;
   for (size_t i = 0; i < n; i++) {
-    sum  += p[i];
+    sum += p[i];
     sum2 += p[i] * p[i];
   }
-  double mean  = sum / (double)n;
-  double var   = sum2 / (double)n - mean * mean;
-  double std   = sqrt(var);
+  double mean = sum / (double)n;
+  double var = sum2 / (double)n - mean * mean;
+  double std = sqrt(var);
   double expected_std = sqrt(2.0 / (double)fan_in);
 
-  ASSERT_MSG(fabs(mean) < 0.1,
-             "random_he float64 mean should be close to 0");
+  ASSERT_MSG(fabs(mean) < 0.1, "random_he float64 mean should be close to 0");
   ASSERT_MSG(std > expected_std * 0.75 && std < expected_std * 1.25,
              "random_he float64 std should be close to sqrt(2/fan_in)");
 
@@ -71,8 +69,8 @@ static int test_he_2d(void) {
   NumcCtx *ctx = numc_ctx_create();
   numc_manual_seed(7);
 
-  NumcArray *a = numc_array_random_he(ctx, (size_t[]){32, 64}, 2,
-                                      NUMC_DTYPE_FLOAT32, 64);
+  NumcArray *a =
+      numc_array_random_he(ctx, (size_t[]){32, 64}, 2, NUMC_DTYPE_FLOAT32, 64);
   ASSERT_MSG(a != NULL, "random_he 2D must not be NULL");
   ASSERT_MSG(numc_array_size(a) == 2048, "random_he 2D size should be 2048");
   ASSERT_MSG(numc_array_ndim(a) == 2, "random_he 2D ndim should be 2");

@@ -131,12 +131,9 @@ static const NumcUnaryKernel neg_table[] = {
 };
 
 static const NumcUnaryKernel abs_table[] = {
-    E(abs, NUMC_DTYPE_INT8),
-    E(abs, NUMC_DTYPE_INT16),
-    E(abs, NUMC_DTYPE_INT32),
-    E(abs, NUMC_DTYPE_INT64),
-    E(abs, NUMC_DTYPE_FLOAT32),
-    E(abs, NUMC_DTYPE_FLOAT64),
+    E(abs, NUMC_DTYPE_INT8),    E(abs, NUMC_DTYPE_INT16),
+    E(abs, NUMC_DTYPE_INT32),   E(abs, NUMC_DTYPE_INT64),
+    E(abs, NUMC_DTYPE_FLOAT32), E(abs, NUMC_DTYPE_FLOAT64),
     /* unsigned types: NULL — never reached; numc_abs/_inplace guards them */
 };
 

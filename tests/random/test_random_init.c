@@ -29,24 +29,23 @@ static int test_he_float32_stats(void) {
 
   const size_t fan_in = 512;
   const size_t n = 4096;
-  NumcArray *w = numc_array_random_he(ctx, (size_t[]){n}, 1,
-                                      NUMC_DTYPE_FLOAT32, fan_in);
+  NumcArray *w =
+      numc_array_random_he(ctx, (size_t[]){n}, 1, NUMC_DTYPE_FLOAT32, fan_in);
   ASSERT_MSG(w != NULL, "he float32 stats must not be NULL");
 
   float *p = (float *)numc_array_data(w);
   double sum = 0.0, sum2 = 0.0;
   for (size_t i = 0; i < n; i++) {
-    sum  += p[i];
+    sum += p[i];
     sum2 += (double)p[i] * p[i];
   }
   double mean = sum / (double)n;
-  double var  = sum2 / (double)n - mean * mean;
-  double std  = sqrt(var);
+  double var = sum2 / (double)n - mean * mean;
+  double std = sqrt(var);
 
   double expected_std = sqrt(2.0 / (double)fan_in);
 
-  ASSERT_MSG(fabs(mean) < 0.05,
-             "he float32 mean should be close to 0");
+  ASSERT_MSG(fabs(mean) < 0.05, "he float32 mean should be close to 0");
   /* Allow ±20% tolerance on std */
   ASSERT_MSG(fabs(std - expected_std) < 0.2 * expected_std,
              "he float32 std should be close to sqrt(2/fan_in)");
@@ -61,24 +60,23 @@ static int test_he_float64_stats(void) {
 
   const size_t fan_in = 256;
   const size_t n = 4096;
-  NumcArray *w = numc_array_random_he(ctx, (size_t[]){n}, 1,
-                                      NUMC_DTYPE_FLOAT64, fan_in);
+  NumcArray *w =
+      numc_array_random_he(ctx, (size_t[]){n}, 1, NUMC_DTYPE_FLOAT64, fan_in);
   ASSERT_MSG(w != NULL, "he float64 stats must not be NULL");
 
   double *p = (double *)numc_array_data(w);
   double sum = 0.0, sum2 = 0.0;
   for (size_t i = 0; i < n; i++) {
-    sum  += p[i];
+    sum += p[i];
     sum2 += p[i] * p[i];
   }
   double mean = sum / (double)n;
-  double var  = sum2 / (double)n - mean * mean;
-  double std  = sqrt(var);
+  double var = sum2 / (double)n - mean * mean;
+  double std = sqrt(var);
 
   double expected_std = sqrt(2.0 / (double)fan_in);
 
-  ASSERT_MSG(fabs(mean) < 0.05,
-             "he float64 mean should be close to 0");
+  ASSERT_MSG(fabs(mean) < 0.05, "he float64 mean should be close to 0");
   ASSERT_MSG(fabs(std - expected_std) < 0.2 * expected_std,
              "he float64 std should be close to sqrt(2/fan_in)");
 
@@ -88,8 +86,8 @@ static int test_he_float64_stats(void) {
 
 static int test_he_error_zero_fan_in(void) {
   NumcCtx *ctx = numc_ctx_create();
-  NumcArray *w = numc_array_random_he(ctx, (size_t[]){4}, 1,
-                                      NUMC_DTYPE_FLOAT32, 0);
+  NumcArray *w =
+      numc_array_random_he(ctx, (size_t[]){4}, 1, NUMC_DTYPE_FLOAT32, 0);
   ASSERT_MSG(w == NULL, "he with fan_in=0 must return NULL");
   numc_ctx_free(ctx);
   return 0;
@@ -109,8 +107,7 @@ static int test_xavier_float32_shape(void) {
                                           NUMC_DTYPE_FLOAT32, 128, 64);
   ASSERT_MSG(w != NULL, "xavier float32 must not be NULL");
   ASSERT_MSG(numc_array_ndim(w) == 2, "xavier ndim should be 2");
-  ASSERT_MSG(numc_array_size(w) == 128 * 64,
-             "xavier size should be 128*64");
+  ASSERT_MSG(numc_array_size(w) == 128 * 64, "xavier size should be 128*64");
 
   numc_ctx_free(ctx);
   return 0;
@@ -123,8 +120,7 @@ static int test_xavier_float32_range(void) {
   const size_t fan_in = 128, fan_out = 64;
   const size_t n = 2048;
   NumcArray *w = numc_array_random_xavier(ctx, (size_t[]){n}, 1,
-                                          NUMC_DTYPE_FLOAT32,
-                                          fan_in, fan_out);
+                                          NUMC_DTYPE_FLOAT32, fan_in, fan_out);
   ASSERT_MSG(w != NULL, "xavier float32 range must not be NULL");
 
   double limit = sqrt(6.0 / (double)(fan_in + fan_out));
@@ -147,8 +143,7 @@ static int test_xavier_float32_stats(void) {
   const size_t fan_in = 256, fan_out = 128;
   const size_t n = 4096;
   NumcArray *w = numc_array_random_xavier(ctx, (size_t[]){n}, 1,
-                                          NUMC_DTYPE_FLOAT32,
-                                          fan_in, fan_out);
+                                          NUMC_DTYPE_FLOAT32, fan_in, fan_out);
   ASSERT_MSG(w != NULL, "xavier float32 stats must not be NULL");
 
   float *p = (float *)numc_array_data(w);
@@ -157,8 +152,7 @@ static int test_xavier_float32_stats(void) {
     sum += p[i];
   double mean = sum / (double)n;
 
-  ASSERT_MSG(fabs(mean) < 0.05,
-             "xavier float32 mean should be close to 0");
+  ASSERT_MSG(fabs(mean) < 0.05, "xavier float32 mean should be close to 0");
 
   numc_ctx_free(ctx);
   return 0;
@@ -171,8 +165,7 @@ static int test_xavier_float64_range(void) {
   const size_t fan_in = 64, fan_out = 32;
   const size_t n = 1024;
   NumcArray *w = numc_array_random_xavier(ctx, (size_t[]){n}, 1,
-                                          NUMC_DTYPE_FLOAT64,
-                                          fan_in, fan_out);
+                                          NUMC_DTYPE_FLOAT64, fan_in, fan_out);
   ASSERT_MSG(w != NULL, "xavier float64 range must not be NULL");
 
   double limit = sqrt(6.0 / (double)(fan_in + fan_out));
@@ -207,8 +200,8 @@ static int test_he_xavier_differ(void) {
   NumcCtx *ctx = numc_ctx_create();
 
   numc_manual_seed(9999);
-  NumcArray *he = numc_array_random_he(ctx, (size_t[]){64}, 1,
-                                       NUMC_DTYPE_FLOAT32, 128);
+  NumcArray *he =
+      numc_array_random_he(ctx, (size_t[]){64}, 1, NUMC_DTYPE_FLOAT32, 128);
 
   numc_manual_seed(9999);
   NumcArray *xav = numc_array_random_xavier(ctx, (size_t[]){64}, 1,

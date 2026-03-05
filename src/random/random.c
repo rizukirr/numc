@@ -15,38 +15,38 @@
  * Integer types: raw bits masked to type width.
  */
 
-#define _CONV_INT8(raw)   ((NUMC_INT8)((raw) & 0xFFu))
-#define _CONV_INT16(raw)  ((NUMC_INT16)((raw) & 0xFFFFu))
-#define _CONV_INT32(raw)  ((NUMC_INT32)((raw) & 0xFFFFFFFFu))
-#define _CONV_INT64(raw)  ((NUMC_INT64)(raw))
-#define _CONV_UINT8(raw)  ((NUMC_UINT8)((raw) & 0xFFu))
-#define _CONV_UINT16(raw) ((NUMC_UINT16)((raw) & 0xFFFFu))
-#define _CONV_UINT32(raw) ((NUMC_UINT32)((raw) & 0xFFFFFFFFu))
-#define _CONV_UINT64(raw) ((NUMC_UINT64)(raw))
-#define _CONV_F32(raw)    (_u64_to_f32(raw))
-#define _CONV_F64(raw)    (_u64_to_f64(raw))
+#define CONV_INT8(raw)   ((NUMC_INT8)((raw) & 0xFFu))
+#define CONV_INT16(raw)  ((NUMC_INT16)((raw) & 0xFFFFu))
+#define CONV_INT32(raw)  ((NUMC_INT32)((raw) & 0xFFFFFFFFu))
+#define CONV_INT64(raw)  ((NUMC_INT64)(raw))
+#define CONV_UINT8(raw)  ((NUMC_UINT8)((raw) & 0xFFu))
+#define CONV_UINT16(raw) ((NUMC_UINT16)((raw) & 0xFFFFu))
+#define CONV_UINT32(raw) ((NUMC_UINT32)((raw) & 0xFFFFFFFFu))
+#define CONV_UINT64(raw) ((NUMC_UINT64)(raw))
+#define CONV_F32(raw)    (_u64_to_f32(raw))
+#define CONV_F64(raw)    (_u64_to_f64(raw))
 
-DEFINE_RAND_KERNEL(NUMC_DTYPE_INT8, NUMC_INT8, _CONV_INT8)
-DEFINE_RAND_KERNEL(NUMC_DTYPE_INT16, NUMC_INT16, _CONV_INT16)
-DEFINE_RAND_KERNEL(NUMC_DTYPE_INT32, NUMC_INT32, _CONV_INT32)
-DEFINE_RAND_KERNEL(NUMC_DTYPE_INT64, NUMC_INT64, _CONV_INT64)
-DEFINE_RAND_KERNEL(NUMC_DTYPE_UINT8, NUMC_UINT8, _CONV_UINT8)
-DEFINE_RAND_KERNEL(NUMC_DTYPE_UINT16, NUMC_UINT16, _CONV_UINT16)
-DEFINE_RAND_KERNEL(NUMC_DTYPE_UINT32, NUMC_UINT32, _CONV_UINT32)
-DEFINE_RAND_KERNEL(NUMC_DTYPE_UINT64, NUMC_UINT64, _CONV_UINT64)
-DEFINE_RAND_KERNEL(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, _CONV_F32)
-DEFINE_RAND_KERNEL(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _CONV_F64)
+DEFINE_RAND_KERNEL(NUMC_DTYPE_INT8, NUMC_INT8, CONV_INT8)
+DEFINE_RAND_KERNEL(NUMC_DTYPE_INT16, NUMC_INT16, CONV_INT16)
+DEFINE_RAND_KERNEL(NUMC_DTYPE_INT32, NUMC_INT32, CONV_INT32)
+DEFINE_RAND_KERNEL(NUMC_DTYPE_INT64, NUMC_INT64, CONV_INT64)
+DEFINE_RAND_KERNEL(NUMC_DTYPE_UINT8, NUMC_UINT8, CONV_UINT8)
+DEFINE_RAND_KERNEL(NUMC_DTYPE_UINT16, NUMC_UINT16, CONV_UINT16)
+DEFINE_RAND_KERNEL(NUMC_DTYPE_UINT32, NUMC_UINT32, CONV_UINT32)
+DEFINE_RAND_KERNEL(NUMC_DTYPE_UINT64, NUMC_UINT64, CONV_UINT64)
+DEFINE_RAND_KERNEL(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, CONV_F32)
+DEFINE_RAND_KERNEL(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, CONV_F64)
 
-#undef _CONV_INT8
-#undef _CONV_INT16
-#undef _CONV_INT32
-#undef _CONV_INT64
-#undef _CONV_UINT8
-#undef _CONV_UINT16
-#undef _CONV_UINT32
-#undef _CONV_UINT64
-#undef _CONV_F32
-#undef _CONV_F64
+#undef CONV_INT8
+#undef CONV_INT16
+#undef CONV_INT32
+#undef CONV_INT64
+#undef CONV_UINT8
+#undef CONV_UINT16
+#undef CONV_UINT32
+#undef CONV_UINT64
+#undef CONV_F32
+#undef CONV_F64
 
 /* ── Stamp randn kernels for all 10 dtypes ──────────────────────────
  *
@@ -164,7 +164,7 @@ NumcArray *numc_array_random_xavier(NumcCtx *ctx, const size_t *shape,
   double limit = sqrt(6.0 / (double)(fan_in + fan_out));
   if (numc_mul_scalar_inplace(arr, 2.0 * limit) < 0) /* [0, 2*limit)    */
     return NULL;
-  if (numc_sub_scalar_inplace(arr, limit) < 0)       /* [-limit, limit) */
+  if (numc_sub_scalar_inplace(arr, limit) < 0) /* [-limit, limit) */
     return NULL;
   return arr;
 }
