@@ -22,6 +22,9 @@ target_link_libraries(bench_fma PRIVATE numc::numc)
 add_executable(bench_dot bench_dot.c)
 target_link_libraries(bench_dot PRIVATE numc::numc)
 
+add_executable(bench_dot_comprehensive bench_dot_comprehensive.c)
+target_link_libraries(bench_dot_comprehensive PRIVATE numc::numc)
+
 add_executable(bench_matmul bench_matmul.c)
 target_link_libraries(bench_matmul PRIVATE numc::numc)
 if(NUMC_VENDOR_BLIS AND BLAS_FOUND)

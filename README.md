@@ -1,52 +1,63 @@
-# numc
+# numc: High-Performance N-Dimensional Tensor Library
 
-`numc` is a high-performance C library for N-dimensional array manipulation and tensor computation. Engineered in pure C23, it provides a robust mathematical foundation for scientific computing, machine learning, and data processing.
+`numc` is a blazingly fast C library engineered for high-performance N-dimensional array manipulation and tensor computation. Architected in pure **C23**, it provides a robust mathematical foundation for scientific computing, machine learning, and high-frequency data processing.
 
-By combining modern C language features with hardware-aware architectural patterns, `numc` delivers a professional-grade toolset that often outperforms industry-standard libraries in both raw throughput and memory efficiency.
+By synthesizing modern language features with hardware-aware architectural patterns, `numc` delivers deterministic performance that consistently outperforms industry-standard libraries in both raw throughput and cache efficiency.
 
-## Key Features
+## Key Architectural Advantages
 
-- **C23 Native Implementation:** Leverages the latest C standard for improved type safety, performance, and modern syntax.
-- **Hardware-Aware Performance:** Utilizes `__builtin_assume_aligned` for optimal SIMD vectorization and `__builtin_prefetch` to minimize CPU cache stalls during non-contiguous operations.
-- **Arena-Based Memory Management:** Utilizes a highly efficient arena allocator (`NumcCtx`) to manage tensor lifecycles, ensuring zero fragmentation and O(1) cleanup.
-- **Optimized Compute Kernels:** Features hand-tuned kernels with reciprocal multiplication for division and power-of-two bit-shift optimizations.
-- **Zero-Copy Strided Views:** Perform reshapes, transposes, and complex slicing operations without redundant data movement or allocation.
-- **Vendored BLIS Integration:** Ships with [BLIS](https://github.com/flame/blis) for optimized `sgemm`/`dgemm` with runtime CPU detection (AVX2, AVX-512) and automatic threading.
+- **Hardware-Informed Performance:** Leverages `__builtin_assume_aligned` for SIMD alignment and `__builtin_prefetch` to minimize cache miss penalties during strided N-D iteration.
+- **Three-Tier Dispatch System:**
+    1. **Accelerated Backend:** Automatic offloading of floating-point operations (`dot`, `matmul`, `sum`, `add`, `sub`) to **BLIS** (Level 1/2/3 BLAS) with runtime CPU feature detection (AVX2, AVX-512).
+    2. **Parallelized Engine:** Multi-accumulator **OpenMP** kernels for high-bandwidth integer and strided-floating operations.
+    3. **Native Fallback:** Highly optimized, C23-native kernels for edge cases and small tensors.
+- **Arena-Based Memory Management:** Utilizes a high-concurrency arena allocator (`NumcCtx`) for O(1) tensor lifecycle management, ensuring zero memory fragmentation and deterministic cleanup.
+- **Zero-Copy Geometry:** Perform reshapes, transposes, and complex slicing via metadata manipulation, eliminating redundant data movement.
+- **Modern C23 Foundation:** Built on the latest C standard for enhanced type safety and rigorous static analysis compatibility.
 
 ## Technical Capabilities
 
-`numc` provides a comprehensive suite of operations for production-ready environments:
+`numc` implements a comprehensive suite of operations for production-ready engineering:
 
-- **Tensor Lifecycle:** Flexible creation, initialization (zeros, ones, fill), and deep-copy utilities.
-- **Element-wise Mathematics:** Full support for binary, unary, and scalar operations, including transcendental functions (`exp`, `log`, `sqrt`, `pow`).
-- **Standard Broadcasting:** Transparent handling of mismatched dimensions across all binary operations with optimized semi-contiguous fast paths.
-- **Reductions:** Multi-dimensional sum, mean, max, min, and argmax/argmin with support for axis-specific reduction.
-- **Matrix Multiplication:** Three-tier dispatch: BLIS for large float ops, system BLAS fallback, and optimized naive C23 kernels that outperform NumPy by 4-5x on small matrices.
+- **Tensor Math:** Full support for binary arithmetic, unary functions, and scalar operations with broadcasting.
+- **Transcendental Ops:** Hardware-accelerated `exp`, `log`, `sqrt`, and `pow`.
+- **Advanced Reductions:** Multi-dimensional `sum`, `mean`, `max/min`, and `argmax/argmin` with axis-specific reduction logic.
+- **Universal Broadcasting:** Strict adherence to NumPy-style broadcasting semantics across all dimension-mismatched operations.
+- **N-Dimensional Support:** Every mathematical operation (excluding strictly 2D `matmul`) supports arbitrary N-D tensor shapes and strided memory layouts.
 
 ## Documentation
 
-Comprehensive API documentation and usage guides are available in the [Project Wiki](https://github.com/rizukirr/numc/wiki).
+For detailed API specifications, architecture deep-dives, and comprehensive usage guides, please visit the [**numc Project Wiki**](https://github.com/rizukirr/numc/wiki).
 
-## Building and Development
+## Build and Development
 
-`numc` uses CMake and includes a developer-focused helper script for common workflows.
+`numc` utilizes a modern CMake build system and provides a unified developer-experience script.
 
-### Quick Start
+### Installation
 
 ```bash
-./run.sh release        # Build optimized Release mode
-./run.sh test           # Execute the comprehensive test suite (with ASan/LSan)
-./run.sh bench          # Run performance benchmarks against NumPy
+# Clone the repository with submodules
+git clone --recursive https://github.com/rizukirr/numc.git
+cd numc
+
+# Build optimized Release binaries
+./run.sh release
+
+# Validate with the comprehensive test suite (ASan/LSan included)
+./run.sh test
+
+# Benchmark against local Python/NumPy installation
+./run.sh bench
 ```
 
-### Build Options
+### Build Configuration
 
 | CMake Option | Default | Description |
 |-------------|---------|-------------|
-| `NUMC_VENDOR_BLIS` | `ON` | Build BLIS from vendored submodule |
-| `NUMC_USE_BLAS` | `ON` | Enable BLAS integration (system or vendored) |
-| `BLIS_CONFIG` | `x86_64` | BLIS target (`x86_64`, `auto`, `haswell`, etc.) |
+| `NUMC_VENDOR_BLIS` | `ON` | Build BLIS from internal submodule |
+| `NUMC_USE_BLAS` | `ON` | Enable BLAS/BLIS acceleration |
+| `BLIS_CONFIG` | `auto` | BLIS target (e.g., `haswell`, `zen`, `skx`) |
 
 ## License
 
-`numc` is released under the MIT License. See the [LICENSE](LICENSE) file for details.
+`numc` is released under the **MIT License**. Engineered for reliability and performance.

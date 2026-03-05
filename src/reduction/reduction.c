@@ -673,23 +673,248 @@ int numc_argmin_axis(const NumcArray *a, int axis, int keepdim,
   return 0;
 }
 
+#ifdef HAVE_BLAS
+#include <blis.h>
+#include <pthread.h>
+#endif
+
+#ifdef HAVE_BLAS
+static void _dot_blis_f32(const NumcArray *a, const NumcArray *b,
+                          NumcArray *out) {
+  /* Only for 1D-1D vector dot product */
+  float rho = 0.0f;
+  inc_t inca = (inc_t)(a->strides[0] / sizeof(float));
+  inc_t incb = (inc_t)(b->strides[0] / sizeof(float));
+  bli_sdotv(BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE, (dim_t)a->size,
+            (float *)a->data, inca, (float *)b->data, incb, &rho);
+  *(float *)out->data = rho;
+}
+
+static void _dot_blis_f64(const NumcArray *a, const NumcArray *b,
+                          NumcArray *out) {
+  /* Only for 1D-1D vector dot product */
+  double rho = 0.0;
+  inc_t inca = (inc_t)(a->strides[0] / sizeof(double));
+  inc_t incb = (inc_t)(b->strides[0] / sizeof(double));
+  bli_ddotv(BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE, (dim_t)a->size,
+            (double *)a->data, inca, (double *)b->data, incb, &rho);
+  *(double *)out->data = rho;
+}
+
+static void _dot_blis_gemm_f32(const NumcArray *a, const NumcArray *b,
+                               NumcArray *out, size_t M, size_t K, size_t N) {
+  float alpha = 1.0f, beta = 0.0f;
+
+  /* Strides for reshaped matrices (M, K) @ (K, N) -> (M, N) */
+  inc_t rs_a =
+      (inc_t)(a->dim > 1 ? a->strides[a->dim - 2] / sizeof(float) : (inc_t)K);
+  inc_t cs_a = (inc_t)(a->strides[a->dim - 1] / sizeof(float));
+
+  inc_t rs_b =
+      (inc_t)(b->dim > 1 ? b->strides[b->dim - 2] / sizeof(float) : (inc_t)N);
+  inc_t cs_b = (inc_t)(b->strides[b->dim - 1] / sizeof(float));
+
+  inc_t rs_c = (inc_t)(out->dim > 1 ? out->strides[out->dim - 2] / sizeof(float)
+                                    : (inc_t)N);
+  inc_t cs_c = (inc_t)(out->strides[out->dim - 1] / sizeof(float));
+
+  bli_sgemm(BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE, (dim_t)M, (dim_t)N, (dim_t)K,
+            &alpha, (float *)a->data, rs_a, cs_a, (float *)b->data, rs_b, cs_b,
+            &beta, (float *)out->data, rs_c, cs_c);
+}
+
+static void _dot_blis_gemm_f64(const NumcArray *a, const NumcArray *b,
+                               NumcArray *out, size_t M, size_t K, size_t N) {
+  double alpha = 1.0, beta = 0.0;
+
+  inc_t rs_a =
+      (inc_t)(a->dim > 1 ? a->strides[a->dim - 2] / sizeof(double) : (inc_t)K);
+  inc_t cs_a = (inc_t)(a->strides[a->dim - 1] / sizeof(double));
+
+  inc_t rs_b =
+      (inc_t)(b->dim > 1 ? b->strides[b->dim - 2] / sizeof(double) : (inc_t)N);
+  inc_t cs_b = (inc_t)(b->strides[b->dim - 1] / sizeof(double));
+
+  inc_t rs_c =
+      (inc_t)(out->dim > 1 ? out->strides[out->dim - 2] / sizeof(double)
+                           : (inc_t)N);
+  inc_t cs_c = (inc_t)(out->strides[out->dim - 1] / sizeof(double));
+
+  bli_dgemm(BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE, (dim_t)M, (dim_t)N, (dim_t)K,
+            &alpha, (double *)a->data, rs_a, cs_a, (double *)b->data, rs_b,
+            cs_b, &beta, (double *)out->data, rs_c, cs_c);
+}
+#endif
+
+/* ── Dot product helper kernels ────────────────────────────────── */
+
+#define STAMP_DOT_NAIVE(TE, CT, ACC_CT)                                        \
+  static void _dot_naive_##TE(const char *pa, const char *pb, char *po,        \
+                              size_t M, size_t K, size_t N, intptr_t rsa,      \
+                              intptr_t csa, intptr_t rsb, intptr_t csb,        \
+                              intptr_t rso, intptr_t cso) {                    \
+    const CT *a = (const CT *)pa;                                              \
+    const CT *b = (const CT *)pb;                                              \
+    CT *out = (CT *)po;                                                        \
+    NUMC_OMP_FOR(                                                              \
+        M * N, sizeof(CT), for (size_t i = 0; i < M; i++) {                    \
+          for (size_t j = 0; j < N; j++) {                                     \
+            ACC_CT acc = 0;                                                    \
+            for (size_t k = 0; k < K; k++) {                                   \
+              acc +=                                                           \
+                  (ACC_CT)a[i * rsa + k * csa] * (ACC_CT)b[k * rsb + j * csb]; \
+            }                                                                  \
+            out[i * rso + j * cso] = (CT)acc;                                  \
+          }                                                                    \
+        });                                                                    \
+  }
+
+STAMP_DOT_NAIVE(NUMC_DTYPE_INT8, int8_t, int32_t)
+STAMP_DOT_NAIVE(NUMC_DTYPE_INT16, int16_t, int64_t)
+STAMP_DOT_NAIVE(NUMC_DTYPE_INT32, int32_t, int64_t)
+STAMP_DOT_NAIVE(NUMC_DTYPE_INT64, int64_t, int64_t)
+STAMP_DOT_NAIVE(NUMC_DTYPE_UINT8, uint8_t, uint32_t)
+STAMP_DOT_NAIVE(NUMC_DTYPE_UINT16, uint16_t, uint64_t)
+STAMP_DOT_NAIVE(NUMC_DTYPE_UINT32, uint32_t, uint64_t)
+STAMP_DOT_NAIVE(NUMC_DTYPE_UINT64, uint64_t, uint64_t)
+STAMP_DOT_NAIVE(NUMC_DTYPE_FLOAT32, float, float)
+STAMP_DOT_NAIVE(NUMC_DTYPE_FLOAT64, double, double)
+
+typedef void (*DotNaiveKernel)(const char *pa, const char *pb, char *po,
+                               size_t M, size_t K, size_t N, intptr_t rsa,
+                               intptr_t csa, intptr_t rsb, intptr_t csb,
+                               intptr_t rso, intptr_t cso);
+
+static const DotNaiveKernel dot_naive_table[] = {
+    [NUMC_DTYPE_INT8] = _dot_naive_NUMC_DTYPE_INT8,
+    [NUMC_DTYPE_INT16] = _dot_naive_NUMC_DTYPE_INT16,
+    [NUMC_DTYPE_INT32] = _dot_naive_NUMC_DTYPE_INT32,
+    [NUMC_DTYPE_INT64] = _dot_naive_NUMC_DTYPE_INT64,
+    [NUMC_DTYPE_UINT8] = _dot_naive_NUMC_DTYPE_UINT8,
+    [NUMC_DTYPE_UINT16] = _dot_naive_NUMC_DTYPE_UINT16,
+    [NUMC_DTYPE_UINT32] = _dot_naive_NUMC_DTYPE_UINT32,
+    [NUMC_DTYPE_UINT64] = _dot_naive_NUMC_DTYPE_UINT64,
+    [NUMC_DTYPE_FLOAT32] = _dot_naive_NUMC_DTYPE_FLOAT32,
+    [NUMC_DTYPE_FLOAT64] = _dot_naive_NUMC_DTYPE_FLOAT64,
+};
+
 static inline void _reduce_dot_op(const struct NumcArray *a,
                                   const struct NumcArray *b,
                                   struct NumcArray *out,
                                   const NumcBinaryReductionKernel *table) {
-  NumcBinaryReductionKernel kern = table[a->dtype];
+  /* Case 3: Either is 0-D (scalar) */
+  if (a->dim == 0 || b->dim == 0) {
+    numc_mul(a, b, out);
+    return;
+  }
 
-  if (a->is_contiguous && b->is_contiguous) {
-    kern((const char *)a->data, (const char *)b->data, (char *)out->data,
-         a->size, (intptr_t)a->elem_size, (intptr_t)b->elem_size);
-  } else {
-    /* Fallback: perform element-wise multiplication into a temporary, then sum.
-     * This is slower but handles all strided/broadcast cases correctly. */
-    NumcArray *tmp = numc_array_create(a->ctx, a->shape, a->dim, a->dtype);
-    if (!tmp)
+  /* Case 1: Both are 1-D (vector dot product) */
+  if (a->dim == 1 && b->dim == 1) {
+#ifdef HAVE_BLAS
+    if (a->dtype == NUMC_DTYPE_FLOAT32) {
+      _dot_blis_f32(a, b, out);
       return;
-    numc_mul(a, b, tmp);
-    numc_sum(tmp, out);
+    }
+    if (a->dtype == NUMC_DTYPE_FLOAT64) {
+      _dot_blis_f64(a, b, out);
+      return;
+    }
+#endif
+    NumcBinaryReductionKernel kern = table[a->dtype];
+    kern((const char *)a->data, (const char *)b->data, (char *)out->data,
+         a->size, (intptr_t)a->strides[0], (intptr_t)b->strides[0]);
+    return;
+  }
+
+  /* Unified ND support: Collapse to (M, K) @ (P, K, N)
+   * Results in out(M, P, N) where P is the batch of b.
+   */
+  size_t K = a->shape[a->dim - 1];
+  size_t M = a->size / K;
+  size_t N = (b->dim == 1) ? 1 : b->shape[b->dim - 1];
+  size_t P = b->size / (K * N);
+
+  /* a is (M, K). Row stride is stride[0], Col stride is stride[last] */
+  intptr_t rsa =
+      (intptr_t)(a->dim > 0 ? a->strides[0] : 0) / (intptr_t)a->elem_size;
+  intptr_t csa = (intptr_t)a->strides[a->dim - 1] / (intptr_t)a->elem_size;
+
+  /* b matrix is (K, N) block. Row stride is b->strides[last-1], Col stride is
+   * b->strides[last] */
+  intptr_t rsb = (intptr_t)(b->dim > 1 ? b->strides[b->dim - 2]
+                                       : (b->dim > 0 ? b->strides[0] : 0)) /
+                 (intptr_t)b->elem_size;
+  intptr_t csb = (intptr_t)(b->dim > 0 ? b->strides[b->dim - 1] : 0) /
+                 (intptr_t)b->elem_size;
+
+  /* out matrix is (M, N) block for a fixed p. Row stride is out->strides[0],
+   * Col stride is out->strides[last] */
+  intptr_t rso =
+      (intptr_t)(out->dim > 0 ? out->strides[0] : 0) / (intptr_t)out->elem_size;
+  intptr_t cso = (intptr_t)(out->dim > 0 ? out->strides[out->dim - 1] : 0) /
+                 (intptr_t)out->elem_size;
+
+  /* If a or b are not essentially 2D (matrix) after collapsing M/P,
+   * we must use a more careful batching loop. */
+
+  if (P == 1) {
+#ifdef HAVE_BLAS
+    if (a->dtype == NUMC_DTYPE_FLOAT32 && a->is_contiguous &&
+        b->is_contiguous) {
+      _dot_blis_gemm_f32(a, b, out, M, K, N);
+      return;
+    }
+    if (a->dtype == NUMC_DTYPE_FLOAT64 && a->is_contiguous &&
+        b->is_contiguous) {
+      _dot_blis_gemm_f64(a, b, out, M, K, N);
+      return;
+    }
+#endif
+    dot_naive_table[a->dtype]((const char *)a->data, (const char *)b->data,
+                              (char *)out->data, M, K, N, rsa, csa, rsb, csb,
+                              rso, cso);
+    return;
+  }
+
+  /* For P > 1, loop over batches of b and slices of out.
+   * out is (M, P, N). For each batch p in P:
+   * out[m, p, n] corresponds to a matrix (M, N) with:
+   * - row stride: out->strides[0] (rsa)
+   * - col stride: out->strides[last] (cso)
+   * - base pointer offset: p * out->strides[1] (if 3D)
+   */
+
+  for (size_t p = 0; p < P; p++) {
+    /* Calculate base pointers for this batch p */
+    const char *bp = (const char *)b->data + p * K * N * b->elem_size;
+    char *op = (char *)out->data + p * N * out->elem_size;
+
+    /* Note: This assumes b and out are contiguous in their batch/N dimensions.
+     * If they are not, we'd need more complex pointer arithmetic.
+     * For (M, P, N) out, the pointer to out[0, p, 0] is data + p*stride[1].
+     */
+    if (out->dim == 3) {
+      op = (char *)out->data + p * out->strides[1];
+    }
+    if (b->dim == 3) {
+      bp = (const char *)b->data + p * b->strides[0];
+    }
+
+#ifdef HAVE_BLAS
+    if (a->dtype == NUMC_DTYPE_FLOAT32 && a->is_contiguous &&
+        b->is_contiguous && out->is_contiguous) {
+      /* We can use BLIS sgemm for each slice */
+      float alpha = 1.0f, beta = 0.0f;
+      bli_sgemm(BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE, (dim_t)M, (dim_t)N,
+                (dim_t)K, &alpha, (float *)a->data, (inc_t)rsa, (inc_t)csa,
+                (float *)bp, (inc_t)rsb, (inc_t)csb, &beta, (float *)op,
+                (inc_t)rso, (inc_t)cso);
+      continue;
+    }
+#endif
+    dot_naive_table[a->dtype]((const char *)a->data, (const char *)bp,
+                              (char *)op, M, K, N, rsa, csa, rsb, csb, rso,
+                              cso);
   }
 }
 

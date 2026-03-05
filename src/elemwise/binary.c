@@ -235,6 +235,48 @@ static const NumcQuaternaryKernel fma_table[] = {
     E(fma, NUMC_DTYPE_FLOAT32), E(fma, NUMC_DTYPE_FLOAT64),
 };
 
+#ifdef HAVE_BLAS
+#include <blis.h>
+
+static void _add_blis_f32(const NumcArray *a, const NumcArray *b, NumcArray *out) {
+  bli_scopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (float *)a->data, 1, (float *)out->data, 1);
+  bli_saddv(BLIS_NO_CONJUGATE, (dim_t)b->size, (float *)b->data, 1, (float *)out->data, 1);
+}
+static void _add_blis_f64(const NumcArray *a, const NumcArray *b, NumcArray *out) {
+  bli_dcopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (double *)a->data, 1, (double *)out->data, 1);
+  bli_daddv(BLIS_NO_CONJUGATE, (dim_t)b->size, (double *)b->data, 1, (double *)out->data, 1);
+}
+
+static void _sub_blis_f32(const NumcArray *a, const NumcArray *b, NumcArray *out) {
+  bli_scopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (float *)a->data, 1, (float *)out->data, 1);
+  bli_ssubv(BLIS_NO_CONJUGATE, (dim_t)b->size, (float *)b->data, 1, (float *)out->data, 1);
+}
+static void _sub_blis_f64(const NumcArray *a, const NumcArray *b, NumcArray *out) {
+  bli_dcopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (double *)a->data, 1, (double *)out->data, 1);
+  bli_dsubv(BLIS_NO_CONJUGATE, (dim_t)b->size, (double *)b->data, 1, (double *)out->data, 1);
+}
+
+static void _mul_scalar_blis_f32(const NumcArray *a, float scalar, NumcArray *out) {
+  bli_scopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (float *)a->data, 1, (float *)out->data, 1);
+  bli_sscalv(BLIS_NO_CONJUGATE, (dim_t)out->size, &scalar, (float *)out->data, 1);
+}
+static void _mul_scalar_blis_f64(const NumcArray *a, double scalar, NumcArray *out) {
+  bli_dcopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (double *)a->data, 1, (double *)out->data, 1);
+  bli_dscalv(BLIS_NO_CONJUGATE, (dim_t)out->size, &scalar, (double *)out->data, 1);
+}
+
+static void _add_scalar_blis_f32(const NumcArray *a, float scalar, NumcArray *out) {
+  bli_scopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (float *)a->data, 1, (float *)out->data, 1);
+  /* y = y + alpha. BLIS doesn't have a direct vector + scalar. 
+   * But we can use bli_saddv with incx=0 if we had a single element. */
+  bli_saddv(BLIS_NO_CONJUGATE, (dim_t)out->size, &scalar, 0, (float *)out->data, 1);
+}
+static void _add_scalar_blis_f64(const NumcArray *a, double scalar, NumcArray *out) {
+  bli_dcopyv(BLIS_NO_CONJUGATE, (dim_t)a->size, (double *)a->data, 1, (double *)out->data, 1);
+  bli_daddv(BLIS_NO_CONJUGATE, (dim_t)out->size, &scalar, 0, (double *)out->data, 1);
+}
+#endif
+
 /* ═══════════════════════════════════════════════════════════════════════
  * Public API — Binary + Scalar ops
  * ═══════════════════════════════════════════════════════════════════════ */
@@ -244,6 +286,20 @@ static const NumcQuaternaryKernel fma_table[] = {
     int err = _check_binary(a, b, out);                                     \
     if (err)                                                                \
       return err;                                                           \
+                                                                            \
+    /* Fast path: BLIS for contiguous float32/float64 (Add/Sub only) */     \
+    if (a->is_contiguous && b->is_contiguous && out->is_contiguous &&       \
+        a->size == b->size && a->size == out->size) {                       \
+      if (a->dtype == NUMC_DTYPE_FLOAT32) {                                 \
+        if (strcmp(#NAME, "add") == 0) { _add_blis_f32(a, b, out); return 0; } \
+        if (strcmp(#NAME, "sub") == 0) { _sub_blis_f32(a, b, out); return 0; } \
+      }                                                                     \
+      if (a->dtype == NUMC_DTYPE_FLOAT64) {                                 \
+        if (strcmp(#NAME, "add") == 0) { _add_blis_f64(a, b, out); return 0; } \
+        if (strcmp(#NAME, "sub") == 0) { _sub_blis_f64(a, b, out); return 0; } \
+      }                                                                     \
+    }                                                                       \
+                                                                            \
     _binary_op(a, b, out, TABLE);                                           \
     return 0;                                                               \
   }
@@ -254,6 +310,21 @@ static const NumcQuaternaryKernel fma_table[] = {
     int err = _check_unary(a, out);                               \
     if (err)                                                      \
       return err;                                                 \
+                                                                  \
+    if (a->is_contiguous && out->is_contiguous &&                 \
+        a->size == out->size) {                                   \
+      if (a->dtype == NUMC_DTYPE_FLOAT32) {                       \
+        if (strcmp(#NAME, "mul") == 0) { _mul_scalar_blis_f32(a, (float)scalar, out); return 0; } \
+        if (strcmp(#NAME, "add") == 0) { _add_scalar_blis_f32(a, (float)scalar, out); return 0; } \
+        if (strcmp(#NAME, "sub") == 0) { _add_scalar_blis_f32(a, (float)-scalar, out); return 0; } \
+      }                                                           \
+      if (a->dtype == NUMC_DTYPE_FLOAT64) {                       \
+        if (strcmp(#NAME, "mul") == 0) { _mul_scalar_blis_f64(a, scalar, out); return 0; } \
+        if (strcmp(#NAME, "add") == 0) { _add_scalar_blis_f64(a, scalar, out); return 0; } \
+        if (strcmp(#NAME, "sub") == 0) { _add_scalar_blis_f64(a, -scalar, out); return 0; } \
+      }                                                           \
+    }                                                             \
+                                                                  \
     char buf[8];                                                  \
     _double_to_dtype(scalar, a->dtype, buf);                      \
     _scalar_op(a, buf, out, TABLE);                               \

@@ -529,13 +529,19 @@ NUMC_API int numc_argmin_axis(const NumcArray *a, int axis, int keepdim, NumcArr
 NUMC_API int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out);
 
 /**
- * @brief Compute the dot product of two arrays: sum(a * b).
+ * @brief Compute the dot product of two arrays according to NumPy semantics.
  *
- * The arrays must have the same number of elements.
+ * Behavior depends on the dimensions of the input arrays:
+ * - If both are 1-D, it is the inner product of vectors.
+ * - If both are 2-D, it is matrix multiplication.
+ * - If either is 0-D (scalar), it is equivalent to element-wise multiplication.
+ * - If a is N-D and b is 1-D, it is a sum-product over the last axis of a and b.
+ * - If a is N-D and b is M-D (M>=2), it is a sum-product over the last axis
+ *   of a and the second-to-last axis of b.
  *
  * @param a   First input array.
  * @param b   Second input array.
- * @param out Output array (must be 0-d or 1-element array).
+ * @param out Output array (shape calculated based on input dimensions).
  * @return 0 on success, negative error code on failure.
  */
 NUMC_API int numc_dot(const NumcArray *a, const NumcArray *b, NumcArray *out);

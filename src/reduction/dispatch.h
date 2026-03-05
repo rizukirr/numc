@@ -205,17 +205,74 @@ static inline int _check_dot(const struct NumcArray *a,
                    a->dtype, b->dtype, out->dtype);
     return NUMC_ERR_TYPE;
   }
-  if (a->size != b->size) {
-    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "dot: size mismatch (a=%zu b=%zu)", a->size,
-                   b->size);
+
+  /* NumPy dot behavior:
+   * 1. If both a and b are 1-D, inner product of vectors.
+   * 2. If both a and b are 2-D, matrix multiplication.
+   * 3. If either a or b is 0-D (scalar), it is equivalent to multiply(a, b).
+   * 4. If a is N-D and b is 1-D, sum-product over the last axis of a and b.
+   * 5. If a is N-D and b is M-D (M>=2), sum-product over last axis of a and 
+   *    second-to-last axis of b.
+   */
+
+  /* Case 3: Either is 0-D */
+  if (a->dim == 0 || b->dim == 0) {
+    const struct NumcArray *other = (a->dim == 0) ? b : a;
+    if (out->dim != other->dim) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE, "dot: output ndim mismatch (out.dim=%zu other.dim=%zu)",
+                     out->dim, other->dim);
+      return NUMC_ERR_SHAPE;
+    }
+    for (size_t i = 0; i < out->dim; i++) {
+      if (out->shape[i] != other->shape[i]) {
+        NUMC_SET_ERROR(NUMC_ERR_SHAPE, "dot: shape mismatch at axis %zu", i);
+        return NUMC_ERR_SHAPE;
+      }
+    }
+    return 0;
+  }
+
+  /* For all other cases, we need a common dimension to sum over.
+   * a's last axis must match b's second-to-last (or only) axis. */
+  size_t a_last_axis = a->dim - 1;
+  size_t b_reduce_axis = (b->dim == 1) ? 0 : b->dim - 2;
+
+  if (a->shape[a_last_axis] != b->shape[b_reduce_axis]) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "dot: axis mismatch (a.shape[%zu]=%zu b.shape[%zu]=%zu)",
+                   a_last_axis, a->shape[a_last_axis], b_reduce_axis, b->shape[b_reduce_axis]);
     return NUMC_ERR_SHAPE;
   }
-  if (out->size != 1) {
-    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "dot: output not scalar (out.size=%zu)",
-                   out->size);
-    return NUMC_ERR_SHAPE;
+
+  /* Calculate expected output dimensions */
+  size_t expected_dim = (a->dim - 1) + (b->dim > 1 ? b->dim - 1 : 0);
+  
+  /* Allow 1D size-1 array as scalar output for 0D expected */
+  bool is_scalar_out = (expected_dim == 0 && out->dim == 1 && out->size == 1) || (expected_dim == 0 && out->dim == 0);
+  if (!is_scalar_out && out->dim != expected_dim) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE, "dot: output ndim mismatch (out.dim=%zu expected=%zu)",
+                     out->dim, expected_dim);
+      return NUMC_ERR_SHAPE;
   }
+
+  /* Check output shape: a.shape[:-1] + b.shape[:-2] + b.shape[-1:] */
+  if (!is_scalar_out) {
+    size_t out_idx = 0;
+    for (size_t i = 0; i < a->dim - 1; i++) {
+      if (out->shape[out_idx++] != a->shape[i]) goto shape_err;
+    }
+    if (b->dim > 1) {
+      for (size_t i = 0; i < b->dim - 2; i++) {
+        if (out->shape[out_idx++] != b->shape[i]) goto shape_err;
+      }
+      if (out->shape[out_idx++] != b->shape[b->dim - 1]) goto shape_err;
+    }
+  }
+
   return 0;
+
+shape_err:
+  NUMC_SET_ERROR(NUMC_ERR_SHAPE, "dot: output shape mismatch");
+  return NUMC_ERR_SHAPE;
 }
 
 /**

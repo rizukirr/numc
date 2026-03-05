@@ -13,8 +13,8 @@ int main() {
     size_t shape[] = {N};
     NumcCtx *ctx = numc_ctx_create();
     
-    NumcArray *a = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
-    NumcArray *b = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+    NumcArray *a = numc_array_randn(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+    NumcArray *b = numc_array_randn(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
     NumcArray *out = numc_array_zeros(ctx, (size_t[]){1}, 1, NUMC_DTYPE_FLOAT32);
 
     int iters = 1000;
