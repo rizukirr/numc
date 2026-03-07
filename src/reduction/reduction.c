@@ -1,8 +1,13 @@
 #include "dispatch.h"
 #include "helpers.h"
+#include "numc/dtype.h"
 #include <math.h>
 #include <numc/math.h>
 #include <string.h>
+
+#if defined(__AVX2__)
+#include "intrinsics/dot_avx2.h"
+#endif
 
 /* ── Sum reduction kernels (integer types) ────────────────────────── */
 
@@ -839,6 +844,26 @@ static inline void _reduce_dot_op(const struct NumcArray *a,
 
   /* Case 1: Both are 1-D (vector dot product) */
   if (a->dim == 1 && b->dim == 1) {
+
+#if defined(__AVX2__)
+    intptr_t sa = (intptr_t)a->strides[0];
+    intptr_t sb = (intptr_t)b->strides[0];
+
+    if (sa == (intptr_t)sizeof(float) && sb == (intptr_t)sizeof(float) &&
+        a->dtype == NUMC_DTYPE_FLOAT32) {
+      dot_f32_avx2((const float *)a->data, (const float *)b->data, a->size,
+                   (float *)out->data);
+      return;
+    }
+
+    if (sa == (intptr_t)sizeof(double) && sb == (intptr_t)sizeof(double) &&
+        a->dtype == NUMC_DTYPE_FLOAT64) {
+      dot_f64_avx2((const double *)a->data, (const double *)b->data, a->size,
+                   (double *)out->data);
+      return;
+    }
+#endif
+
 #ifdef HAVE_BLAS
     if (a->dtype == NUMC_DTYPE_FLOAT32) {
       _dot_blis_f32(a, b, out);
@@ -887,6 +912,61 @@ static inline void _reduce_dot_op(const struct NumcArray *a,
    * we must use a more careful batching loop. */
 
   if (p_batch == 1) {
+#if defined(__AVX2__)
+    /* AVX2 broadcast-FMA (ikj loop): works when b rows and out rows are
+     * contiguous (csb == 1 && cso == 1), i.e. standard row-major layout. */
+    if (csb == 1 && cso == 1 && a->dtype == NUMC_DTYPE_FLOAT32) {
+      const float *fa = (const float *)a->data;
+      const float *fb = (const float *)b->data;
+      float *fo = (float *)out->data;
+      for (size_t i = 0; i < m_dim; i++)
+        memset(fo + i * rso, 0, n_dim * sizeof(float));
+      for (size_t i = 0; i < m_dim; i++) {
+        for (size_t k = 0; k < k_dim; k++) {
+          float a_ik = fa[i * rsa + k * csa];
+          const float *b_row = fb + k * rsb;
+          float *o_row = fo + i * rso;
+          __m256 va = _mm256_set1_ps(a_ik);
+          size_t j = 0;
+          for (; j + 8 <= n_dim; j += 8) {
+            __m256 vb = _mm256_loadu_ps(b_row + j);
+            __m256 vo = _mm256_loadu_ps(o_row + j);
+            vo = _mm256_fmadd_ps(va, vb, vo);
+            _mm256_storeu_ps(o_row + j, vo);
+          }
+          for (; j < n_dim; j++)
+            o_row[j] += a_ik * b_row[j];
+        }
+      }
+      return;
+    }
+    if (csb == 1 && cso == 1 && a->dtype == NUMC_DTYPE_FLOAT64) {
+      const double *da = (const double *)a->data;
+      const double *db = (const double *)b->data;
+      double *do_ = (double *)out->data;
+      for (size_t i = 0; i < m_dim; i++)
+        memset(do_ + i * rso, 0, n_dim * sizeof(double));
+      for (size_t i = 0; i < m_dim; i++) {
+        for (size_t k = 0; k < k_dim; k++) {
+          double a_ik = da[i * rsa + k * csa];
+          const double *b_row = db + k * rsb;
+          double *o_row = do_ + i * rso;
+          __m256d va = _mm256_set1_pd(a_ik);
+          size_t j = 0;
+          for (; j + 4 <= n_dim; j += 4) {
+            __m256d vb = _mm256_loadu_pd(b_row + j);
+            __m256d vo = _mm256_loadu_pd(o_row + j);
+            vo = _mm256_fmadd_pd(va, vb, vo);
+            _mm256_storeu_pd(o_row + j, vo);
+          }
+          for (; j < n_dim; j++)
+            o_row[j] += a_ik * b_row[j];
+        }
+      }
+      return;
+    }
+#endif
+
 #ifdef HAVE_BLAS
     if (a->dtype == NUMC_DTYPE_FLOAT32 && a->is_contiguous &&
         b->is_contiguous) {
