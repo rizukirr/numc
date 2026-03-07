@@ -2,10 +2,19 @@ add_library(numc
     array_core.c
     array_print.c
     alloc.c
-    elemwise/binary.c
+    elemwise/arithmetic.c
+    elemwise/pow.c
+    elemwise/compare.c
+    elemwise/select.c
     elemwise/unary.c
     elemwise/clip.c
-    reduction/reduction.c
+    reduction/sum.c
+    reduction/mean.c
+    reduction/max.c
+    reduction/min.c
+    reduction/argmax.c
+    reduction/argmin.c
+    reduction/dot.c
     matmul/matmul.c
     random/random.c
     error.c
