@@ -30,17 +30,17 @@ static inline void gemm_f32_avx2(const float *fa, const float *fb, float *fo,
   }
 }
 
-static inline void gemm_f64_avx2(const double *da, const double *db,
-                                  double *do_, size_t m_dim, size_t k_dim,
-                                  size_t n_dim, intptr_t rsa, intptr_t csa,
-                                  intptr_t rsb, intptr_t rso) {
+static inline void gemm_f64_avx2(const double *a, const double *b, double *out,
+                                 size_t m_dim, size_t k_dim, size_t n_dim,
+                                 intptr_t rsa, intptr_t csa, intptr_t rsb,
+                                 intptr_t rso) {
   for (size_t i = 0; i < m_dim; i++)
-    memset(do_ + i * rso, 0, n_dim * sizeof(double));
+    memset(out + i * rso, 0, n_dim * sizeof(double));
   for (size_t i = 0; i < m_dim; i++) {
     for (size_t k = 0; k < k_dim; k++) {
-      double a_ik = da[i * rsa + k * csa];
-      const double *b_row = db + k * rsb;
-      double *o_row = do_ + i * rso;
+      double a_ik = a[i * rsa + k * csa];
+      const double *b_row = b + k * rsb;
+      double *o_row = out + i * rso;
       __m256d va = _mm256_set1_pd(a_ik);
       size_t j = 0;
       for (; j + 4 <= n_dim; j += 4) {
@@ -53,6 +53,13 @@ static inline void gemm_f64_avx2(const double *da, const double *db,
         o_row[j] += a_ik * b_row[j];
     }
   }
+}
+
+static inline void gemm_i32_avx2(const int *a, const int *b, int *out,
+                                 size_t m_dim, size_t k_dim, size_t n_dim,
+                                 intptr_t rsa, intptr_t csa, intptr_t rsb,
+                                 intptr_t rso) {
+  // TODO: implement
 }
 
 #endif
