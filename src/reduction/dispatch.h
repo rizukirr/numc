@@ -206,7 +206,7 @@ static inline int _check_dot(const struct NumcArray *a,
     return NUMC_ERR_TYPE;
   }
 
-  /* NumPy dot behavior:
+  /* dot behavior:
    * 1. If both a and b are 1-D, inner product of vectors.
    * 2. If both a and b are 2-D, matrix multiplication.
    * 3. If either a or b is 0-D (scalar), it is equivalent to multiply(a, b).
