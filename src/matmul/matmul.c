@@ -3,8 +3,13 @@
 #include "numc/dtype.h"
 #include "numc/math.h"
 #include "internal.h"
+#include "arch_dispatch.h"
 
 #include <stdio.h>
+
+#if NUMC_HAVE_AVX2
+#include "intrinsics/gemm_avx2.h"
+#endif
 
 #ifdef HAVE_BLAS
 #include <blis.h>
@@ -49,107 +54,15 @@ void _numc_runtime_init(void) {
 }
 
 #ifdef HAVE_BLAS
-/**
- * @brief Set BLIS threading for the current call.
- *
- * Optimized BLIS: all calls here are >= 32k ops (dispatch threshold),
- *   so we always use full threading with BLIS auto-factorization.
- *
- * System/generic BLIS:
- *   - < 65k ops:  serial (avoids fork/join overhead).
- *   - >= 65k ops: all threads on IC loop.
+/*
+ * BLIS threading: use omp_get_num_procs() for portable thread count.
+ * Users on hybrid CPUs (Intel Alder Lake+) should set BLIS_NUM_THREADS
+ * or OMP_NUM_THREADS to their P-core count to avoid E-core scheduling.
  */
-/**
- * @brief Detect number of performance cores on Linux.
- *
- * On Intel hybrid CPUs (Alder Lake+), E-cores lack AVX2/AVX-512.
- * Scheduling BLIS threads on E-cores causes severe performance loss.
- *
- * Detection strategy:
- *   1. Read core_type sysfs (kernel 6.2+): "performance" vs "efficiency"
- *   2. Fallback: compare cpufreq max frequencies — E-cores have lower max
- *
- * Returns 0 if not a hybrid CPU or detection fails.
- */
-static int _detect_perf_cores(void) {
-  static int cached = -1;
-  if (cached >= 0)
-    return cached;
-#ifdef __linux__
-  int total = 0, perf = 0;
-  long max_freq = 0;
-  long freqs[256];
-
-  /* Pass 1: try core_type sysfs (most reliable) */
-  for (int i = 0; i < 256; i++) {
-    char path[128];
-    snprintf(path, sizeof(path),
-             "/sys/devices/system/cpu/cpu%d/topology/core_type", i);
-    FILE *f = fopen(path, "r");
-    if (!f)
-      break;
-    total++;
-    char buf[32] = {0};
-    (void)fgets(buf, sizeof(buf), f);
-    fclose(f);
-    if (buf[0] == 'p' || buf[0] == 'P')
-      perf++;
-  }
-  if (perf > 0 && perf < total) {
-    cached = perf;
-    return cached;
-  }
-
-  /* Pass 2: frequency-based detection */
-  total = 0;
-  for (int i = 0; i < 256; i++) {
-    char path[128];
-    snprintf(path, sizeof(path),
-             "/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_max_freq", i);
-    FILE *f = fopen(path, "r");
-    if (!f)
-      break;
-    long freq = 0;
-    int ok = fscanf(f, "%ld", &freq);
-    fclose(f);
-    if (ok != 1)
-      continue;
-    freqs[total] = freq;
-    if (freq > max_freq)
-      max_freq = freq;
-    total++;
-  }
-  /* Hybrid if some cores have ≥20% lower max frequency */
-  if (total > 1 && max_freq > 0) {
-    long threshold = max_freq * 80 / 100;
-    perf = 0;
-    for (int i = 0; i < total; i++) {
-      if (freqs[i] >= threshold)
-        perf++;
-    }
-    if (perf > 0 && perf < total) {
-      cached = perf;
-      return cached;
-    }
-  }
-
-  cached = 0;
-#else
-  cached = 0;
-#endif
-  return cached;
-}
-
 static void _blis_set_threading(size_t total_ops) {
   pthread_once(&blis_once, _blis_init_once);
 #ifdef HAVE_OMP
-  int nthreads = omp_get_max_threads();
-
-  /* On Intel hybrid CPUs, restrict to P-cores only to avoid scheduling
-   * AVX2 BLIS microkernels on E-cores (which lack AVX2 support). */
-  int pcores = _detect_perf_cores();
-  if (pcores > 0 && pcores < nthreads)
-    nthreads = pcores;
+  int nthreads = omp_get_num_procs();
 
 #ifdef NUMC_BLIS_OPTIMIZED
   (void)total_ops;
@@ -209,6 +122,49 @@ void _matmul_blis_f64(const struct NumcArray *a, const struct NumcArray *b,
             (double *)out->data, rs_c, cs_c);
 }
 #endif
+
+/* ── SIMD gemm wrappers ──────────────────────────────────────────── */
+
+#define NUMC_DTYPE_COUNT (NUMC_DTYPE_FLOAT64 + 1)
+
+typedef void (*GemmSimdKernel)(const void *a, const void *b, void *out,
+                               size_t M, size_t K, size_t N, intptr_t rsa,
+                               intptr_t csa, intptr_t rsb, intptr_t rso);
+
+#if NUMC_HAVE_AVX2
+#define GEMM_WRAP(name, CT, fn)                                               \
+  static void name(const void *a, const void *b, void *out, size_t M,         \
+                   size_t K, size_t N, intptr_t rsa, intptr_t csa,            \
+                   intptr_t rsb, intptr_t rso) {                              \
+    fn((const CT *)a, (const CT *)b, (CT *)out, M, K, N, rsa, csa, rsb, rso); \
+  }
+GEMM_WRAP(_gemm_i8_avx2, int8_t, gemm_i8_avx2)
+GEMM_WRAP(_gemm_i16_avx2, int16_t, gemm_i16_avx2)
+GEMM_WRAP(_gemm_i32_avx2, int32_t, gemm_i32_avx2)
+GEMM_WRAP(_gemm_i64_avx2, int64_t, gemm_i64_avx2)
+GEMM_WRAP(_gemm_u8_avx2, uint8_t, gemm_u8_avx2)
+GEMM_WRAP(_gemm_u16_avx2, uint16_t, gemm_u16_avx2)
+GEMM_WRAP(_gemm_u32_avx2, uint32_t, gemm_u32_avx2)
+GEMM_WRAP(_gemm_u64_avx2, uint64_t, gemm_u64_avx2)
+GEMM_WRAP(_gemm_f32_avx2, float, gemm_f32_avx2)
+GEMM_WRAP(_gemm_f64_avx2, double, gemm_f64_avx2)
+#undef GEMM_WRAP
+#endif
+
+static const GemmSimdKernel gemm_simd_table[NUMC_DTYPE_COUNT] = {
+#if NUMC_HAVE_AVX2
+    [NUMC_DTYPE_INT8] = _gemm_i8_avx2,
+    [NUMC_DTYPE_INT16] = _gemm_i16_avx2,
+    [NUMC_DTYPE_INT32] = _gemm_i32_avx2,
+    [NUMC_DTYPE_INT64] = _gemm_i64_avx2,
+    [NUMC_DTYPE_UINT8] = _gemm_u8_avx2,
+    [NUMC_DTYPE_UINT16] = _gemm_u16_avx2,
+    [NUMC_DTYPE_UINT32] = _gemm_u32_avx2,
+    [NUMC_DTYPE_UINT64] = _gemm_u64_avx2,
+    [NUMC_DTYPE_FLOAT32] = _gemm_f32_avx2,
+    [NUMC_DTYPE_FLOAT64] = _gemm_f64_avx2,
+#endif
+};
 
 /* ── Dispatch table for naive C23 kernels ────────────────────────── */
 
@@ -278,7 +234,18 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
 
 #endif /* HAVE_BLAS */
 
-  /* Fallback to optimized naive kernels (C23 + OpenMP) */
+  /* Try SIMD gemm (contiguous inputs only) */
+  if (a->is_contiguous && b->is_contiguous) {
+    GemmSimdKernel simd_kern = gemm_simd_table[a->dtype];
+    if (simd_kern) {
+      size_t M = a->shape[0], K = a->shape[1], N = b->shape[1];
+      simd_kern(a->data, b->data, out->data, M, K, N, (intptr_t)K, 1,
+                (intptr_t)N, (intptr_t)N);
+      return 0;
+    }
+  }
+
+  /* Fallback to naive kernels (C23 + OpenMP) */
   MatmulKernel kern = matmul_table[a->dtype];
   kern((const char *)a->data, (const char *)b->data, (char *)out->data,
        a->shape[0], b->shape[0], out->shape[1]);

@@ -1,4 +1,4 @@
-#include "../arch_dispatch.h"
+#include "arch_dispatch.h"
 #include "dispatch.h"
 #include "numc/dtype.h"
 #include <numc/math.h>
@@ -9,20 +9,13 @@
 #include "intrinsics/gemm_avx2.h"
 #endif
 
-#define IS_ALIGNED(ptr, align) \
-  (((uintptr_t)(ptr) & ((uintptr_t)(align) - 1)) == 0)
 #define NUMC_DTYPE_COUNT (NUMC_DTYPE_FLOAT64 + 1)
 
 /* ── Dot product reduction kernels ─────────────────────────────────── */
 
 #define STAMP_DOT(TE, CT) \
   DEFINE_BINARY_REDUCTION_KERNEL(dot, TE, CT, 0, acc + (val_a * val_b), +)
-GENERATE_INT8_INT16_NUMC_TYPES(STAMP_DOT)
-GENERATE_INT32_NUMC_TYPES(STAMP_DOT)
-STAMP_DOT(NUMC_DTYPE_INT64, NUMC_INT64)
-STAMP_DOT(NUMC_DTYPE_UINT64, NUMC_UINT64)
-STAMP_DOT(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32)
-STAMP_DOT(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64)
+GENERATE_NUMC_TYPES(STAMP_DOT)
 #undef STAMP_DOT
 
 /* ── Dispatch table ──────────────────────────────────────────────── */
@@ -39,121 +32,8 @@ static const NumcBinaryReductionKernel dot_table[] = {
 
 #undef R
 
-/* ── BLAS wrappers + tables ───────────────────────────────────────── */
-
 #ifdef HAVE_BLAS
-#include <blis.h>
-#include <pthread.h>
-
-typedef void (*BlasDotKernel)(const NumcArray *a, const NumcArray *b,
-                              NumcArray *out);
-typedef void (*BlasGemmKernel)(const NumcArray *a, const NumcArray *b,
-                               NumcArray *out, size_t M, size_t K, size_t N);
-typedef void (*BlasBatchGemmKernel)(const char *a_data, const char *b_data,
-                                    char *out_data, size_t M, size_t K,
-                                    size_t N, intptr_t rsa, intptr_t csa,
-                                    intptr_t rsb, intptr_t csb, intptr_t rso,
-                                    intptr_t cso);
-
-static void _blas_dot_f32(const NumcArray *a, const NumcArray *b,
-                          NumcArray *out) {
-  float rho = 0.0f;
-  inc_t inca = (inc_t)(a->strides[0] / sizeof(float));
-  inc_t incb = (inc_t)(b->strides[0] / sizeof(float));
-  bli_sdotv(BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE, (dim_t)a->size,
-            (float *)a->data, inca, (float *)b->data, incb, &rho);
-  *(float *)out->data = rho;
-}
-
-static void _blas_dot_f64(const NumcArray *a, const NumcArray *b,
-                          NumcArray *out) {
-  double rho = 0.0;
-  inc_t inca = (inc_t)(a->strides[0] / sizeof(double));
-  inc_t incb = (inc_t)(b->strides[0] / sizeof(double));
-  bli_ddotv(BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE, (dim_t)a->size,
-            (double *)a->data, inca, (double *)b->data, incb, &rho);
-  *(double *)out->data = rho;
-}
-
-static void _blas_gemm_f32(const NumcArray *a, const NumcArray *b,
-                           NumcArray *out, size_t M, size_t K, size_t N) {
-  float alpha = 1.0f, beta = 0.0f;
-
-  inc_t rs_a =
-      (inc_t)(a->dim > 1 ? a->strides[a->dim - 2] / sizeof(float) : (inc_t)K);
-  inc_t cs_a = (inc_t)(a->strides[a->dim - 1] / sizeof(float));
-
-  inc_t rs_b =
-      (inc_t)(b->dim > 1 ? b->strides[b->dim - 2] / sizeof(float) : (inc_t)N);
-  inc_t cs_b = (inc_t)(b->strides[b->dim - 1] / sizeof(float));
-
-  inc_t rs_c = (inc_t)(out->dim > 1 ? out->strides[out->dim - 2] / sizeof(float)
-                                    : (inc_t)N);
-  inc_t cs_c = (inc_t)(out->strides[out->dim - 1] / sizeof(float));
-
-  bli_sgemm(BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE, (dim_t)M, (dim_t)N, (dim_t)K,
-            &alpha, (float *)a->data, rs_a, cs_a, (float *)b->data, rs_b, cs_b,
-            &beta, (float *)out->data, rs_c, cs_c);
-}
-
-static void _blas_gemm_f64(const NumcArray *a, const NumcArray *b,
-                           NumcArray *out, size_t M, size_t K, size_t N) {
-  double alpha = 1.0, beta = 0.0;
-
-  inc_t rs_a =
-      (inc_t)(a->dim > 1 ? a->strides[a->dim - 2] / sizeof(double) : (inc_t)K);
-  inc_t cs_a = (inc_t)(a->strides[a->dim - 1] / sizeof(double));
-
-  inc_t rs_b =
-      (inc_t)(b->dim > 1 ? b->strides[b->dim - 2] / sizeof(double) : (inc_t)N);
-  inc_t cs_b = (inc_t)(b->strides[b->dim - 1] / sizeof(double));
-
-  inc_t rs_c =
-      (inc_t)(out->dim > 1 ? out->strides[out->dim - 2] / sizeof(double)
-                           : (inc_t)N);
-  inc_t cs_c = (inc_t)(out->strides[out->dim - 1] / sizeof(double));
-
-  bli_dgemm(BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE, (dim_t)M, (dim_t)N, (dim_t)K,
-            &alpha, (double *)a->data, rs_a, cs_a, (double *)b->data, rs_b,
-            cs_b, &beta, (double *)out->data, rs_c, cs_c);
-}
-
-static void _blas_batch_gemm_f32(const char *a_data, const char *b_data,
-                                 char *out_data, size_t M, size_t K, size_t N,
-                                 intptr_t rsa, intptr_t csa, intptr_t rsb,
-                                 intptr_t csb, intptr_t rso, intptr_t cso) {
-  float alpha = 1.0f, beta = 0.0f;
-  bli_sgemm(BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE, (dim_t)M, (dim_t)N, (dim_t)K,
-            &alpha, (float *)a_data, (inc_t)rsa, (inc_t)csa, (float *)b_data,
-            (inc_t)rsb, (inc_t)csb, &beta, (float *)out_data, (inc_t)rso,
-            (inc_t)cso);
-}
-
-static void _blas_batch_gemm_f64(const char *a_data, const char *b_data,
-                                 char *out_data, size_t M, size_t K, size_t N,
-                                 intptr_t rsa, intptr_t csa, intptr_t rsb,
-                                 intptr_t csb, intptr_t rso, intptr_t cso) {
-  double alpha = 1.0, beta = 0.0;
-  bli_dgemm(BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE, (dim_t)M, (dim_t)N, (dim_t)K,
-            &alpha, (double *)a_data, (inc_t)rsa, (inc_t)csa, (double *)b_data,
-            (inc_t)rsb, (inc_t)csb, &beta, (double *)out_data, (inc_t)rso,
-            (inc_t)cso);
-}
-
-static const BlasDotKernel blas_dot_table[NUMC_DTYPE_COUNT] = {
-    [NUMC_DTYPE_FLOAT32] = _blas_dot_f32,
-    [NUMC_DTYPE_FLOAT64] = _blas_dot_f64,
-};
-
-static const BlasGemmKernel blas_gemm_table[NUMC_DTYPE_COUNT] = {
-    [NUMC_DTYPE_FLOAT32] = _blas_gemm_f32,
-    [NUMC_DTYPE_FLOAT64] = _blas_gemm_f64,
-};
-
-static const BlasBatchGemmKernel blas_batch_gemm_table[NUMC_DTYPE_COUNT] = {
-    [NUMC_DTYPE_FLOAT32] = _blas_batch_gemm_f32,
-    [NUMC_DTYPE_FLOAT64] = _blas_batch_gemm_f64,
-};
+#include "blis_kernels.h"
 #endif
 
 /* ── Naive matmul kernels ────────────────────────────────────────── */
@@ -245,20 +125,35 @@ typedef void (*GemmSimdKernel)(const void *a, const void *b, void *out,
                                intptr_t csa, intptr_t rsb, intptr_t rso);
 
 #if NUMC_HAVE_AVX2
-static void _dot_f32_avx2_a(const void *a, const void *b, size_t n, void *out) {
-  dot_f32_avx2((const float *)a, (const float *)b, n, (float *)out);
+static void _dot_i8_avx2(const void *a, const void *b, size_t n, void *out) {
+  dot_i8_avx2((const int8_t *)a, (const int8_t *)b, n, (int8_t *)out);
 }
-static void _dot_f32_avx2_u(const void *a, const void *b, size_t n, void *out) {
+static void _dot_i16_avx2(const void *a, const void *b, size_t n, void *out) {
+  dot_i16_avx2((const int16_t *)a, (const int16_t *)b, n, (int16_t *)out);
+}
+static void _dot_i32_avx2(const void *a, const void *b, size_t n, void *out) {
+  dot_i32_avx2((const int32_t *)a, (const int32_t *)b, n, (int32_t *)out);
+}
+static void _dot_i64_avx2(const void *a, const void *b, size_t n, void *out) {
+  dot_i64_avx2((const int64_t *)a, (const int64_t *)b, n, (int64_t *)out);
+}
+static void _dot_u8_avx2(const void *a, const void *b, size_t n, void *out) {
+  dot_u8_avx2((const uint8_t *)a, (const uint8_t *)b, n, (uint8_t *)out);
+}
+static void _dot_u16_avx2(const void *a, const void *b, size_t n, void *out) {
+  dot_u16_avx2((const uint16_t *)a, (const uint16_t *)b, n, (uint16_t *)out);
+}
+static void _dot_u32_avx2(const void *a, const void *b, size_t n, void *out) {
+  dot_u32_avx2((const uint32_t *)a, (const uint32_t *)b, n, (uint32_t *)out);
+}
+static void _dot_u64_avx2(const void *a, const void *b, size_t n, void *out) {
+  dot_u64_avx2((const uint64_t *)a, (const uint64_t *)b, n, (uint64_t *)out);
+}
+static void _dot_f32_avx2(const void *a, const void *b, size_t n, void *out) {
   dot_f32u_avx2((const float *)a, (const float *)b, n, (float *)out);
 }
-static void _dot_f64_avx2_a(const void *a, const void *b, size_t n, void *out) {
-  dot_f64_avx2((const double *)a, (const double *)b, n, (double *)out);
-}
-static void _dot_f64_avx2_u(const void *a, const void *b, size_t n, void *out) {
+static void _dot_f64_avx2(const void *a, const void *b, size_t n, void *out) {
   dot_f64u_avx2((const double *)a, (const double *)b, n, (double *)out);
-}
-static void _dot_i32_avx2_a(const void *a, const void *b, size_t n, void *out) {
-  dot_i32_avx2((const int32_t *)a, (const int32_t *)b, n, (int32_t *)out);
 }
 static void _gemm_f32_avx2_w(const void *a, const void *b, void *out, size_t M,
                              size_t K, size_t N, intptr_t rsa, intptr_t csa,
@@ -272,26 +167,76 @@ static void _gemm_f64_avx2_w(const void *a, const void *b, void *out, size_t M,
   gemm_f64_avx2((const double *)a, (const double *)b, (double *)out, M, K, N,
                 rsa, csa, rsb, rso);
 }
+static void _gemm_i32_avx2_w(const void *a, const void *b, void *out, size_t M,
+                             size_t K, size_t N, intptr_t rsa, intptr_t csa,
+                             intptr_t rsb, intptr_t rso) {
+  gemm_i32_avx2((const int32_t *)a, (const int32_t *)b, (int32_t *)out, M, K, N,
+                rsa, csa, rsb, rso);
+}
+static void _gemm_u32_avx2_w(const void *a, const void *b, void *out, size_t M,
+                             size_t K, size_t N, intptr_t rsa, intptr_t csa,
+                             intptr_t rsb, intptr_t rso) {
+  gemm_u32_avx2((const uint32_t *)a, (const uint32_t *)b, (uint32_t *)out, M, K,
+                N, rsa, csa, rsb, rso);
+}
+static void _gemm_i16_avx2_w(const void *a, const void *b, void *out, size_t M,
+                             size_t K, size_t N, intptr_t rsa, intptr_t csa,
+                             intptr_t rsb, intptr_t rso) {
+  gemm_i16_avx2((const int16_t *)a, (const int16_t *)b, (int16_t *)out, M, K, N,
+                rsa, csa, rsb, rso);
+}
+static void _gemm_u16_avx2_w(const void *a, const void *b, void *out, size_t M,
+                             size_t K, size_t N, intptr_t rsa, intptr_t csa,
+                             intptr_t rsb, intptr_t rso) {
+  gemm_u16_avx2((const uint16_t *)a, (const uint16_t *)b, (uint16_t *)out, M, K,
+                N, rsa, csa, rsb, rso);
+}
+static void _gemm_i64_avx2_w(const void *a, const void *b, void *out, size_t M,
+                             size_t K, size_t N, intptr_t rsa, intptr_t csa,
+                             intptr_t rsb, intptr_t rso) {
+  gemm_i64_avx2((const int64_t *)a, (const int64_t *)b, (int64_t *)out, M, K, N,
+                rsa, csa, rsb, rso);
+}
+static void _gemm_u64_avx2_w(const void *a, const void *b, void *out, size_t M,
+                             size_t K, size_t N, intptr_t rsa, intptr_t csa,
+                             intptr_t rsb, intptr_t rso) {
+  gemm_u64_avx2((const uint64_t *)a, (const uint64_t *)b, (uint64_t *)out, M, K,
+                N, rsa, csa, rsb, rso);
+}
+static void _gemm_i8_avx2_w(const void *a, const void *b, void *out, size_t M,
+                            size_t K, size_t N, intptr_t rsa, intptr_t csa,
+                            intptr_t rsb, intptr_t rso) {
+  gemm_i8_avx2((const int8_t *)a, (const int8_t *)b, (int8_t *)out, M, K, N,
+               rsa, csa, rsb, rso);
+}
+static void _gemm_u8_avx2_w(const void *a, const void *b, void *out, size_t M,
+                            size_t K, size_t N, intptr_t rsa, intptr_t csa,
+                            intptr_t rsb, intptr_t rso) {
+  gemm_u8_avx2((const uint8_t *)a, (const uint8_t *)b, (uint8_t *)out, M, K, N,
+               rsa, csa, rsb, rso);
+}
 #endif
 
-static const DotSimdKernel dot_simd_aligned[NUMC_DTYPE_COUNT] = {
+static const DotSimdKernel dot_simd_table_1d[NUMC_DTYPE_COUNT] = {
 #if NUMC_HAVE_AVX2
-    [NUMC_DTYPE_FLOAT32] = _dot_f32_avx2_a,
-    [NUMC_DTYPE_FLOAT64] = _dot_f64_avx2_a,
-    [NUMC_DTYPE_INT32] = _dot_i32_avx2_a,
-#endif
-};
-
-static const DotSimdKernel dot_simd_unaligned[NUMC_DTYPE_COUNT] = {
-#if NUMC_HAVE_AVX2
-    [NUMC_DTYPE_FLOAT32] = _dot_f32_avx2_u,
-    [NUMC_DTYPE_FLOAT64] = _dot_f64_avx2_u,
-/* no i32 unaligned variant — NULL falls through to naive */
+    [NUMC_DTYPE_INT8] = _dot_i8_avx2,     [NUMC_DTYPE_INT16] = _dot_i16_avx2,
+    [NUMC_DTYPE_INT32] = _dot_i32_avx2,   [NUMC_DTYPE_INT64] = _dot_i64_avx2,
+    [NUMC_DTYPE_UINT8] = _dot_u8_avx2,    [NUMC_DTYPE_UINT16] = _dot_u16_avx2,
+    [NUMC_DTYPE_UINT32] = _dot_u32_avx2,  [NUMC_DTYPE_UINT64] = _dot_u64_avx2,
+    [NUMC_DTYPE_FLOAT32] = _dot_f32_avx2, [NUMC_DTYPE_FLOAT64] = _dot_f64_avx2,
 #endif
 };
 
 static const GemmSimdKernel gemm_simd_table[NUMC_DTYPE_COUNT] = {
 #if NUMC_HAVE_AVX2
+    [NUMC_DTYPE_INT8] = _gemm_i8_avx2_w,
+    [NUMC_DTYPE_INT16] = _gemm_i16_avx2_w,
+    [NUMC_DTYPE_INT32] = _gemm_i32_avx2_w,
+    [NUMC_DTYPE_INT64] = _gemm_i64_avx2_w,
+    [NUMC_DTYPE_UINT8] = _gemm_u8_avx2_w,
+    [NUMC_DTYPE_UINT16] = _gemm_u16_avx2_w,
+    [NUMC_DTYPE_UINT32] = _gemm_u32_avx2_w,
+    [NUMC_DTYPE_UINT64] = _gemm_u64_avx2_w,
     [NUMC_DTYPE_FLOAT32] = _gemm_f32_avx2_w,
     [NUMC_DTYPE_FLOAT64] = _gemm_f64_avx2_w,
 #endif
@@ -301,8 +246,7 @@ static const GemmSimdKernel gemm_simd_table[NUMC_DTYPE_COUNT] = {
  *    pattern: each thread calls SIMD kernel on its chunk, OMP reduces) ── */
 
 #define DEFINE_DOT_SIMD_OMP(TE, CT)                                           \
-  static inline void _dot_simd_omp_##TE(DotSimdKernel omp_kern,               \
-                                        DotSimdKernel st_kern, const void *a, \
+  static inline void _dot_simd_omp_##TE(DotSimdKernel kern, const void *a,    \
                                         const void *b, size_t n, void *out) { \
     const CT *pa = (const CT *)a;                                             \
     const CT *pb = (const CT *)b;                                             \
@@ -316,24 +260,30 @@ static const GemmSimdKernel gemm_simd_table[NUMC_DTYPE_COUNT] = {
         size_t start = (size_t)t * (n / (size_t)nt);                          \
         size_t end = (t == nt - 1) ? n : start + n / (size_t)nt;              \
         CT local;                                                             \
-        omp_kern(pa + start, pb + start, end - start, &local);                \
+        kern(pa + start, pb + start, end - start, &local);                    \
         global += local;                                                      \
       }                                                                       \
       *(CT *)out = global;                                                    \
     } else {                                                                  \
-      st_kern(a, b, n, out);                                                  \
+      kern(a, b, n, out);                                                     \
     }                                                                         \
   }
 
-DEFINE_DOT_SIMD_OMP(NUMC_DTYPE_INT32, NUMC_INT32)
-GENERATE_FLOAT_NUMC_TYPES(DEFINE_DOT_SIMD_OMP)
+GENERATE_NUMC_TYPES(DEFINE_DOT_SIMD_OMP)
 #undef DEFINE_DOT_SIMD_OMP
 
-typedef void (*DotSimdOmpFn)(DotSimdKernel omp_kern, DotSimdKernel st_kern,
-                             const void *a, const void *b, size_t n, void *out);
+typedef void (*DotSimdOmpFn)(DotSimdKernel kern, const void *a, const void *b,
+                             size_t n, void *out);
 
 static const DotSimdOmpFn dot_simd_omp_table[NUMC_DTYPE_COUNT] = {
+    [NUMC_DTYPE_INT8] = _dot_simd_omp_NUMC_DTYPE_INT8,
+    [NUMC_DTYPE_INT16] = _dot_simd_omp_NUMC_DTYPE_INT16,
     [NUMC_DTYPE_INT32] = _dot_simd_omp_NUMC_DTYPE_INT32,
+    [NUMC_DTYPE_INT64] = _dot_simd_omp_NUMC_DTYPE_INT64,
+    [NUMC_DTYPE_UINT8] = _dot_simd_omp_NUMC_DTYPE_UINT8,
+    [NUMC_DTYPE_UINT16] = _dot_simd_omp_NUMC_DTYPE_UINT16,
+    [NUMC_DTYPE_UINT32] = _dot_simd_omp_NUMC_DTYPE_UINT32,
+    [NUMC_DTYPE_UINT64] = _dot_simd_omp_NUMC_DTYPE_UINT64,
     [NUMC_DTYPE_FLOAT32] = _dot_simd_omp_NUMC_DTYPE_FLOAT32,
     [NUMC_DTYPE_FLOAT64] = _dot_simd_omp_NUMC_DTYPE_FLOAT64,
 };
@@ -354,21 +304,10 @@ static inline void _dot_1d_case(const NumcArray *a, const NumcArray *b,
   NumcDType dt = a->dtype;
 
   if (a->is_contiguous && b->is_contiguous) {
-    /* OMP chunks may not be aligned, so always use unaligned for OMP.
-     * Single-threaded path can use aligned if pointers qualify. */
-    DotSimdKernel kern_u = dot_simd_unaligned[dt];
-    if (kern_u) {
+    DotSimdKernel kern = dot_simd_table_1d[dt];
+    if (kern) {
       DotSimdOmpFn omp_fn = dot_simd_omp_table[dt];
-      bool aligned = IS_ALIGNED(a->data, NUMC_SIMD_ALIGN) &&
-                     IS_ALIGNED(b->data, NUMC_SIMD_ALIGN);
-      DotSimdKernel kern_st = aligned ? dot_simd_aligned[dt] : kern_u;
-      omp_fn(kern_u, kern_st, a->data, b->data, a->size, out->data);
-      return;
-    }
-    /* No unaligned variant — try aligned-only (single-threaded) */
-    DotSimdKernel kern_a = dot_simd_aligned[dt];
-    if (kern_a) {
-      kern_a(a->data, b->data, a->size, out->data);
+      omp_fn(kern, a->data, b->data, a->size, out->data);
       return;
     }
   }
