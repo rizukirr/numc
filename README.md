@@ -42,6 +42,28 @@ bench/graph/.venv/bin/python3 bench/graph/plot.py     # Generate comparison char
 
 Detailed benchmark methodology, CSV format documentation, and environment setup instructions are available in the [bench README](bench/README.md).
 
+## TODO
+
+### Performance
+
+- [ ] **Per-op-class OMP threshold for reductions** — Global 256KB threshold regresses element-wise ops; reductions need a separate, lower threshold to enable OMP on 1-byte types at 1M elements
+- [ ] **AVX-512 dot product intrinsics** (`src/reduction/intrinsics/dot_avx512.h`) — Close the MKL gap for float32/float64 dot (currently 0.34x–0.76x vs numpy)
+- [ ] **NEON dot product intrinsics** (`src/reduction/intrinsics/dot_neon.h`)
+- [ ] **RVV dot product intrinsics** (`src/reduction/intrinsics/dot_rvv.h`)
+- [ ] **SIMD uint8 comparison kernels** — XOR-0x80 trick for unsigned `eq/gt/lt/ge/le` (5 ops slower than numpy)
+- [ ] **SIMD int8/uint8 min/max kernels** — Direct `vpminub`/`vpmaxub`/`vpminsb`/`vpmaxsb` (4 ops slower than numpy)
+- [ ] **Raise BLIS small-matrix threshold** — 64x64 matmul dispatches to BLIS where overhead > compute
+- [ ] **SIMD log/exp intrinsics** (AVX2/NEON/RVV) — Minimax polynomial; currently scalar-only (`NOSIMD`)
+- [ ] **SIMD pow intrinsics** (AVX2/NEON/RVV) — Vectorized exp-by-squaring or `exp(b*log(a))`
+- [ ] **SIMD randn (Box-Muller)** — Batch PRNG + SIMD log/sin/cos for `numc_array_randn`
+
+### Features
+
+- [ ] **Integer SIMD gemm for NEON/RVV** — AVX2 gemm is complete, port to ARM and RISC-V
+- [ ] **Intel hybrid CPU P-core detection** — Runtime sysfs-based detection removed for portability; consider optional opt-in
+
+See [`notes/PERF_REPORT.md`](notes/PERF_REPORT.md) for full analysis and benchmark data.
+
 ## Documentation
 
 For detailed API specifications, architecture deep-dives, and comprehensive usage guides, visit the [**numc Project Wiki**](https://github.com/rizukirr/numc/wiki).
