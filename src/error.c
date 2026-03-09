@@ -1,4 +1,3 @@
-/* Error handling implementation: formatted, context-aware messages */
 #include <numc/error.h>
 #include <stdarg.h>
 #include <stdio.h>

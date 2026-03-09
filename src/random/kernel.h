@@ -1,3 +1,10 @@
+/**
+ * @file kernel.h
+ * @brief xoshiro256** PRNG with 4-stream SoA layout.
+ *
+ * Implements a vectorization-friendly PRNG using four interleaved
+ * xoshiro256** generators for uniform and normal distribution sampling.
+ */
 #ifndef NUMC_RANDOM_KERNEL_H
 #define NUMC_RANDOM_KERNEL_H
 

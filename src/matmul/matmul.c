@@ -13,20 +13,13 @@
 
 #ifdef HAVE_BLAS
 #include <blis.h>
-#include <pthread.h>
-
-static pthread_once_t blis_once = PTHREAD_ONCE_INIT;
 
 /* libomp defaults to KMP_BLOCKTIME=0, immediately sleeping OpenMP
- * threads after each parallel region.  Waking them from OS idle
+ * threads after each parallel region. Waking them from OS idle
  * states costs 40-70 ms — catastrophic for sub-ms sgemm calls.
  * Setting KMP_BLOCKTIME=200 (the MKL default) keeps threads spinning
- * for 200 ms between calls.  Must run before the first OpenMP
- * parallel region; overwrite=0 respects user-set values.
- *
- * On Intel hybrid CPUs (P-core + E-core), users should additionally
- * set OMP_PLACES=cores and BLIS_NUM_THREADS=<P-core count> to avoid
- * scheduling BLIS threads on slower E-cores. */
+ * for 200 ms between calls. Must run before the first OpenMP
+ * parallel region; overwrite=0 respects user-set values. */
 #ifdef NUMC_BLIS_OPTIMIZED
 __attribute__((constructor)) static void _numc_omp_init(void) {
   if (!getenv("KMP_BLOCKTIME") && !getenv("OMP_WAIT_POLICY")) {
@@ -34,17 +27,9 @@ __attribute__((constructor)) static void _numc_omp_init(void) {
   }
 }
 #endif
-
-static void _blis_init_once(void) {
-  bli_init();
-}
 #endif
 
 void _numc_runtime_init(void) {
-#ifdef HAVE_BLAS
-  pthread_once(&blis_once, _blis_init_once);
-#endif
-
 #ifdef HAVE_OMP
 /* Pre-warm OpenMP thread pool by running a dummy parallel loop.
  * This avoids the ~50ms 'cold start' penalty on the first math call. */
@@ -60,7 +45,6 @@ void _numc_runtime_init(void) {
  * or OMP_NUM_THREADS to their P-core count to avoid E-core scheduling.
  */
 static void _blis_set_threading(size_t total_ops) {
-  pthread_once(&blis_once, _blis_init_once);
 #ifdef HAVE_OMP
   int nthreads = omp_get_num_procs();
 

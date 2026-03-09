@@ -1,3 +1,10 @@
+/**
+ * @file blis_kernels.h
+ * @brief BLIS wrappers for dot product, gemm, and batched gemm.
+ *
+ * Wraps BLIS sdotv/ddotv and sgemm/dgemm with stride-aware calling
+ * conventions, plus a batched gemm helper for ND dot products.
+ */
 #ifndef NUMC_BLIS_KERNELS_H
 #define NUMC_BLIS_KERNELS_H
 

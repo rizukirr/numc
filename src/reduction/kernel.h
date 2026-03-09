@@ -1,3 +1,11 @@
+/**
+ * @file kernel.h
+ * @brief Reduction kernel typedefs and X-macro generators.
+ *
+ * Provides DEFINE_REDUCTION_KERNEL and DEFINE_BINARY_REDUCTION_KERNEL
+ * that expand via GENERATE_NUMC_TYPES to produce per-dtype reduction
+ * functions with optional OpenMP parallel reduction.
+ */
 #ifndef NUMC_REDUCTION_KERNEL_H
 #define NUMC_REDUCTION_KERNEL_H
 

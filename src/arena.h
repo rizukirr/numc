@@ -252,11 +252,9 @@ void *arena_alloc(Arena *arena, size_t size, size_t alignment) {
   if (!arena || size == 0 || alignment == 0)
     return NULL;
 
-  // Ensure alignment is power of two.
   if (alignment & (alignment - 1))
     return NULL;
 
-  // Lazily allocate first block.
   if (!arena->current) {
     size_t min_needed;
     if (__builtin_add_overflow(size, alignment - 1, &min_needed))
@@ -277,13 +275,11 @@ void *arena_alloc(Arena *arena, size_t size, size_t alignment) {
     arena->head = arena->current = block;
   }
 
-  // Compute padding for alignment.
   uintptr_t current_ptr =
       (uintptr_t)(arena->current->data + arena->current->index);
 
   size_t padding = align_up(current_ptr, alignment);
 
-  // If insufficient space, allocate a new block.
   size_t used;
   if (__builtin_add_overflow(arena->current->index, padding, &used) ||
       __builtin_add_overflow(used, size, &used))
@@ -313,7 +309,6 @@ void *arena_alloc(Arena *arena, size_t size, size_t alignment) {
     padding = align_up(current_ptr, alignment);
   }
 
-  // Perform the allocation.
   arena->current->index += padding;
   void *ptr = arena->current->data + arena->current->index;
   arena->current->index += size;
@@ -351,8 +346,6 @@ ArenaCheckpoint arena_checkpoint(Arena *arena) {
 
   ArenaCheckpoint cp = {0};
   if (!arena->current) {
-    // Arena not yet allocated - return zero checkpoint (valid for initial
-    // state)
     return cp;
   }
 
@@ -366,7 +359,6 @@ void arena_restore(Arena *arena, ArenaCheckpoint checkpoint) {
   assert(checkpoint.block != NULL &&
          "arena_restore: checkpoint is uninitialized or invalid");
 
-// Debug validation: ensure checkpoint belongs to this arena
 #ifndef NDEBUG
   struct ArenaBlock *block = arena->head;
   bool found = false;
@@ -382,7 +374,6 @@ void arena_restore(Arena *arena, ArenaCheckpoint checkpoint) {
          "arena_restore: checkpoint index is invalid");
 #endif
 
-  // Free blocks allocated after checkpoint to avoid memory leak
   struct ArenaBlock *orphan = checkpoint.block->next;
   while (orphan) {
     struct ArenaBlock *next = orphan->next;
@@ -391,7 +382,6 @@ void arena_restore(Arena *arena, ArenaCheckpoint checkpoint) {
   }
   checkpoint.block->next = NULL;
 
-  // Reset current block to checkpoint position
   checkpoint.block->index = checkpoint.index;
   arena->current = checkpoint.block;
 }

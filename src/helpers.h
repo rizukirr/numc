@@ -1,3 +1,10 @@
+/**
+ * @file helpers.h
+ * @brief Scalar math helpers for element-wise operations.
+ *
+ * Provides fdlibm-based log/exp, minimax sin/cos, and integer power
+ * functions used as building blocks by unary kernels.
+ */
 #ifndef NUMC_MATH_HELPERS_H
 #define NUMC_MATH_HELPERS_H
 

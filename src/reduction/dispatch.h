@@ -1,3 +1,7 @@
+/**
+ * @file dispatch.h
+ * @brief Reduction validation, contiguity checks, and dispatch helpers.
+ */
 #ifndef NUMC_REDUCTION_DISPATCH_H
 #define NUMC_REDUCTION_DISPATCH_H
 

@@ -1,3 +1,11 @@
+/**
+ * @file kernel.h
+ * @brief Naive matmul kernel typedef and X-macro generator.
+ *
+ * Provides DEFINE_MATMUL_KERNEL that expands via GENERATE_NUMC_TYPES
+ * to produce per-dtype naive O(M*K*N) matrix multiplication with
+ * OpenMP parallelism on the outer loop.
+ */
 #ifndef NUMC_MATH_MATMUL_KERNEL_H
 #define NUMC_MATH_MATMUL_KERNEL_H
 

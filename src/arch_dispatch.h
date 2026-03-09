@@ -1,3 +1,10 @@
+/**
+ * @file arch_dispatch.h
+ * @brief Compile-time architecture detection for SIMD dispatch.
+ *
+ * Defines NUMC_HAVE_AVX512, NUMC_HAVE_AVX2, NUMC_HAVE_NEON, and
+ * NUMC_HAVE_RVV based on compiler-defined feature macros.
+ */
 #ifndef NUMC_ARCH_DISPATCH_H
 #define NUMC_ARCH_DISPATCH_H
 

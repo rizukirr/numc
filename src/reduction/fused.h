@@ -1,3 +1,11 @@
+/**
+ * @file fused.h
+ * @brief Fused row-reduce kernel types for axis reduction fast paths.
+ *
+ * Defines function pointer types for row-reduce, argmin/argmax row-reduce,
+ * and post-reduction division kernels used by sum/mean/argmin/argmax
+ * when reducing along a single axis of a contiguous array.
+ */
 #ifndef NUMC_REDUCTION_FUSED_H
 #define NUMC_REDUCTION_FUSED_H
 

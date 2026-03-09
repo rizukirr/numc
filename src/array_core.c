@@ -9,8 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Static functions
-
 /**
  * @brief Calculate byte-strides for a contiguous array.
  *
@@ -94,8 +92,6 @@ static inline void _array_fill_with(struct NumcArray *arr, const void *value) {
     }
   }
 }
-
-// End Of static functions
 
 NumcCtx *numc_ctx_create(void) {
   NumcCtx *ctx = numc_malloc(NUMC_ALIGNOF(NumcCtx), sizeof(NumcCtx));

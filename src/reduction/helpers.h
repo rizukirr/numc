@@ -1,3 +1,10 @@
+/**
+ * @file helpers.h
+ * @brief Pairwise summation and multi-accumulator helpers for reductions.
+ *
+ * Provides numerically stable summation routines that maintain O(log n)
+ * error growth, along with 4-way unrolled accumulation for better ILP.
+ */
 #ifndef NUMC_REDUCTION_HELPERS_H
 #define NUMC_REDUCTION_HELPERS_H
 

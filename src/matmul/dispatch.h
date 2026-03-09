@@ -1,3 +1,7 @@
+/**
+ * @file dispatch.h
+ * @brief Matmul shape validation and BLIS function declarations.
+ */
 #ifndef NUMC_MATH_MATMUL_DISPATCH_H
 #define NUMC_MATH_MATMUL_DISPATCH_H
 

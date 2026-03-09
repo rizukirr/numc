@@ -526,8 +526,10 @@ NUMC_API int numc_argmin_axis(const NumcArray *a, int axis, int keepdim,
 /**
  * @brief Matrix multiplication: out = a @ b.
  *
- * Dispatches to BLIS for float32/float64 when available,
- * otherwise falls back to the naive kernel.
+ * Dispatch order:
+ * 1. BLIS sgemm/dgemm for float32/float64 >= 64k ops (when available).
+ * 2. SIMD gemm (AVX2) for all 10 dtypes on contiguous inputs.
+ * 3. Naive C kernel fallback.
  *
  * @param a   First input matrix (M x K).
  * @param b   Second input matrix (K x N).

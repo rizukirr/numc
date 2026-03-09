@@ -1,3 +1,11 @@
+/**
+ * @file dispatch.h
+ * @brief Element-wise ND iteration, shape validation, and dispatch helpers.
+ *
+ * Provides recursive ND traversal with stride arithmetic, shape/dtype
+ * validation for binary/unary/ternary/quaternary ops, and table-driven
+ * dispatch wrappers.
+ */
 #ifndef NUMC_MATH_DISPATCH_H
 #define NUMC_MATH_DISPATCH_H
 
@@ -9,7 +17,7 @@
  *
  * Recursive — calls kernel on innermost dimension.
  * Outer dimensions loop to compute base pointers.
- * Max recursion depth = NUMC_MAX_DIMENSIONS (8).
+ * Max recursion depth = NUMC_MAX_DIMENSIONS.
  *
  * For contiguous arrays this is never called — the flat fast path
  * in _binary_op / _unary_op handles it directly.
@@ -499,8 +507,15 @@ static inline int _check_ternary(const struct NumcArray *cond,
   return 0;
 }
 
-/* ── Binary op dispatch ───────────────────────────────────────────── */
-
+/**
+ * @brief Validate shapes and types for quaternary operations.
+ *
+ * @param a   First input array.
+ * @param b   Second input array.
+ * @param c   Third input array.
+ * @param out Output array.
+ * @return 0 on success, negative error code on failure.
+ */
 static inline int _check_quaternary(const struct NumcArray *a,
                                     const struct NumcArray *b,
                                     const struct NumcArray *c,

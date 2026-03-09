@@ -1,3 +1,10 @@
+/**
+ * @file kernel.h
+ * @brief Element-wise kernel typedefs and X-macro generators.
+ *
+ * Provides DEFINE_BINARY_KERNEL, DEFINE_UNARY_KERNEL, etc. that expand
+ * via GENERATE_NUMC_TYPES to produce per-dtype kernel functions.
+ */
 #ifndef NUMC_MATH_KERNEL_H
 #define NUMC_MATH_KERNEL_H
 

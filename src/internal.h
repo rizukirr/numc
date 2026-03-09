@@ -1,3 +1,10 @@
+/**
+ * @file internal.h
+ * @brief Internal struct definitions, OMP macros, and constants.
+ *
+ * Defines the NumcArray and NumcCtx structs, SIMD alignment constant,
+ * and OpenMP convenience macros used throughout the library.
+ */
 #ifndef NUMC_INTERNAL_H
 #define NUMC_INTERNAL_H
 

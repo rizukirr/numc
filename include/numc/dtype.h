@@ -71,7 +71,7 @@ typedef enum {
   NUMC_DTYPE(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32) \
   NUMC_DTYPE(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64)
 
-/* Fixed compatibility macros */
+/* ── Narrow Type Group Generators ─────────────────────────────────── */
 #define GENERATE_INT8_INT16_NUMC_TYPES(NUMC_DTYPE) \
   NUMC_DTYPE(NUMC_DTYPE_INT8, NUMC_INT8)           \
   NUMC_DTYPE(NUMC_DTYPE_INT16, NUMC_INT16)         \
