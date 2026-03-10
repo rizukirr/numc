@@ -8,7 +8,7 @@ By synthesizing modern language features with hardware-aware architectural patte
 
 - **Hardware-Informed Performance:** Leverages `__builtin_assume_aligned` for SIMD alignment and `__builtin_prefetch` to minimize cache miss penalties during strided N-D iteration.
 - **Three-Tier Dispatch System:**
-    1. **Accelerated Backend:** Automatic offloading of floating-point operations (`dot`, `matmul`, `sum`, `add`, `sub`) to **BLIS** (Level 1/2/3 BLAS) with runtime CPU feature detection (AVX2, AVX-512).
+    1. **Accelerated Backend:** Automatic offloading of floating-point operations (`dot`, `matmul`, `sum`, `add`, `sub`) to **BLIS** or **OpenBLAS** (Level 1/2/3 BLAS) with SIMD intrinsics (AVX2, AVX-512, NEON, SVE, RVV).
     2. **Parallelized Engine:** Multi-accumulator **OpenMP** kernels for high-bandwidth integer and strided-floating operations.
     3. **Native Fallback:** Highly optimized, C23-native kernels for edge cases and small tensors.
 - **Arena-Based Memory Management:** Utilizes a high-concurrency arena allocator (`NumcCtx`) for O(1) tensor lifecycle management, ensuring zero memory fragmentation and deterministic cleanup.
@@ -44,22 +44,37 @@ Detailed benchmark methodology, CSV format documentation, and environment setup 
 
 ## TODO
 
-### Performance
+### Performance — Help Wanted
+
+These are known slow paths where numc loses to NumPy. Community contributions and ideas are welcome.
+
+#### Matmul (BLAS float path)
+
+BLIS sgemm/dgemm is 2–5x slower than NumPy's OpenBLAS at 128×128 through 1024×1024. The OpenBLAS vendored backend closes this gap but adds ~200 MB build weight. Finding the right default and tuning BLIS to match OpenBLAS performance is an open problem.
+
+| Size | float32 (numc/numpy) | float64 (numc/numpy) |
+|------|---------------------|---------------------|
+| 128×128 | 2.3x slower | 2.6x slower |
+| 256×256 | 4.8x slower | 4.5x slower |
+| 512×512 | 4.4x slower | 4.4x slower |
+| 1024×1024 | 3.2x slower | 3.3x slower |
+
+- [ ] **BLIS threading tuning** — BLIS defaults to 1 thread; current fix uses `omp_get_max_threads()` but hybrid P/E-core CPUs over-subscribe. Need portable P-core detection or BLIS-native thread management
+- [ ] **BLIS cache blocking for small matrices** — 128×128 packing overhead dominates; investigate `gemmsup` threshold tuning or skip-packing heuristics
+- [ ] **OpenBLAS as default backend?** — OpenBLAS with `DYNAMIC_ARCH=ON` matches NumPy but is heavy; evaluate trade-offs for default build
+
+#### Other Slow Paths
 
 - [ ] **Per-op-class OMP threshold for reductions** — Global 256KB threshold regresses element-wise ops; reductions need a separate, lower threshold to enable OMP on 1-byte types at 1M elements
-- [ ] **AVX-512 dot product intrinsics** (`src/reduction/intrinsics/dot_avx512.h`) — Close the MKL gap for float32/float64 dot (currently 0.34x–0.76x vs numpy)
-- [ ] **NEON dot product intrinsics** (`src/reduction/intrinsics/dot_neon.h`)
-- [ ] **RVV dot product intrinsics** (`src/reduction/intrinsics/dot_rvv.h`)
 - [ ] **SIMD uint8 comparison kernels** — XOR-0x80 trick for unsigned `eq/gt/lt/ge/le` (5 ops slower than numpy)
 - [ ] **SIMD int8/uint8 min/max kernels** — Direct `vpminub`/`vpmaxub`/`vpminsb`/`vpmaxsb` (4 ops slower than numpy)
-- [ ] **Raise BLIS small-matrix threshold** — 64x64 matmul dispatches to BLIS where overhead > compute
-- [ ] **SIMD log/exp intrinsics** (AVX2/NEON/RVV) — Minimax polynomial; currently scalar-only (`NOSIMD`)
+- [ ] **SIMD log/exp intrinsics** (AVX2/NEON/RVV) — Minimax polynomial; currently scalar-only
 - [ ] **SIMD pow intrinsics** (AVX2/NEON/RVV) — Vectorized exp-by-squaring or `exp(b*log(a))`
 - [ ] **SIMD randn (Box-Muller)** — Batch PRNG + SIMD log/sin/cos for `numc_array_randn`
 
 ### Features
 
-- [ ] **Integer SIMD gemm for NEON/RVV** — AVX2 gemm is complete, port to ARM and RISC-V
+- [ ] **Integer SIMD gemm for NEON/RVV/SVE/SVE2** — AVX2 gemm is complete, port to other architectures
 - [ ] **Intel hybrid CPU P-core detection** — Runtime sysfs-based detection removed for portability; consider optional opt-in
 
 ## Documentation
@@ -91,9 +106,24 @@ cd numc
 
 | CMake Option | Default | Description |
 |-------------|---------|-------------|
+| `NUMC_BLAS_BACKEND` | `BLIS` | BLAS backend: `BLIS` or `OPENBLAS` |
 | `NUMC_VENDOR_BLIS` | `ON` | Build BLIS from internal submodule |
-| `NUMC_USE_BLAS` | `ON` | Enable BLAS/BLIS acceleration |
+| `NUMC_VENDOR_OPENBLAS` | `OFF` | Build OpenBLAS from internal submodule |
+| `NUMC_USE_BLAS` | `ON` | Enable BLAS acceleration |
 | `BLIS_CONFIG` | `auto` | BLIS target (e.g., `haswell`, `zen`, `skx`) |
+
+To switch BLAS backend:
+
+```bash
+# Default (BLIS — lightweight, ~5MB)
+./run.sh release
+
+# OpenBLAS (heavier, ~200MB, but faster float matmul)
+NUMC_BLAS_BACKEND=OPENBLAS NUMC_VENDOR_OPENBLAS=ON ./run.sh release
+
+# A/B benchmark both backends
+./run.sh bench-blas
+```
 
 ## Contributing
 
@@ -109,4 +139,10 @@ If you find this library useful, consider supporting its development:
 
 ## License
 
-`numc` is released under the **MIT License**. Engineered for reliability and performance.
+`numc` is released under the **MIT License**.
+
+This project includes optional vendored dependencies under their own licenses:
+- **BLIS** — 3-Clause BSD License (Copyright The University of Texas at Austin et al.)
+- **OpenBLAS** — 3-Clause BSD License (Copyright The OpenBLAS Project)
+
+See `external/blis/LICENSE` and `external/openblas/LICENSE` for full terms.

@@ -831,6 +831,7 @@ int main(void) {
   bench_matmul(128, 128, 128, 50, 50);
   bench_matmul(256, 256, 256, 50, 20);
   bench_matmul(512, 512, 512, 50, 10);
+  bench_matmul(1024, 1024, 1024, 10, 3);
 
   /* Dot product */
   bench_dot(SIZE);

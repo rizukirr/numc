@@ -11,8 +11,16 @@
 #include "intrinsics/gemm_avx2.h"
 #endif
 
+#if NUMC_HAVE_AVX512
+#include "intrinsics/gemm_avx512.h"
+#endif
+
 #ifdef HAVE_BLAS
+#ifdef HAVE_OPENBLAS
+#include <cblas.h>
+#else
 #include <blis.h>
+#endif
 
 /* libomp defaults to KMP_BLOCKTIME=0, immediately sleeping OpenMP
  * threads after each parallel region. Waking them from OS idle
@@ -20,7 +28,7 @@
  * Setting KMP_BLOCKTIME=200 (the MKL default) keeps threads spinning
  * for 200 ms between calls. Must run before the first OpenMP
  * parallel region; overwrite=0 respects user-set values. */
-#ifdef NUMC_BLIS_OPTIMIZED
+#if defined(NUMC_BLIS_OPTIMIZED) || defined(HAVE_OPENBLAS)
 __attribute__((constructor)) static void _numc_omp_init(void) {
   if (!getenv("KMP_BLOCKTIME") && !getenv("OMP_WAIT_POLICY")) {
     setenv("KMP_BLOCKTIME", "200", 0);
@@ -39,27 +47,68 @@ void _numc_runtime_init(void) {
 }
 
 #ifdef HAVE_BLAS
+#ifdef HAVE_OPENBLAS
 /*
- * BLIS threading: use omp_get_num_procs() for portable thread count.
- * Users on hybrid CPUs (Intel Alder Lake+) should set BLIS_NUM_THREADS
- * or OMP_NUM_THREADS to their P-core count to avoid E-core scheduling.
+ * OpenBLAS threading: delegate to OpenBLAS's internal scheduler.
+ * Only throttle to 1 thread for tiny problems where fork overhead
+ * dominates. Users tune via OPENBLAS_NUM_THREADS or OMP_NUM_THREADS.
+ */
+static void _openblas_set_threading(size_t total_ops) {
+  if (total_ops < 65536)
+    openblas_set_num_threads(1);
+}
+
+static void _matmul_openblas_f32(const struct NumcArray *a,
+                                 const struct NumcArray *b,
+                                 struct NumcArray *out) {
+  int m = (int)a->shape[0], k = (int)a->shape[1], n = (int)b->shape[1];
+  int lda = (int)(a->strides[0] / (intptr_t)sizeof(float));
+  int ldb = (int)(b->strides[0] / (intptr_t)sizeof(float));
+  int ldc = (int)(out->strides[0] / (intptr_t)sizeof(float));
+
+  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1.0f,
+              (const float *)a->data, lda, (const float *)b->data, ldb, 0.0f,
+              (float *)out->data, ldc);
+}
+
+static void _matmul_openblas_f64(const struct NumcArray *a,
+                                 const struct NumcArray *b,
+                                 struct NumcArray *out) {
+  int m = (int)a->shape[0], k = (int)a->shape[1], n = (int)b->shape[1];
+  int lda = (int)(a->strides[0] / (intptr_t)sizeof(double));
+  int ldb = (int)(b->strides[0] / (intptr_t)sizeof(double));
+  int ldc = (int)(out->strides[0] / (intptr_t)sizeof(double));
+
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1.0,
+              (const double *)a->data, lda, (const double *)b->data, ldb, 0.0,
+              (double *)out->data, ldc);
+}
+
+#else /* !HAVE_OPENBLAS → BLIS path */
+
+/*
+ * BLIS threading: delegate to BLIS's internal scheduler.
+ * Only throttle to 1 thread for tiny problems where fork overhead
+ * dominates. Users tune via BLIS_NUM_THREADS or OMP_NUM_THREADS.
  */
 static void _blis_set_threading(size_t total_ops) {
 #ifdef HAVE_OMP
-  int nthreads = omp_get_num_procs();
+  int nthreads = omp_get_max_threads();
+  if (nthreads < 1)
+    nthreads = 1;
 
 #ifdef NUMC_BLIS_OPTIMIZED
-  (void)total_ops;
-  bli_thread_set_num_threads(nthreads);
+  bli_thread_set_num_threads(total_ops < 65536 ? 1 : nthreads);
 #else
   if (total_ops < 65536) {
     bli_thread_set_ways(1, 1, 1, 1, 1);
   } else {
     bli_thread_set_ways(1, 1, nthreads, 1, 1);
   }
-#endif /* NUMC_BLIS_OPTIMIZED */
-
-#endif /* HAVE_OMP */
+#endif
+#else
+  (void)total_ops;
+#endif
 }
 
 void _matmul_blis_f32(const struct NumcArray *a, const struct NumcArray *b,
@@ -105,7 +154,8 @@ void _matmul_blis_f64(const struct NumcArray *a, const struct NumcArray *b,
             (double *)a->data, rs_a, cs_a, (double *)b->data, rs_b, cs_b, &beta,
             (double *)out->data, rs_c, cs_c);
 }
-#endif
+#endif /* !HAVE_OPENBLAS */
+#endif /* HAVE_BLAS */
 
 /* ── SIMD gemm wrappers ──────────────────────────────────────────── */
 
@@ -180,13 +230,37 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
     return err;
 
 #ifdef HAVE_BLAS
-  /* Saturating multiply: overflow → SIZE_MAX (always dispatches to BLIS) */
+  /* Saturating multiply: overflow → SIZE_MAX (always dispatches to BLAS) */
   size_t total_ops;
   if (__builtin_mul_overflow(a->shape[0], a->shape[1], &total_ops) ||
       __builtin_mul_overflow(total_ops, b->shape[1], &total_ops))
     total_ops = SIZE_MAX;
 
-#ifdef NUMC_BLIS_OPTIMIZED
+#ifdef HAVE_OPENBLAS
+  /*
+   * OpenBLAS (vendored, DYNAMIC_ARCH):
+   * - cblas_sgemm for float32 >= 64k ops
+   * - cblas_dgemm for float64 >= 64k ops
+   * - CBLAS requires contiguous inner stride (strides[1] == elem size)
+   */
+  {
+    size_t elem = numc_dtype_size(a->dtype);
+    if (total_ops >= 65536 &&
+        a->strides[1] == (intptr_t)elem &&
+        b->strides[1] == (intptr_t)elem) {
+      if (a->dtype == NUMC_DTYPE_FLOAT32) {
+        _openblas_set_threading(total_ops);
+        _matmul_openblas_f32(a, b, out);
+        return 0;
+      }
+      if (a->dtype == NUMC_DTYPE_FLOAT64) {
+        _openblas_set_threading(total_ops);
+        _matmul_openblas_f64(a, b, out);
+        return 0;
+      }
+    }
+  }
+#elif defined(NUMC_BLIS_OPTIMIZED)
   /*
    * Optimized BLIS (vendored, auto-configured with CPU kernels):
    * - sgemm for float32 >= 64k ops
@@ -214,7 +288,7 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
     _matmul_blis_f64(a, b, out);
     return 0;
   }
-#endif /* NUMC_BLIS_OPTIMIZED */
+#endif /* HAVE_OPENBLAS / NUMC_BLIS_OPTIMIZED */
 
 #endif /* HAVE_BLAS */
 

@@ -468,6 +468,7 @@ def main():
     bench_matmul(128, 128, 128, 50, 50)
     bench_matmul(256, 256, 256, 50, 20)
     bench_matmul(512, 512, 512, 10, 5)
+    bench_matmul(1024, 1024, 1024, 5, 3)
 
     # Dot product
     bench_dot(SIZE)

@@ -11,6 +11,8 @@ CC="${CC:-clang}"
 PYTHON_VENV="bench/numpy/.venv/bin/python3"
 NUMC_USE_BLAS="${NUMC_USE_BLAS:-ON}"
 NUMC_VENDOR_BLIS="${NUMC_VENDOR_BLIS:-ON}"
+NUMC_BLAS_BACKEND="${NUMC_BLAS_BACKEND:-BLIS}"
+NUMC_VENDOR_OPENBLAS="${NUMC_VENDOR_OPENBLAS:-OFF}"
 BLIS_CONFIG="${BLIS_CONFIG:-auto}"
 
 # --- Colors ---
@@ -31,14 +33,16 @@ build() {
     local asan=$2
     local extra_opts=$3
     
-    info "Configuring ${build_type} build (CC=${CC}, ASan=${asan}, BLAS=${NUMC_USE_BLAS}, VendorBLIS=${NUMC_VENDOR_BLIS})..."
-    
+    info "Configuring ${build_type} build (CC=${CC}, ASan=${asan}, BLAS=${NUMC_USE_BLAS}, Backend=${NUMC_BLAS_BACKEND})..."
+
     cmake -S . -B "$BUILD_DIR" \
         -DCMAKE_BUILD_TYPE="$build_type" \
         -DCMAKE_C_COMPILER="$CC" \
         -DNUMC_ENABLE_ASAN="$asan" \
         -DNUMC_USE_BLAS="$NUMC_USE_BLAS" \
         -DNUMC_VENDOR_BLIS="$NUMC_VENDOR_BLIS" \
+        -DNUMC_BLAS_BACKEND="$NUMC_BLAS_BACKEND" \
+        -DNUMC_VENDOR_OPENBLAS="$NUMC_VENDOR_OPENBLAS" \
         -DBLIS_CONFIG="$BLIS_CONFIG" \
         $extra_opts
         
@@ -89,6 +93,9 @@ case $COMMAND in
         BENCH_OUT="bench/numc/results.csv"
         NUMPY_OUT="bench/numpy/results.csv"
 
+        export OMP_PROC_BIND="${OMP_PROC_BIND:-close}"
+        export OMP_PLACES="${OMP_PLACES:-cores}"
+
         info "Running numc CSV benchmark..."
         "./$BUILD_DIR/bin/bench_numc_csv" > "$BENCH_OUT"
         success "numc results -> $BENCH_OUT ($(wc -l < "$BENCH_OUT") rows)"
@@ -122,14 +129,77 @@ case $COMMAND in
             -DNUMC_USE_BLAS=OFF \
             -DCMAKE_BUILD_TYPE=Release
         cmake --build "$ARM_BUILD" -j$(nproc)
-        
+
         info "Running matmul bench via QEMU..."
         /usr/bin/qemu-aarch64-static -L /usr/aarch64-linux-gnu "./$ARM_BUILD/bin/bench_matmul"
         ;;
 
+    "neon"|"sve"|"sve2"|"rvv")
+        TARGET=$COMMAND
+        SUBCMD=${2:-build}
+
+        case $TARGET in
+            neon) CROSS_BUILD="build-aarch64";     TOOLCHAIN="cmake/toolchain-aarch64.cmake" ;;
+            sve)  CROSS_BUILD="build-aarch64-sve";  TOOLCHAIN="cmake/toolchain-aarch64-sve.cmake" ;;
+            sve2) CROSS_BUILD="build-aarch64-sve2"; TOOLCHAIN="cmake/toolchain-aarch64-sve2.cmake" ;;
+            rvv)  CROSS_BUILD="build-riscv64";      TOOLCHAIN="cmake/toolchain-riscv64.cmake" ;;
+        esac
+
+        if [[ "$SUBCMD" == "clean" ]]; then
+            info "Cleaning $CROSS_BUILD..."
+            rm -rf "$CROSS_BUILD"
+            success "Removed $CROSS_BUILD"
+            exit 0
+        fi
+
+        info "Cross-compiling for $TARGET (toolchain: $TOOLCHAIN)..."
+        cmake -S . -B "$CROSS_BUILD" \
+            -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DNUMC_USE_BLAS=OFF
+        cmake --build "$CROSS_BUILD" -j$(nproc)
+        success "Build complete: $CROSS_BUILD"
+
+        if [[ "$SUBCMD" == "test" ]]; then
+            info "Running tests via QEMU..."
+            ctest --test-dir "$CROSS_BUILD" --output-on-failure
+        elif [[ "$SUBCMD" == "bench" ]]; then
+            BENCH_BIN="$CROSS_BUILD/bin/bench_numc"
+            if [[ -f "$BENCH_BIN" ]]; then
+                info "Running benchmarks via QEMU..."
+                "$BENCH_BIN"
+            else
+                error "Benchmark binary not found at $BENCH_BIN"
+            fi
+        fi
+        ;;
+
+    "bench-blas")
+        mkdir -p bench/blas_ab
+
+        info "=== Building with BLIS backend ==="
+        NUMC_BLAS_BACKEND=BLIS NUMC_VENDOR_BLIS=ON BUILD_DIR=build-blis build Release OFF
+        export OMP_PROC_BIND="${OMP_PROC_BIND:-close}"
+        export OMP_PLACES="${OMP_PLACES:-cores}"
+
+        info "Running BLIS matmul benchmark..."
+        ./build-blis/bin/bench_numc_csv > bench/blas_ab/blis.csv
+        success "BLIS results -> bench/blas_ab/blis.csv"
+
+        info "=== Building with OpenBLAS backend ==="
+        NUMC_BLAS_BACKEND=OPENBLAS NUMC_VENDOR_OPENBLAS=ON NUMC_VENDOR_BLIS=OFF BUILD_DIR=build-openblas build Release OFF
+
+        info "Running OpenBLAS matmul benchmark..."
+        ./build-openblas/bin/bench_numc_csv > bench/blas_ab/openblas.csv
+        success "OpenBLAS results -> bench/blas_ab/openblas.csv"
+
+        info "A/B results saved to bench/blas_ab/"
+        info "Compare matmul rows: grep matmul bench/blas_ab/*.csv"
+        ;;
+
     "clean")
         info "Cleaning build directories..."
-        rm -rf build build_aarch64 build_test
+        rm -rf build build_aarch64 build_test build-blis build-openblas
         success "Clean complete"
         ;;
 "rebuild")
@@ -179,22 +249,33 @@ case $COMMAND in
     ;;
 
 "help"|*)
-    echo -e "${YELLOW}Usage:${NC} $0 {command} [compiler]"
+    echo -e "${YELLOW}Usage:${NC} $0 {command} [compiler|subcommand]"
     echo ""
-    echo -e "${BLUE}Commands:${NC}"
+    echo -e "${BLUE}Native Commands:${NC}"
     echo "  check [cc]     Run CI simulation (format, tidy, test+ASan)"
     echo "  debug [cc]     Build Debug + ASan and run demos"
     echo "  release [cc]   Build Release and run demos"
     echo "  test [cc]      Build Debug + ASan and run ctest"
     echo "  bench [cc]     Build Release and run CSV benchmarks"
+    echo "  bench-blas     A/B benchmark: BLIS vs OpenBLAS matmul"
     echo "  cross-arm      Cross-build for AArch64 and run via QEMU"
     echo "  clean          Remove all build directories"
     echo "  rebuild [cc]   Fresh debug build"
+    echo ""
+    echo -e "${BLUE}Cross-compile Targets (QEMU):${NC}"
+    echo "  neon [test|bench|clean]   AArch64 NEON (armv8-a baseline)"
+    echo "  sve  [test|bench|clean]   AArch64 SVE  (armv8-a+sve)"
+    echo "  sve2 [test|bench|clean]   AArch64 SVE2 (armv9-a)"
+    echo "  rvv  [test|bench|clean]   RISC-V RVV   (rv64gcv)"
     echo ""
     echo -e "${BLUE}Examples:${NC}"
     echo "  $0 check            # Run CI simulation"
     echo "  $0 release          # Build with default (clang)"
     echo "  $0 release gcc      # Build with gcc"
     echo "  CC=gcc $0 release   # Also works via env var"
+    echo "  $0 neon             # Cross-compile for NEON"
+    echo "  $0 neon test        # Cross-compile + run tests via QEMU"
+    echo "  $0 sve2 bench       # Cross-compile + run benchmarks via QEMU"
+    echo "  $0 rvv clean        # Remove RISC-V build directory"
     ;;
 esac

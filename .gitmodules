@@ -1,3 +1,6 @@
 [submodule "external/blis"]
 	path = external/blis
 	url = https://github.com/flame/blis
+[submodule "external/openblas"]
+	path = external/openblas
+	url = https://github.com/OpenMathLib/OpenBLAS.git

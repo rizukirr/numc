@@ -4,6 +4,11 @@
 #include <numc/math.h>
 #include <string.h>
 
+#if NUMC_HAVE_AVX512
+#include "intrinsics/dot_avx512.h"
+#include "intrinsics/gemm_avx512.h"
+#endif
+
 #if NUMC_HAVE_AVX2
 #include "intrinsics/dot_avx2.h"
 #include "intrinsics/gemm_avx2.h"
@@ -31,10 +36,6 @@ static const NumcBinaryReductionKernel dot_table[] = {
 };
 
 #undef R
-
-#ifdef HAVE_BLAS
-#include "blis_kernels.h"
-#endif
 
 /* ── Naive matmul kernels ────────────────────────────────────────── */
 
@@ -217,8 +218,52 @@ static void _gemm_u8_avx2_w(const void *a, const void *b, void *out, size_t M,
 }
 #endif
 
+#if NUMC_HAVE_AVX512
+static void _dot_i8_avx512(const void *a, const void *b, size_t n, void *out) {
+  dot_i8_avx512((const int8_t *)a, (const int8_t *)b, n, (int8_t *)out);
+}
+static void _dot_i16_avx512(const void *a, const void *b, size_t n, void *out) {
+  dot_i16_avx512((const int16_t *)a, (const int16_t *)b, n, (int16_t *)out);
+}
+static void _dot_i32_avx512(const void *a, const void *b, size_t n, void *out) {
+  dot_i32_avx512((const int32_t *)a, (const int32_t *)b, n, (int32_t *)out);
+}
+static void _dot_i64_avx512(const void *a, const void *b, size_t n, void *out) {
+  dot_i64_avx512((const int64_t *)a, (const int64_t *)b, n, (int64_t *)out);
+}
+static void _dot_u8_avx512(const void *a, const void *b, size_t n, void *out) {
+  dot_u8_avx512((const uint8_t *)a, (const uint8_t *)b, n, (uint8_t *)out);
+}
+static void _dot_u16_avx512(const void *a, const void *b, size_t n, void *out) {
+  dot_u16_avx512((const uint16_t *)a, (const uint16_t *)b, n, (uint16_t *)out);
+}
+static void _dot_u32_avx512(const void *a, const void *b, size_t n, void *out) {
+  dot_u32_avx512((const uint32_t *)a, (const uint32_t *)b, n, (uint32_t *)out);
+}
+static void _dot_u64_avx512(const void *a, const void *b, size_t n, void *out) {
+  dot_u64_avx512((const uint64_t *)a, (const uint64_t *)b, n, (uint64_t *)out);
+}
+static void _dot_f32_avx512(const void *a, const void *b, size_t n, void *out) {
+  dot_f32u_avx512((const float *)a, (const float *)b, n, (float *)out);
+}
+static void _dot_f64_avx512(const void *a, const void *b, size_t n, void *out) {
+  dot_f64u_avx512((const double *)a, (const double *)b, n, (double *)out);
+}
+#endif
+
 static const DotSimdKernel dot_simd_table_1d[NUMC_DTYPE_COUNT] = {
-#if NUMC_HAVE_AVX2
+#if NUMC_HAVE_AVX512
+    [NUMC_DTYPE_INT8] = _dot_i8_avx512,
+    [NUMC_DTYPE_INT16] = _dot_i16_avx512,
+    [NUMC_DTYPE_INT32] = _dot_i32_avx512,
+    [NUMC_DTYPE_INT64] = _dot_i64_avx512,
+    [NUMC_DTYPE_UINT8] = _dot_u8_avx512,
+    [NUMC_DTYPE_UINT16] = _dot_u16_avx512,
+    [NUMC_DTYPE_UINT32] = _dot_u32_avx512,
+    [NUMC_DTYPE_UINT64] = _dot_u64_avx512,
+    [NUMC_DTYPE_FLOAT32] = _dot_f32_avx512,
+    [NUMC_DTYPE_FLOAT64] = _dot_f64_avx512,
+#elif NUMC_HAVE_AVX2
     [NUMC_DTYPE_INT8] = _dot_i8_avx2,     [NUMC_DTYPE_INT16] = _dot_i16_avx2,
     [NUMC_DTYPE_INT32] = _dot_i32_avx2,   [NUMC_DTYPE_INT64] = _dot_i64_avx2,
     [NUMC_DTYPE_UINT8] = _dot_u8_avx2,    [NUMC_DTYPE_UINT16] = _dot_u16_avx2,
@@ -312,17 +357,6 @@ static inline void _dot_1d_case(const NumcArray *a, const NumcArray *b,
     }
   }
 
-  /* Try BLAS */
-#ifdef HAVE_BLAS
-  {
-    BlasDotKernel blas_kern = blas_dot_table[dt];
-    if (blas_kern) {
-      blas_kern(a, b, out);
-      return;
-    }
-  }
-#endif
-
   /* Naive fallback */
   table[dt]((const char *)a->data, (const char *)b->data, (char *)out->data,
             a->size, (intptr_t)a->strides[0], (intptr_t)b->strides[0]);
@@ -363,17 +397,6 @@ static inline void _dot_nd_case(const NumcArray *a, const NumcArray *b,
       }
     }
 
-    /* Try BLAS GEMM */
-#ifdef HAVE_BLAS
-    if (a->is_contiguous && b->is_contiguous) {
-      BlasGemmKernel blas_kern = blas_gemm_table[dt];
-      if (blas_kern) {
-        blas_kern(a, b, out, m_dim, k_dim, n_dim);
-        return;
-      }
-    }
-#endif
-
     dot_naive_table[dt]((const char *)a->data, (const char *)b->data,
                         (char *)out->data, m_dim, k_dim, n_dim, rsa, csa, rsb,
                         csb, rso, cso);
@@ -390,17 +413,6 @@ static inline void _dot_nd_case(const NumcArray *a, const NumcArray *b,
       op = (char *)out->data + p_idx * out->strides[1];
     if (b->dim == 3)
       bp = (const char *)b->data + p_idx * b->strides[0];
-
-#ifdef HAVE_BLAS
-    if (a->is_contiguous && b->is_contiguous && out->is_contiguous) {
-      BlasBatchGemmKernel blas_kern = blas_batch_gemm_table[dt];
-      if (blas_kern) {
-        blas_kern((const char *)a->data, bp, op, m_dim, k_dim, n_dim, rsa, csa,
-                  rsb, csb, rso, cso);
-        continue;
-      }
-    }
-#endif
 
     dot_naive_table[dt]((const char *)a->data, bp, op, m_dim, k_dim, n_dim, rsa,
                         csa, rsb, csb, rso, cso);
