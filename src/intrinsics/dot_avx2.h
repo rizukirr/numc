@@ -292,9 +292,9 @@ static inline void dot_i8_avx2(const int8_t *a, const int8_t *b, size_t n,
   }
   REDUCE_ACC8(_mm256_add_epi32, acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7);
 
-  int8_t result = (int8_t)_hsum_epi32_avx2(acc0);
-  int8_t tail = 0;
-  for (; i < n; i++) tail += (int8_t)(a[i] * b[i]);
+  int result = _hsum_epi32_avx2(acc0);
+  int tail = 0;
+  for (; i < n; i++) tail += a[i] * b[i];
   *dest = (int8_t)(result + tail);
 }
 
@@ -348,9 +348,9 @@ static inline void dot_i16_avx2(const int16_t *a, const int16_t *b, size_t n,
   }
   REDUCE_ACC8(_mm256_add_epi32, acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7);
 
-  int16_t result = (int16_t)_hsum_epi32_avx2(acc0);
-  int16_t tail = 0;
-  for (; i < n; i++) tail += (int16_t)(a[i] * b[i]);
+  int result = _hsum_epi32_avx2(acc0);
+  int tail = 0;
+  for (; i < n; i++) tail += a[i] * b[i];
   *dest = (int16_t)(result + tail);
 }
 
