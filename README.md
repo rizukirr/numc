@@ -62,8 +62,6 @@ Detailed benchmark methodology, CSV format documentation, and environment setup 
 - [ ] **Integer SIMD gemm for NEON/RVV** — AVX2 gemm is complete, port to ARM and RISC-V
 - [ ] **Intel hybrid CPU P-core detection** — Runtime sysfs-based detection removed for portability; consider optional opt-in
 
-See [`notes/PERF_REPORT.md`](notes/PERF_REPORT.md) for full analysis and benchmark data.
-
 ## Documentation
 
 For detailed API specifications, architecture deep-dives, and comprehensive usage guides, visit the [**numc Project Wiki**](https://github.com/rizukirr/numc/wiki).
