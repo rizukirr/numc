@@ -3,14 +3,21 @@
 
 #include <immintrin.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define GEMM_MIN(a, b) ((a) < (b) ? (a) : (b))
 
 /*
- * Cache-blocking parameters tuned for typical L1 (32KB) / L2 (256KB).
- *   - MC × KC panel of A resides in L2
- *   - KC × NR sliver of B resides in L1
+ * Cache-blocking parameters for AVX2 packed GEMM.
+ *   - MC × KC panel of A resides in L2  (f32: 72×256×4 = 72KB < 256KB)
+ *   - KC × NR sliver of B resides in L1 (f32: 256×16×4 = 16KB < 32KB)
+ *   - KC × NC panel of B resides in L3
+ * MC is kept small (72) for 1D IC-loop OMP parallelism — with 16 threads,
+ * M=512 yields 8 IC iterations, enough for reasonable core utilization.
+ * Larger MC (168, per BLIS model) requires 2D M×N parallelism to avoid
+ * underutilizing cores. f64 KC=256 (up from 128) to match BLIS and reduce
+ * B-repacking overhead.
  */
 #define GEMM_F32_MR 6
 #define GEMM_F32_NR 16
@@ -20,7 +27,7 @@
 #define GEMM_F64_MR 6
 #define GEMM_F64_NR 8
 #define GEMM_F64_MC 72
-#define GEMM_F64_KC 128
+#define GEMM_F64_KC 256
 
 #define GEMM_I32_MR 6
 #define GEMM_I32_NR 16
@@ -42,7 +49,121 @@
 #define GEMM_I8_NR 8
 #define GEMM_I8_MC 72
 
-#define GEMM_OMP_THRESHOLD (1 << 20)
+/* GEMM OMP threshold on compute volume (M × K × N operations).
+ * Threading pays off when compute dominates OMP fork cost (~20-50μs).
+ * 256×256: 16.8M ops → ~330μs single-threaded → threading helps.
+ * 128×128: 2.1M ops → ~50μs single-threaded → overhead dominates. */
+#define GEMM_OMP_THRESHOLD (1 << 23)
+
+/* N-dimension blocking for L3 residency (B panel: KC × NC elements) */
+#define GEMM_F32_NC 4080
+#define GEMM_F64_NC 4080
+
+/* ── Float32 packing routines ──────────────────────────────────────────── */
+
+/* Pack B[kc × nc] into NR-wide micropanels (row-panel format).
+ * Layout: for each NR-panel at column jr, kc rows of NR contiguous elements.
+ * Micro-kernel sees rsb = NR. */
+static inline void gemm_pack_b_f32(const float *b, float *packed, size_t kc,
+                                   size_t nc, intptr_t rsb) {
+  size_t jr = 0;
+  for (; jr + GEMM_F32_NR <= nc; jr += GEMM_F32_NR) {
+    float *dest = packed + jr * kc;
+    for (size_t p = 0; p < kc; p++) {
+      const float *src = b + p * rsb + jr;
+      _mm256_storeu_ps(dest + p * GEMM_F32_NR, _mm256_loadu_ps(src));
+      _mm256_storeu_ps(dest + p * GEMM_F32_NR + 8, _mm256_loadu_ps(src + 8));
+    }
+  }
+  if (jr < nc) {
+    float *dest = packed + jr * kc;
+    size_t rem = nc - jr;
+    for (size_t p = 0; p < kc; p++) {
+      const float *src = b + p * rsb + jr;
+      size_t j = 0;
+      for (; j < rem; j++)
+        dest[p * GEMM_F32_NR + j] = src[j];
+      for (; j < GEMM_F32_NR; j++)
+        dest[p * GEMM_F32_NR + j] = 0.0f;
+    }
+  }
+}
+
+/* Pack A[mc × kc] into MR-tall micropanels (column-panel format).
+ * Layout: for each MR-panel at row ir, kc columns of MR contiguous elements.
+ * Micro-kernel sees rsa = 1, csa = MR. */
+static inline void gemm_pack_a_f32(const float *a, float *packed, size_t mc,
+                                   size_t kc, intptr_t rsa, intptr_t csa) {
+  size_t ir = 0;
+  for (; ir + GEMM_F32_MR <= mc; ir += GEMM_F32_MR) {
+    float *dest = packed + ir * kc;
+    for (size_t p = 0; p < kc; p++) {
+      for (size_t i = 0; i < GEMM_F32_MR; i++)
+        dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p * csa];
+    }
+  }
+  if (ir < mc) {
+    float *dest = packed + ir * kc;
+    size_t rem = mc - ir;
+    for (size_t p = 0; p < kc; p++) {
+      size_t i = 0;
+      for (; i < rem; i++)
+        dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p * csa];
+      for (; i < GEMM_F32_MR; i++)
+        dest[p * GEMM_F32_MR + i] = 0.0f;
+    }
+  }
+}
+
+/* ── Float64 packing routines ──────────────────────────────────────────── */
+
+static inline void gemm_pack_b_f64(const double *b, double *packed, size_t kc,
+                                   size_t nc, intptr_t rsb) {
+  size_t jr = 0;
+  for (; jr + GEMM_F64_NR <= nc; jr += GEMM_F64_NR) {
+    double *dest = packed + jr * kc;
+    for (size_t p = 0; p < kc; p++) {
+      const double *src = b + p * rsb + jr;
+      _mm256_storeu_pd(dest + p * GEMM_F64_NR, _mm256_loadu_pd(src));
+      _mm256_storeu_pd(dest + p * GEMM_F64_NR + 4, _mm256_loadu_pd(src + 4));
+    }
+  }
+  if (jr < nc) {
+    double *dest = packed + jr * kc;
+    size_t rem = nc - jr;
+    for (size_t p = 0; p < kc; p++) {
+      const double *src = b + p * rsb + jr;
+      size_t j = 0;
+      for (; j < rem; j++)
+        dest[p * GEMM_F64_NR + j] = src[j];
+      for (; j < GEMM_F64_NR; j++)
+        dest[p * GEMM_F64_NR + j] = 0.0;
+    }
+  }
+}
+
+static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
+                                   size_t kc, intptr_t rsa, intptr_t csa) {
+  size_t ir = 0;
+  for (; ir + GEMM_F64_MR <= mc; ir += GEMM_F64_MR) {
+    double *dest = packed + ir * kc;
+    for (size_t p = 0; p < kc; p++) {
+      for (size_t i = 0; i < GEMM_F64_MR; i++)
+        dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p * csa];
+    }
+  }
+  if (ir < mc) {
+    double *dest = packed + ir * kc;
+    size_t rem = mc - ir;
+    for (size_t p = 0; p < kc; p++) {
+      size_t i = 0;
+      for (; i < rem; i++)
+        dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p * csa];
+      for (; i < GEMM_F64_MR; i++)
+        dest[p * GEMM_F64_MR + i] = 0.0;
+    }
+  }
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Float32: 6×16 micro-kernel  (12 acc + 1 A broadcast + 2 B loads = 15 YMM)
@@ -52,27 +173,30 @@
 static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
                                          float *c, size_t kc, intptr_t rsa,
                                          intptr_t csa, intptr_t rsb,
-                                         intptr_t rso) {
-  __m256 c00 = _mm256_loadu_ps(c), c01 = _mm256_loadu_ps(c + 8);
-  __m256 c10 = _mm256_loadu_ps(c + rso), c11 = _mm256_loadu_ps(c + rso + 8);
-  __m256 c20 = _mm256_loadu_ps(c + 2 * rso),
-         c21 = _mm256_loadu_ps(c + 2 * rso + 8);
-  __m256 c30 = _mm256_loadu_ps(c + 3 * rso),
-         c31 = _mm256_loadu_ps(c + 3 * rso + 8);
-  __m256 c40 = _mm256_loadu_ps(c + 4 * rso),
-         c41 = _mm256_loadu_ps(c + 4 * rso + 8);
-  __m256 c50 = _mm256_loadu_ps(c + 5 * rso),
-         c51 = _mm256_loadu_ps(c + 5 * rso + 8);
+                                         intptr_t rso, int first) {
+  __m256 c00, c01, c10, c11, c20, c21, c30, c31, c40, c41, c50, c51;
+  if (first) {
+    c00 = _mm256_setzero_ps(); c01 = _mm256_setzero_ps();
+    c10 = _mm256_setzero_ps(); c11 = _mm256_setzero_ps();
+    c20 = _mm256_setzero_ps(); c21 = _mm256_setzero_ps();
+    c30 = _mm256_setzero_ps(); c31 = _mm256_setzero_ps();
+    c40 = _mm256_setzero_ps(); c41 = _mm256_setzero_ps();
+    c50 = _mm256_setzero_ps(); c51 = _mm256_setzero_ps();
+  } else {
+    c00 = _mm256_loadu_ps(c);            c01 = _mm256_loadu_ps(c + 8);
+    c10 = _mm256_loadu_ps(c + rso);      c11 = _mm256_loadu_ps(c + rso + 8);
+    c20 = _mm256_loadu_ps(c + 2 * rso);  c21 = _mm256_loadu_ps(c + 2 * rso + 8);
+    c30 = _mm256_loadu_ps(c + 3 * rso);  c31 = _mm256_loadu_ps(c + 3 * rso + 8);
+    c40 = _mm256_loadu_ps(c + 4 * rso);  c41 = _mm256_loadu_ps(c + 4 * rso + 8);
+    c50 = _mm256_loadu_ps(c + 5 * rso);  c51 = _mm256_loadu_ps(c + 5 * rso + 8);
+  }
 
   for (size_t p = 0; p < kc; p++) {
     const float *bp = b + p * rsb;
-    _mm_prefetch((const char *)(bp + rsb), _MM_HINT_T0);
-    _mm_prefetch((const char *)(bp + rsb + 8), _MM_HINT_T0);
     __m256 b0 = _mm256_loadu_ps(bp);
     __m256 b1 = _mm256_loadu_ps(bp + 8);
 
     __m256 av;
-    /* Interleave broadcasts with FMAs to maximize port utilization */
     av = _mm256_broadcast_ss(a + 0 * rsa + p * csa);
     c00 = _mm256_fmadd_ps(av, b0, c00);
     c01 = _mm256_fmadd_ps(av, b1, c01);
@@ -137,35 +261,105 @@ static inline void gemm_f32_avx2(const float *a, const float *b, float *out,
                                  size_t m_dim, size_t k_dim, size_t n_dim,
                                  intptr_t rsa, intptr_t csa, intptr_t rsb,
                                  intptr_t rso) {
-  for (size_t i = 0; i < m_dim; i++)
-    memset(out + i * rso, 0, n_dim * sizeof(float));
+  /* B packing buffer — shared across threads, fits L3 */
+  size_t nc_max = GEMM_MIN(GEMM_F32_NC, n_dim);
+  float *packed_b = (float *)aligned_alloc(
+      32, GEMM_F32_KC * (nc_max + GEMM_F32_NR) * sizeof(float));
+  if (!packed_b)
+    return;
 
-  for (size_t pc = 0; pc < k_dim; pc += GEMM_F32_KC) {
-    size_t kc = GEMM_MIN(GEMM_F32_KC, k_dim - pc);
+  for (size_t jc = 0; jc < n_dim; jc += GEMM_F32_NC) {
+    size_t nc = GEMM_MIN(GEMM_F32_NC, n_dim - jc);
+
+    for (size_t pc = 0; pc < k_dim; pc += GEMM_F32_KC) {
+      size_t kc = GEMM_MIN(GEMM_F32_KC, k_dim - pc);
+      int first = (pc == 0);
+
+      gemm_pack_b_f32(b + pc * rsb + jc, packed_b, kc, nc, rsb);
+
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) if (m_dim * n_dim * sizeof(float) > \
-                                                  GEMM_OMP_THRESHOLD)
-#endif
-    for (size_t ic = 0; ic < m_dim; ic += GEMM_F32_MC) {
-      size_t mc = GEMM_MIN(GEMM_F32_MC, m_dim - ic);
-      size_t jr = 0;
-      for (; jr + GEMM_F32_NR <= n_dim; jr += GEMM_F32_NR) {
-        size_t ir = 0;
-        for (; ir + GEMM_F32_MR <= mc; ir += GEMM_F32_MR)
-          gemm_ukernel_f32_6x16(a + (ic + ir) * rsa + pc * csa,
-                                b + pc * rsb + jr, out + (ic + ir) * rso + jr,
-                                kc, rsa, csa, rsb, rso);
-        if (ir < mc)
-          gemm_edge_f32(a + (ic + ir) * rsa + pc * csa, b + pc * rsb + jr,
-                        out + (ic + ir) * rso + jr, mc - ir, GEMM_F32_NR, kc,
-                        rsa, csa, rsb, rso);
+#pragma omp parallel if ((uint64_t)m_dim * kc * nc > GEMM_OMP_THRESHOLD)
+      {
+        float packed_a[GEMM_F32_MC * GEMM_F32_KC]
+            __attribute__((aligned(32)));
+
+#pragma omp for schedule(static)
+        for (size_t ic = 0; ic < m_dim; ic += GEMM_F32_MC) {
+          size_t mc = GEMM_MIN(GEMM_F32_MC, m_dim - ic);
+          gemm_pack_a_f32(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa, csa);
+          for (size_t jr = 0; jr < nc; jr += GEMM_F32_NR) {
+            size_t nr_cur = GEMM_MIN(GEMM_F32_NR, nc - jr);
+            for (size_t ir = 0; ir < mc; ir += GEMM_F32_MR) {
+              size_t mr_cur = GEMM_MIN(GEMM_F32_MR, mc - ir);
+              if (mr_cur == GEMM_F32_MR && nr_cur == GEMM_F32_NR) {
+                gemm_ukernel_f32_6x16(
+                    packed_a + ir * kc, packed_b + jr * kc,
+                    out + (ic + ir) * rso + (jc + jr), kc, 1, GEMM_F32_MR,
+                    GEMM_F32_NR, rso, first);
+              } else {
+                float tmp[GEMM_F32_MR * GEMM_F32_NR]
+                    __attribute__((aligned(32)));
+                gemm_ukernel_f32_6x16(packed_a + ir * kc, packed_b + jr * kc,
+                                      tmp, kc, 1, GEMM_F32_MR, GEMM_F32_NR,
+                                      GEMM_F32_NR, 1);
+                float *dst = out + (ic + ir) * rso + (jc + jr);
+                if (first) {
+                  for (size_t ii = 0; ii < mr_cur; ii++)
+                    for (size_t jj = 0; jj < nr_cur; jj++)
+                      dst[ii * rso + jj] = tmp[ii * GEMM_F32_NR + jj];
+                } else {
+                  for (size_t ii = 0; ii < mr_cur; ii++)
+                    for (size_t jj = 0; jj < nr_cur; jj++)
+                      dst[ii * rso + jj] += tmp[ii * GEMM_F32_NR + jj];
+                }
+              }
+            }
+          }
+        }
       }
-      if (jr < n_dim)
-        gemm_edge_f32(a + ic * rsa + pc * csa, b + pc * rsb + jr,
-                      out + ic * rso + jr, mc, n_dim - jr, kc, rsa, csa, rsb,
-                      rso);
+#else
+      {
+        float packed_a[GEMM_F32_MC * GEMM_F32_KC]
+            __attribute__((aligned(32)));
+
+        for (size_t ic = 0; ic < m_dim; ic += GEMM_F32_MC) {
+          size_t mc = GEMM_MIN(GEMM_F32_MC, m_dim - ic);
+          gemm_pack_a_f32(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa, csa);
+          for (size_t jr = 0; jr < nc; jr += GEMM_F32_NR) {
+            size_t nr_cur = GEMM_MIN(GEMM_F32_NR, nc - jr);
+            for (size_t ir = 0; ir < mc; ir += GEMM_F32_MR) {
+              size_t mr_cur = GEMM_MIN(GEMM_F32_MR, mc - ir);
+              if (mr_cur == GEMM_F32_MR && nr_cur == GEMM_F32_NR) {
+                gemm_ukernel_f32_6x16(
+                    packed_a + ir * kc, packed_b + jr * kc,
+                    out + (ic + ir) * rso + (jc + jr), kc, 1, GEMM_F32_MR,
+                    GEMM_F32_NR, rso, first);
+              } else {
+                float tmp[GEMM_F32_MR * GEMM_F32_NR]
+                    __attribute__((aligned(32)));
+                gemm_ukernel_f32_6x16(packed_a + ir * kc, packed_b + jr * kc,
+                                      tmp, kc, 1, GEMM_F32_MR, GEMM_F32_NR,
+                                      GEMM_F32_NR, 1);
+                float *dst = out + (ic + ir) * rso + (jc + jr);
+                if (first) {
+                  for (size_t ii = 0; ii < mr_cur; ii++)
+                    for (size_t jj = 0; jj < nr_cur; jj++)
+                      dst[ii * rso + jj] = tmp[ii * GEMM_F32_NR + jj];
+                } else {
+                  for (size_t ii = 0; ii < mr_cur; ii++)
+                    for (size_t jj = 0; jj < nr_cur; jj++)
+                      dst[ii * rso + jj] += tmp[ii * GEMM_F32_NR + jj];
+                }
+              }
+            }
+          }
+        }
+      }
+#endif
     }
   }
+
+  free(packed_b);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -176,22 +370,26 @@ static inline void gemm_f32_avx2(const float *a, const float *b, float *out,
 static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
                                         double *c, size_t kc, intptr_t rsa,
                                         intptr_t csa, intptr_t rsb,
-                                        intptr_t rso) {
-  __m256d c00 = _mm256_loadu_pd(c), c01 = _mm256_loadu_pd(c + 4);
-  __m256d c10 = _mm256_loadu_pd(c + rso), c11 = _mm256_loadu_pd(c + rso + 4);
-  __m256d c20 = _mm256_loadu_pd(c + 2 * rso),
-          c21 = _mm256_loadu_pd(c + 2 * rso + 4);
-  __m256d c30 = _mm256_loadu_pd(c + 3 * rso),
-          c31 = _mm256_loadu_pd(c + 3 * rso + 4);
-  __m256d c40 = _mm256_loadu_pd(c + 4 * rso),
-          c41 = _mm256_loadu_pd(c + 4 * rso + 4);
-  __m256d c50 = _mm256_loadu_pd(c + 5 * rso),
-          c51 = _mm256_loadu_pd(c + 5 * rso + 4);
+                                        intptr_t rso, int first) {
+  __m256d c00, c01, c10, c11, c20, c21, c30, c31, c40, c41, c50, c51;
+  if (first) {
+    c00 = _mm256_setzero_pd(); c01 = _mm256_setzero_pd();
+    c10 = _mm256_setzero_pd(); c11 = _mm256_setzero_pd();
+    c20 = _mm256_setzero_pd(); c21 = _mm256_setzero_pd();
+    c30 = _mm256_setzero_pd(); c31 = _mm256_setzero_pd();
+    c40 = _mm256_setzero_pd(); c41 = _mm256_setzero_pd();
+    c50 = _mm256_setzero_pd(); c51 = _mm256_setzero_pd();
+  } else {
+    c00 = _mm256_loadu_pd(c);            c01 = _mm256_loadu_pd(c + 4);
+    c10 = _mm256_loadu_pd(c + rso);      c11 = _mm256_loadu_pd(c + rso + 4);
+    c20 = _mm256_loadu_pd(c + 2 * rso);  c21 = _mm256_loadu_pd(c + 2 * rso + 4);
+    c30 = _mm256_loadu_pd(c + 3 * rso);  c31 = _mm256_loadu_pd(c + 3 * rso + 4);
+    c40 = _mm256_loadu_pd(c + 4 * rso);  c41 = _mm256_loadu_pd(c + 4 * rso + 4);
+    c50 = _mm256_loadu_pd(c + 5 * rso);  c51 = _mm256_loadu_pd(c + 5 * rso + 4);
+  }
 
   for (size_t p = 0; p < kc; p++) {
     const double *bp = b + p * rsb;
-    _mm_prefetch((const char *)(bp + rsb), _MM_HINT_T0);
-    _mm_prefetch((const char *)(bp + rsb + 4), _MM_HINT_T0);
     __m256d b0 = _mm256_loadu_pd(bp);
     __m256d b1 = _mm256_loadu_pd(bp + 4);
 
@@ -260,35 +458,104 @@ static inline void gemm_f64_avx2(const double *a, const double *b, double *out,
                                  size_t m_dim, size_t k_dim, size_t n_dim,
                                  intptr_t rsa, intptr_t csa, intptr_t rsb,
                                  intptr_t rso) {
-  for (size_t i = 0; i < m_dim; i++)
-    memset(out + i * rso, 0, n_dim * sizeof(double));
+  size_t nc_max = GEMM_MIN(GEMM_F64_NC, n_dim);
+  double *packed_b = (double *)aligned_alloc(
+      32, GEMM_F64_KC * (nc_max + GEMM_F64_NR) * sizeof(double));
+  if (!packed_b)
+    return;
 
-  for (size_t pc = 0; pc < k_dim; pc += GEMM_F64_KC) {
-    size_t kc = GEMM_MIN(GEMM_F64_KC, k_dim - pc);
+  for (size_t jc = 0; jc < n_dim; jc += GEMM_F64_NC) {
+    size_t nc = GEMM_MIN(GEMM_F64_NC, n_dim - jc);
+
+    for (size_t pc = 0; pc < k_dim; pc += GEMM_F64_KC) {
+      size_t kc = GEMM_MIN(GEMM_F64_KC, k_dim - pc);
+      int first = (pc == 0);
+
+      gemm_pack_b_f64(b + pc * rsb + jc, packed_b, kc, nc, rsb);
+
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) if (m_dim * n_dim * sizeof(double) > \
-                                                  GEMM_OMP_THRESHOLD)
-#endif
-    for (size_t ic = 0; ic < m_dim; ic += GEMM_F64_MC) {
-      size_t mc = GEMM_MIN(GEMM_F64_MC, m_dim - ic);
-      size_t jr = 0;
-      for (; jr + GEMM_F64_NR <= n_dim; jr += GEMM_F64_NR) {
-        size_t ir = 0;
-        for (; ir + GEMM_F64_MR <= mc; ir += GEMM_F64_MR)
-          gemm_ukernel_f64_6x8(a + (ic + ir) * rsa + pc * csa,
-                               b + pc * rsb + jr, out + (ic + ir) * rso + jr,
-                               kc, rsa, csa, rsb, rso);
-        if (ir < mc)
-          gemm_edge_f64(a + (ic + ir) * rsa + pc * csa, b + pc * rsb + jr,
-                        out + (ic + ir) * rso + jr, mc - ir, GEMM_F64_NR, kc,
-                        rsa, csa, rsb, rso);
+#pragma omp parallel if ((uint64_t)m_dim * kc * nc > GEMM_OMP_THRESHOLD)
+      {
+        double packed_a[GEMM_F64_MC * GEMM_F64_KC]
+            __attribute__((aligned(32)));
+
+#pragma omp for schedule(static)
+        for (size_t ic = 0; ic < m_dim; ic += GEMM_F64_MC) {
+          size_t mc = GEMM_MIN(GEMM_F64_MC, m_dim - ic);
+          gemm_pack_a_f64(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa, csa);
+          for (size_t jr = 0; jr < nc; jr += GEMM_F64_NR) {
+            size_t nr_cur = GEMM_MIN(GEMM_F64_NR, nc - jr);
+            for (size_t ir = 0; ir < mc; ir += GEMM_F64_MR) {
+              size_t mr_cur = GEMM_MIN(GEMM_F64_MR, mc - ir);
+              if (mr_cur == GEMM_F64_MR && nr_cur == GEMM_F64_NR) {
+                gemm_ukernel_f64_6x8(
+                    packed_a + ir * kc, packed_b + jr * kc,
+                    out + (ic + ir) * rso + (jc + jr), kc, 1, GEMM_F64_MR,
+                    GEMM_F64_NR, rso, first);
+              } else {
+                double tmp[GEMM_F64_MR * GEMM_F64_NR]
+                    __attribute__((aligned(32)));
+                gemm_ukernel_f64_6x8(packed_a + ir * kc, packed_b + jr * kc,
+                                     tmp, kc, 1, GEMM_F64_MR, GEMM_F64_NR,
+                                     GEMM_F64_NR, 1);
+                double *dst = out + (ic + ir) * rso + (jc + jr);
+                if (first) {
+                  for (size_t ii = 0; ii < mr_cur; ii++)
+                    for (size_t jj = 0; jj < nr_cur; jj++)
+                      dst[ii * rso + jj] = tmp[ii * GEMM_F64_NR + jj];
+                } else {
+                  for (size_t ii = 0; ii < mr_cur; ii++)
+                    for (size_t jj = 0; jj < nr_cur; jj++)
+                      dst[ii * rso + jj] += tmp[ii * GEMM_F64_NR + jj];
+                }
+              }
+            }
+          }
+        }
       }
-      if (jr < n_dim)
-        gemm_edge_f64(a + ic * rsa + pc * csa, b + pc * rsb + jr,
-                      out + ic * rso + jr, mc, n_dim - jr, kc, rsa, csa, rsb,
-                      rso);
+#else
+      {
+        double packed_a[GEMM_F64_MC * GEMM_F64_KC]
+            __attribute__((aligned(32)));
+
+        for (size_t ic = 0; ic < m_dim; ic += GEMM_F64_MC) {
+          size_t mc = GEMM_MIN(GEMM_F64_MC, m_dim - ic);
+          gemm_pack_a_f64(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa, csa);
+          for (size_t jr = 0; jr < nc; jr += GEMM_F64_NR) {
+            size_t nr_cur = GEMM_MIN(GEMM_F64_NR, nc - jr);
+            for (size_t ir = 0; ir < mc; ir += GEMM_F64_MR) {
+              size_t mr_cur = GEMM_MIN(GEMM_F64_MR, mc - ir);
+              if (mr_cur == GEMM_F64_MR && nr_cur == GEMM_F64_NR) {
+                gemm_ukernel_f64_6x8(
+                    packed_a + ir * kc, packed_b + jr * kc,
+                    out + (ic + ir) * rso + (jc + jr), kc, 1, GEMM_F64_MR,
+                    GEMM_F64_NR, rso, first);
+              } else {
+                double tmp[GEMM_F64_MR * GEMM_F64_NR]
+                    __attribute__((aligned(32)));
+                gemm_ukernel_f64_6x8(packed_a + ir * kc, packed_b + jr * kc,
+                                     tmp, kc, 1, GEMM_F64_MR, GEMM_F64_NR,
+                                     GEMM_F64_NR, 1);
+                double *dst = out + (ic + ir) * rso + (jc + jr);
+                if (first) {
+                  for (size_t ii = 0; ii < mr_cur; ii++)
+                    for (size_t jj = 0; jj < nr_cur; jj++)
+                      dst[ii * rso + jj] = tmp[ii * GEMM_F64_NR + jj];
+                } else {
+                  for (size_t ii = 0; ii < mr_cur; ii++)
+                    for (size_t jj = 0; jj < nr_cur; jj++)
+                      dst[ii * rso + jj] += tmp[ii * GEMM_F64_NR + jj];
+                }
+              }
+            }
+          }
+        }
+      }
+#endif
     }
   }
+
+  free(packed_b);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
