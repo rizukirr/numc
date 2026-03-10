@@ -29,6 +29,8 @@ By synthesizing modern language features with hardware-aware architectural patte
 
 numc is rigorously benchmarked against NumPy across all supported operations, data types, and array configurations. The benchmark suite runs identical workloads on both libraries to ensure a fair comparison.
 
+> **Note:** Current benchmarks were collected on an x86-64 AVX2 machine (i7-13620H). GEMM micro-kernels for **AVX-512**, **NEON**, **SVE**, and **RVV** pass correctness tests (via QEMU) but have not been performance-benchmarked on native hardware. If you have access to any of these platforms, we would love benchmark contributions — just run `./run.sh bench` and open a PR with your results!
+
 ![Overview](bench/graph/output/overview.png)
 
 For the complete set of benchmark charts, device specifications, and per-operation breakdowns, see the [benchmark results](bench/graph/README.md).
