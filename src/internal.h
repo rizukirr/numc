@@ -18,6 +18,9 @@
 
 /* --- Constants --- */
 
+/* Portable alignment specifier — C23 alignas is a keyword */
+#define NUMC_ALIGNAS(N) alignas(N)
+
 #define NUMC_MAX_DIMENSIONS  64
 #define NUMC_MAX_INLINE_DIMS 8
 #define NUMC_MAX_MEMORY      8388608 // 8MB

@@ -8,7 +8,7 @@ By synthesizing modern language features with hardware-aware architectural patte
 
 - **Hardware-Informed Performance:** Leverages `__builtin_assume_aligned` for SIMD alignment and `__builtin_prefetch` to minimize cache miss penalties during strided N-D iteration.
 - **Three-Tier Dispatch System:**
-    1. **Accelerated Backend:** Automatic offloading of floating-point operations (`dot`, `matmul`, `sum`, `add`, `sub`) to **BLIS** or **OpenBLAS** (Level 1/2/3 BLAS) with SIMD intrinsics (AVX2, AVX-512, NEON, SVE, RVV).
+    1. **Accelerated Backend:** Packed GEMM micro-kernels for all 10 data types across **AVX2**, **AVX-512**, **NEON**, **SVE**, and **RVV**, with optional **BLIS**/**OpenBLAS** offloading for floating-point BLAS Level 1/2/3.
     2. **Parallelized Engine:** Multi-accumulator **OpenMP** kernels for high-bandwidth integer and strided-floating operations.
     3. **Native Fallback:** Highly optimized, C23-native kernels for edge cases and small tensors.
 - **Arena-Based Memory Management:** Utilizes a high-concurrency arena allocator (`NumcCtx`) for O(1) tensor lifecycle management, ensuring zero memory fragmentation and deterministic cleanup.
@@ -74,7 +74,7 @@ BLIS sgemm/dgemm is 2–5x slower than NumPy's OpenBLAS at 128×128 through 1024
 
 ### Features
 
-- [ ] **Integer SIMD gemm for NEON/RVV/SVE/SVE2** — AVX2 gemm is complete, port to other architectures
+- [x] **SIMD gemm for all architectures** — Packed GEMM micro-kernels for AVX2, AVX-512, NEON, SVE, and RVV (all 10 types)
 - [ ] **Intel hybrid CPU P-core detection** — Runtime sysfs-based detection removed for portability; consider optional opt-in
 
 ## Documentation
@@ -123,6 +123,17 @@ NUMC_BLAS_BACKEND=OPENBLAS NUMC_VENDOR_OPENBLAS=ON ./run.sh release
 
 # A/B benchmark both backends
 ./run.sh bench-blas
+```
+
+### Cross-Compilation (ARM / RISC-V)
+
+Requires cross-compilers and QEMU user-mode. Tests run automatically via QEMU emulation.
+
+```bash
+./run.sh neon test    # AArch64 NEON (armv8-a baseline)
+./run.sh sve test     # AArch64 SVE  (armv8-a+sve)
+./run.sh sve2 test    # AArch64 SVE2 (armv9-a)
+./run.sh rvv test     # RISC-V RVV   (rv64gcv)
 ```
 
 ## Contributing

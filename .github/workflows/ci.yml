@@ -107,6 +107,47 @@ jobs:
         cd build
         ctest --output-on-failure --parallel $(nproc)
 
+  # ── CROSS-COMPILE & TEST (ARM/RISC-V) ────────────────────────────────────
+  # Verify NEON, SVE, and RVV GEMM kernels via QEMU user-mode emulation
+  cross-compile:
+    needs: lint-and-format
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: neon
+            toolchain: cmake/toolchain-aarch64.cmake
+            packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu qemu-user-static
+          - target: sve
+            toolchain: cmake/toolchain-aarch64-sve.cmake
+            packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu qemu-user-static
+          - target: rvv
+            toolchain: cmake/toolchain-riscv64.cmake
+            packages: gcc-riscv64-linux-gnu g++-riscv64-linux-gnu qemu-user-static
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Cross-Compilation Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ${{ matrix.packages }}
+
+      - name: Configure & Build
+        env:
+          TOOLCHAIN: ${{ matrix.toolchain }}
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DNUMC_USE_BLAS=OFF \
+            -DNUMC_BUILD_TESTS=ON
+          cmake --build build --parallel $(nproc)
+
+      - name: Run Tests via QEMU
+        run: ctest --test-dir build --output-on-failure --parallel $(nproc)
+
   # ── CODE COVERAGE ──────────────────────────────────────────────────────────
   coverage:
     needs: build-and-test

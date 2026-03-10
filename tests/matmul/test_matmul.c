@@ -236,24 +236,94 @@ static int test_matmul_blis_vs_naive_f64(void) {
   return 0;
 }
 
+static int test_matmul_packed_256_f32(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {256, 256};
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+  NumcArray *b = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+  NumcArray *c_fast = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+  NumcArray *c_naive = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+
+  float *ad = (float *)numc_array_data(a);
+  float *bd = (float *)numc_array_data(b);
+  for (size_t i = 0; i < 256 * 256; i++) {
+    ad[i] = (float)((i % 7) + 1);
+    bd[i] = (float)((i % 5) + 1);
+  }
+
+  int err1 = numc_matmul(a, b, c_fast);
+  int err2 = numc_matmul_naive(a, b, c_naive);
+  ASSERT_MSG_CTX(err1 == 0, "matmul failed", ctx);
+  ASSERT_MSG_CTX(err2 == 0, "matmul_naive failed", ctx);
+
+  const float *r1 = (const float *)numc_array_data(c_fast);
+  const float *r2 = (const float *)numc_array_data(c_naive);
+  for (size_t i = 0; i < 256 * 256; i++) {
+    float diff = r1[i] - r2[i];
+    if (diff < 0)
+      diff = -diff;
+    ASSERT_MSG_CTX(diff < 1e-2f, "packed vs naive mismatch at 256x256", ctx);
+  }
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_matmul_packed_256_f64(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {256, 256};
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT64);
+  NumcArray *b = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT64);
+  NumcArray *c_fast = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT64);
+  NumcArray *c_naive = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT64);
+
+  double *ad = (double *)numc_array_data(a);
+  double *bd = (double *)numc_array_data(b);
+  for (size_t i = 0; i < 256 * 256; i++) {
+    ad[i] = (double)((i % 7) + 1);
+    bd[i] = (double)((i % 5) + 1);
+  }
+
+  int err1 = numc_matmul(a, b, c_fast);
+  int err2 = numc_matmul_naive(a, b, c_naive);
+  ASSERT_MSG_CTX(err1 == 0, "matmul failed", ctx);
+  ASSERT_MSG_CTX(err2 == 0, "matmul_naive failed", ctx);
+
+  const double *r1 = (const double *)numc_array_data(c_fast);
+  const double *r2 = (const double *)numc_array_data(c_naive);
+  for (size_t i = 0; i < 256 * 256; i++) {
+    double diff = r1[i] - r2[i];
+    if (diff < 0)
+      diff = -diff;
+    ASSERT_MSG_CTX(diff < 1e-6, "packed vs naive mismatch at 256x256", ctx);
+  }
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
 /* ── main ───────────────────────────────────────────────────────── */
 
 int main(void) {
   int passes = 0, fails = 0;
-  printf("=== matmul/test_matmul (unified API + BLIS path) ===\n\n");
+  printf("=== matmul/test_matmul (unified API) ===\n\n");
 
-  printf("Float32 (BLIS sgemm path):\n");
+  printf("Float32:\n");
   RUN_TEST(test_matmul_f32_identity);
   RUN_TEST(test_matmul_f32_known_result);
   RUN_TEST(test_matmul_f32_rect);
 
-  printf("\nFloat64 (BLIS dgemm path):\n");
+  printf("\nFloat64:\n");
   RUN_TEST(test_matmul_f64_identity);
   RUN_TEST(test_matmul_f64_known_result);
 
-  printf("\nBLIS vs naive cross-validation:\n");
+  printf("\nPacked vs naive cross-validation:\n");
   RUN_TEST(test_matmul_blis_vs_naive_f32);
   RUN_TEST(test_matmul_blis_vs_naive_f64);
+
+  printf("\nPacked GEMM 256x256 cross-validation:\n");
+  RUN_TEST(test_matmul_packed_256_f32);
+  RUN_TEST(test_matmul_packed_256_f64);
 
   printf("\n=== Results: %d passed, %d failed ===\n", passes, fails);
   return fails > 0 ? 1 : 0;

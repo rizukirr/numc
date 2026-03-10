@@ -15,10 +15,21 @@
 #include "intrinsics/gemm_avx512.h"
 #endif
 
-#ifdef HAVE_BLAS
-#ifdef HAVE_OPENBLAS
+#if NUMC_HAVE_NEON
+#include "intrinsics/gemm_neon.h"
+#endif
+
+#if NUMC_HAVE_SVE
+#include "intrinsics/gemm_sve.h"
+#endif
+
+#if NUMC_HAVE_RVV
+#include "intrinsics/gemm_rvv.h"
+#endif
+
+#if defined(HAVE_BLAS) && defined(NUMC_PREFER_BLAS) && defined(HAVE_OPENBLAS)
 #include <cblas.h>
-#else
+#elif defined(HAVE_BLAS) && defined(NUMC_PREFER_BLAS)
 #include <blis.h>
 #endif
 
@@ -28,13 +39,12 @@
  * Setting KMP_BLOCKTIME=200 (the MKL default) keeps threads spinning
  * for 200 ms between calls. Must run before the first OpenMP
  * parallel region; overwrite=0 respects user-set values. */
-#if defined(NUMC_BLIS_OPTIMIZED) || defined(HAVE_OPENBLAS)
+#ifdef HAVE_OMP
 __attribute__((constructor)) static void _numc_omp_init(void) {
   if (!getenv("KMP_BLOCKTIME") && !getenv("OMP_WAIT_POLICY")) {
     setenv("KMP_BLOCKTIME", "200", 0);
   }
 }
-#endif
 #endif
 
 void _numc_runtime_init(void) {
@@ -46,7 +56,7 @@ void _numc_runtime_init(void) {
 #endif
 }
 
-#ifdef HAVE_BLAS
+#if defined(HAVE_BLAS) && defined(NUMC_PREFER_BLAS)
 #ifdef HAVE_OPENBLAS
 /*
  * OpenBLAS threading: delegate to OpenBLAS's internal scheduler.
@@ -155,7 +165,7 @@ void _matmul_blis_f64(const struct NumcArray *a, const struct NumcArray *b,
             (double *)out->data, rs_c, cs_c);
 }
 #endif /* !HAVE_OPENBLAS */
-#endif /* HAVE_BLAS */
+#endif /* HAVE_BLAS && NUMC_PREFER_BLAS */
 
 /* ── SIMD gemm wrappers ──────────────────────────────────────────── */
 
@@ -165,13 +175,14 @@ typedef void (*GemmSimdKernel)(const void *a, const void *b, void *out,
                                size_t M, size_t K, size_t N, intptr_t rsa,
                                intptr_t csa, intptr_t rsb, intptr_t rso);
 
-#if NUMC_HAVE_AVX2
 #define GEMM_WRAP(name, CT, fn)                                               \
   static void name(const void *a, const void *b, void *out, size_t M,         \
                    size_t K, size_t N, intptr_t rsa, intptr_t csa,            \
                    intptr_t rsb, intptr_t rso) {                              \
     fn((const CT *)a, (const CT *)b, (CT *)out, M, K, N, rsa, csa, rsb, rso); \
   }
+
+#if NUMC_HAVE_AVX2
 GEMM_WRAP(_gemm_i8_avx2, int8_t, gemm_i8_avx2)
 GEMM_WRAP(_gemm_i16_avx2, int16_t, gemm_i16_avx2)
 GEMM_WRAP(_gemm_i32_avx2, int32_t, gemm_i32_avx2)
@@ -182,8 +193,53 @@ GEMM_WRAP(_gemm_u32_avx2, uint32_t, gemm_u32_avx2)
 GEMM_WRAP(_gemm_u64_avx2, uint64_t, gemm_u64_avx2)
 GEMM_WRAP(_gemm_f32_avx2, float, gemm_f32_avx2)
 GEMM_WRAP(_gemm_f64_avx2, double, gemm_f64_avx2)
-#undef GEMM_WRAP
 #endif
+
+#if NUMC_HAVE_AVX512
+GEMM_WRAP(_gemm_f32_avx512, float, gemm_f32_avx512)
+GEMM_WRAP(_gemm_f64_avx512, double, gemm_f64_avx512)
+#endif
+
+#if NUMC_HAVE_NEON
+GEMM_WRAP(_gemm_i8_neon, int8_t, gemm_i8_neon)
+GEMM_WRAP(_gemm_i16_neon, int16_t, gemm_i16_neon)
+GEMM_WRAP(_gemm_i32_neon, int32_t, gemm_i32_neon)
+GEMM_WRAP(_gemm_i64_neon, int64_t, gemm_i64_neon)
+GEMM_WRAP(_gemm_u8_neon, uint8_t, gemm_u8_neon)
+GEMM_WRAP(_gemm_u16_neon, uint16_t, gemm_u16_neon)
+GEMM_WRAP(_gemm_u32_neon, uint32_t, gemm_u32_neon)
+GEMM_WRAP(_gemm_u64_neon, uint64_t, gemm_u64_neon)
+GEMM_WRAP(_gemm_f32_neon, float, gemm_f32_neon)
+GEMM_WRAP(_gemm_f64_neon, double, gemm_f64_neon)
+#endif
+
+#if NUMC_HAVE_SVE
+GEMM_WRAP(_gemm_i8_sve, int8_t, gemm_i8_sve)
+GEMM_WRAP(_gemm_i16_sve, int16_t, gemm_i16_sve)
+GEMM_WRAP(_gemm_i32_sve, int32_t, gemm_i32_sve)
+GEMM_WRAP(_gemm_i64_sve, int64_t, gemm_i64_sve)
+GEMM_WRAP(_gemm_u8_sve, uint8_t, gemm_u8_sve)
+GEMM_WRAP(_gemm_u16_sve, uint16_t, gemm_u16_sve)
+GEMM_WRAP(_gemm_u32_sve, uint32_t, gemm_u32_sve)
+GEMM_WRAP(_gemm_u64_sve, uint64_t, gemm_u64_sve)
+GEMM_WRAP(_gemm_f32_sve, float, gemm_f32_sve)
+GEMM_WRAP(_gemm_f64_sve, double, gemm_f64_sve)
+#endif
+
+#if NUMC_HAVE_RVV
+GEMM_WRAP(_gemm_i8_rvv, int8_t, gemm_i8_rvv)
+GEMM_WRAP(_gemm_i16_rvv, int16_t, gemm_i16_rvv)
+GEMM_WRAP(_gemm_i32_rvv, int32_t, gemm_i32_rvv)
+GEMM_WRAP(_gemm_i64_rvv, int64_t, gemm_i64_rvv)
+GEMM_WRAP(_gemm_u8_rvv, uint8_t, gemm_u8_rvv)
+GEMM_WRAP(_gemm_u16_rvv, uint16_t, gemm_u16_rvv)
+GEMM_WRAP(_gemm_u32_rvv, uint32_t, gemm_u32_rvv)
+GEMM_WRAP(_gemm_u64_rvv, uint64_t, gemm_u64_rvv)
+GEMM_WRAP(_gemm_f32_rvv, float, gemm_f32_rvv)
+GEMM_WRAP(_gemm_f64_rvv, double, gemm_f64_rvv)
+#endif
+
+#undef GEMM_WRAP
 
 static const GemmSimdKernel gemm_simd_table[NUMC_DTYPE_COUNT] = {
 #if NUMC_HAVE_AVX2
@@ -197,6 +253,47 @@ static const GemmSimdKernel gemm_simd_table[NUMC_DTYPE_COUNT] = {
     [NUMC_DTYPE_UINT64] = _gemm_u64_avx2,
     [NUMC_DTYPE_FLOAT32] = _gemm_f32_avx2,
     [NUMC_DTYPE_FLOAT64] = _gemm_f64_avx2,
+#endif
+    /* AVX-512 overrides f32/f64 when available (designated init allows it) */
+#if NUMC_HAVE_AVX512
+    [NUMC_DTYPE_FLOAT32] = _gemm_f32_avx512,
+    [NUMC_DTYPE_FLOAT64] = _gemm_f64_avx512,
+#endif
+#if NUMC_HAVE_NEON
+    [NUMC_DTYPE_INT8] = _gemm_i8_neon,
+    [NUMC_DTYPE_INT16] = _gemm_i16_neon,
+    [NUMC_DTYPE_INT32] = _gemm_i32_neon,
+    [NUMC_DTYPE_INT64] = _gemm_i64_neon,
+    [NUMC_DTYPE_UINT8] = _gemm_u8_neon,
+    [NUMC_DTYPE_UINT16] = _gemm_u16_neon,
+    [NUMC_DTYPE_UINT32] = _gemm_u32_neon,
+    [NUMC_DTYPE_UINT64] = _gemm_u64_neon,
+    [NUMC_DTYPE_FLOAT32] = _gemm_f32_neon,
+    [NUMC_DTYPE_FLOAT64] = _gemm_f64_neon,
+#endif
+#if NUMC_HAVE_SVE
+    [NUMC_DTYPE_INT8] = _gemm_i8_sve,
+    [NUMC_DTYPE_INT16] = _gemm_i16_sve,
+    [NUMC_DTYPE_INT32] = _gemm_i32_sve,
+    [NUMC_DTYPE_INT64] = _gemm_i64_sve,
+    [NUMC_DTYPE_UINT8] = _gemm_u8_sve,
+    [NUMC_DTYPE_UINT16] = _gemm_u16_sve,
+    [NUMC_DTYPE_UINT32] = _gemm_u32_sve,
+    [NUMC_DTYPE_UINT64] = _gemm_u64_sve,
+    [NUMC_DTYPE_FLOAT32] = _gemm_f32_sve,
+    [NUMC_DTYPE_FLOAT64] = _gemm_f64_sve,
+#endif
+#if NUMC_HAVE_RVV
+    [NUMC_DTYPE_INT8] = _gemm_i8_rvv,
+    [NUMC_DTYPE_INT16] = _gemm_i16_rvv,
+    [NUMC_DTYPE_INT32] = _gemm_i32_rvv,
+    [NUMC_DTYPE_INT64] = _gemm_i64_rvv,
+    [NUMC_DTYPE_UINT8] = _gemm_u8_rvv,
+    [NUMC_DTYPE_UINT16] = _gemm_u16_rvv,
+    [NUMC_DTYPE_UINT32] = _gemm_u32_rvv,
+    [NUMC_DTYPE_UINT64] = _gemm_u64_rvv,
+    [NUMC_DTYPE_FLOAT32] = _gemm_f32_rvv,
+    [NUMC_DTYPE_FLOAT64] = _gemm_f64_rvv,
 #endif
 };
 
@@ -229,79 +326,66 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   if (err)
     return err;
 
-#ifdef HAVE_BLAS
-  /* Saturating multiply: overflow → SIZE_MAX (always dispatches to BLAS) */
-  size_t total_ops;
-  if (__builtin_mul_overflow(a->shape[0], a->shape[1], &total_ops) ||
-      __builtin_mul_overflow(total_ops, b->shape[1], &total_ops))
-    total_ops = SIZE_MAX;
-
-#ifdef HAVE_OPENBLAS
-  /*
-   * OpenBLAS (vendored, DYNAMIC_ARCH):
-   * - cblas_sgemm for float32 >= 64k ops
-   * - cblas_dgemm for float64 >= 64k ops
-   * - CBLAS requires contiguous inner stride (strides[1] == elem size)
-   */
+  /* Primary path: packed SIMD GEMM (all types, all strides) */
   {
-    size_t elem = numc_dtype_size(a->dtype);
-    if (total_ops >= 65536 &&
-        a->strides[1] == (intptr_t)elem &&
-        b->strides[1] == (intptr_t)elem) {
-      if (a->dtype == NUMC_DTYPE_FLOAT32) {
-        _openblas_set_threading(total_ops);
-        _matmul_openblas_f32(a, b, out);
-        return 0;
-      }
-      if (a->dtype == NUMC_DTYPE_FLOAT64) {
-        _openblas_set_threading(total_ops);
-        _matmul_openblas_f64(a, b, out);
-        return 0;
-      }
-    }
-  }
-#elif defined(NUMC_BLIS_OPTIMIZED)
-  /*
-   * Optimized BLIS (vendored, auto-configured with CPU kernels):
-   * - sgemm for float32 >= 64k ops
-   * - dgemm for float64 >= 64k ops
-   * - Below 64k: falls through to naive kernels (no BLIS overhead)
-   */
-  if (total_ops >= 65536 && a->dtype == NUMC_DTYPE_FLOAT32) {
-    _blis_set_threading(total_ops);
-    _matmul_blis_f32(a, b, out);
-    return 0;
-  }
-  if (total_ops >= 65536 && a->dtype == NUMC_DTYPE_FLOAT64) {
-    _blis_set_threading(total_ops);
-    _matmul_blis_f64(a, b, out);
-    return 0;
-  }
-#else
-  /*
-   * System/generic BLIS:
-   * - dgemm only for float64 >= 65k ops (generic sgemm is unreliable)
-   * - IC-only threading
-   */
-  if (total_ops >= 65536 && a->dtype == NUMC_DTYPE_FLOAT64) {
-    _blis_set_threading(total_ops);
-    _matmul_blis_f64(a, b, out);
-    return 0;
-  }
-#endif /* HAVE_OPENBLAS / NUMC_BLIS_OPTIMIZED */
-
-#endif /* HAVE_BLAS */
-
-  /* Try SIMD gemm (contiguous inputs only) */
-  if (a->is_contiguous && b->is_contiguous) {
     GemmSimdKernel simd_kern = gemm_simd_table[a->dtype];
     if (simd_kern) {
       size_t M = a->shape[0], K = a->shape[1], N = b->shape[1];
-      simd_kern(a->data, b->data, out->data, M, K, N, (intptr_t)K, 1,
-                (intptr_t)N, (intptr_t)N);
+      size_t elem = numc_dtype_size(a->dtype);
+      intptr_t rsa = a->strides[0] / (intptr_t)elem;
+      intptr_t csa = a->strides[1] / (intptr_t)elem;
+      intptr_t rsb = b->strides[0] / (intptr_t)elem;
+      intptr_t rso = out->strides[0] / (intptr_t)elem;
+      simd_kern(a->data, b->data, out->data, M, K, N, rsa, csa, rsb, rso);
       return 0;
     }
   }
+
+#if defined(HAVE_BLAS) && defined(NUMC_PREFER_BLAS)
+  /* Optional BLAS path — enabled with -DNUMC_PREFER_BLAS */
+  {
+    size_t total_ops;
+    if (__builtin_mul_overflow(a->shape[0], a->shape[1], &total_ops) ||
+        __builtin_mul_overflow(total_ops, b->shape[1], &total_ops))
+      total_ops = SIZE_MAX;
+
+#ifdef HAVE_OPENBLAS
+    {
+      size_t elem = numc_dtype_size(a->dtype);
+      if (total_ops >= 65536 && a->strides[1] == (intptr_t)elem &&
+          b->strides[1] == (intptr_t)elem) {
+        if (a->dtype == NUMC_DTYPE_FLOAT32) {
+          _openblas_set_threading(total_ops);
+          _matmul_openblas_f32(a, b, out);
+          return 0;
+        }
+        if (a->dtype == NUMC_DTYPE_FLOAT64) {
+          _openblas_set_threading(total_ops);
+          _matmul_openblas_f64(a, b, out);
+          return 0;
+        }
+      }
+    }
+#elif defined(NUMC_BLIS_OPTIMIZED)
+    if (total_ops >= 65536 && a->dtype == NUMC_DTYPE_FLOAT32) {
+      _blis_set_threading(total_ops);
+      _matmul_blis_f32(a, b, out);
+      return 0;
+    }
+    if (total_ops >= 65536 && a->dtype == NUMC_DTYPE_FLOAT64) {
+      _blis_set_threading(total_ops);
+      _matmul_blis_f64(a, b, out);
+      return 0;
+    }
+#else
+    if (total_ops >= 65536 && a->dtype == NUMC_DTYPE_FLOAT64) {
+      _blis_set_threading(total_ops);
+      _matmul_blis_f64(a, b, out);
+      return 0;
+    }
+#endif
+  }
+#endif /* HAVE_BLAS && NUMC_PREFER_BLAS */
 
   /* Fallback to naive kernels (C23 + OpenMP) */
   MatmulKernel kern = matmul_table[a->dtype];

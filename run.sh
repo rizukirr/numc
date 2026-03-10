@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # run.sh — numc development helper script
-# Supports: debug, release, test, bench, cross-arm, clean, rebuild
+# Supports: debug, release, test, bench, cross-arm, clean, rebuild, avx512
 
 set -e
 
@@ -174,6 +174,55 @@ case $COMMAND in
         fi
         ;;
 
+    "avx512")
+        SUBCMD=${2:-build}
+        AVX512_BUILD="build-avx512"
+
+        if [[ "$SUBCMD" == "clean" ]]; then
+            info "Cleaning $AVX512_BUILD..."
+            rm -rf "$AVX512_BUILD"
+            success "Removed $AVX512_BUILD"
+            exit 0
+        fi
+
+        QEMU_X86_64=$(command -v qemu-x86_64 || true)
+        if [[ -z "$QEMU_X86_64" ]]; then
+            error "qemu-x86_64 not found. Install qemu-user or qemu-user-static."
+        fi
+
+        info "Building AVX-512 target in $AVX512_BUILD..."
+        cmake -S . -B "$AVX512_BUILD" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DNUMC_USE_BLAS=OFF \
+            -DNUMC_OPTIMIZE_NATIVE=OFF \
+            -DCMAKE_C_FLAGS="-O3 -mavx512f -mavx512dq -mavx512vl -mfma"
+        cmake --build "$AVX512_BUILD" -j$(nproc)
+        success "Build complete: $AVX512_BUILD"
+
+        if [[ "$SUBCMD" == "test" ]]; then
+            info "Running test binaries via QEMU (Skylake-Server model)..."
+            shopt -s nullglob
+            failed=0
+            for t in "$AVX512_BUILD"/bin/test_*; do
+                [[ -x "$t" ]] || continue
+                "$QEMU_X86_64" -cpu Skylake-Server "$t" || failed=1
+            done
+            shopt -u nullglob
+            if [[ $failed -ne 0 ]]; then
+                error "One or more AVX-512 tests failed under QEMU"
+            fi
+            success "AVX-512 tests passed under QEMU"
+        elif [[ "$SUBCMD" == "bench" ]]; then
+            BENCH_BIN="$AVX512_BUILD/bin/bench_matmul"
+            if [[ -f "$BENCH_BIN" ]]; then
+                info "Running matmul benchmark via QEMU (Skylake-Server model)..."
+                "$QEMU_X86_64" -cpu Skylake-Server "$BENCH_BIN"
+            else
+                error "Benchmark binary not found at $BENCH_BIN"
+            fi
+        fi
+        ;;
+
     "bench-blas")
         mkdir -p bench/blas_ab
 
@@ -199,7 +248,7 @@ case $COMMAND in
 
     "clean")
         info "Cleaning build directories..."
-        rm -rf build build_aarch64 build_test build-blis build-openblas
+        rm -rf build build_aarch64 build_test build-blis build-openblas build-avx512
         success "Clean complete"
         ;;
 "rebuild")
@@ -261,6 +310,7 @@ case $COMMAND in
     echo "  cross-arm      Cross-build for AArch64 and run via QEMU"
     echo "  clean          Remove all build directories"
     echo "  rebuild [cc]   Fresh debug build"
+    echo "  avx512 [test|bench|clean]  Build x86_64 AVX-512, run via QEMU"
     echo ""
     echo -e "${BLUE}Cross-compile Targets (QEMU):${NC}"
     echo "  neon [test|bench|clean]   AArch64 NEON (armv8-a baseline)"
@@ -277,5 +327,6 @@ case $COMMAND in
     echo "  $0 neon test        # Cross-compile + run tests via QEMU"
     echo "  $0 sve2 bench       # Cross-compile + run benchmarks via QEMU"
     echo "  $0 rvv clean        # Remove RISC-V build directory"
+    echo "  $0 avx512 test      # Build AVX-512 and run tests via qemu-x86_64"
     ;;
 esac
