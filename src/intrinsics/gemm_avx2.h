@@ -195,6 +195,237 @@ static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
     c51 = _mm256_fmadd_ps(av, b1, c51);    \
   } while (0)
 
+#if defined(__GNUC__) || defined(__clang__)
+
+/* Inline-asm f32 6×16 micro-kernel: 12 accumulators pinned to ymm0-ymm11,
+ * no register spills. Interleaves vbroadcastss (port 5) with vfmadd231ps
+ * (ports 0,1) for optimal port utilization. 4× unrolled K-loop. */
+static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
+                                         float *c, size_t kc, intptr_t rsa,
+                                         intptr_t csa, intptr_t rsb,
+                                         intptr_t rso, int first) {
+  (void)rsa;
+  intptr_t csa_bytes = csa * (intptr_t)sizeof(float);
+  intptr_t rsb_bytes = rsb * (intptr_t)sizeof(float);
+  float *c1 = c + rso;
+  float *c2 = c + 2 * rso;
+  float *c3 = c + 3 * rso;
+  float *c4 = c + 4 * rso;
+  float *c5 = c + 5 * rso;
+
+  const float *ap = a;
+  const float *bp = b;
+
+  __asm__ __volatile__(
+      /* Prefetch C rows into L1 */
+      "prefetcht0 (%[c0])\n\t"
+      "prefetcht0 (%[c1])\n\t"
+      "prefetcht0 (%[c2])\n\t"
+      "prefetcht0 (%[c3])\n\t"
+      "prefetcht0 (%[c4])\n\t"
+      "prefetcht0 (%[c5])\n\t"
+
+      /* Zero or load accumulators */
+      "test %[first], %[first]\n\t"
+      "jz 1f\n\t"
+      /* first=1: zero all 12 accumulators */
+      "vxorps %%ymm0, %%ymm0, %%ymm0\n\t"
+      "vxorps %%ymm1, %%ymm1, %%ymm1\n\t"
+      "vxorps %%ymm2, %%ymm2, %%ymm2\n\t"
+      "vxorps %%ymm3, %%ymm3, %%ymm3\n\t"
+      "vxorps %%ymm4, %%ymm4, %%ymm4\n\t"
+      "vxorps %%ymm5, %%ymm5, %%ymm5\n\t"
+      "vxorps %%ymm6, %%ymm6, %%ymm6\n\t"
+      "vxorps %%ymm7, %%ymm7, %%ymm7\n\t"
+      "vxorps %%ymm8, %%ymm8, %%ymm8\n\t"
+      "vxorps %%ymm9, %%ymm9, %%ymm9\n\t"
+      "vxorps %%ymm10, %%ymm10, %%ymm10\n\t"
+      "vxorps %%ymm11, %%ymm11, %%ymm11\n\t"
+      "jmp 2f\n\t"
+
+      "1:\n\t"
+      /* first=0: load existing C values */
+      "vmovups (%[c0]), %%ymm0\n\t"
+      "vmovups 32(%[c0]), %%ymm1\n\t"
+      "vmovups (%[c1]), %%ymm2\n\t"
+      "vmovups 32(%[c1]), %%ymm3\n\t"
+      "vmovups (%[c2]), %%ymm4\n\t"
+      "vmovups 32(%[c2]), %%ymm5\n\t"
+      "vmovups (%[c3]), %%ymm6\n\t"
+      "vmovups 32(%[c3]), %%ymm7\n\t"
+      "vmovups (%[c4]), %%ymm8\n\t"
+      "vmovups 32(%[c4]), %%ymm9\n\t"
+      "vmovups (%[c5]), %%ymm10\n\t"
+      "vmovups 32(%[c5]), %%ymm11\n\t"
+
+      "2:\n\t"
+      /* K-loop: k_iter = kc >> 2 */
+      "mov %[kc], %%rcx\n\t"
+      "shr $2, %%rcx\n\t"
+      "jz 4f\n\t"
+
+      ".p2align 4\n\t"
+      "3:\n\t"
+      /* === K iteration 0 === */
+      "vmovups (%[bp]), %%ymm12\n\t"
+      "vmovups 32(%[bp]), %%ymm13\n\t"
+      "vbroadcastss (%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm0\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm1\n\t"
+      "vbroadcastss 4(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm2\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm3\n\t"
+      "vbroadcastss 8(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm4\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm5\n\t"
+      "vbroadcastss 12(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm6\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm7\n\t"
+      "vbroadcastss 16(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm8\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm9\n\t"
+      "vbroadcastss 20(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm10\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm11\n\t"
+      "add %[csa_bytes], %[ap]\n\t"
+      "add %[rsb_bytes], %[bp]\n\t"
+
+      /* === K iteration 1 === */
+      "vmovups (%[bp]), %%ymm12\n\t"
+      "vmovups 32(%[bp]), %%ymm13\n\t"
+      "vbroadcastss (%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm0\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm1\n\t"
+      "vbroadcastss 4(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm2\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm3\n\t"
+      "vbroadcastss 8(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm4\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm5\n\t"
+      "vbroadcastss 12(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm6\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm7\n\t"
+      "vbroadcastss 16(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm8\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm9\n\t"
+      "vbroadcastss 20(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm10\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm11\n\t"
+      "add %[csa_bytes], %[ap]\n\t"
+      "add %[rsb_bytes], %[bp]\n\t"
+
+      /* Prefetch next A block */
+      "prefetcht0 256(%[ap])\n\t"
+
+      /* === K iteration 2 === */
+      "vmovups (%[bp]), %%ymm12\n\t"
+      "vmovups 32(%[bp]), %%ymm13\n\t"
+      "vbroadcastss (%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm0\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm1\n\t"
+      "vbroadcastss 4(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm2\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm3\n\t"
+      "vbroadcastss 8(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm4\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm5\n\t"
+      "vbroadcastss 12(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm6\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm7\n\t"
+      "vbroadcastss 16(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm8\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm9\n\t"
+      "vbroadcastss 20(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm10\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm11\n\t"
+      "add %[csa_bytes], %[ap]\n\t"
+      "add %[rsb_bytes], %[bp]\n\t"
+
+      /* === K iteration 3 === */
+      "vmovups (%[bp]), %%ymm12\n\t"
+      "vmovups 32(%[bp]), %%ymm13\n\t"
+      "vbroadcastss (%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm0\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm1\n\t"
+      "vbroadcastss 4(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm2\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm3\n\t"
+      "vbroadcastss 8(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm4\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm5\n\t"
+      "vbroadcastss 12(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm6\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm7\n\t"
+      "vbroadcastss 16(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm8\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm9\n\t"
+      "vbroadcastss 20(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm10\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm11\n\t"
+      "add %[csa_bytes], %[ap]\n\t"
+      "add %[rsb_bytes], %[bp]\n\t"
+
+      "dec %%rcx\n\t"
+      "jnz 3b\n\t"
+
+      "4:\n\t"
+      /* Handle k_left = kc & 3 */
+      "mov %[kc], %%rcx\n\t"
+      "and $3, %%rcx\n\t"
+      "jz 6f\n\t"
+
+      ".p2align 4\n\t"
+      "5:\n\t"
+      "vmovups (%[bp]), %%ymm12\n\t"
+      "vmovups 32(%[bp]), %%ymm13\n\t"
+      "vbroadcastss (%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm0\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm1\n\t"
+      "vbroadcastss 4(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm2\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm3\n\t"
+      "vbroadcastss 8(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm4\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm5\n\t"
+      "vbroadcastss 12(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm6\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm7\n\t"
+      "vbroadcastss 16(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm8\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm9\n\t"
+      "vbroadcastss 20(%[ap]), %%ymm14\n\t"
+      "vfmadd231ps %%ymm14, %%ymm12, %%ymm10\n\t"
+      "vfmadd231ps %%ymm14, %%ymm13, %%ymm11\n\t"
+      "add %[csa_bytes], %[ap]\n\t"
+      "add %[rsb_bytes], %[bp]\n\t"
+      "dec %%rcx\n\t"
+      "jnz 5b\n\t"
+
+      "6:\n\t"
+      /* Store accumulators to C */
+      "vmovups %%ymm0, (%[c0])\n\t"
+      "vmovups %%ymm1, 32(%[c0])\n\t"
+      "vmovups %%ymm2, (%[c1])\n\t"
+      "vmovups %%ymm3, 32(%[c1])\n\t"
+      "vmovups %%ymm4, (%[c2])\n\t"
+      "vmovups %%ymm5, 32(%[c2])\n\t"
+      "vmovups %%ymm6, (%[c3])\n\t"
+      "vmovups %%ymm7, 32(%[c3])\n\t"
+      "vmovups %%ymm8, (%[c4])\n\t"
+      "vmovups %%ymm9, 32(%[c4])\n\t"
+      "vmovups %%ymm10, (%[c5])\n\t"
+      "vmovups %%ymm11, 32(%[c5])\n\t"
+
+      : [ap] "+r"(ap), [bp] "+r"(bp)
+      : [c0] "r"(c), [c1] "r"(c1), [c2] "r"(c2), [c3] "r"(c3), [c4] "r"(c4),
+        [c5] "r"(c5), [kc] "r"((uint64_t)kc), [first] "r"(first),
+        [csa_bytes] "r"(csa_bytes), [rsb_bytes] "r"(rsb_bytes)
+      : "rcx", "memory", "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6",
+        "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14");
+}
+
+#else /* MSVC fallback — C intrinsics version */
+
 static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
                                          float *c, size_t kc, intptr_t rsa,
                                          intptr_t csa, intptr_t rsb,
@@ -278,6 +509,8 @@ static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
   _mm256_storeu_ps(c + 5 * rso, c50);
   _mm256_storeu_ps(c + 5 * rso + 8, c51);
 }
+
+#endif /* __GNUC__ || __clang__ */
 
 #undef GEMM_F32_K_ITER
 
@@ -449,6 +682,237 @@ static inline void gemm_f32_avx2(const float *a, const float *b, float *out,
     c51 = _mm256_fmadd_pd(av, b1, c51);     \
   } while (0)
 
+#if defined(__GNUC__) || defined(__clang__)
+
+/* Inline-asm f64 6×8 micro-kernel: 12 accumulators pinned to ymm0-ymm11,
+ * no register spills. Interleaves vbroadcastsd (port 5) with vfmadd231pd
+ * (ports 0,1) for optimal port utilization. 4× unrolled K-loop. */
+static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
+                                        double *c, size_t kc, intptr_t rsa,
+                                        intptr_t csa, intptr_t rsb,
+                                        intptr_t rso, int first) {
+  (void)rsa;
+  intptr_t csa_bytes = csa * (intptr_t)sizeof(double);
+  intptr_t rsb_bytes = rsb * (intptr_t)sizeof(double);
+  double *c1 = c + rso;
+  double *c2 = c + 2 * rso;
+  double *c3 = c + 3 * rso;
+  double *c4 = c + 4 * rso;
+  double *c5 = c + 5 * rso;
+
+  const double *ap = a;
+  const double *bp = b;
+
+  __asm__ __volatile__(
+      /* Prefetch C rows into L1 */
+      "prefetcht0 (%[c0])\n\t"
+      "prefetcht0 (%[c1])\n\t"
+      "prefetcht0 (%[c2])\n\t"
+      "prefetcht0 (%[c3])\n\t"
+      "prefetcht0 (%[c4])\n\t"
+      "prefetcht0 (%[c5])\n\t"
+
+      /* Zero or load accumulators */
+      "test %[first], %[first]\n\t"
+      "jz 1f\n\t"
+      /* first=1: zero all 12 accumulators */
+      "vxorpd %%ymm0, %%ymm0, %%ymm0\n\t"
+      "vxorpd %%ymm1, %%ymm1, %%ymm1\n\t"
+      "vxorpd %%ymm2, %%ymm2, %%ymm2\n\t"
+      "vxorpd %%ymm3, %%ymm3, %%ymm3\n\t"
+      "vxorpd %%ymm4, %%ymm4, %%ymm4\n\t"
+      "vxorpd %%ymm5, %%ymm5, %%ymm5\n\t"
+      "vxorpd %%ymm6, %%ymm6, %%ymm6\n\t"
+      "vxorpd %%ymm7, %%ymm7, %%ymm7\n\t"
+      "vxorpd %%ymm8, %%ymm8, %%ymm8\n\t"
+      "vxorpd %%ymm9, %%ymm9, %%ymm9\n\t"
+      "vxorpd %%ymm10, %%ymm10, %%ymm10\n\t"
+      "vxorpd %%ymm11, %%ymm11, %%ymm11\n\t"
+      "jmp 2f\n\t"
+
+      "1:\n\t"
+      /* first=0: load existing C values */
+      "vmovupd (%[c0]), %%ymm0\n\t"
+      "vmovupd 32(%[c0]), %%ymm1\n\t"
+      "vmovupd (%[c1]), %%ymm2\n\t"
+      "vmovupd 32(%[c1]), %%ymm3\n\t"
+      "vmovupd (%[c2]), %%ymm4\n\t"
+      "vmovupd 32(%[c2]), %%ymm5\n\t"
+      "vmovupd (%[c3]), %%ymm6\n\t"
+      "vmovupd 32(%[c3]), %%ymm7\n\t"
+      "vmovupd (%[c4]), %%ymm8\n\t"
+      "vmovupd 32(%[c4]), %%ymm9\n\t"
+      "vmovupd (%[c5]), %%ymm10\n\t"
+      "vmovupd 32(%[c5]), %%ymm11\n\t"
+
+      "2:\n\t"
+      /* K-loop: k_iter = kc >> 2 */
+      "mov %[kc], %%rcx\n\t"
+      "shr $2, %%rcx\n\t"
+      "jz 4f\n\t"
+
+      ".p2align 4\n\t"
+      "3:\n\t"
+      /* === K iteration 0 === */
+      "vmovupd (%[bp]), %%ymm12\n\t"
+      "vmovupd 32(%[bp]), %%ymm13\n\t"
+      "vbroadcastsd (%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm0\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm1\n\t"
+      "vbroadcastsd 8(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm2\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm3\n\t"
+      "vbroadcastsd 16(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm4\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm5\n\t"
+      "vbroadcastsd 24(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm6\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm7\n\t"
+      "vbroadcastsd 32(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm8\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm9\n\t"
+      "vbroadcastsd 40(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm10\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm11\n\t"
+      "add %[csa_bytes], %[ap]\n\t"
+      "add %[rsb_bytes], %[bp]\n\t"
+
+      /* === K iteration 1 === */
+      "vmovupd (%[bp]), %%ymm12\n\t"
+      "vmovupd 32(%[bp]), %%ymm13\n\t"
+      "vbroadcastsd (%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm0\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm1\n\t"
+      "vbroadcastsd 8(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm2\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm3\n\t"
+      "vbroadcastsd 16(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm4\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm5\n\t"
+      "vbroadcastsd 24(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm6\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm7\n\t"
+      "vbroadcastsd 32(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm8\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm9\n\t"
+      "vbroadcastsd 40(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm10\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm11\n\t"
+      "add %[csa_bytes], %[ap]\n\t"
+      "add %[rsb_bytes], %[bp]\n\t"
+
+      /* Prefetch next A block */
+      "prefetcht0 384(%[ap])\n\t"
+
+      /* === K iteration 2 === */
+      "vmovupd (%[bp]), %%ymm12\n\t"
+      "vmovupd 32(%[bp]), %%ymm13\n\t"
+      "vbroadcastsd (%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm0\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm1\n\t"
+      "vbroadcastsd 8(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm2\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm3\n\t"
+      "vbroadcastsd 16(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm4\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm5\n\t"
+      "vbroadcastsd 24(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm6\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm7\n\t"
+      "vbroadcastsd 32(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm8\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm9\n\t"
+      "vbroadcastsd 40(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm10\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm11\n\t"
+      "add %[csa_bytes], %[ap]\n\t"
+      "add %[rsb_bytes], %[bp]\n\t"
+
+      /* === K iteration 3 === */
+      "vmovupd (%[bp]), %%ymm12\n\t"
+      "vmovupd 32(%[bp]), %%ymm13\n\t"
+      "vbroadcastsd (%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm0\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm1\n\t"
+      "vbroadcastsd 8(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm2\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm3\n\t"
+      "vbroadcastsd 16(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm4\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm5\n\t"
+      "vbroadcastsd 24(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm6\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm7\n\t"
+      "vbroadcastsd 32(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm8\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm9\n\t"
+      "vbroadcastsd 40(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm10\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm11\n\t"
+      "add %[csa_bytes], %[ap]\n\t"
+      "add %[rsb_bytes], %[bp]\n\t"
+
+      "dec %%rcx\n\t"
+      "jnz 3b\n\t"
+
+      "4:\n\t"
+      /* Handle k_left = kc & 3 */
+      "mov %[kc], %%rcx\n\t"
+      "and $3, %%rcx\n\t"
+      "jz 6f\n\t"
+
+      ".p2align 4\n\t"
+      "5:\n\t"
+      "vmovupd (%[bp]), %%ymm12\n\t"
+      "vmovupd 32(%[bp]), %%ymm13\n\t"
+      "vbroadcastsd (%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm0\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm1\n\t"
+      "vbroadcastsd 8(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm2\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm3\n\t"
+      "vbroadcastsd 16(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm4\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm5\n\t"
+      "vbroadcastsd 24(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm6\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm7\n\t"
+      "vbroadcastsd 32(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm8\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm9\n\t"
+      "vbroadcastsd 40(%[ap]), %%ymm14\n\t"
+      "vfmadd231pd %%ymm14, %%ymm12, %%ymm10\n\t"
+      "vfmadd231pd %%ymm14, %%ymm13, %%ymm11\n\t"
+      "add %[csa_bytes], %[ap]\n\t"
+      "add %[rsb_bytes], %[bp]\n\t"
+      "dec %%rcx\n\t"
+      "jnz 5b\n\t"
+
+      "6:\n\t"
+      /* Store accumulators to C */
+      "vmovupd %%ymm0, (%[c0])\n\t"
+      "vmovupd %%ymm1, 32(%[c0])\n\t"
+      "vmovupd %%ymm2, (%[c1])\n\t"
+      "vmovupd %%ymm3, 32(%[c1])\n\t"
+      "vmovupd %%ymm4, (%[c2])\n\t"
+      "vmovupd %%ymm5, 32(%[c2])\n\t"
+      "vmovupd %%ymm6, (%[c3])\n\t"
+      "vmovupd %%ymm7, 32(%[c3])\n\t"
+      "vmovupd %%ymm8, (%[c4])\n\t"
+      "vmovupd %%ymm9, 32(%[c4])\n\t"
+      "vmovupd %%ymm10, (%[c5])\n\t"
+      "vmovupd %%ymm11, 32(%[c5])\n\t"
+
+      : [ap] "+r"(ap), [bp] "+r"(bp)
+      : [c0] "r"(c), [c1] "r"(c1), [c2] "r"(c2), [c3] "r"(c3), [c4] "r"(c4),
+        [c5] "r"(c5), [kc] "r"((uint64_t)kc), [first] "r"(first),
+        [csa_bytes] "r"(csa_bytes), [rsb_bytes] "r"(rsb_bytes)
+      : "rcx", "memory", "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6",
+        "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14");
+}
+
+#else /* MSVC fallback — C intrinsics version */
+
 static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
                                         double *c, size_t kc, intptr_t rsa,
                                         intptr_t csa, intptr_t rsb,
@@ -529,6 +993,8 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
   _mm256_storeu_pd(c + 5 * rso, c50);
   _mm256_storeu_pd(c + 5 * rso + 4, c51);
 }
+
+#endif /* __GNUC__ || __clang__ */
 
 #undef GEMM_F64_K_ITER
 

@@ -11,22 +11,38 @@
 
 #define MIN_EXPR val < acc ? val : acc
 
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_INT8, NUMC_INT8, INT8_MAX, MIN_EXPR,
-                        min)
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_INT16, NUMC_INT16, INT16_MAX, MIN_EXPR,
-                        min)
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_INT32, NUMC_INT32, INT32_MAX, MIN_EXPR,
-                        min)
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_INT64, NUMC_INT64, INT64_MAX, MIN_EXPR,
-                        min)
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT8, NUMC_UINT8, UINT8_MAX, MIN_EXPR,
-                        min)
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT16, NUMC_UINT16, UINT16_MAX,
-                        MIN_EXPR, min)
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT32, NUMC_UINT32, UINT32_MAX,
-                        MIN_EXPR, min)
-DEFINE_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT64, NUMC_UINT64, UINT64_MAX,
-                        MIN_EXPR, min)
+DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_INT8, NUMC_INT8, INT8_MAX,
+                              _vec_min_i8, min,
+                              if (local < global) global = local,
+                              val < acc ? val : acc)
+DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_INT16, NUMC_INT16, INT16_MAX,
+                              _vec_min_i16, min,
+                              if (local < global) global = local,
+                              val < acc ? val : acc)
+DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_INT32, NUMC_INT32, INT32_MAX,
+                              _vec_min_i32, min,
+                              if (local < global) global = local,
+                              val < acc ? val : acc)
+DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_INT64, NUMC_INT64, INT64_MAX,
+                              _vec_min_i64, min,
+                              if (local < global) global = local,
+                              val < acc ? val : acc)
+DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT8, NUMC_UINT8, UINT8_MAX,
+                              _vec_min_u8, min,
+                              if (local < global) global = local,
+                              val < acc ? val : acc)
+DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT16, NUMC_UINT16, UINT16_MAX,
+                              _vec_min_u16, min,
+                              if (local < global) global = local,
+                              val < acc ? val : acc)
+DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT32, NUMC_UINT32, UINT32_MAX,
+                              _vec_min_u32, min,
+                              if (local < global) global = local,
+                              val < acc ? val : acc)
+DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_UINT64, NUMC_UINT64, UINT64_MAX,
+                              _vec_min_u64, min,
+                              if (local < global) global = local,
+                              val < acc ? val : acc)
 DEFINE_FLOAT_REDUCTION_KERNEL(min, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, INFINITY,
                               _vec_min_f32, min,
                               if (local < global) global = local,

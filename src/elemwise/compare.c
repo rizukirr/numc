@@ -2,6 +2,11 @@
 #include "numc/dtype.h"
 #include <numc/math.h>
 
+#include "arch_dispatch.h"
+#if NUMC_HAVE_AVX2
+#include "intrinsics/compare_avx2.h"
+#endif
+
 /* ── Stamp out maximum and minimum ──────────────────────────────────────*/
 
 #define STAMP_MAX(TE, CT) \
@@ -123,11 +128,42 @@ static const NumcBinaryKernel le_table[] = {
 DEFINE_ELEMWISE_BINARY(maximum, maximum_table)
 DEFINE_ELEMWISE_BINARY(minimum, minimum_table)
 
+#if NUMC_HAVE_AVX2
+#define DEFINE_CMP_WITH_SIMD(NAME, TABLE, SIMD_FN)                          \
+  int numc_##NAME(const NumcArray *a, const NumcArray *b, NumcArray *out) { \
+    int err = _check_binary(a, b, out);                                     \
+    if (err)                                                                \
+      return err;                                                           \
+    if (a->dtype == NUMC_DTYPE_UINT8 && a->is_contiguous &&                 \
+        b->is_contiguous && out->is_contiguous && a->dim == b->dim) {       \
+      bool same_shape = true;                                               \
+      for (size_t d = 0; d < a->dim; d++)                                   \
+        if (a->shape[d] != b->shape[d]) {                                   \
+          same_shape = false;                                               \
+          break;                                                            \
+        }                                                                   \
+      if (same_shape) {                                                     \
+        SIMD_FN((const uint8_t *)a->data, (const uint8_t *)b->data,         \
+                (uint8_t *)out->data, a->size);                             \
+        return 0;                                                           \
+      }                                                                     \
+    }                                                                       \
+    _binary_op(a, b, out, TABLE);                                           \
+    return 0;                                                               \
+  }
+DEFINE_CMP_WITH_SIMD(eq, eq_table, _cmp_eq_u8_avx2)
+DEFINE_CMP_WITH_SIMD(gt, gt_table, _cmp_gt_u8_avx2)
+DEFINE_CMP_WITH_SIMD(lt, lt_table, _cmp_lt_u8_avx2)
+DEFINE_CMP_WITH_SIMD(ge, ge_table, _cmp_ge_u8_avx2)
+DEFINE_CMP_WITH_SIMD(le, le_table, _cmp_le_u8_avx2)
+#undef DEFINE_CMP_WITH_SIMD
+#else
 DEFINE_ELEMWISE_BINARY(eq, eq_table)
 DEFINE_ELEMWISE_BINARY(gt, gt_table)
 DEFINE_ELEMWISE_BINARY(lt, lt_table)
 DEFINE_ELEMWISE_BINARY(ge, ge_table)
 DEFINE_ELEMWISE_BINARY(le, le_table)
+#endif
 
 DEFINE_ELEMWISE_SCALAR(eq, eq_table)
 DEFINE_ELEMWISE_SCALAR(gt, gt_table)
