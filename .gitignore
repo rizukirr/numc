@@ -22,3 +22,4 @@ build*
 external/blis/lib/
 external/blis/include/blis/blis.h
 external/blis/obj/
+.worktrees/
