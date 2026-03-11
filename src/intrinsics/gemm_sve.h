@@ -59,9 +59,8 @@
 
 /* ── Float32 packing routines ──────────────────────────────────────────── */
 
-static inline void gemm_pack_b_f32_sve(const float *b, float *packed,
-                                       size_t kc, size_t nc, intptr_t rsb,
-                                       size_t nr) {
+static inline void gemm_pack_b_f32_sve(const float *b, float *packed, size_t kc,
+                                       size_t nc, intptr_t rsb, size_t nr) {
   size_t vl = svcntw();
   svbool_t ptrue = svptrue_b32();
   size_t jr = 0;
@@ -87,9 +86,8 @@ static inline void gemm_pack_b_f32_sve(const float *b, float *packed,
   }
 }
 
-static inline void gemm_pack_a_f32_sve(const float *a, float *packed,
-                                       size_t mc, size_t kc, intptr_t rsa,
-                                       intptr_t csa) {
+static inline void gemm_pack_a_f32_sve(const float *a, float *packed, size_t mc,
+                                       size_t kc, intptr_t rsa, intptr_t csa) {
   size_t ir = 0;
   for (; ir + GEMM_F32_MR <= mc; ir += GEMM_F32_MR) {
     float *dest = packed + ir * kc;
@@ -172,41 +170,41 @@ static inline void gemm_pack_a_f64_sve(const double *a, double *packed,
    ═══════════════════════════════════════════════════════════════════════════
  */
 
-#define GEMM_F32_SVE_K_ITER(ap, bp, vl, ptrue)                                \
-  do {                                                                         \
-    svfloat32_t b0 = svld1_f32(ptrue, (bp));                                   \
-    svfloat32_t b1 = svld1_f32(ptrue, (bp) + (vl));                            \
-    svfloat32_t av;                                                            \
-    av = svdup_f32((ap)[0]);                                                   \
-    c00 = svmla_f32_x(ptrue, c00, av, b0);                                    \
-    c01 = svmla_f32_x(ptrue, c01, av, b1);                                    \
-    av = svdup_f32((ap)[1]);                                                   \
-    c10 = svmla_f32_x(ptrue, c10, av, b0);                                    \
-    c11 = svmla_f32_x(ptrue, c11, av, b1);                                    \
-    av = svdup_f32((ap)[2]);                                                   \
-    c20 = svmla_f32_x(ptrue, c20, av, b0);                                    \
-    c21 = svmla_f32_x(ptrue, c21, av, b1);                                    \
-    av = svdup_f32((ap)[3]);                                                   \
-    c30 = svmla_f32_x(ptrue, c30, av, b0);                                    \
-    c31 = svmla_f32_x(ptrue, c31, av, b1);                                    \
-    av = svdup_f32((ap)[4]);                                                   \
-    c40 = svmla_f32_x(ptrue, c40, av, b0);                                    \
-    c41 = svmla_f32_x(ptrue, c41, av, b1);                                    \
-    av = svdup_f32((ap)[5]);                                                   \
-    c50 = svmla_f32_x(ptrue, c50, av, b0);                                    \
-    c51 = svmla_f32_x(ptrue, c51, av, b1);                                    \
-    av = svdup_f32((ap)[6]);                                                   \
-    c60 = svmla_f32_x(ptrue, c60, av, b0);                                    \
-    c61 = svmla_f32_x(ptrue, c61, av, b1);                                    \
-    av = svdup_f32((ap)[7]);                                                   \
-    c70 = svmla_f32_x(ptrue, c70, av, b0);                                    \
-    c71 = svmla_f32_x(ptrue, c71, av, b1);                                    \
+#define GEMM_F32_SVE_K_ITER(ap, bp, vl, ptrue)      \
+  do {                                              \
+    svfloat32_t b0 = svld1_f32(ptrue, (bp));        \
+    svfloat32_t b1 = svld1_f32(ptrue, (bp) + (vl)); \
+    svfloat32_t av;                                 \
+    av = svdup_f32((ap)[0]);                        \
+    c00 = svmla_f32_x(ptrue, c00, av, b0);          \
+    c01 = svmla_f32_x(ptrue, c01, av, b1);          \
+    av = svdup_f32((ap)[1]);                        \
+    c10 = svmla_f32_x(ptrue, c10, av, b0);          \
+    c11 = svmla_f32_x(ptrue, c11, av, b1);          \
+    av = svdup_f32((ap)[2]);                        \
+    c20 = svmla_f32_x(ptrue, c20, av, b0);          \
+    c21 = svmla_f32_x(ptrue, c21, av, b1);          \
+    av = svdup_f32((ap)[3]);                        \
+    c30 = svmla_f32_x(ptrue, c30, av, b0);          \
+    c31 = svmla_f32_x(ptrue, c31, av, b1);          \
+    av = svdup_f32((ap)[4]);                        \
+    c40 = svmla_f32_x(ptrue, c40, av, b0);          \
+    c41 = svmla_f32_x(ptrue, c41, av, b1);          \
+    av = svdup_f32((ap)[5]);                        \
+    c50 = svmla_f32_x(ptrue, c50, av, b0);          \
+    c51 = svmla_f32_x(ptrue, c51, av, b1);          \
+    av = svdup_f32((ap)[6]);                        \
+    c60 = svmla_f32_x(ptrue, c60, av, b0);          \
+    c61 = svmla_f32_x(ptrue, c61, av, b1);          \
+    av = svdup_f32((ap)[7]);                        \
+    c70 = svmla_f32_x(ptrue, c70, av, b0);          \
+    c71 = svmla_f32_x(ptrue, c71, av, b1);          \
   } while (0)
 
 static inline void gemm_ukernel_f32_sve(const float *a, const float *b,
-                                         float *c, size_t kc, intptr_t rsa,
-                                         intptr_t csa, intptr_t rsb,
-                                         intptr_t rso, int first) {
+                                        float *c, size_t kc, intptr_t rsa,
+                                        intptr_t csa, intptr_t rsb,
+                                        intptr_t rso, int first) {
   size_t vl = svcntw();
   svbool_t ptrue = svptrue_b32();
 
@@ -224,14 +222,22 @@ static inline void gemm_ukernel_f32_sve(const float *a, const float *b,
   __builtin_prefetch(c + 7 * rso, 1, 3);
 
   if (first) {
-    c00 = svdup_f32(0); c01 = svdup_f32(0);
-    c10 = svdup_f32(0); c11 = svdup_f32(0);
-    c20 = svdup_f32(0); c21 = svdup_f32(0);
-    c30 = svdup_f32(0); c31 = svdup_f32(0);
-    c40 = svdup_f32(0); c41 = svdup_f32(0);
-    c50 = svdup_f32(0); c51 = svdup_f32(0);
-    c60 = svdup_f32(0); c61 = svdup_f32(0);
-    c70 = svdup_f32(0); c71 = svdup_f32(0);
+    c00 = svdup_f32(0);
+    c01 = svdup_f32(0);
+    c10 = svdup_f32(0);
+    c11 = svdup_f32(0);
+    c20 = svdup_f32(0);
+    c21 = svdup_f32(0);
+    c30 = svdup_f32(0);
+    c31 = svdup_f32(0);
+    c40 = svdup_f32(0);
+    c41 = svdup_f32(0);
+    c50 = svdup_f32(0);
+    c51 = svdup_f32(0);
+    c60 = svdup_f32(0);
+    c61 = svdup_f32(0);
+    c70 = svdup_f32(0);
+    c71 = svdup_f32(0);
   } else {
     c00 = svld1_f32(ptrue, c);
     c01 = svld1_f32(ptrue, c + vl);
@@ -258,18 +264,23 @@ static inline void gemm_ukernel_f32_sve(const float *a, const float *b,
 
   for (size_t ki = 0; ki < k_iter; ki++) {
     GEMM_F32_SVE_K_ITER(ap, bp, vl, ptrue);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     GEMM_F32_SVE_K_ITER(ap, bp, vl, ptrue);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     __builtin_prefetch(ap + 64, 0, 3);
     GEMM_F32_SVE_K_ITER(ap, bp, vl, ptrue);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     GEMM_F32_SVE_K_ITER(ap, bp, vl, ptrue);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
   }
   for (size_t ki = 0; ki < k_left; ki++) {
     GEMM_F32_SVE_K_ITER(ap, bp, vl, ptrue);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
   }
 
   svst1_f32(ptrue, c, c00);
@@ -327,8 +338,8 @@ static inline void gemm_f32_sve(const float *a, const float *b, float *out,
   size_t vl = svcntw();
   size_t nr = 2 * vl;
   size_t nc_max = GEMM_MIN(GEMM_F32_NC, n_dim);
-  float *packed_b = (float *)numc_malloc(
-      16, GEMM_F32_KC * (nc_max + nr) * sizeof(float));
+  float *packed_b =
+      (float *)numc_malloc(16, GEMM_F32_KC * (nc_max + nr) * sizeof(float));
   if (!packed_b)
     return;
 
@@ -359,8 +370,8 @@ static inline void gemm_f32_sve(const float *a, const float *b, float *out,
           size_t nr_cur = GEMM_MIN(nr, nc - jr);
 
           if (ic != last_ic) {
-            gemm_pack_a_f32_sve(a + ic * rsa + pc * csa, packed_a, mc, kc,
-                                rsa, csa);
+            gemm_pack_a_f32_sve(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa,
+                                csa);
             last_ic = ic;
           }
 
@@ -372,8 +383,8 @@ static inline void gemm_f32_sve(const float *a, const float *b, float *out,
                                    GEMM_F32_MR, nr, rso, first);
             } else {
               float tmp[GEMM_F32_MR * GEMM_SVE_MAX_NR];
-              gemm_ukernel_f32_sve(packed_a + ir * kc, packed_b + jr * kc,
-                                   tmp, kc, 1, GEMM_F32_MR, nr, nr, 1);
+              gemm_ukernel_f32_sve(packed_a + ir * kc, packed_b + jr * kc, tmp,
+                                   kc, 1, GEMM_F32_MR, nr, nr, 1);
               float *dst = out + (ic + ir) * rso + (jc + jr);
               if (first) {
                 for (size_t ii = 0; ii < mr_cur; ii++)
@@ -399,8 +410,8 @@ static inline void gemm_f32_sve(const float *a, const float *b, float *out,
           size_t nr_cur = GEMM_MIN(nr, nc - jr);
 
           if (task % n_jr == 0)
-            gemm_pack_a_f32_sve(a + ic * rsa + pc * csa, packed_a, mc, kc,
-                                rsa, csa);
+            gemm_pack_a_f32_sve(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa,
+                                csa);
 
           for (size_t ir = 0; ir < mc; ir += GEMM_F32_MR) {
             size_t mr_cur = GEMM_MIN(GEMM_F32_MR, mc - ir);
@@ -410,8 +421,8 @@ static inline void gemm_f32_sve(const float *a, const float *b, float *out,
                                    GEMM_F32_MR, nr, rso, first);
             } else {
               float tmp[GEMM_F32_MR * GEMM_SVE_MAX_NR];
-              gemm_ukernel_f32_sve(packed_a + ir * kc, packed_b + jr * kc,
-                                   tmp, kc, 1, GEMM_F32_MR, nr, nr, 1);
+              gemm_ukernel_f32_sve(packed_a + ir * kc, packed_b + jr * kc, tmp,
+                                   kc, 1, GEMM_F32_MR, nr, nr, 1);
               float *dst = out + (ic + ir) * rso + (jc + jr);
               if (first) {
                 for (size_t ii = 0; ii < mr_cur; ii++)
@@ -440,35 +451,35 @@ static inline void gemm_f32_sve(const float *a, const float *b, float *out,
    ═══════════════════════════════════════════════════════════════════════════
  */
 
-#define GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue)                                \
-  do {                                                                         \
-    svfloat64_t b0 = svld1_f64(ptrue, (bp));                                   \
-    svfloat64_t b1 = svld1_f64(ptrue, (bp) + (vl));                            \
-    svfloat64_t av;                                                            \
-    av = svdup_f64((ap)[0]);                                                   \
-    c00 = svmla_f64_x(ptrue, c00, av, b0);                                    \
-    c01 = svmla_f64_x(ptrue, c01, av, b1);                                    \
-    av = svdup_f64((ap)[1]);                                                   \
-    c10 = svmla_f64_x(ptrue, c10, av, b0);                                    \
-    c11 = svmla_f64_x(ptrue, c11, av, b1);                                    \
-    av = svdup_f64((ap)[2]);                                                   \
-    c20 = svmla_f64_x(ptrue, c20, av, b0);                                    \
-    c21 = svmla_f64_x(ptrue, c21, av, b1);                                    \
-    av = svdup_f64((ap)[3]);                                                   \
-    c30 = svmla_f64_x(ptrue, c30, av, b0);                                    \
-    c31 = svmla_f64_x(ptrue, c31, av, b1);                                    \
-    av = svdup_f64((ap)[4]);                                                   \
-    c40 = svmla_f64_x(ptrue, c40, av, b0);                                    \
-    c41 = svmla_f64_x(ptrue, c41, av, b1);                                    \
-    av = svdup_f64((ap)[5]);                                                   \
-    c50 = svmla_f64_x(ptrue, c50, av, b0);                                    \
-    c51 = svmla_f64_x(ptrue, c51, av, b1);                                    \
+#define GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue)      \
+  do {                                              \
+    svfloat64_t b0 = svld1_f64(ptrue, (bp));        \
+    svfloat64_t b1 = svld1_f64(ptrue, (bp) + (vl)); \
+    svfloat64_t av;                                 \
+    av = svdup_f64((ap)[0]);                        \
+    c00 = svmla_f64_x(ptrue, c00, av, b0);          \
+    c01 = svmla_f64_x(ptrue, c01, av, b1);          \
+    av = svdup_f64((ap)[1]);                        \
+    c10 = svmla_f64_x(ptrue, c10, av, b0);          \
+    c11 = svmla_f64_x(ptrue, c11, av, b1);          \
+    av = svdup_f64((ap)[2]);                        \
+    c20 = svmla_f64_x(ptrue, c20, av, b0);          \
+    c21 = svmla_f64_x(ptrue, c21, av, b1);          \
+    av = svdup_f64((ap)[3]);                        \
+    c30 = svmla_f64_x(ptrue, c30, av, b0);          \
+    c31 = svmla_f64_x(ptrue, c31, av, b1);          \
+    av = svdup_f64((ap)[4]);                        \
+    c40 = svmla_f64_x(ptrue, c40, av, b0);          \
+    c41 = svmla_f64_x(ptrue, c41, av, b1);          \
+    av = svdup_f64((ap)[5]);                        \
+    c50 = svmla_f64_x(ptrue, c50, av, b0);          \
+    c51 = svmla_f64_x(ptrue, c51, av, b1);          \
   } while (0)
 
 static inline void gemm_ukernel_f64_sve(const double *a, const double *b,
-                                         double *c, size_t kc, intptr_t rsa,
-                                         intptr_t csa, intptr_t rsb,
-                                         intptr_t rso, int first) {
+                                        double *c, size_t kc, intptr_t rsa,
+                                        intptr_t csa, intptr_t rsb,
+                                        intptr_t rso, int first) {
   size_t vl = svcntd();
   svbool_t ptrue = svptrue_b64();
 
@@ -482,12 +493,18 @@ static inline void gemm_ukernel_f64_sve(const double *a, const double *b,
   __builtin_prefetch(c + 5 * rso, 1, 3);
 
   if (first) {
-    c00 = svdup_f64(0); c01 = svdup_f64(0);
-    c10 = svdup_f64(0); c11 = svdup_f64(0);
-    c20 = svdup_f64(0); c21 = svdup_f64(0);
-    c30 = svdup_f64(0); c31 = svdup_f64(0);
-    c40 = svdup_f64(0); c41 = svdup_f64(0);
-    c50 = svdup_f64(0); c51 = svdup_f64(0);
+    c00 = svdup_f64(0);
+    c01 = svdup_f64(0);
+    c10 = svdup_f64(0);
+    c11 = svdup_f64(0);
+    c20 = svdup_f64(0);
+    c21 = svdup_f64(0);
+    c30 = svdup_f64(0);
+    c31 = svdup_f64(0);
+    c40 = svdup_f64(0);
+    c41 = svdup_f64(0);
+    c50 = svdup_f64(0);
+    c51 = svdup_f64(0);
   } else {
     c00 = svld1_f64(ptrue, c);
     c01 = svld1_f64(ptrue, c + vl);
@@ -510,18 +527,23 @@ static inline void gemm_ukernel_f64_sve(const double *a, const double *b,
 
   for (size_t ki = 0; ki < k_iter; ki++) {
     GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     __builtin_prefetch(ap + 48, 0, 3);
     GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
   }
   for (size_t ki = 0; ki < k_left; ki++) {
     GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
   }
 
   svst1_f64(ptrue, c, c00);
@@ -541,9 +563,9 @@ static inline void gemm_ukernel_f64_sve(const double *a, const double *b,
 #undef GEMM_F64_SVE_K_ITER
 
 static inline void gemm_edge_f64_sve(const double *a, const double *b,
-                                     double *c, size_t mr, size_t nr,
-                                     size_t kc, intptr_t rsa, intptr_t csa,
-                                     intptr_t rsb, intptr_t rso) {
+                                     double *c, size_t mr, size_t nr, size_t kc,
+                                     intptr_t rsa, intptr_t csa, intptr_t rsb,
+                                     intptr_t rso) {
   size_t vl = svcntd();
   for (size_t i = 0; i < mr; i++) {
     for (size_t p = 0; p < kc; p++) {
@@ -575,8 +597,8 @@ static inline void gemm_f64_sve(const double *a, const double *b, double *out,
   size_t vl = svcntd();
   size_t nr = 2 * vl;
   size_t nc_max = GEMM_MIN(GEMM_F64_NC, n_dim);
-  double *packed_b = (double *)numc_malloc(
-      16, GEMM_F64_KC * (nc_max + nr) * sizeof(double));
+  double *packed_b =
+      (double *)numc_malloc(16, GEMM_F64_KC * (nc_max + nr) * sizeof(double));
   if (!packed_b)
     return;
 
@@ -607,8 +629,8 @@ static inline void gemm_f64_sve(const double *a, const double *b, double *out,
           size_t nr_cur = GEMM_MIN(nr, nc - jr);
 
           if (ic != last_ic) {
-            gemm_pack_a_f64_sve(a + ic * rsa + pc * csa, packed_a, mc, kc,
-                                rsa, csa);
+            gemm_pack_a_f64_sve(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa,
+                                csa);
             last_ic = ic;
           }
 
@@ -620,8 +642,8 @@ static inline void gemm_f64_sve(const double *a, const double *b, double *out,
                                    GEMM_F64_MR, nr, rso, first);
             } else {
               double tmp[GEMM_F64_MR * GEMM_SVE_MAX_NR];
-              gemm_ukernel_f64_sve(packed_a + ir * kc, packed_b + jr * kc,
-                                   tmp, kc, 1, GEMM_F64_MR, nr, nr, 1);
+              gemm_ukernel_f64_sve(packed_a + ir * kc, packed_b + jr * kc, tmp,
+                                   kc, 1, GEMM_F64_MR, nr, nr, 1);
               double *dst = out + (ic + ir) * rso + (jc + jr);
               if (first) {
                 for (size_t ii = 0; ii < mr_cur; ii++)
@@ -647,8 +669,8 @@ static inline void gemm_f64_sve(const double *a, const double *b, double *out,
           size_t nr_cur = GEMM_MIN(nr, nc - jr);
 
           if (task % n_jr == 0)
-            gemm_pack_a_f64_sve(a + ic * rsa + pc * csa, packed_a, mc, kc,
-                                rsa, csa);
+            gemm_pack_a_f64_sve(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa,
+                                csa);
 
           for (size_t ir = 0; ir < mc; ir += GEMM_F64_MR) {
             size_t mr_cur = GEMM_MIN(GEMM_F64_MR, mc - ir);
@@ -658,8 +680,8 @@ static inline void gemm_f64_sve(const double *a, const double *b, double *out,
                                    GEMM_F64_MR, nr, rso, first);
             } else {
               double tmp[GEMM_F64_MR * GEMM_SVE_MAX_NR];
-              gemm_ukernel_f64_sve(packed_a + ir * kc, packed_b + jr * kc,
-                                   tmp, kc, 1, GEMM_F64_MR, nr, nr, 1);
+              gemm_ukernel_f64_sve(packed_a + ir * kc, packed_b + jr * kc, tmp,
+                                   kc, 1, GEMM_F64_MR, nr, nr, 1);
               double *dst = out + (ic + ir) * rso + (jc + jr);
               if (first) {
                 for (size_t ii = 0; ii < mr_cur; ii++)
@@ -687,9 +709,9 @@ static inline void gemm_f64_sve(const double *a, const double *b, double *out,
  */
 
 static inline void gemm_ukernel_i32_sve(const int32_t *a, const int32_t *b,
-                                         int32_t *c, size_t kc, intptr_t rsa,
-                                         intptr_t csa, intptr_t rsb,
-                                         intptr_t rso) {
+                                        int32_t *c, size_t kc, intptr_t rsa,
+                                        intptr_t csa, intptr_t rsb,
+                                        intptr_t rso) {
   size_t vl = svcntw();
   svbool_t ptrue = svptrue_b32();
 
@@ -786,7 +808,7 @@ static inline void gemm_i32_sve(const int32_t *a, const int32_t *b,
   for (size_t pc = 0; pc < k_dim; pc += GEMM_I32_KC) {
     size_t kc = GEMM_MIN(GEMM_I32_KC, k_dim - pc);
 #ifdef _OPENMP
-#pragma omp parallel for schedule(                                             \
+#pragma omp parallel for schedule( \
         static) if (m_dim * n_dim * sizeof(int32_t) > GEMM_OMP_THRESHOLD)
 #endif
     for (size_t ic = 0; ic < m_dim; ic += GEMM_I32_MC) {
@@ -825,9 +847,9 @@ static inline void gemm_u32_sve(const uint32_t *a, const uint32_t *b,
  */
 
 static inline void gemm_ukernel_i16_sve(const int16_t *a, const int16_t *b,
-                                         int16_t *c, size_t kc, intptr_t rsa,
-                                         intptr_t csa, intptr_t rsb,
-                                         intptr_t rso) {
+                                        int16_t *c, size_t kc, intptr_t rsa,
+                                        intptr_t csa, intptr_t rsb,
+                                        intptr_t rso) {
   size_t vl = svcnth();
   svbool_t ptrue = svptrue_b16();
 
@@ -924,7 +946,7 @@ static inline void gemm_i16_sve(const int16_t *a, const int16_t *b,
   for (size_t pc = 0; pc < k_dim; pc += GEMM_I16_KC) {
     size_t kc = GEMM_MIN(GEMM_I16_KC, k_dim - pc);
 #ifdef _OPENMP
-#pragma omp parallel for schedule(                                             \
+#pragma omp parallel for schedule( \
         static) if (m_dim * n_dim * sizeof(int16_t) > GEMM_OMP_THRESHOLD)
 #endif
     for (size_t ic = 0; ic < m_dim; ic += GEMM_I16_MC) {
@@ -984,13 +1006,13 @@ static inline void gemm_i64_sve(const int64_t *a, const int64_t *b,
   for (size_t pc = 0; pc < k_dim; pc += GEMM_I64_KC) {
     size_t kc = GEMM_MIN(GEMM_I64_KC, k_dim - pc);
 #ifdef _OPENMP
-#pragma omp parallel for schedule(                                             \
+#pragma omp parallel for schedule( \
         static) if (m_dim * n_dim * sizeof(int64_t) > GEMM_OMP_THRESHOLD)
 #endif
     for (size_t ic = 0; ic < m_dim; ic += GEMM_I64_MC) {
       size_t mc = GEMM_MIN(GEMM_I64_MC, m_dim - ic);
-      gemm_edge_i64_sve(a + ic * rsa + pc * csa, b + pc * rsb,
-                        out + ic * rso, mc, n_dim, kc, rsa, csa, rsb, rso);
+      gemm_edge_i64_sve(a + ic * rsa + pc * csa, b + pc * rsb, out + ic * rso,
+                        mc, n_dim, kc, rsa, csa, rsb, rso);
     }
   }
 }
@@ -1009,9 +1031,9 @@ static inline void gemm_u64_sve(const uint64_t *a, const uint64_t *b,
  */
 
 static inline void gemm_ukernel_i8_sve(const int8_t *a, const int8_t *b,
-                                        int8_t *c, size_t k_dim, intptr_t rsa,
-                                        intptr_t csa, intptr_t rsb,
-                                        intptr_t rso) {
+                                       int8_t *c, size_t k_dim, intptr_t rsa,
+                                       intptr_t csa, intptr_t rsb,
+                                       intptr_t rso) {
   size_t vl32 = svcntw();
   svbool_t pt32 = svptrue_b32();
 
@@ -1052,14 +1074,14 @@ static inline void gemm_ukernel_i8_sve(const int8_t *a, const int8_t *b,
 
   /* Narrow i32 -> i8 with saturation and store.
    * Use svst1b_s32 to narrow-store i32 as i8 (truncates). We clamp first. */
-#define SVE_STORE_I8_ROW(cx0, cx1, row)                                        \
-  do {                                                                         \
-    svint32_t lo = svmax_s32_x(pt32, cx0, svdup_s32(-128));                    \
-    lo = svmin_s32_x(pt32, lo, svdup_s32(127));                                \
-    svint32_t hi = svmax_s32_x(pt32, cx1, svdup_s32(-128));                    \
-    hi = svmin_s32_x(pt32, hi, svdup_s32(127));                                \
-    svst1b_s32(pt32, c + (row) * rso, lo);                                     \
-    svst1b_s32(pt32, c + (row) * rso + vl32, hi);                             \
+#define SVE_STORE_I8_ROW(cx0, cx1, row)                     \
+  do {                                                      \
+    svint32_t lo = svmax_s32_x(pt32, cx0, svdup_s32(-128)); \
+    lo = svmin_s32_x(pt32, lo, svdup_s32(127));             \
+    svint32_t hi = svmax_s32_x(pt32, cx1, svdup_s32(-128)); \
+    hi = svmin_s32_x(pt32, hi, svdup_s32(127));             \
+    svst1b_s32(pt32, c + (row) * rso, lo);                  \
+    svst1b_s32(pt32, c + (row) * rso + vl32, hi);           \
   } while (0)
   SVE_STORE_I8_ROW(c00, c01, 0);
   SVE_STORE_I8_ROW(c10, c11, 1);
@@ -1070,10 +1092,10 @@ static inline void gemm_ukernel_i8_sve(const int8_t *a, const int8_t *b,
 #undef SVE_STORE_I8_ROW
 }
 
-static inline void gemm_edge_i8_sve(const int8_t *a, const int8_t *b,
-                                    int8_t *c, size_t mr, size_t nr,
-                                    size_t k_dim, intptr_t rsa, intptr_t csa,
-                                    intptr_t rsb, intptr_t rso) {
+static inline void gemm_edge_i8_sve(const int8_t *a, const int8_t *b, int8_t *c,
+                                    size_t mr, size_t nr, size_t k_dim,
+                                    intptr_t rsa, intptr_t csa, intptr_t rsb,
+                                    intptr_t rso) {
   for (size_t i = 0; i < mr; i++)
     for (size_t j = 0; j < nr; j++) {
       int32_t acc = 0;
@@ -1091,7 +1113,7 @@ static inline void gemm_i8_sve(const int8_t *a, const int8_t *b, int8_t *out,
   size_t i8_nr = 2 * vl32;
 
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) if (m_dim * n_dim >                  \
+#pragma omp parallel for schedule(static) if (m_dim * n_dim > \
                                                   GEMM_OMP_THRESHOLD)
 #endif
   for (size_t ic = 0; ic < m_dim; ic += GEMM_I8_MC) {
@@ -1105,8 +1127,8 @@ static inline void gemm_i8_sve(const int8_t *a, const int8_t *b, int8_t *out,
                             rso);
       if (ir < mc)
         gemm_edge_i8_sve(a + (ic + ir) * rsa, b + jr,
-                         out + (ic + ir) * rso + jr, mc - ir, i8_nr, k_dim,
-                         rsa, csa, rsb, rso);
+                         out + (ic + ir) * rso + jr, mc - ir, i8_nr, k_dim, rsa,
+                         csa, rsb, rso);
     }
     if (jr < n_dim)
       gemm_edge_i8_sve(a + ic * rsa, b + jr, out + ic * rso + jr, mc,
@@ -1120,9 +1142,9 @@ static inline void gemm_i8_sve(const int8_t *a, const int8_t *b, int8_t *out,
  */
 
 static inline void gemm_ukernel_u8_sve(const uint8_t *a, const uint8_t *b,
-                                        uint8_t *c, size_t k_dim, intptr_t rsa,
-                                        intptr_t csa, intptr_t rsb,
-                                        intptr_t rso) {
+                                       uint8_t *c, size_t k_dim, intptr_t rsa,
+                                       intptr_t csa, intptr_t rsb,
+                                       intptr_t rso) {
   size_t vl32 = svcntw();
   svbool_t pt32 = svptrue_b32();
 
@@ -1162,12 +1184,12 @@ static inline void gemm_ukernel_u8_sve(const uint8_t *a, const uint8_t *b,
 
   /* Narrow u32 -> u8 with saturation and store.
    * Clamp to [0, 255], then use svst1b_u32 to narrow-store. */
-#define SVE_STORE_U8_ROW(cx0, cx1, row)                                        \
-  do {                                                                         \
-    svuint32_t lo = svmin_u32_x(pt32, cx0, svdup_u32(255));                    \
-    svuint32_t hi = svmin_u32_x(pt32, cx1, svdup_u32(255));                    \
-    svst1b_u32(pt32, c + (row) * rso, lo);                                     \
-    svst1b_u32(pt32, c + (row) * rso + vl32, hi);                             \
+#define SVE_STORE_U8_ROW(cx0, cx1, row)                     \
+  do {                                                      \
+    svuint32_t lo = svmin_u32_x(pt32, cx0, svdup_u32(255)); \
+    svuint32_t hi = svmin_u32_x(pt32, cx1, svdup_u32(255)); \
+    svst1b_u32(pt32, c + (row) * rso, lo);                  \
+    svst1b_u32(pt32, c + (row) * rso + vl32, hi);           \
   } while (0)
   SVE_STORE_U8_ROW(c00, c01, 0);
   SVE_STORE_U8_ROW(c10, c11, 1);
@@ -1191,15 +1213,15 @@ static inline void gemm_edge_u8_sve(const uint8_t *a, const uint8_t *b,
     }
 }
 
-static inline void gemm_u8_sve(const uint8_t *a, const uint8_t *b,
-                               uint8_t *out, size_t m_dim, size_t k_dim,
-                               size_t n_dim, intptr_t rsa, intptr_t csa,
-                               intptr_t rsb, intptr_t rso) {
+static inline void gemm_u8_sve(const uint8_t *a, const uint8_t *b, uint8_t *out,
+                               size_t m_dim, size_t k_dim, size_t n_dim,
+                               intptr_t rsa, intptr_t csa, intptr_t rsb,
+                               intptr_t rso) {
   size_t vl32 = svcntw();
   size_t u8_nr = 2 * vl32;
 
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) if (m_dim * n_dim >                  \
+#pragma omp parallel for schedule(static) if (m_dim * n_dim > \
                                                   GEMM_OMP_THRESHOLD)
 #endif
   for (size_t ic = 0; ic < m_dim; ic += GEMM_I8_MC) {
@@ -1213,8 +1235,8 @@ static inline void gemm_u8_sve(const uint8_t *a, const uint8_t *b,
                             rso);
       if (ir < mc)
         gemm_edge_u8_sve(a + (ic + ir) * rsa, b + jr,
-                         out + (ic + ir) * rso + jr, mc - ir, u8_nr, k_dim,
-                         rsa, csa, rsb, rso);
+                         out + (ic + ir) * rso + jr, mc - ir, u8_nr, k_dim, rsa,
+                         csa, rsb, rso);
     }
     if (jr < n_dim)
       gemm_edge_u8_sve(a + ic * rsa, b + jr, out + ic * rso + jr, mc,

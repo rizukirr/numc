@@ -28,13 +28,13 @@
 
 #if defined(__ARM_FEATURE_SVE2)
 #define NUMC_HAVE_SVE2 1
-#define NUMC_HAVE_SVE 1
+#define NUMC_HAVE_SVE  1
 #elif defined(__ARM_FEATURE_SVE)
 #define NUMC_HAVE_SVE2 0
-#define NUMC_HAVE_SVE 1
+#define NUMC_HAVE_SVE  1
 #else
 #define NUMC_HAVE_SVE2 0
-#define NUMC_HAVE_SVE 0
+#define NUMC_HAVE_SVE  0
 #endif
 
 #if defined(__riscv_vector)

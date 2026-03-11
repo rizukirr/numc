@@ -254,7 +254,7 @@ static const GemmSimdKernel gemm_simd_table[NUMC_DTYPE_COUNT] = {
     [NUMC_DTYPE_FLOAT32] = _gemm_f32_avx2,
     [NUMC_DTYPE_FLOAT64] = _gemm_f64_avx2,
 #endif
-    /* AVX-512 overrides f32/f64 when available (designated init allows it) */
+/* AVX-512 overrides f32/f64 when available (designated init allows it) */
 #if NUMC_HAVE_AVX512
     [NUMC_DTYPE_FLOAT32] = _gemm_f32_avx512,
     [NUMC_DTYPE_FLOAT64] = _gemm_f64_avx512,
