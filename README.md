@@ -77,6 +77,7 @@ BLIS sgemm/dgemm is 2–5x slower than NumPy's OpenBLAS at 128×128 through 1024
 ### Features
 
 - [x] **SIMD gemm for all architectures** — Packed GEMM micro-kernels for AVX2, AVX-512, NEON, SVE, and RVV (all 10 types)
+- [ ] **AVX-512 integer GEMM micro-kernels** — Currently AVX-512 only covers float32/float64; integer types fall through to AVX2. Add `vpmulld`/`vpmullw`-based kernels for all 8 integer types
 - [ ] **Intel hybrid CPU P-core detection** — Runtime sysfs-based detection removed for portability; consider optional opt-in
 
 ## Documentation

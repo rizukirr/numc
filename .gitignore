@@ -16,6 +16,7 @@ build*
 /notes
 /GEMINI.md
 /.geminiignore
+/docs/superpowers/
 
 # BLIS build artifacts (vendored submodule)
 external/blis/lib/
