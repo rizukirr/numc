@@ -50,20 +50,21 @@ Detailed benchmark methodology, CSV format documentation, and environment setup 
 
 These are known slow paths where numc loses to NumPy. Community contributions and ideas are welcome.
 
-#### Matmul (BLAS float path)
+#### Matmul (SIMD packed GEMM)
 
-BLIS sgemm/dgemm is 2–5x slower than NumPy's OpenBLAS at 128×128 through 1024×1024. The OpenBLAS vendored backend closes this gap but adds ~200 MB build weight. Finding the right default and tuning BLIS to match OpenBLAS performance is an open problem.
+The packed SIMD GEMM is the primary matmul path (BLIS/OpenBLAS are optional). It wins at 512×512 but loses at small/medium sizes where packing overhead dominates.
 
-| Size | float32 (numc/numpy) | float64 (numc/numpy) |
-|------|---------------------|---------------------|
-| 128×128 | 2.3x slower | 2.6x slower |
-| 256×256 | 4.8x slower | 4.5x slower |
-| 512×512 | 4.4x slower | 4.4x slower |
-| 1024×1024 | 3.2x slower | 3.3x slower |
+| Size | numc vs NumPy | Bottleneck |
+|------|---------------|------------|
+| 64×64 | 1.03x (on par) | — |
+| 128×128 | 0.47x (2.1x slower) | Packing overhead |
+| 256×256 | 0.66x (1.5x slower) | Compiler scheduling |
+| 512×512 | 1.25x (faster) | — |
+| 1024×1024 | 0.78x (1.3x slower) | 1D threading |
 
-- [ ] **BLIS threading tuning** — BLIS defaults to 1 thread; current fix uses `omp_get_max_threads()` but hybrid P/E-core CPUs over-subscribe. Need portable P-core detection or BLIS-native thread management
-- [ ] **BLIS cache blocking for small matrices** — 128×128 packing overhead dominates; investigate `gemmsup` threshold tuning or skip-packing heuristics
-- [ ] **OpenBLAS as default backend?** — OpenBLAS with `DYNAMIC_ARCH=ON` matches NumPy but is heavy; evaluate trade-offs for default build
+- [ ] **Assembly micro-kernels** — Compiler can't optimally schedule C intrinsics (~30-40% gap). Hand-written asm with explicit register allocation and FMA/broadcast interleaving
+- [ ] **Small-matrix unpacked kernels (gemmsup)** — Skip packing for small matrices where overhead dominates (128×128 is 0.47x). Operate directly on strided source matrices
+- [ ] **B-panel prefetching** — Prefetch next B micropanel 512 bytes ahead every 2 K-iterations to hide L2→L1 latency
 
 #### Other Slow Paths
 
