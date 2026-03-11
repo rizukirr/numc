@@ -4,6 +4,10 @@ macro(numc_test name src)
     target_link_libraries(${name} PRIVATE numc::numc)
     target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/src)
     add_test(NAME ${name} COMMAND ${name})
+    if(NUMC_ENABLE_ASAN AND EXISTS "${PROJECT_SOURCE_DIR}/lsan_suppressions.txt")
+        set_tests_properties(${name} PROPERTIES ENVIRONMENT
+            "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/lsan_suppressions.txt")
+    endif()
 endmacro()
 
 # ── core ────────────────────────────────────────────────────────────────────

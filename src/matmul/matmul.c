@@ -9,6 +9,7 @@
 
 #if NUMC_HAVE_AVX2
 #include "intrinsics/gemm_avx2.h"
+#include "intrinsics/gemmsup_avx2.h"
 #endif
 
 #if NUMC_HAVE_AVX512
@@ -198,6 +199,14 @@ GEMM_WRAP(_gemm_f64_avx2, double, gemm_f64_avx2)
 #if NUMC_HAVE_AVX512
 GEMM_WRAP(_gemm_f32_avx512, float, gemm_f32_avx512)
 GEMM_WRAP(_gemm_f64_avx512, double, gemm_f64_avx512)
+GEMM_WRAP(_gemm_i32_avx512, int32_t, gemm_i32_avx512)
+GEMM_WRAP(_gemm_u32_avx512, uint32_t, gemm_u32_avx512)
+GEMM_WRAP(_gemm_i16_avx512, int16_t, gemm_i16_avx512)
+GEMM_WRAP(_gemm_u16_avx512, uint16_t, gemm_u16_avx512)
+GEMM_WRAP(_gemm_i64_avx512, int64_t, gemm_i64_avx512)
+GEMM_WRAP(_gemm_u64_avx512, uint64_t, gemm_u64_avx512)
+GEMM_WRAP(_gemm_i8_avx512, int8_t, gemm_i8_avx512)
+GEMM_WRAP(_gemm_u8_avx512, uint8_t, gemm_u8_avx512)
 #endif
 
 #if NUMC_HAVE_NEON
@@ -254,8 +263,16 @@ static const GemmSimdKernel gemm_simd_table[NUMC_DTYPE_COUNT] = {
     [NUMC_DTYPE_FLOAT32] = _gemm_f32_avx2,
     [NUMC_DTYPE_FLOAT64] = _gemm_f64_avx2,
 #endif
-/* AVX-512 overrides f32/f64 when available (designated init allows it) */
+/* AVX-512 overrides all types when available (designated init allows it) */
 #if NUMC_HAVE_AVX512
+    [NUMC_DTYPE_INT8] = _gemm_i8_avx512,
+    [NUMC_DTYPE_INT16] = _gemm_i16_avx512,
+    [NUMC_DTYPE_INT32] = _gemm_i32_avx512,
+    [NUMC_DTYPE_INT64] = _gemm_i64_avx512,
+    [NUMC_DTYPE_UINT8] = _gemm_u8_avx512,
+    [NUMC_DTYPE_UINT16] = _gemm_u16_avx512,
+    [NUMC_DTYPE_UINT32] = _gemm_u32_avx512,
+    [NUMC_DTYPE_UINT64] = _gemm_u64_avx512,
     [NUMC_DTYPE_FLOAT32] = _gemm_f32_avx512,
     [NUMC_DTYPE_FLOAT64] = _gemm_f64_avx512,
 #endif
@@ -325,6 +342,30 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   int err = _check_matmul(a, b, out);
   if (err)
     return err;
+
+  /* Small-matrix path: unpacked SIMD GEMM (avoids packing overhead) */
+#if NUMC_HAVE_AVX2
+  {
+    size_t M = a->shape[0], K = a->shape[1], N = b->shape[1];
+    if ((uint64_t)M * K * N < GEMMSUP_FLOPS_THRESHOLD) {
+      size_t elem = numc_dtype_size(a->dtype);
+      intptr_t rsa = a->strides[0] / (intptr_t)elem;
+      intptr_t csa = a->strides[1] / (intptr_t)elem;
+      intptr_t rsb = b->strides[0] / (intptr_t)elem;
+      intptr_t rso = out->strides[0] / (intptr_t)elem;
+      if (a->dtype == NUMC_DTYPE_FLOAT32) {
+        gemmsup_f32_avx2((const float *)a->data, (const float *)b->data,
+                         (float *)out->data, M, K, N, rsa, csa, rsb, rso);
+        return 0;
+      }
+      if (a->dtype == NUMC_DTYPE_FLOAT64) {
+        gemmsup_f64_avx2((const double *)a->data, (const double *)b->data,
+                         (double *)out->data, M, K, N, rsa, csa, rsb, rso);
+        return 0;
+      }
+    }
+  }
+#endif
 
   /* Primary path: packed SIMD GEMM (all types, all strides) */
   {

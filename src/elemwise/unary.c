@@ -3,6 +3,11 @@
 #include <math.h>
 #include <numc/math.h>
 
+#include "arch_dispatch.h"
+#if NUMC_HAVE_AVX2
+#include "intrinsics/math_avx2.h"
+#endif
+
 /* ── Stamp unary neg loop typed kernels ────────────────────*/
 
 /* neg: all 10 types, native - */
@@ -46,9 +51,53 @@ GENERATE_SIGNED_64BIT_NUMC_TYPES(STAMP_LOG_I64)
 DEFINE_UNARY_KERNEL_NOSIMD(log, NUMC_DTYPE_UINT64, NUMC_UINT64,
                            (NUMC_UINT64)_log_f64((double)in1))
 
-/* float types: call their own bit-manipulation helpers directly */
+/* float types: SIMD fast path on AVX2, scalar fallback otherwise */
+#if NUMC_HAVE_AVX2
+static void _kern_log_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(float);
+  if (sa == es && so == es) {
+    const float *pa = (const float *)a;
+    float *po = (float *)out;
+    size_t i = 0;
+    for (; i + 8 <= n; i += 8) {
+      __m256 va = _mm256_loadu_ps(pa + i);
+      _mm256_storeu_ps(po + i, _mm256_log_ps(va));
+    }
+    for (; i < n; i++)
+      po[i] = _log_f32(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      float in1 = *(const float *)(a + i * sa);
+      *(float *)(out + i * so) = _log_f32(in1);
+    }
+  }
+}
+
+static void _kern_log_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(double);
+  if (sa == es && so == es) {
+    const double *pa = (const double *)a;
+    double *po = (double *)out;
+    size_t i = 0;
+    for (; i + 4 <= n; i += 4) {
+      __m256d va = _mm256_loadu_pd(pa + i);
+      _mm256_storeu_pd(po + i, _mm256_log_pd(va));
+    }
+    for (; i < n; i++)
+      po[i] = _log_f64(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      double in1 = *(const double *)(a + i * sa);
+      *(double *)(out + i * so) = _log_f64(in1);
+    }
+  }
+}
+#else
 DEFINE_UNARY_KERNEL_NOSIMD(log, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, _log_f32(in1))
 DEFINE_UNARY_KERNEL_NOSIMD(log, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _log_f64(in1))
+#endif
 
 /* ── Stamp out exp loop kernels ─────────────────────────────────────── */
 
@@ -74,9 +123,53 @@ GENERATE_SIGNED_64BIT_NUMC_TYPES(STAMP_EXP_I64)
 DEFINE_UNARY_KERNEL_NOSIMD(exp, NUMC_DTYPE_UINT64, NUMC_UINT64,
                            (NUMC_UINT64)_exp_f64((double)in1))
 
-/* float32/float64: call helpers directly */
+/* float32/float64: SIMD fast path on AVX2, scalar fallback */
+#if NUMC_HAVE_AVX2
+static void _kern_exp_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(float);
+  if (sa == es && so == es) {
+    const float *pa = (const float *)a;
+    float *po = (float *)out;
+    size_t i = 0;
+    for (; i + 8 <= n; i += 8) {
+      __m256 va = _mm256_loadu_ps(pa + i);
+      _mm256_storeu_ps(po + i, _mm256_exp_ps(va));
+    }
+    for (; i < n; i++)
+      po[i] = _exp_f32(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      float in1 = *(const float *)(a + i * sa);
+      *(float *)(out + i * so) = _exp_f32(in1);
+    }
+  }
+}
+
+static void _kern_exp_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(double);
+  if (sa == es && so == es) {
+    const double *pa = (const double *)a;
+    double *po = (double *)out;
+    size_t i = 0;
+    for (; i + 4 <= n; i += 4) {
+      __m256d va = _mm256_loadu_pd(pa + i);
+      _mm256_storeu_pd(po + i, _mm256_exp_pd(va));
+    }
+    for (; i < n; i++)
+      po[i] = _exp_f64(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      double in1 = *(const double *)(a + i * sa);
+      *(double *)(out + i * so) = _exp_f64(in1);
+    }
+  }
+}
+#else
 DEFINE_UNARY_KERNEL_NOSIMD(exp, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, _exp_f32(in1))
 DEFINE_UNARY_KERNEL_NOSIMD(exp, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _exp_f64(in1))
+#endif
 
 /* ── Stamp unary sqrt loop typed kernels ─────────────────────────────────
  * float32: sqrtf -> hardware vsqrtps (auto-vectorized, -O3 -march=native)

@@ -30,7 +30,7 @@ typedef void (*NumcBinaryReductionKernel)(const char *a, const char *b,
     if (sa == (intptr_t)sizeof(C_TYPE)) {                                  \
       /* PATH 1: contiguous — indexed access, auto-vectorizes + OMP */     \
       const C_TYPE *restrict pa = (const C_TYPE *)a;                       \
-      NUMC_OMP_REDUCE_FOR(                                                 \
+      NUMC_OMP_REDUCE_FOR2(                                                \
           n, sizeof(C_TYPE), OMP_OP, acc, for (size_t i = 0; i < n; i++) { \
             C_TYPE val = pa[i];                                            \
             acc = (EXPR);                                                  \
@@ -61,7 +61,7 @@ typedef void (*NumcBinaryReductionKernel)(const char *a, const char *b,
           (const C_TYPE *)__builtin_assume_aligned(a, 32);                     \
       const C_TYPE *restrict pb =                                              \
           (const C_TYPE *)__builtin_assume_aligned(b, 32);                     \
-      NUMC_OMP_REDUCE_FOR(                                                     \
+      NUMC_OMP_REDUCE_FOR2(                                                    \
           n, sizeof(C_TYPE), OMP_OP, acc, for (size_t i = 0; i < n; i++) {     \
             C_TYPE val_a = pa[i];                                              \
             C_TYPE val_b = pb[i];                                              \
@@ -100,8 +100,8 @@ typedef void (*NumcBinaryReductionKernel)(const char *a, const char *b,
     if (sa == (intptr_t)sizeof(C_TYPE)) {                               \
       const C_TYPE *pa = (const C_TYPE *)a;                             \
       size_t total_bytes = n * sizeof(C_TYPE);                          \
-      int nt = (int)(total_bytes / NUMC_OMP_BYTES_PER_THREAD);          \
-      if (total_bytes > NUMC_OMP_BYTE_THRESHOLD && nt >= 2) {           \
+      int nt = (int)(total_bytes / NUMC_OMP_REDUCE_BYTES_PER_THREAD);   \
+      if (total_bytes > NUMC_OMP_REDUCE_BYTE_THRESHOLD && nt >= 2) {    \
         C_TYPE global = (INIT);                                         \
         NUMC_PRAGMA(omp parallel for reduction(OMP_OP:global)                  \
                         schedule(static) num_threads(nt))               \

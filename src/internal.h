@@ -79,8 +79,13 @@ void numc_free(void *ptr);
 #endif
 
 #define NUMC_OMP_BYTE_THRESHOLD \
-  (1 << 20) // 1 MB total (used by reduction/random)
+  (1 << 20) // 1 MB total (used by elemwise/random)
 #define NUMC_OMP_BYTES_PER_THREAD (1 << 19) // 512 KB minimum work per thread
+
+/* Reduction-specific thresholds: lower because reductions are
+ * memory-bandwidth-bound — threading helps at smaller sizes. */
+#define NUMC_OMP_REDUCE_BYTE_THRESHOLD   (1 << 18) // 256 KB
+#define NUMC_OMP_REDUCE_BYTES_PER_THREAD (1 << 18) // 256 KB per thread
 
 #if defined(__clang__)
 #define NUMC_LOOP_SIMD \
@@ -143,6 +148,21 @@ void numc_free(void *ptr);
       NUMC_LOOP_NOSIMD                                               \
       loop                                                           \
     }                                                                \
+  } while (0)
+
+/* Reduction-specific OMP macros using lower thresholds. */
+#define NUMC_OMP_REDUCE_FOR2(n, elem_size, omp_op, acc, loop)               \
+  do {                                                                      \
+    size_t _total_bytes = (n) * (elem_size);                                \
+    int _nthreads = (int)(_total_bytes / NUMC_OMP_REDUCE_BYTES_PER_THREAD); \
+    if (_nthreads >= 2) {                                                   \
+      NUMC_PRAGMA(omp parallel for reduction(omp_op : acc)                     \
+                      schedule(static) num_threads(_nthreads))              \
+      loop                                                                  \
+    } else {                                                                \
+      NUMC_LOOP_SIMD                                                        \
+      loop                                                                  \
+    }                                                                       \
   } while (0)
 
 /**

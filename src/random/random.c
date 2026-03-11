@@ -5,6 +5,11 @@
 #include <math.h>
 #include <stdint.h>
 
+#include "arch_dispatch.h"
+#if NUMC_HAVE_AVX2
+#include "intrinsics/math_avx2.h"
+#endif
+
 /* ── Stamp rand kernels for all 10 dtypes ───────────────────────────
  *
  * CONVERT_EXPR(raw) maps a raw uint64_t from the PRNG to C_TYPE.
@@ -71,7 +76,45 @@ DEFINE_RANDN_KERNEL(NUMC_DTYPE_UINT32, NUMC_UINT32,
                     (NUMC_UINT32)_prng_normal_f64())
 DEFINE_RANDN_KERNEL(NUMC_DTYPE_UINT64, NUMC_UINT64,
                     (NUMC_UINT64)_prng_normal_f64())
+/* float32 randn: SIMD Box-Muller on AVX2, scalar fallback otherwise.
+ * Generates 8 normals per iteration from 8 uniforms (4 Box-Muller pairs).
+ * SIMD log + sqrt for magnitude, SIMD sincos for angle. */
+#if NUMC_HAVE_AVX2
+static void _kern_randn_NUMC_DTYPE_FLOAT32(char *out, size_t n) {
+  _prng_ensure_seeded();
+  float *restrict po = (float *)out;
+  const __m256 two_pi = _mm256_set1_ps(6.2831853071795864f);
+  const __m256 neg2 = _mm256_set1_ps(-2.0f);
+  const __m128 tiny128 = _mm_set1_ps(1e-20f);
+  const __m128 two_pi128 = _mm_set1_ps(6.2831853071795864f);
+  size_t i = 0;
+  for (; i + 8 <= n; i += 8) {
+    /* Generate 8 uniform f32: u[0..3] = u1, u[4..7] = u2 */
+    float u[8];
+    for (int k = 0; k < 8; k++)
+      u[k] = _prng_f32();
+    __m128 u1 = _mm_max_ps(_mm_loadu_ps(u), tiny128);
+    __m128 u2 = _mm_loadu_ps(u + 4);
+    /* mag = sqrt(-2 * log(u1)) — 4 magnitudes */
+    __m256 u1_256 = _mm256_insertf128_ps(_mm256_castps128_ps256(u1), u1, 1);
+    __m128 mag = _mm256_castps256_ps128(
+        _mm256_sqrt_ps(_mm256_mul_ps(neg2, _mm256_log_ps(u1_256))));
+    /* angle = 2π * u2, then sincos */
+    __m128 angle = _mm_mul_ps(u2, two_pi128);
+    __m256 angle256 =
+        _mm256_insertf128_ps(_mm256_castps128_ps256(angle), angle, 1);
+    __m256 sin_v, cos_v;
+    _mm256_sincos_ps(angle256, &sin_v, &cos_v);
+    /* out[i..i+3] = mag * cos, out[i+4..i+7] = mag * sin */
+    _mm_storeu_ps(po + i, _mm_mul_ps(mag, _mm256_castps256_ps128(cos_v)));
+    _mm_storeu_ps(po + i + 4, _mm_mul_ps(mag, _mm256_castps256_ps128(sin_v)));
+  }
+  for (; i < n; i++)
+    po[i] = _prng_normal_f32();
+}
+#else
 DEFINE_RANDN_KERNEL(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, _prng_normal_f32())
+#endif
 DEFINE_RANDN_KERNEL(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _prng_normal_f64())
 
 /* ── Dispatch tables (dtype -> kernel) ─────────────────────────────*/
