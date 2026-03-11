@@ -62,24 +62,44 @@ The packed SIMD GEMM is the primary matmul path (BLIS/OpenBLAS are optional). It
 | 512×512 | 1.25x (faster) | — |
 | 1024×1024 | 0.78x (1.3x slower) | 1D threading |
 
-- [ ] **Assembly micro-kernels** — Compiler can't optimally schedule C intrinsics (~30-40% gap). Hand-written asm with explicit register allocation and FMA/broadcast interleaving
-- [ ] **Small-matrix unpacked kernels (gemmsup)** — Skip packing for small matrices where overhead dominates (128×128 is 0.47x). Operate directly on strided source matrices
-- [ ] **B-panel prefetching** — Prefetch next B micropanel 512 bytes ahead every 2 K-iterations to hide L2→L1 latency
+- [x] **Assembly micro-kernels** — Inline asm f32 6×16 and f64 6×8 with pinned YMM registers, 4× K-loop unroll (GCC/Clang; C intrinsics fallback for MSVC)
+- [x] **Small-matrix unpacked kernels (gemmsup)** — AVX2 unpacked f32 6×16 and f64 6×8 micro-kernels, skip packing for M×K×N < 128³
+- [x] **B-panel prefetching** — Integrated into inline asm micro-kernels
 
 #### Other Slow Paths
 
-- [ ] **Per-op-class OMP threshold for reductions** — Global 256KB threshold regresses element-wise ops; reductions need a separate, lower threshold to enable OMP on 1-byte types at 1M elements
-- [ ] **SIMD uint8 comparison kernels** — XOR-0x80 trick for unsigned `eq/gt/lt/ge/le` (5 ops slower than numpy)
-- [ ] **SIMD int8/uint8 min/max kernels** — Direct `vpminub`/`vpmaxub`/`vpminsb`/`vpmaxsb` (4 ops slower than numpy)
-- [ ] **SIMD log/exp intrinsics** (AVX2/NEON/RVV) — Minimax polynomial; currently scalar-only
-- [ ] **SIMD pow intrinsics** (AVX2/NEON/RVV) — Vectorized exp-by-squaring or `exp(b*log(a))`
-- [ ] **SIMD randn (Box-Muller)** — Batch PRNG + SIMD log/sin/cos for `numc_array_randn`
+- [x] **Per-op-class OMP threshold for reductions** — Separate 256KB threshold for reductions vs 1MB for elemwise
+- [x] **SIMD uint8 comparison kernels** — AVX2 XOR-0x80 trick for unsigned `eq/gt/lt/ge/le`
+- [x] **SIMD int8/uint8 min/max kernels** — Multi-accumulator vectorized helpers for all integer types
+- [x] **SIMD log/exp intrinsics** (AVX2) — Vectorized fdlibm/Cephes log/exp for f32 (8-wide) and f64 (4-wide)
+- [x] **SIMD pow intrinsics** (AVX2) — Vectorized `exp(b*log(a))` for contiguous float data
+- [x] **SIMD randn (Box-Muller)** — SIMD Box-Muller with vectorized log/sqrt/sincos for f32
 
 ### Features
 
 - [x] **SIMD gemm for all architectures** — Packed GEMM micro-kernels for AVX2, AVX-512, NEON, SVE, and RVV (all 10 types)
-- [ ] **AVX-512 integer GEMM micro-kernels** — Currently AVX-512 only covers float32/float64; integer types fall through to AVX2. Add `vpmulld`/`vpmullw`-based kernels for all 8 integer types
+- [x] **AVX-512 integer GEMM micro-kernels** — `vpmulld`/`vpmullw`/`vpmullq`-based kernels for all 8 integer types (i8/u8 with i32 accumulators)
 - [ ] **Intel hybrid CPU P-core detection** — Runtime sysfs-based detection removed for portability; consider optional opt-in
+
+### ARM & RISC-V SIMD Parity
+
+The following optimizations are currently AVX2-only and need NEON/SVE/RVV equivalents:
+
+- [ ] **NEON/SVE log/exp intrinsics** — Port `math_avx2.h` vectorized log/exp to `math_neon.h` and `math_sve.h`
+- [ ] **RVV log/exp intrinsics** — Port vectorized log/exp to `math_rvv.h` using RVV intrinsics
+- [ ] **NEON/SVE sin/cos intrinsics** — Port Cephes sin/cos from `math_avx2.h` for SIMD randn on ARM
+- [ ] **RVV sin/cos intrinsics** — Port Cephes sin/cos for SIMD randn on RISC-V
+- [ ] **NEON/SVE SIMD pow** — Port vectorized `exp(b*log(a))` pow to ARM
+- [ ] **RVV SIMD pow** — Port vectorized pow to RISC-V
+- [ ] **NEON/SVE SIMD randn (Box-Muller)** — SIMD Box-Muller using ARM vectorized log/sincos
+- [ ] **RVV SIMD randn (Box-Muller)** — SIMD Box-Muller using RVV vectorized log/sincos
+- [ ] **NEON/SVE uint8 comparison kernels** — Port XOR-0x80 unsigned comparison trick to ARM
+- [ ] **RVV uint8 comparison kernels** — Port unsigned comparison kernels to RISC-V
+- [ ] **NEON/SVE int8/uint8 min/max reduction** — Port multi-accumulator min/max helpers to ARM
+- [ ] **RVV int8/uint8 min/max reduction** — Port multi-accumulator min/max helpers to RISC-V
+- [ ] **ARM gemmsup (small-matrix unpacked GEMM)** — Port unpacked f32/f64 micro-kernels to NEON/SVE
+- [ ] **RVV gemmsup (small-matrix unpacked GEMM)** — Port unpacked f32/f64 micro-kernels to RVV
+- [ ] **AArch64 assembly GEMM micro-kernels** — Hand-tuned asm for NEON/SVE f32/f64 GEMM (matching AVX2 inline asm)
 
 ## Documentation
 
