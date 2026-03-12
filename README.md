@@ -65,6 +65,20 @@ Matmul dispatch: **GEMMSUP** (small matrices) → **Packed GEMM** (5-loop Goto's
 
 [Project Wiki](https://github.com/rizukirr/numc/wiki) — API reference, architecture guide, usage examples.
 
+## Known Slow Paths — Help Wanted
+
+These are specific operations where NumPy (OpenBLAS) still beats numc. Contributions and ideas welcome.
+
+| Area | What's slow | vs NumPy | Why | Where to look |
+|---|---|---|---|---|
+| Matmul | f64 1024x1024 | 0.40x | OpenBLAS hand-tuned asm, better threading | `src/intrinsics/gemm_avx2.h` |
+| Matmul | f32 256x256 | 0.42x | OpenBLAS near-peak at this size | `src/intrinsics/gemm_avx2.h` |
+| Reduction | int8/uint8 min/max axis-1 | 0.28x–0.38x | Scalar fallback, no byte-width SIMD | `src/reduction/min.c`, `max.c` |
+| Reduction | int8/uint8 full min/max | 0.45x–0.50x | Same — needs SIMD min/max for bytes | `src/reduction/kernel.h` |
+| Reduction | int32 min/max axis-1 | 0.42x | Axis-fused kernel not SIMD-vectorized | `src/reduction/min.c`, `max.c` |
+
+Reference implementations for GEMM optimization are available in `external/blis/` and `external/openblas/` (gitignored, clone separately).
+
 ## Contributing
 
 See the [contributing guide](https://github.com/rizukirr/numc/blob/main/CONTRIBUTING.md). For benchmarks, see [bench/README.md](bench/README.md).
