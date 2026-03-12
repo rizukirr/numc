@@ -25,7 +25,7 @@
 
 #define GEMM_F64_MR 6
 #define GEMM_F64_NR 8
-#define GEMM_F64_MC 96
+#define GEMM_F64_MC 72
 #define GEMM_F64_KC 256
 
 #define GEMM_I32_MR 6
@@ -51,8 +51,9 @@
 /* GEMM OMP threshold on compute volume (M × K × N operations).
  * Threading pays off when compute dominates OMP fork cost (~20-50μs).
  * 256×256: 16.8M ops → ~330μs single-threaded → threading helps.
- * 128×128: 2.1M ops → ~50μs single-threaded → overhead dominates. */
-#define GEMM_OMP_THRESHOLD (1 << 23)
+ * 128×128: 2.1M ops → ~40μs single-threaded → threading still helps
+ *          (OMP fork/join ~5-10μs, 4-thread speedup → ~15-20μs). */
+#define GEMM_OMP_THRESHOLD (1 << 20)
 
 /* N-dimension blocking for L3 residency (B panel: KC × NC elements) */
 #define GEMM_F32_NC 2048
@@ -94,6 +95,39 @@ static inline void gemm_pack_b_f32(const float *b, float *packed, size_t kc,
 static inline void gemm_pack_a_f32(const float *a, float *packed, size_t mc,
                                    size_t kc, intptr_t rsa, intptr_t csa) {
   size_t ir = 0;
+  /* Fast path: csa=1 (row-major A) — gather MR rows with pointer arithmetic */
+  if (csa == 1) {
+    for (; ir + GEMM_F32_MR <= mc; ir += GEMM_F32_MR) {
+      float *dest = packed + ir * kc;
+      const float *r0 = a + (ir + 0) * rsa;
+      const float *r1 = a + (ir + 1) * rsa;
+      const float *r2 = a + (ir + 2) * rsa;
+      const float *r3 = a + (ir + 3) * rsa;
+      const float *r4 = a + (ir + 4) * rsa;
+      const float *r5 = a + (ir + 5) * rsa;
+      for (size_t p = 0; p < kc; p++) {
+        dest[0] = r0[p];
+        dest[1] = r1[p];
+        dest[2] = r2[p];
+        dest[3] = r3[p];
+        dest[4] = r4[p];
+        dest[5] = r5[p];
+        dest += GEMM_F32_MR;
+      }
+    }
+    if (ir < mc) {
+      float *dest = packed + ir * kc;
+      size_t rem = mc - ir;
+      for (size_t p = 0; p < kc; p++) {
+        size_t i = 0;
+        for (; i < rem; i++)
+          dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p];
+        for (; i < GEMM_F32_MR; i++)
+          dest[p * GEMM_F32_MR + i] = 0.0f;
+      }
+    }
+    return;
+  }
   for (; ir + GEMM_F32_MR <= mc; ir += GEMM_F32_MR) {
     float *dest = packed + ir * kc;
     for (size_t p = 0; p < kc; p++) {
@@ -144,6 +178,39 @@ static inline void gemm_pack_b_f64(const double *b, double *packed, size_t kc,
 static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
                                    size_t kc, intptr_t rsa, intptr_t csa) {
   size_t ir = 0;
+  /* Fast path: csa=1 (row-major A) — gather MR rows with pointer arithmetic */
+  if (csa == 1) {
+    for (; ir + GEMM_F64_MR <= mc; ir += GEMM_F64_MR) {
+      double *dest = packed + ir * kc;
+      const double *r0 = a + (ir + 0) * rsa;
+      const double *r1 = a + (ir + 1) * rsa;
+      const double *r2 = a + (ir + 2) * rsa;
+      const double *r3 = a + (ir + 3) * rsa;
+      const double *r4 = a + (ir + 4) * rsa;
+      const double *r5 = a + (ir + 5) * rsa;
+      for (size_t p = 0; p < kc; p++) {
+        dest[0] = r0[p];
+        dest[1] = r1[p];
+        dest[2] = r2[p];
+        dest[3] = r3[p];
+        dest[4] = r4[p];
+        dest[5] = r5[p];
+        dest += GEMM_F64_MR;
+      }
+    }
+    if (ir < mc) {
+      double *dest = packed + ir * kc;
+      size_t rem = mc - ir;
+      for (size_t p = 0; p < kc; p++) {
+        size_t i = 0;
+        for (; i < rem; i++)
+          dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p];
+        for (; i < GEMM_F64_MR; i++)
+          dest[p * GEMM_F64_MR + i] = 0.0;
+      }
+    }
+    return;
+  }
   for (; ir + GEMM_F64_MR <= mc; ir += GEMM_F64_MR) {
     double *dest = packed + ir * kc;
     for (size_t p = 0; p < kc; p++) {
