@@ -9,12 +9,12 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 
-# Static linking for qemu-user
-set(CMAKE_EXE_LINKER_FLAGS_INIT "-static")
-
-# Force static OpenMP
-set(OpenMP_C_LIB_NAMES "gomp;pthread" CACHE STRING "")
-set(OpenMP_gomp_LIBRARY "/usr/aarch64-linux-gnu/lib/libgomp.a" CACHE FILEPATH "")
+# Static linking for qemu-user (if libgomp.a is available)
+if(EXISTS "/usr/aarch64-linux-gnu/lib/libgomp.a")
+  set(CMAKE_EXE_LINKER_FLAGS_INIT "-static")
+  set(OpenMP_C_LIB_NAMES "gomp;pthread" CACHE STRING "")
+  set(OpenMP_gomp_LIBRARY "/usr/aarch64-linux-gnu/lib/libgomp.a" CACHE FILEPATH "")
+endif()
 
 # QEMU runner for ctest
 set(CMAKE_CROSSCOMPILING_EMULATOR "qemu-aarch64;-L;/usr/aarch64-linux-gnu")
