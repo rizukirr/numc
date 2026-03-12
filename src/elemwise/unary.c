@@ -6,6 +6,13 @@
 #include "arch_dispatch.h"
 #if NUMC_HAVE_AVX2
 #include "intrinsics/math_avx2.h"
+#elif NUMC_HAVE_SVE
+#include "intrinsics/math_sve.h"
+#elif NUMC_HAVE_NEON
+#include "intrinsics/math_neon.h"
+#endif
+#if NUMC_HAVE_RVV
+#include "intrinsics/math_rvv.h"
 #endif
 
 /* ── Stamp unary neg loop typed kernels ────────────────────*/
@@ -94,6 +101,128 @@ static void _kern_log_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
     }
   }
 }
+#elif NUMC_HAVE_SVE
+static void _kern_log_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(float);
+  if (sa == es && so == es) {
+    const float *pa = (const float *)a;
+    float *po = (float *)out;
+    size_t vl = svcntw();
+    for (size_t i = 0; i < n; i += vl) {
+      svbool_t pg = svwhilelt_b32((uint32_t)i, (uint32_t)n);
+      svfloat32_t va = svld1_f32(pg, pa + i);
+      svst1_f32(pg, po + i, _sve_log_f32(va));
+    }
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      float in1 = *(const float *)(a + i * sa);
+      *(float *)(out + i * so) = _log_f32(in1);
+    }
+  }
+}
+
+static void _kern_log_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(double);
+  if (sa == es && so == es) {
+    const double *pa = (const double *)a;
+    double *po = (double *)out;
+    size_t vl = svcntd();
+    for (size_t i = 0; i < n; i += vl) {
+      svbool_t pg = svwhilelt_b64((uint32_t)i, (uint32_t)n);
+      svfloat64_t va = svld1_f64(pg, pa + i);
+      svst1_f64(pg, po + i, _sve_log_f64(va));
+    }
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      double in1 = *(const double *)(a + i * sa);
+      *(double *)(out + i * so) = _log_f64(in1);
+    }
+  }
+}
+#elif NUMC_HAVE_NEON
+static void _kern_log_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(float);
+  if (sa == es && so == es) {
+    const float *pa = (const float *)a;
+    float *po = (float *)out;
+    size_t i = 0;
+    for (; i + 4 <= n; i += 4) {
+      float32x4_t va = vld1q_f32(pa + i);
+      vst1q_f32(po + i, _neon_log_f32(va));
+    }
+    for (; i < n; i++)
+      po[i] = _log_f32(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      float in1 = *(const float *)(a + i * sa);
+      *(float *)(out + i * so) = _log_f32(in1);
+    }
+  }
+}
+
+static void _kern_log_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(double);
+  if (sa == es && so == es) {
+    const double *pa = (const double *)a;
+    double *po = (double *)out;
+    size_t i = 0;
+    for (; i + 2 <= n; i += 2) {
+      float64x2_t va = vld1q_f64(pa + i);
+      vst1q_f64(po + i, _neon_log_f64(va));
+    }
+    for (; i < n; i++)
+      po[i] = _log_f64(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      double in1 = *(const double *)(a + i * sa);
+      *(double *)(out + i * so) = _log_f64(in1);
+    }
+  }
+}
+#elif NUMC_HAVE_RVV
+static void _kern_log_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(float);
+  if (sa == es && so == es) {
+    const float *pa = (const float *)a;
+    float *po = (float *)out;
+    size_t vl;
+    for (size_t i = 0; i < n; i += vl) {
+      vl = __riscv_vsetvl_e32m4(n - i);
+      vfloat32m4_t va = __riscv_vle32_v_f32m4(pa + i, vl);
+      __riscv_vse32_v_f32m4(po + i, _rvv_log_f32(va, vl), vl);
+    }
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      float in1 = *(const float *)(a + i * sa);
+      *(float *)(out + i * so) = _log_f32(in1);
+    }
+  }
+}
+
+static void _kern_log_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(double);
+  if (sa == es && so == es) {
+    const double *pa = (const double *)a;
+    double *po = (double *)out;
+    size_t vl;
+    for (size_t i = 0; i < n; i += vl) {
+      vl = __riscv_vsetvl_e64m4(n - i);
+      vfloat64m4_t va = __riscv_vle64_v_f64m4(pa + i, vl);
+      __riscv_vse64_v_f64m4(po + i, _rvv_log_f64(va, vl), vl);
+    }
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      double in1 = *(const double *)(a + i * sa);
+      *(double *)(out + i * so) = _log_f64(in1);
+    }
+  }
+}
 #else
 DEFINE_UNARY_KERNEL_NOSIMD(log, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, _log_f32(in1))
 DEFINE_UNARY_KERNEL_NOSIMD(log, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _log_f64(in1))
@@ -159,6 +288,128 @@ static void _kern_exp_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
     }
     for (; i < n; i++)
       po[i] = _exp_f64(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      double in1 = *(const double *)(a + i * sa);
+      *(double *)(out + i * so) = _exp_f64(in1);
+    }
+  }
+}
+#elif NUMC_HAVE_SVE
+static void _kern_exp_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(float);
+  if (sa == es && so == es) {
+    const float *pa = (const float *)a;
+    float *po = (float *)out;
+    size_t vl = svcntw();
+    for (size_t i = 0; i < n; i += vl) {
+      svbool_t pg = svwhilelt_b32((uint32_t)i, (uint32_t)n);
+      svfloat32_t va = svld1_f32(pg, pa + i);
+      svst1_f32(pg, po + i, _sve_exp_f32(va));
+    }
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      float in1 = *(const float *)(a + i * sa);
+      *(float *)(out + i * so) = _exp_f32(in1);
+    }
+  }
+}
+
+static void _kern_exp_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(double);
+  if (sa == es && so == es) {
+    const double *pa = (const double *)a;
+    double *po = (double *)out;
+    size_t vl = svcntd();
+    for (size_t i = 0; i < n; i += vl) {
+      svbool_t pg = svwhilelt_b64((uint32_t)i, (uint32_t)n);
+      svfloat64_t va = svld1_f64(pg, pa + i);
+      svst1_f64(pg, po + i, _sve_exp_f64(va));
+    }
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      double in1 = *(const double *)(a + i * sa);
+      *(double *)(out + i * so) = _exp_f64(in1);
+    }
+  }
+}
+#elif NUMC_HAVE_NEON
+static void _kern_exp_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(float);
+  if (sa == es && so == es) {
+    const float *pa = (const float *)a;
+    float *po = (float *)out;
+    size_t i = 0;
+    for (; i + 4 <= n; i += 4) {
+      float32x4_t va = vld1q_f32(pa + i);
+      vst1q_f32(po + i, _neon_exp_f32(va));
+    }
+    for (; i < n; i++)
+      po[i] = _exp_f32(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      float in1 = *(const float *)(a + i * sa);
+      *(float *)(out + i * so) = _exp_f32(in1);
+    }
+  }
+}
+
+static void _kern_exp_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(double);
+  if (sa == es && so == es) {
+    const double *pa = (const double *)a;
+    double *po = (double *)out;
+    size_t i = 0;
+    for (; i + 2 <= n; i += 2) {
+      float64x2_t va = vld1q_f64(pa + i);
+      vst1q_f64(po + i, _neon_exp_f64(va));
+    }
+    for (; i < n; i++)
+      po[i] = _exp_f64(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      double in1 = *(const double *)(a + i * sa);
+      *(double *)(out + i * so) = _exp_f64(in1);
+    }
+  }
+}
+#elif NUMC_HAVE_RVV
+static void _kern_exp_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(float);
+  if (sa == es && so == es) {
+    const float *pa = (const float *)a;
+    float *po = (float *)out;
+    size_t vl;
+    for (size_t i = 0; i < n; i += vl) {
+      vl = __riscv_vsetvl_e32m4(n - i);
+      vfloat32m4_t va = __riscv_vle32_v_f32m4(pa + i, vl);
+      __riscv_vse32_v_f32m4(po + i, _rvv_exp_f32(va, vl), vl);
+    }
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      float in1 = *(const float *)(a + i * sa);
+      *(float *)(out + i * so) = _exp_f32(in1);
+    }
+  }
+}
+
+static void _kern_exp_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(double);
+  if (sa == es && so == es) {
+    const double *pa = (const double *)a;
+    double *po = (double *)out;
+    size_t vl;
+    for (size_t i = 0; i < n; i += vl) {
+      vl = __riscv_vsetvl_e64m4(n - i);
+      vfloat64m4_t va = __riscv_vle64_v_f64m4(pa + i, vl);
+      __riscv_vse64_v_f64m4(po + i, _rvv_exp_f64(va, vl), vl);
+    }
   } else {
     for (size_t i = 0; i < n; i++) {
       double in1 = *(const double *)(a + i * sa);

@@ -78,7 +78,24 @@ typedef void (*NumcRowReduceKernel)(const char *restrict base,
                               size_t nrows, char *restrict dst,               \
                               size_t ncols) {                                 \
     CT *restrict d = (CT *)dst;                                               \
-    for (size_t r = 0; r < nrows; r++) {                                      \
+    size_t r = 0;                                                             \
+    for (; r + 4 <= nrows; r += 4) {                                          \
+      const CT *restrict s0 = (const CT *)(base + r * row_stride);            \
+      const CT *restrict s1 = (const CT *)(base + (r + 1) * row_stride);      \
+      const CT *restrict s2 = (const CT *)(base + (r + 2) * row_stride);      \
+      const CT *restrict s3 = (const CT *)(base + (r + 3) * row_stride);      \
+      for (size_t i = 0; i < ncols; i++) {                                    \
+        CT v = s0[i];                                                         \
+        CT v1 = s1[i];                                                        \
+        CT v2 = s2[i];                                                        \
+        CT v3 = s3[i];                                                        \
+        v = v1 > v ? v1 : v;                                                  \
+        v = v2 > v ? v2 : v;                                                  \
+        v = v3 > v ? v3 : v;                                                  \
+        d[i] = v > d[i] ? v : d[i];                                           \
+      }                                                                       \
+    }                                                                         \
+    for (; r < nrows; r++) {                                                  \
       const CT *restrict s = (const CT *)(base + r * row_stride);             \
       for (size_t i = 0; i < ncols; i++)                                      \
         d[i] = s[i] > d[i] ? s[i] : d[i];                                     \

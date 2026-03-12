@@ -10,7 +10,7 @@
 
 /* Threshold: M*K*N below which we use unpacked kernels.
  * Packing overhead dominates for matrices <= ~128x128. */
-#define GEMMSUP_FLOPS_THRESHOLD (128 * 128 * 128)
+#define GEMMSUP_FLOPS_THRESHOLD (128UL * 128UL * 128UL)
 
 /* =================================================================
    Float32 unpacked 6x16 micro-kernel

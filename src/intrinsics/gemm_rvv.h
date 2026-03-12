@@ -23,7 +23,7 @@
  *
  * f64 6xVL: 6 acc + 1 B = 7 m2 groups out of 16 available.
  *   KC x NR sliver in L1: 256 x 8 x 8 = 16KB < 32KB (VLEN=256)
- *   MC x KC panel  in L2: 72 x 256 x 8 = 144KB < 256KB
+ *   MC x KC panel  in L2: 96 x 256 x 8 = 196KB < 256KB
  *
  * Max NR for stack buffers: VLEN=1024 with m2 gives 64 f32 or 32 f64 elements.
  * We use 64 as the upper bound for tmp buffer sizing.
@@ -34,9 +34,9 @@
 #define GEMM_F32_NC 4080
 
 #define GEMM_F64_MR 6
-#define GEMM_F64_MC 72
+#define GEMM_F64_MC 96
 #define GEMM_F64_KC 256
-#define GEMM_F64_NC 4080
+#define GEMM_F64_NC 2048
 
 #define GEMM_I32_MR 6
 #define GEMM_I32_MC 72
@@ -246,10 +246,18 @@ static inline void gemm_ukernel_f32_8xVL(const float *a, const float *b,
 
   const float *ap = a;
   const float *bp = b;
-  size_t k_iter = kc / 4;
-  size_t k_left = kc % 4;
+  size_t k_iter = kc / 8;
+  size_t k_left = kc % 8;
 
   for (size_t ki = 0; ki < k_iter; ki++) {
+    GEMM_F32_K_ITER(ap, bp, vl);
+    ap += csa; bp += rsb;
+    GEMM_F32_K_ITER(ap, bp, vl);
+    ap += csa; bp += rsb;
+    GEMM_F32_K_ITER(ap, bp, vl);
+    ap += csa; bp += rsb;
+    GEMM_F32_K_ITER(ap, bp, vl);
+    ap += csa; bp += rsb;
     GEMM_F32_K_ITER(ap, bp, vl);
     ap += csa; bp += rsb;
     GEMM_F32_K_ITER(ap, bp, vl);
@@ -457,10 +465,18 @@ static inline void gemm_ukernel_f64_6xVL(const double *a, const double *b,
 
   const double *ap = a;
   const double *bp = b;
-  size_t k_iter = kc / 4;
-  size_t k_left = kc % 4;
+  size_t k_iter = kc / 8;
+  size_t k_left = kc % 8;
 
   for (size_t ki = 0; ki < k_iter; ki++) {
+    GEMM_F64_K_ITER(ap, bp, vl);
+    ap += csa; bp += rsb;
+    GEMM_F64_K_ITER(ap, bp, vl);
+    ap += csa; bp += rsb;
+    GEMM_F64_K_ITER(ap, bp, vl);
+    ap += csa; bp += rsb;
+    GEMM_F64_K_ITER(ap, bp, vl);
+    ap += csa; bp += rsb;
     GEMM_F64_K_ITER(ap, bp, vl);
     ap += csa; bp += rsb;
     GEMM_F64_K_ITER(ap, bp, vl);

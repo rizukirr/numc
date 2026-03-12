@@ -100,6 +100,10 @@ static inline __m256 _mm256_exp_ps(__m256 x) {
   /* Clamp to avoid overflow/underflow */
   const __m256 exp_hi = _mm256_set1_ps(88.3762626647949f);
   const __m256 exp_lo = _mm256_set1_ps(-103.972076f);
+
+  /* Save original for underflow/overflow masking */
+  const __m256 x_orig = x;
+
   x = _mm256_max_ps(x, exp_lo);
   x = _mm256_min_ps(x, exp_hi);
 
@@ -125,7 +129,15 @@ static inline __m256 _mm256_exp_ps(__m256 x) {
   ni = _mm256_slli_epi32(ni, 23);
   __m256i result_i = _mm256_add_epi32(_mm256_castps_si256(p), ni);
 
-  return _mm256_castsi256_ps(result_i);
+  __m256 result = _mm256_castsi256_ps(result_i);
+
+  /* Underflow: x < -103.972076 → 0, Overflow: x > 88.376 → +inf */
+  __m256 underflow = _mm256_cmp_ps(x_orig, exp_lo, _CMP_LT_OS);
+  __m256 overflow = _mm256_cmp_ps(x_orig, exp_hi, _CMP_GT_OS);
+  result = _mm256_blendv_ps(result, _mm256_setzero_ps(), underflow);
+  result = _mm256_blendv_ps(result, _mm256_set1_ps(1.0f / 0.0f), overflow);
+
+  return result;
 }
 
 /* ===================================================================
@@ -233,8 +245,14 @@ static inline __m256d _mm256_exp_pd(__m256d x) {
   const __m256d one = _mm256_set1_pd(1.0);
 
   /* Clamp */
-  x = _mm256_max_pd(x, _mm256_set1_pd(-745.133219101941217));
-  x = _mm256_min_pd(x, _mm256_set1_pd(709.782712893383996843));
+  const __m256d exp_lo = _mm256_set1_pd(-745.133219101941217);
+  const __m256d exp_hi = _mm256_set1_pd(709.782712893383996843);
+
+  /* Save original for underflow/overflow masking */
+  const __m256d x_orig = x;
+
+  x = _mm256_max_pd(x, exp_lo);
+  x = _mm256_min_pd(x, exp_hi);
 
   /* n = round(x * log2e) */
   __m256d n = _mm256_round_pd(_mm256_mul_pd(x, log2e),
@@ -271,7 +289,15 @@ static inline __m256d _mm256_exp_pd(__m256d x) {
   ni = _mm256_slli_epi64(ni, 52);
   __m256i result_i = _mm256_add_epi64(_mm256_castpd_si256(p), ni);
 
-  return _mm256_castsi256_pd(result_i);
+  __m256d result = _mm256_castsi256_pd(result_i);
+
+  /* Underflow: x < -745.13 → 0, Overflow: x > 709.78 → +inf */
+  __m256d underflow = _mm256_cmp_pd(x_orig, exp_lo, _CMP_LT_OS);
+  __m256d overflow = _mm256_cmp_pd(x_orig, exp_hi, _CMP_GT_OS);
+  result = _mm256_blendv_pd(result, _mm256_setzero_pd(), underflow);
+  result = _mm256_blendv_pd(result, _mm256_set1_pd(1.0 / 0.0), overflow);
+
+  return result;
 }
 
 /* ===================================================================

@@ -629,7 +629,7 @@ static void bench_reduce_axis(const char *name, ReduceAxisFn fn, int axis,
 static void bench_matmul(size_t M, size_t K, size_t N, int warmup, int iters) {
   /* Re-warm OMP thread pool: after heavy naive integer matmuls from previous
    * sizes, libomp threads may be sleeping (KMP_BLOCKTIME expired). A dummy
-   * parallel region wakes them before BLIS sgemm/dgemm timing. */
+   * parallel region wakes them before packed GEMM timing. */
 #ifdef _OPENMP
 #pragma omp parallel
   { (void)0; }

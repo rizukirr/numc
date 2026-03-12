@@ -2,17 +2,15 @@
 #include <math.h>
 
 /*
- * Tests for the unified numc_matmul() API, which dispatches to BLIS
- * (sgemm/dgemm) for large float ops and naive kernels otherwise.
- * BLIS threshold: >= 32k ops (vendored) or >= 65k ops (system).
+ * Tests for the unified numc_matmul() API, which dispatches to packed
+ * SIMD GEMM for large ops and naive kernels otherwise.
  *
- * We use 64x64 matrices (64*64*64 = 262144 ops > 32k) to ensure
- * the BLIS path is exercised when available.
+ * We use 64x64 matrices to exercise the packed GEMM path.
  */
 
-#define N 64 /* 64x64 => 262144 ops, well above BLIS threshold */
+#define N 64
 
-/* ── Float32 BLIS path ──────────────────────────────────────────── */
+/* ── Float32 ──────────────────────────────────────────────────── */
 
 static int test_matmul_f32_identity(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -75,7 +73,7 @@ static int test_matmul_f32_known_result(void) {
   return 0;
 }
 
-/* ── Float64 BLIS path ──────────────────────────────────────────── */
+/* ── Float64 ──────────────────────────────────────────────────── */
 
 static int test_matmul_f64_identity(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -134,7 +132,7 @@ static int test_matmul_f64_known_result(void) {
   return 0;
 }
 
-/* ── Rectangular shapes through BLIS ────────────────────────────── */
+/* ── Rectangular shapes ────────────────────────────────────────── */
 
 static int test_matmul_f32_rect(void) {
   /* (4 x 128) @ (128 x 8) = (4 x 8), ops = 4*128*8 = 4096 * ... > 32k */
@@ -167,15 +165,15 @@ static int test_matmul_f32_rect(void) {
   return 0;
 }
 
-/* ── Verify BLIS and naive agree ────────────────────────────────── */
+/* ── Verify GEMM and naive agree ───────────────────────────────── */
 
-static int test_matmul_blis_vs_naive_f32(void) {
+static int test_matmul_gemm_vs_naive_f32(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t sh[] = {N, N};
 
   NumcArray *a = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT32);
   NumcArray *b = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT32);
-  NumcArray *c_blis = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT32);
+  NumcArray *c_gemm = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT32);
   NumcArray *c_naive = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT32);
 
   /* Fill with small integers to avoid float rounding differences */
@@ -186,12 +184,12 @@ static int test_matmul_blis_vs_naive_f32(void) {
     db[i] = (float)((i % 5) + 1);
   }
 
-  int err1 = numc_matmul(a, b, c_blis);
+  int err1 = numc_matmul(a, b, c_gemm);
   int err2 = numc_matmul_naive(a, b, c_naive);
   ASSERT_MSG_CTX(err1 == 0 && err2 == 0, "both matmul paths should succeed",
                  ctx);
 
-  float *rb = (float *)numc_array_data(c_blis);
+  float *rb = (float *)numc_array_data(c_gemm);
   float *rn = (float *)numc_array_data(c_naive);
   for (size_t i = 0; i < (size_t)N * N; i++) {
     float diff = fabsf(rb[i] - rn[i]);
@@ -203,13 +201,13 @@ static int test_matmul_blis_vs_naive_f32(void) {
   return 0;
 }
 
-static int test_matmul_blis_vs_naive_f64(void) {
+static int test_matmul_gemm_vs_naive_f64(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t sh[] = {N, N};
 
   NumcArray *a = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT64);
   NumcArray *b = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT64);
-  NumcArray *c_blis = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT64);
+  NumcArray *c_gemm = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT64);
   NumcArray *c_naive = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT64);
 
   double *da = (double *)numc_array_data(a);
@@ -219,12 +217,12 @@ static int test_matmul_blis_vs_naive_f64(void) {
     db[i] = (double)((i % 5) + 1);
   }
 
-  int err1 = numc_matmul(a, b, c_blis);
+  int err1 = numc_matmul(a, b, c_gemm);
   int err2 = numc_matmul_naive(a, b, c_naive);
   ASSERT_MSG_CTX(err1 == 0 && err2 == 0, "both matmul paths should succeed",
                  ctx);
 
-  double *rb = (double *)numc_array_data(c_blis);
+  double *rb = (double *)numc_array_data(c_gemm);
   double *rn = (double *)numc_array_data(c_naive);
   for (size_t i = 0; i < (size_t)N * N; i++) {
     double diff = fabs(rb[i] - rn[i]);
@@ -318,8 +316,8 @@ int main(void) {
   RUN_TEST(test_matmul_f64_known_result);
 
   printf("\nPacked vs naive cross-validation:\n");
-  RUN_TEST(test_matmul_blis_vs_naive_f32);
-  RUN_TEST(test_matmul_blis_vs_naive_f64);
+  RUN_TEST(test_matmul_gemm_vs_naive_f32);
+  RUN_TEST(test_matmul_gemm_vs_naive_f64);
 
   printf("\nPacked GEMM 256x256 cross-validation:\n");
   RUN_TEST(test_matmul_packed_256_f32);

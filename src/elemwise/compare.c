@@ -5,6 +5,13 @@
 #include "arch_dispatch.h"
 #if NUMC_HAVE_AVX2
 #include "intrinsics/compare_avx2.h"
+#elif NUMC_HAVE_SVE
+#include "intrinsics/compare_sve.h"
+#elif NUMC_HAVE_NEON
+#include "intrinsics/compare_neon.h"
+#endif
+#if NUMC_HAVE_RVV
+#include "intrinsics/compare_rvv.h"
 #endif
 
 /* ── Stamp out maximum and minimum ──────────────────────────────────────*/
@@ -128,7 +135,7 @@ static const NumcBinaryKernel le_table[] = {
 DEFINE_ELEMWISE_BINARY(maximum, maximum_table)
 DEFINE_ELEMWISE_BINARY(minimum, minimum_table)
 
-#if NUMC_HAVE_AVX2
+#if NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || NUMC_HAVE_RVV
 #define DEFINE_CMP_WITH_SIMD(NAME, TABLE, SIMD_FN)                          \
   int numc_##NAME(const NumcArray *a, const NumcArray *b, NumcArray *out) { \
     int err = _check_binary(a, b, out);                                     \
@@ -151,11 +158,31 @@ DEFINE_ELEMWISE_BINARY(minimum, minimum_table)
     _binary_op(a, b, out, TABLE);                                           \
     return 0;                                                               \
   }
+#if NUMC_HAVE_AVX2
 DEFINE_CMP_WITH_SIMD(eq, eq_table, _cmp_eq_u8_avx2)
 DEFINE_CMP_WITH_SIMD(gt, gt_table, _cmp_gt_u8_avx2)
 DEFINE_CMP_WITH_SIMD(lt, lt_table, _cmp_lt_u8_avx2)
 DEFINE_CMP_WITH_SIMD(ge, ge_table, _cmp_ge_u8_avx2)
 DEFINE_CMP_WITH_SIMD(le, le_table, _cmp_le_u8_avx2)
+#elif NUMC_HAVE_SVE
+DEFINE_CMP_WITH_SIMD(eq, eq_table, _cmp_eq_u8_sve)
+DEFINE_CMP_WITH_SIMD(gt, gt_table, _cmp_gt_u8_sve)
+DEFINE_CMP_WITH_SIMD(lt, lt_table, _cmp_lt_u8_sve)
+DEFINE_CMP_WITH_SIMD(ge, ge_table, _cmp_ge_u8_sve)
+DEFINE_CMP_WITH_SIMD(le, le_table, _cmp_le_u8_sve)
+#elif NUMC_HAVE_NEON
+DEFINE_CMP_WITH_SIMD(eq, eq_table, _cmp_eq_u8_neon)
+DEFINE_CMP_WITH_SIMD(gt, gt_table, _cmp_gt_u8_neon)
+DEFINE_CMP_WITH_SIMD(lt, lt_table, _cmp_lt_u8_neon)
+DEFINE_CMP_WITH_SIMD(ge, ge_table, _cmp_ge_u8_neon)
+DEFINE_CMP_WITH_SIMD(le, le_table, _cmp_le_u8_neon)
+#elif NUMC_HAVE_RVV
+DEFINE_CMP_WITH_SIMD(eq, eq_table, _cmp_eq_u8_rvv)
+DEFINE_CMP_WITH_SIMD(gt, gt_table, _cmp_gt_u8_rvv)
+DEFINE_CMP_WITH_SIMD(lt, lt_table, _cmp_lt_u8_rvv)
+DEFINE_CMP_WITH_SIMD(ge, ge_table, _cmp_ge_u8_rvv)
+DEFINE_CMP_WITH_SIMD(le, le_table, _cmp_le_u8_rvv)
+#endif
 #undef DEFINE_CMP_WITH_SIMD
 #else
 DEFINE_ELEMWISE_BINARY(eq, eq_table)

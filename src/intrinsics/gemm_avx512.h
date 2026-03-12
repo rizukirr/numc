@@ -176,11 +176,11 @@ static inline void gemm_ukernel_f32_12x32(const float *a, const float *b,
   }
 
   /* Pointer-based iteration through packed A (stride MR=12) and B (stride
-   * NR=32). 4x unrolled K-loop (BLIS pattern: k_iter = kc/4, k_left = kc%4). */
+   * NR=32). 8x unrolled K-loop with A+B prefetch (BLIS SKX pattern). */
   const float *ap = a;
   const float *bp = b;
-  size_t k_iter = kc / 4;
-  size_t k_left = kc % 4;
+  size_t k_iter = kc / 8;
+  size_t k_left = kc % 8;
 
   for (size_t ki = 0; ki < k_iter; ki++) {
     GEMM_F32_K_ITER(ap, bp);
@@ -190,6 +190,20 @@ static inline void gemm_ukernel_f32_12x32(const float *a, const float *b,
     ap += csa;
     bp += rsb;
     _mm_prefetch((const char *)(ap + 2 * GEMM_F32_MR), _MM_HINT_T0);
+    GEMM_F32_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    GEMM_F32_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    _mm_prefetch((const char *)(bp + 2 * GEMM_F32_NR), _MM_HINT_T0);
+    GEMM_F32_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    GEMM_F32_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    _mm_prefetch((const char *)(ap + 4 * GEMM_F32_MR), _MM_HINT_T0);
     GEMM_F32_K_ITER(ap, bp);
     ap += csa;
     bp += rsb;
@@ -389,8 +403,8 @@ static inline void gemm_ukernel_f64_14x16(const double *a, const double *b,
 
   const double *ap = a;
   const double *bp = b;
-  size_t k_iter = kc / 4;
-  size_t k_left = kc % 4;
+  size_t k_iter = kc / 8;
+  size_t k_left = kc % 8;
 
   for (size_t ki = 0; ki < k_iter; ki++) {
     GEMM_F64_K_ITER(ap, bp);
@@ -400,6 +414,20 @@ static inline void gemm_ukernel_f64_14x16(const double *a, const double *b,
     ap += csa;
     bp += rsb;
     _mm_prefetch((const char *)(ap + 2 * GEMM_F64_MR), _MM_HINT_T0);
+    GEMM_F64_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    GEMM_F64_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    _mm_prefetch((const char *)(bp + 2 * GEMM_F64_NR), _MM_HINT_T0);
+    GEMM_F64_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    GEMM_F64_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    _mm_prefetch((const char *)(ap + 4 * GEMM_F64_MR), _MM_HINT_T0);
     GEMM_F64_K_ITER(ap, bp);
     ap += csa;
     bp += rsb;

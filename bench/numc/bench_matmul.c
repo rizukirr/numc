@@ -160,8 +160,8 @@ static void bench_dtype_comparison(void) {
       continue;
     }
 
-    /* Float types use BLIS threading; need extra warmup to
-     * stabilize the OpenMP thread pool after naive-kernel gaps. */
+    /* Float types use OpenMP threading; need extra warmup to
+     * stabilize the thread pool after naive-kernel gaps. */
     int warmup =
         (dt == NUMC_DTYPE_FLOAT32 || dt == NUMC_DTYPE_FLOAT64) ? 50 : 5;
     double us = run(a, b, out, warmup, 20);
@@ -229,9 +229,6 @@ int main(void) {
 #endif
 #ifdef _OPENMP
          " | OpenMP"
-#endif
-#ifdef HAVE_BLAS
-         " | BLAS (BLIS)"
 #endif
          "\n");
 

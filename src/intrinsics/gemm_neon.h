@@ -17,7 +17,7 @@
  *
  * f64 6x8: 24 acc + 4 B + 3 A = 31/32 registers.
  *   KC x NR sliver in L1: 256 x 8 x 8 = 16KB < 32KB
- *   MC x KC panel  in L2: 72 x 256 x 8 = 144KB < 256KB
+ *   MC x KC panel  in L2: 96 x 256 x 8 = 196KB < 256KB
  */
 #define GEMM_F32_MR 8
 #define GEMM_F32_NR 12
@@ -26,7 +26,7 @@
 
 #define GEMM_F64_MR 6
 #define GEMM_F64_NR 8
-#define GEMM_F64_MC 72
+#define GEMM_F64_MC 96
 #define GEMM_F64_KC 256
 
 #define GEMM_I32_MR 6
@@ -51,7 +51,7 @@
 #define GEMM_OMP_THRESHOLD (1 << 23)
 
 #define GEMM_F32_NC 4080
-#define GEMM_F64_NC 4080
+#define GEMM_F64_NC 2048
 
 /* ── Float32 packing routines ──────────────────────────────────────────── */
 
@@ -268,28 +268,33 @@ static inline void gemm_ukernel_f32_8x12(const float *a, const float *b,
 
   const float *ap = a;
   const float *bp = b;
-  size_t k_iter = kc / 4;
-  size_t k_left = kc % 4;
+  size_t k_iter = kc / 8;
+  size_t k_left = kc % 8;
 
   for (size_t ki = 0; ki < k_iter; ki++) {
     GEMM_F32_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
+    ap += csa; bp += rsb;
     GEMM_F32_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
+    ap += csa; bp += rsb;
     __builtin_prefetch(ap + 64, 0, 3);
     GEMM_F32_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
+    ap += csa; bp += rsb;
     GEMM_F32_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
+    ap += csa; bp += rsb;
+    __builtin_prefetch(bp + 96, 0, 3);
+    GEMM_F32_K_ITER(ap, bp);
+    ap += csa; bp += rsb;
+    GEMM_F32_K_ITER(ap, bp);
+    ap += csa; bp += rsb;
+    __builtin_prefetch(ap + 128, 0, 3);
+    GEMM_F32_K_ITER(ap, bp);
+    ap += csa; bp += rsb;
+    GEMM_F32_K_ITER(ap, bp);
+    ap += csa; bp += rsb;
   }
   for (size_t ki = 0; ki < k_left; ki++) {
     GEMM_F32_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
+    ap += csa; bp += rsb;
   }
 
   vst1q_f32(c, c00);
@@ -563,28 +568,33 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
 
   const double *ap = a;
   const double *bp = b;
-  size_t k_iter = kc / 4;
-  size_t k_left = kc % 4;
+  size_t k_iter = kc / 8;
+  size_t k_left = kc % 8;
 
   for (size_t ki = 0; ki < k_iter; ki++) {
     GEMM_F64_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
+    ap += csa; bp += rsb;
     GEMM_F64_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
+    ap += csa; bp += rsb;
     __builtin_prefetch(ap + 48, 0, 3);
     GEMM_F64_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
+    ap += csa; bp += rsb;
     GEMM_F64_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
+    ap += csa; bp += rsb;
+    __builtin_prefetch(bp + 64, 0, 3);
+    GEMM_F64_K_ITER(ap, bp);
+    ap += csa; bp += rsb;
+    GEMM_F64_K_ITER(ap, bp);
+    ap += csa; bp += rsb;
+    __builtin_prefetch(ap + 96, 0, 3);
+    GEMM_F64_K_ITER(ap, bp);
+    ap += csa; bp += rsb;
+    GEMM_F64_K_ITER(ap, bp);
+    ap += csa; bp += rsb;
   }
   for (size_t ki = 0; ki < k_left; ki++) {
     GEMM_F64_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
+    ap += csa; bp += rsb;
   }
 
   vst1q_f64(c, c00);

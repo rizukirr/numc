@@ -9,11 +9,6 @@ set -e
 BUILD_DIR="build"
 CC="${CC:-clang}"
 PYTHON_VENV="bench/numpy/.venv/bin/python3"
-NUMC_USE_BLAS="${NUMC_USE_BLAS:-ON}"
-NUMC_VENDOR_BLIS="${NUMC_VENDOR_BLIS:-ON}"
-NUMC_BLAS_BACKEND="${NUMC_BLAS_BACKEND:-BLIS}"
-NUMC_VENDOR_OPENBLAS="${NUMC_VENDOR_OPENBLAS:-OFF}"
-BLIS_CONFIG="${BLIS_CONFIG:-auto}"
 
 # --- Colors ---
 BLUE='\033[0;34m'
@@ -33,17 +28,12 @@ build() {
     local asan=$2
     local extra_opts=$3
     
-    info "Configuring ${build_type} build (CC=${CC}, ASan=${asan}, BLAS=${NUMC_USE_BLAS}, Backend=${NUMC_BLAS_BACKEND})..."
+    info "Configuring ${build_type} build (CC=${CC}, ASan=${asan})..."
 
     cmake -S . -B "$BUILD_DIR" \
         -DCMAKE_BUILD_TYPE="$build_type" \
         -DCMAKE_C_COMPILER="$CC" \
         -DNUMC_ENABLE_ASAN="$asan" \
-        -DNUMC_USE_BLAS="$NUMC_USE_BLAS" \
-        -DNUMC_VENDOR_BLIS="$NUMC_VENDOR_BLIS" \
-        -DNUMC_BLAS_BACKEND="$NUMC_BLAS_BACKEND" \
-        -DNUMC_VENDOR_OPENBLAS="$NUMC_VENDOR_OPENBLAS" \
-        -DBLIS_CONFIG="$BLIS_CONFIG" \
         $extra_opts
         
     info "Building..."
@@ -126,7 +116,6 @@ case $COMMAND in
             -DCMAKE_C_FLAGS="--target=aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu" \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
             -DCMAKE_C_COMPILER_TARGET=aarch64-linux-gnu \
-            -DNUMC_USE_BLAS=OFF \
             -DCMAKE_BUILD_TYPE=Release
         cmake --build "$ARM_BUILD" -j$(nproc)
 
@@ -155,8 +144,7 @@ case $COMMAND in
         info "Cross-compiling for $TARGET (toolchain: $TOOLCHAIN)..."
         cmake -S . -B "$CROSS_BUILD" \
             -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DNUMC_USE_BLAS=OFF
+            -DCMAKE_BUILD_TYPE=Release
         cmake --build "$CROSS_BUILD" -j$(nproc)
         success "Build complete: $CROSS_BUILD"
 
@@ -193,7 +181,6 @@ case $COMMAND in
         info "Building AVX-512 target in $AVX512_BUILD..."
         cmake -S . -B "$AVX512_BUILD" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DNUMC_USE_BLAS=OFF \
             -DNUMC_OPTIMIZE_NATIVE=OFF \
             -DCMAKE_C_FLAGS="-O3 -mavx512f -mavx512dq -mavx512vl -mfma"
         cmake --build "$AVX512_BUILD" -j$(nproc)
@@ -223,32 +210,9 @@ case $COMMAND in
         fi
         ;;
 
-    "bench-blas")
-        mkdir -p bench/blas_ab
-
-        info "=== Building with BLIS backend ==="
-        NUMC_BLAS_BACKEND=BLIS NUMC_VENDOR_BLIS=ON BUILD_DIR=build-blis build Release OFF
-        export OMP_PROC_BIND="${OMP_PROC_BIND:-close}"
-        export OMP_PLACES="${OMP_PLACES:-cores}"
-
-        info "Running BLIS matmul benchmark..."
-        ./build-blis/bin/bench_numc_csv > bench/blas_ab/blis.csv
-        success "BLIS results -> bench/blas_ab/blis.csv"
-
-        info "=== Building with OpenBLAS backend ==="
-        NUMC_BLAS_BACKEND=OPENBLAS NUMC_VENDOR_OPENBLAS=ON NUMC_VENDOR_BLIS=OFF BUILD_DIR=build-openblas build Release OFF
-
-        info "Running OpenBLAS matmul benchmark..."
-        ./build-openblas/bin/bench_numc_csv > bench/blas_ab/openblas.csv
-        success "OpenBLAS results -> bench/blas_ab/openblas.csv"
-
-        info "A/B results saved to bench/blas_ab/"
-        info "Compare matmul rows: grep matmul bench/blas_ab/*.csv"
-        ;;
-
     "clean")
         info "Cleaning build directories..."
-        rm -rf build build_aarch64 build_test build-blis build-openblas build-avx512
+        rm -rf build build_aarch64 build_test build-avx512
         success "Clean complete"
         ;;
 "rebuild")
@@ -306,7 +270,6 @@ case $COMMAND in
     echo "  release [cc]   Build Release and run demos"
     echo "  test [cc]      Build Debug + ASan and run ctest"
     echo "  bench [cc]     Build Release and run CSV benchmarks"
-    echo "  bench-blas     A/B benchmark: BLIS vs OpenBLAS matmul"
     echo "  cross-arm      Cross-build for AArch64 and run via QEMU"
     echo "  clean          Remove all build directories"
     echo "  rebuild [cc]   Fresh debug build"

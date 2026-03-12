@@ -18,8 +18,7 @@ build*
 /.geminiignore
 /docs/superpowers/
 
-# BLIS build artifacts (vendored submodule)
-external/blis/lib/
-external/blis/include/blis/blis.h
-external/blis/obj/
+# External reference repos (not dependencies, kept for optimization reference)
+external/
+
 .worktrees/
