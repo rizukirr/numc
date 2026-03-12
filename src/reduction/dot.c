@@ -297,7 +297,8 @@ static const GemmSimdKernel gemm_simd_table[NUMC_DTYPE_COUNT] = {
     const CT *pb = (const CT *)b;                                             \
     size_t total_bytes = n * sizeof(CT) * 2;                                  \
     int nt = (int)(total_bytes / NUMC_OMP_BYTES_PER_THREAD);                  \
-    if (nt > 4) nt = 4;                                                       \
+    if (nt > 4)                                                               \
+      nt = 4;                                                                 \
     if (total_bytes > NUMC_OMP_BYTE_THRESHOLD && nt >= 2) {                   \
       CT global = 0;                                                          \
       NUMC_PRAGMA(omp parallel for reduction(+ : global)                       \

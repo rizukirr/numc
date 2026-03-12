@@ -101,7 +101,8 @@ typedef void (*NumcBinaryReductionKernel)(const char *a, const char *b,
       const C_TYPE *pa = (const C_TYPE *)a;                             \
       size_t total_bytes = n * sizeof(C_TYPE);                          \
       int nt = (int)(total_bytes / NUMC_OMP_REDUCE_BYTES_PER_THREAD);   \
-      if (nt > 4) nt = 4;                                               \
+      if (nt > 4)                                                       \
+        nt = 4;                                                         \
       if (total_bytes > NUMC_OMP_REDUCE_BYTE_THRESHOLD && nt >= 2) {    \
         C_TYPE global = (INIT);                                         \
         NUMC_PRAGMA(omp parallel for reduction(OMP_OP:global)                  \

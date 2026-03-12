@@ -708,29 +708,29 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
 
   /* One K-iteration block: load B, broadcast 6 A scalars, 12 FMAs.
    * Macro avoids duplicating 20 asm lines per unrolled iteration. */
-#define GEMM_F64_ASM_K_ITER                                 \
-      "vmovupd (%[bp]), %%ymm12\n\t"                       \
-      "vmovupd 32(%[bp]), %%ymm13\n\t"                     \
-      "vbroadcastsd (%[ap]), %%ymm14\n\t"                  \
-      "vfmadd231pd %%ymm14, %%ymm12, %%ymm0\n\t"          \
-      "vfmadd231pd %%ymm14, %%ymm13, %%ymm1\n\t"          \
-      "vbroadcastsd 8(%[ap]), %%ymm14\n\t"                 \
-      "vfmadd231pd %%ymm14, %%ymm12, %%ymm2\n\t"          \
-      "vfmadd231pd %%ymm14, %%ymm13, %%ymm3\n\t"          \
-      "vbroadcastsd 16(%[ap]), %%ymm14\n\t"                \
-      "vfmadd231pd %%ymm14, %%ymm12, %%ymm4\n\t"          \
-      "vfmadd231pd %%ymm14, %%ymm13, %%ymm5\n\t"          \
-      "vbroadcastsd 24(%[ap]), %%ymm14\n\t"                \
-      "vfmadd231pd %%ymm14, %%ymm12, %%ymm6\n\t"          \
-      "vfmadd231pd %%ymm14, %%ymm13, %%ymm7\n\t"          \
-      "vbroadcastsd 32(%[ap]), %%ymm14\n\t"                \
-      "vfmadd231pd %%ymm14, %%ymm12, %%ymm8\n\t"          \
-      "vfmadd231pd %%ymm14, %%ymm13, %%ymm9\n\t"          \
-      "vbroadcastsd 40(%[ap]), %%ymm14\n\t"                \
-      "vfmadd231pd %%ymm14, %%ymm12, %%ymm10\n\t"         \
-      "vfmadd231pd %%ymm14, %%ymm13, %%ymm11\n\t"         \
-      "add %[csa_bytes], %[ap]\n\t"                        \
-      "add %[rsb_bytes], %[bp]\n\t"
+#define GEMM_F64_ASM_K_ITER                   \
+  "vmovupd (%[bp]), %%ymm12\n\t"              \
+  "vmovupd 32(%[bp]), %%ymm13\n\t"            \
+  "vbroadcastsd (%[ap]), %%ymm14\n\t"         \
+  "vfmadd231pd %%ymm14, %%ymm12, %%ymm0\n\t"  \
+  "vfmadd231pd %%ymm14, %%ymm13, %%ymm1\n\t"  \
+  "vbroadcastsd 8(%[ap]), %%ymm14\n\t"        \
+  "vfmadd231pd %%ymm14, %%ymm12, %%ymm2\n\t"  \
+  "vfmadd231pd %%ymm14, %%ymm13, %%ymm3\n\t"  \
+  "vbroadcastsd 16(%[ap]), %%ymm14\n\t"       \
+  "vfmadd231pd %%ymm14, %%ymm12, %%ymm4\n\t"  \
+  "vfmadd231pd %%ymm14, %%ymm13, %%ymm5\n\t"  \
+  "vbroadcastsd 24(%[ap]), %%ymm14\n\t"       \
+  "vfmadd231pd %%ymm14, %%ymm12, %%ymm6\n\t"  \
+  "vfmadd231pd %%ymm14, %%ymm13, %%ymm7\n\t"  \
+  "vbroadcastsd 32(%[ap]), %%ymm14\n\t"       \
+  "vfmadd231pd %%ymm14, %%ymm12, %%ymm8\n\t"  \
+  "vfmadd231pd %%ymm14, %%ymm13, %%ymm9\n\t"  \
+  "vbroadcastsd 40(%[ap]), %%ymm14\n\t"       \
+  "vfmadd231pd %%ymm14, %%ymm12, %%ymm10\n\t" \
+  "vfmadd231pd %%ymm14, %%ymm13, %%ymm11\n\t" \
+  "add %[csa_bytes], %[ap]\n\t"               \
+  "add %[rsb_bytes], %[bp]\n\t"
 
   __asm__ __volatile__(
       /* Prefetch C rows into L1 */
@@ -815,9 +815,7 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
       "jz 6f\n\t"
 
       ".p2align 4\n\t"
-      "5:\n\t"
-      GEMM_F64_ASM_K_ITER
-      "dec %%rcx\n\t"
+      "5:\n\t" GEMM_F64_ASM_K_ITER "dec %%rcx\n\t"
       "jnz 5b\n\t"
 
       "6:\n\t"

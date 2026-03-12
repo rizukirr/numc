@@ -273,28 +273,37 @@ static inline void gemm_ukernel_f32_8x12(const float *a, const float *b,
 
   for (size_t ki = 0; ki < k_iter; ki++) {
     GEMM_F32_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     GEMM_F32_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     __builtin_prefetch(ap + 64, 0, 3);
     GEMM_F32_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     GEMM_F32_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     __builtin_prefetch(bp + 96, 0, 3);
     GEMM_F32_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     GEMM_F32_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     __builtin_prefetch(ap + 128, 0, 3);
     GEMM_F32_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     GEMM_F32_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
   }
   for (size_t ki = 0; ki < k_left; ki++) {
     GEMM_F32_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
   }
 
   vst1q_f32(c, c00);
@@ -573,28 +582,37 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
 
   for (size_t ki = 0; ki < k_iter; ki++) {
     GEMM_F64_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     GEMM_F64_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     __builtin_prefetch(ap + 48, 0, 3);
     GEMM_F64_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     GEMM_F64_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     __builtin_prefetch(bp + 64, 0, 3);
     GEMM_F64_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     GEMM_F64_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     __builtin_prefetch(ap + 96, 0, 3);
     GEMM_F64_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
     GEMM_F64_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
   }
   for (size_t ki = 0; ki < k_left; ki++) {
     GEMM_F64_K_ITER(ap, bp);
-    ap += csa; bp += rsb;
+    ap += csa;
+    bp += rsb;
   }
 
   vst1q_f64(c, c00);

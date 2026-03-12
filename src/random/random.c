@@ -71,9 +71,9 @@ DEFINE_RAND_KERNEL(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, CONV_F64)
 #if NUMC_HAVE_AVX2
 static inline void _rand_f64_convert4_avx2(const uint64_t *raw, double *dst) {
   __m256i r = _mm256_loadu_si256((const __m256i *)raw);
-  __m256i bits = _mm256_or_si256(
-      _mm256_srli_epi64(r, 11),
-      _mm256_set1_epi64x((int64_t)0x3FF0000000000000LL));
+  __m256i bits =
+      _mm256_or_si256(_mm256_srli_epi64(r, 11),
+                      _mm256_set1_epi64x((int64_t)0x3FF0000000000000LL));
   __m256d v = _mm256_sub_pd(_mm256_castsi256_pd(bits), _mm256_set1_pd(1.0));
   _mm256_storeu_pd(dst, v);
 }
@@ -307,10 +307,14 @@ DEFINE_RANDN_KERNEL(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _prng_normal_f64())
 /* ── Dispatch tables (dtype -> kernel) ─────────────────────────────*/
 
 static const NumcRandKernel rand_table[] = {
-    ER(rand, NUMC_DTYPE_INT8),    ER(rand, NUMC_DTYPE_INT16),
-    ER(rand, NUMC_DTYPE_INT32),   ER(rand, NUMC_DTYPE_INT64),
-    ER(rand, NUMC_DTYPE_UINT8),   ER(rand, NUMC_DTYPE_UINT16),
-    ER(rand, NUMC_DTYPE_UINT32),  ER(rand, NUMC_DTYPE_UINT64),
+    ER(rand, NUMC_DTYPE_INT8),
+    ER(rand, NUMC_DTYPE_INT16),
+    ER(rand, NUMC_DTYPE_INT32),
+    ER(rand, NUMC_DTYPE_INT64),
+    ER(rand, NUMC_DTYPE_UINT8),
+    ER(rand, NUMC_DTYPE_UINT16),
+    ER(rand, NUMC_DTYPE_UINT32),
+    ER(rand, NUMC_DTYPE_UINT64),
     ER(rand, NUMC_DTYPE_FLOAT32),
 #if NUMC_HAVE_AVX2
     [NUMC_DTYPE_FLOAT64] = _kern_rand_f64_avx2,
