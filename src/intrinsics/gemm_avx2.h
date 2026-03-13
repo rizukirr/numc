@@ -57,7 +57,7 @@
 
 /* N-dimension blocking for L3 residency (B panel: KC × NC elements) */
 #define GEMM_F32_NC 4080
-#define GEMM_F64_NC 2048
+#define GEMM_F64_NC 4080
 
 /* ── Float32 packing routines ──────────────────────────────────────────── */
 
@@ -735,33 +735,33 @@ static inline void gemm_f32_avx2(const float *a, const float *b, float *out,
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Float64: 6×8 micro-kernel  (12 acc + 1 A broadcast + 2 B loads = 15 YMM)
+   Float64: 6×8 micro-kernel  (12 acc + 2 A broadcast + 2 B loads = 16 YMM)
+   BLIS-style B pre-load: B vectors loaded at end of prev iter, ready for
+   next iter. 2 alternating A broadcast registers for better ILP.
    ═══════════════════════════════════════════════════════════════════════════
  */
 
-#define GEMM_F64_K_ITER(ap, bp)             \
-  do {                                      \
-    __m256d b0 = _mm256_loadu_pd(bp);       \
-    __m256d b1 = _mm256_loadu_pd((bp) + 4); \
-    __m256d av;                             \
-    av = _mm256_broadcast_sd((ap) + 0);     \
-    c00 = _mm256_fmadd_pd(av, b0, c00);     \
-    c01 = _mm256_fmadd_pd(av, b1, c01);     \
-    av = _mm256_broadcast_sd((ap) + 1);     \
-    c10 = _mm256_fmadd_pd(av, b0, c10);     \
-    c11 = _mm256_fmadd_pd(av, b1, c11);     \
-    av = _mm256_broadcast_sd((ap) + 2);     \
-    c20 = _mm256_fmadd_pd(av, b0, c20);     \
-    c21 = _mm256_fmadd_pd(av, b1, c21);     \
-    av = _mm256_broadcast_sd((ap) + 3);     \
-    c30 = _mm256_fmadd_pd(av, b0, c30);     \
-    c31 = _mm256_fmadd_pd(av, b1, c31);     \
-    av = _mm256_broadcast_sd((ap) + 4);     \
-    c40 = _mm256_fmadd_pd(av, b0, c40);     \
-    c41 = _mm256_fmadd_pd(av, b1, c41);     \
-    av = _mm256_broadcast_sd((ap) + 5);     \
-    c50 = _mm256_fmadd_pd(av, b0, c50);     \
-    c51 = _mm256_fmadd_pd(av, b1, c51);     \
+/* MSVC intrinsics K-iter: B pre-loaded in b0/b1 before call. */
+#define GEMM_F64_K_ITER(ap, b0, b1)                \
+  do {                                             \
+    __m256d a0 = _mm256_broadcast_sd((ap) + 0);    \
+    __m256d a1 = _mm256_broadcast_sd((ap) + 1);    \
+    c00 = _mm256_fmadd_pd(a0, b0, c00);            \
+    c01 = _mm256_fmadd_pd(a0, b1, c01);            \
+    c10 = _mm256_fmadd_pd(a1, b0, c10);            \
+    c11 = _mm256_fmadd_pd(a1, b1, c11);            \
+    a0 = _mm256_broadcast_sd((ap) + 2);            \
+    a1 = _mm256_broadcast_sd((ap) + 3);            \
+    c20 = _mm256_fmadd_pd(a0, b0, c20);            \
+    c21 = _mm256_fmadd_pd(a0, b1, c21);            \
+    c30 = _mm256_fmadd_pd(a1, b0, c30);            \
+    c31 = _mm256_fmadd_pd(a1, b1, c31);            \
+    a0 = _mm256_broadcast_sd((ap) + 4);            \
+    a1 = _mm256_broadcast_sd((ap) + 5);            \
+    c40 = _mm256_fmadd_pd(a0, b0, c40);            \
+    c41 = _mm256_fmadd_pd(a0, b1, c41);            \
+    c50 = _mm256_fmadd_pd(a1, b0, c50);            \
+    c51 = _mm256_fmadd_pd(a1, b1, c51);            \
   } while (0)
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -786,31 +786,33 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
   const double *ap = a;
   const double *bp = b;
 
-  /* One K-iteration block: load B, broadcast 6 A scalars, 12 FMAs.
-   * Macro avoids duplicating 20 asm lines per unrolled iteration. */
-#define GEMM_F64_ASM_K_ITER                   \
-  "vmovupd (%[bp]), %%ymm12\n\t"              \
-  "vmovupd 32(%[bp]), %%ymm13\n\t"            \
-  "vbroadcastsd (%[ap]), %%ymm14\n\t"         \
-  "vfmadd231pd %%ymm14, %%ymm12, %%ymm0\n\t"  \
-  "vfmadd231pd %%ymm14, %%ymm13, %%ymm1\n\t"  \
-  "vbroadcastsd 8(%[ap]), %%ymm14\n\t"        \
-  "vfmadd231pd %%ymm14, %%ymm12, %%ymm2\n\t"  \
-  "vfmadd231pd %%ymm14, %%ymm13, %%ymm3\n\t"  \
-  "vbroadcastsd 16(%[ap]), %%ymm14\n\t"       \
-  "vfmadd231pd %%ymm14, %%ymm12, %%ymm4\n\t"  \
-  "vfmadd231pd %%ymm14, %%ymm13, %%ymm5\n\t"  \
-  "vbroadcastsd 24(%[ap]), %%ymm14\n\t"       \
-  "vfmadd231pd %%ymm14, %%ymm12, %%ymm6\n\t"  \
-  "vfmadd231pd %%ymm14, %%ymm13, %%ymm7\n\t"  \
-  "vbroadcastsd 32(%[ap]), %%ymm14\n\t"       \
-  "vfmadd231pd %%ymm14, %%ymm12, %%ymm8\n\t"  \
-  "vfmadd231pd %%ymm14, %%ymm13, %%ymm9\n\t"  \
-  "vbroadcastsd 40(%[ap]), %%ymm14\n\t"       \
-  "vfmadd231pd %%ymm14, %%ymm12, %%ymm10\n\t" \
-  "vfmadd231pd %%ymm14, %%ymm13, %%ymm11\n\t" \
-  "add %[csa_bytes], %[ap]\n\t"               \
-  "add %[rsb_bytes], %[bp]\n\t"
+  /* BLIS-style K-iteration: B pre-loaded in ymm12/ymm13 from previous
+   * iteration (or initial pre-load). Uses 2 A broadcast registers
+   * (ymm14/ymm15) for better ILP — allows second broadcast to overlap
+   * with first FMA pair. Pre-loads next B at end for next iteration. */
+#define GEMM_F64_ASM_K_ITER                        \
+  "vbroadcastsd (%[ap]), %%ymm14\n\t"              \
+  "vbroadcastsd 8(%[ap]), %%ymm15\n\t"             \
+  "vfmadd231pd %%ymm14, %%ymm12, %%ymm0\n\t"      \
+  "vfmadd231pd %%ymm14, %%ymm13, %%ymm1\n\t"      \
+  "vfmadd231pd %%ymm15, %%ymm12, %%ymm2\n\t"      \
+  "vfmadd231pd %%ymm15, %%ymm13, %%ymm3\n\t"      \
+  "vbroadcastsd 16(%[ap]), %%ymm14\n\t"            \
+  "vbroadcastsd 24(%[ap]), %%ymm15\n\t"            \
+  "vfmadd231pd %%ymm14, %%ymm12, %%ymm4\n\t"      \
+  "vfmadd231pd %%ymm14, %%ymm13, %%ymm5\n\t"      \
+  "vfmadd231pd %%ymm15, %%ymm12, %%ymm6\n\t"      \
+  "vfmadd231pd %%ymm15, %%ymm13, %%ymm7\n\t"      \
+  "vbroadcastsd 32(%[ap]), %%ymm14\n\t"            \
+  "vbroadcastsd 40(%[ap]), %%ymm15\n\t"            \
+  "vfmadd231pd %%ymm14, %%ymm12, %%ymm8\n\t"      \
+  "vfmadd231pd %%ymm14, %%ymm13, %%ymm9\n\t"      \
+  "vfmadd231pd %%ymm15, %%ymm12, %%ymm10\n\t"     \
+  "vfmadd231pd %%ymm15, %%ymm13, %%ymm11\n\t"     \
+  "add %[csa_bytes], %[ap]\n\t"                    \
+  "add %[rsb_bytes], %[bp]\n\t"                    \
+  "vmovupd (%[bp]), %%ymm12\n\t"                   \
+  "vmovupd 32(%[bp]), %%ymm13\n\t"
 
   __asm__ __volatile__(
       /* Prefetch C rows into L1 */
@@ -855,6 +857,10 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
       "vmovupd 32(%[c5]), %%ymm11\n\t"
 
       "2:\n\t"
+      /* Pre-load first B vector pair (BLIS-style) */
+      "vmovupd (%[bp]), %%ymm12\n\t"
+      "vmovupd 32(%[bp]), %%ymm13\n\t"
+
       /* K-loop: k_iter = kc >> 3 (8× unrolled) */
       "mov %[kc], %%rcx\n\t"
       "shr $3, %%rcx\n\t"
@@ -862,28 +868,14 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
 
       ".p2align 5\n\t"
       "3:\n\t"
-      /* === K iteration 0 === */
-      GEMM_F64_ASM_K_ITER
-      /* === K iteration 1 === */
-      GEMM_F64_ASM_K_ITER
-      /* Prefetch A ahead (next 8 micro-panels = 8*MR*8 = 384B) */
-      "prefetcht0 384(%[ap])\n\t"
-      /* === K iteration 2 === */
-      GEMM_F64_ASM_K_ITER
-      /* === K iteration 3 === */
-      GEMM_F64_ASM_K_ITER
-      /* Prefetch B ahead (next 8 panels = 8*NR*8 = 512B) */
-      "prefetcht0 512(%[bp])\n\t"
-      /* === K iteration 4 === */
-      GEMM_F64_ASM_K_ITER
-      /* === K iteration 5 === */
-      GEMM_F64_ASM_K_ITER
-      /* Prefetch A further ahead */
-      "prefetcht0 768(%[ap])\n\t"
-      /* === K iteration 6 === */
-      GEMM_F64_ASM_K_ITER
-      /* === K iteration 7 === */
-      GEMM_F64_ASM_K_ITER
+      GEMM_F64_ASM_K_ITER /* iter 0 */
+      GEMM_F64_ASM_K_ITER /* iter 1 */
+      GEMM_F64_ASM_K_ITER /* iter 2 */
+      GEMM_F64_ASM_K_ITER /* iter 3 */
+      GEMM_F64_ASM_K_ITER /* iter 4 */
+      GEMM_F64_ASM_K_ITER /* iter 5 */
+      GEMM_F64_ASM_K_ITER /* iter 6 */
+      GEMM_F64_ASM_K_ITER /* iter 7 */
 
       "dec %%rcx\n\t"
       "jnz 3b\n\t"
@@ -895,10 +887,20 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
       "jz 6f\n\t"
 
       ".p2align 5\n\t"
-      "5:\n\t" GEMM_F64_ASM_K_ITER "dec %%rcx\n\t"
+      "5:\n\t"
+      GEMM_F64_ASM_K_ITER
+      "dec %%rcx\n\t"
       "jnz 5b\n\t"
 
       "6:\n\t"
+      /* Refresh C prefetch — lines may have been evicted during
+       * K-loop (A+B data exceeds L1 for large K) */
+      "prefetcht0 (%[c0])\n\t"
+      "prefetcht0 (%[c1])\n\t"
+      "prefetcht0 (%[c2])\n\t"
+      "prefetcht0 (%[c3])\n\t"
+      "prefetcht0 (%[c4])\n\t"
+      "prefetcht0 (%[c5])\n\t"
       /* Store accumulators to C */
       "vmovupd %%ymm0, (%[c0])\n\t"
       "vmovupd %%ymm1, 32(%[c0])\n\t"
@@ -918,7 +920,8 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
         [c5] "r"(c5), [kc] "r"((uint64_t)kc), [first] "r"(first),
         [csa_bytes] "r"(csa_bytes), [rsb_bytes] "r"(rsb_bytes)
       : "rcx", "memory", "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6",
-        "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14");
+        "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14",
+        "ymm15");
 
 #undef GEMM_F64_ASM_K_ITER
 }
@@ -971,40 +974,67 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
   size_t k_iter = kc / 8;
   size_t k_left = kc % 8;
 
+  /* Pre-load first B vector pair (BLIS-style) */
+  __m256d b0 = _mm256_loadu_pd(bp);
+  __m256d b1 = _mm256_loadu_pd(bp + 4);
+
   for (size_t ki = 0; ki < k_iter; ki++) {
-    GEMM_F64_K_ITER(ap, bp);
+    GEMM_F64_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
-    GEMM_F64_K_ITER(ap, bp);
+    b0 = _mm256_loadu_pd(bp);
+    b1 = _mm256_loadu_pd(bp + 4);
+    GEMM_F64_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
-    _mm_prefetch((const char *)(ap + 48), _MM_HINT_T0);
-    GEMM_F64_K_ITER(ap, bp);
+    b0 = _mm256_loadu_pd(bp);
+    b1 = _mm256_loadu_pd(bp + 4);
+    GEMM_F64_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
-    GEMM_F64_K_ITER(ap, bp);
+    b0 = _mm256_loadu_pd(bp);
+    b1 = _mm256_loadu_pd(bp + 4);
+    GEMM_F64_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
-    _mm_prefetch((const char *)(bp + 64), _MM_HINT_T0);
-    GEMM_F64_K_ITER(ap, bp);
+    b0 = _mm256_loadu_pd(bp);
+    b1 = _mm256_loadu_pd(bp + 4);
+    GEMM_F64_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
-    GEMM_F64_K_ITER(ap, bp);
+    b0 = _mm256_loadu_pd(bp);
+    b1 = _mm256_loadu_pd(bp + 4);
+    GEMM_F64_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
-    _mm_prefetch((const char *)(ap + 96), _MM_HINT_T0);
-    GEMM_F64_K_ITER(ap, bp);
+    b0 = _mm256_loadu_pd(bp);
+    b1 = _mm256_loadu_pd(bp + 4);
+    GEMM_F64_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
-    GEMM_F64_K_ITER(ap, bp);
+    b0 = _mm256_loadu_pd(bp);
+    b1 = _mm256_loadu_pd(bp + 4);
+    GEMM_F64_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
+    b0 = _mm256_loadu_pd(bp);
+    b1 = _mm256_loadu_pd(bp + 4);
   }
   for (size_t ki = 0; ki < k_left; ki++) {
-    GEMM_F64_K_ITER(ap, bp);
+    GEMM_F64_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
+    b0 = _mm256_loadu_pd(bp);
+    b1 = _mm256_loadu_pd(bp + 4);
   }
+
+  /* Refresh C prefetch — lines may have been evicted during K-loop */
+  _mm_prefetch((const char *)(c), _MM_HINT_T0);
+  _mm_prefetch((const char *)(c + rso), _MM_HINT_T0);
+  _mm_prefetch((const char *)(c + 2 * rso), _MM_HINT_T0);
+  _mm_prefetch((const char *)(c + 3 * rso), _MM_HINT_T0);
+  _mm_prefetch((const char *)(c + 4 * rso), _MM_HINT_T0);
+  _mm_prefetch((const char *)(c + 5 * rso), _MM_HINT_T0);
 
   _mm256_storeu_pd(c, c00);
   _mm256_storeu_pd(c + 4, c01);
