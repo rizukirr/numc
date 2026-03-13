@@ -23,88 +23,87 @@
  * types (e.g., vcgtq_s32 returns uint32x4_t). We AND in the unsigned
  * domain, then reinterpret back to signed for store.
  */
-#define FAST_CMP_SINT_NEON(SFX, CT, VT, UT, VPV, LOAD, STORE,       \
-                           UAND, USET1, REINTERP,                    \
-                           CMPEQ, CMPGT, CMPLT, CMPGE, CMPLE)       \
-  static inline void _fast_eq_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const UT one = USET1(1);                                          \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      STORE(out + i, REINTERP(UAND(CMPEQ(va, vb), one)));            \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] == b[i]);                                    \
-  }                                                                   \
-  static inline void _fast_gt_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const UT one = USET1(1);                                          \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      STORE(out + i, REINTERP(UAND(CMPGT(va, vb), one)));            \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] > b[i]);                                     \
-  }                                                                   \
-  static inline void _fast_lt_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const UT one = USET1(1);                                          \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      STORE(out + i, REINTERP(UAND(CMPLT(va, vb), one)));            \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] < b[i]);                                     \
-  }                                                                   \
-  static inline void _fast_ge_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const UT one = USET1(1);                                          \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      STORE(out + i, REINTERP(UAND(CMPGE(va, vb), one)));            \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] >= b[i]);                                    \
-  }                                                                   \
-  static inline void _fast_le_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const UT one = USET1(1);                                          \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      STORE(out + i, REINTERP(UAND(CMPLE(va, vb), one)));            \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] <= b[i]);                                    \
+#define FAST_CMP_SINT_NEON(SFX, CT, VT, UT, VPV, LOAD, STORE, UAND, USET1, \
+                           REINTERP, CMPEQ, CMPGT, CMPLT, CMPGE, CMPLE)    \
+  static inline void _fast_eq_##SFX##_neon(const void *restrict ap,        \
+                                           const void *restrict bp,        \
+                                           void *restrict op, size_t n) {  \
+    const CT *a = (const CT *)ap;                                          \
+    const CT *b = (const CT *)bp;                                          \
+    CT *out = (CT *)op;                                                    \
+    const UT one = USET1(1);                                               \
+    size_t i = 0;                                                          \
+    for (; i + (VPV) <= n; i += (VPV)) {                                   \
+      VT va = LOAD(a + i);                                                 \
+      VT vb = LOAD(b + i);                                                 \
+      STORE(out + i, REINTERP(UAND(CMPEQ(va, vb), one)));                  \
+    }                                                                      \
+    for (; i < n; i++)                                                     \
+      out[i] = (CT)(a[i] == b[i]);                                         \
+  }                                                                        \
+  static inline void _fast_gt_##SFX##_neon(const void *restrict ap,        \
+                                           const void *restrict bp,        \
+                                           void *restrict op, size_t n) {  \
+    const CT *a = (const CT *)ap;                                          \
+    const CT *b = (const CT *)bp;                                          \
+    CT *out = (CT *)op;                                                    \
+    const UT one = USET1(1);                                               \
+    size_t i = 0;                                                          \
+    for (; i + (VPV) <= n; i += (VPV)) {                                   \
+      VT va = LOAD(a + i);                                                 \
+      VT vb = LOAD(b + i);                                                 \
+      STORE(out + i, REINTERP(UAND(CMPGT(va, vb), one)));                  \
+    }                                                                      \
+    for (; i < n; i++)                                                     \
+      out[i] = (CT)(a[i] > b[i]);                                          \
+  }                                                                        \
+  static inline void _fast_lt_##SFX##_neon(const void *restrict ap,        \
+                                           const void *restrict bp,        \
+                                           void *restrict op, size_t n) {  \
+    const CT *a = (const CT *)ap;                                          \
+    const CT *b = (const CT *)bp;                                          \
+    CT *out = (CT *)op;                                                    \
+    const UT one = USET1(1);                                               \
+    size_t i = 0;                                                          \
+    for (; i + (VPV) <= n; i += (VPV)) {                                   \
+      VT va = LOAD(a + i);                                                 \
+      VT vb = LOAD(b + i);                                                 \
+      STORE(out + i, REINTERP(UAND(CMPLT(va, vb), one)));                  \
+    }                                                                      \
+    for (; i < n; i++)                                                     \
+      out[i] = (CT)(a[i] < b[i]);                                          \
+  }                                                                        \
+  static inline void _fast_ge_##SFX##_neon(const void *restrict ap,        \
+                                           const void *restrict bp,        \
+                                           void *restrict op, size_t n) {  \
+    const CT *a = (const CT *)ap;                                          \
+    const CT *b = (const CT *)bp;                                          \
+    CT *out = (CT *)op;                                                    \
+    const UT one = USET1(1);                                               \
+    size_t i = 0;                                                          \
+    for (; i + (VPV) <= n; i += (VPV)) {                                   \
+      VT va = LOAD(a + i);                                                 \
+      VT vb = LOAD(b + i);                                                 \
+      STORE(out + i, REINTERP(UAND(CMPGE(va, vb), one)));                  \
+    }                                                                      \
+    for (; i < n; i++)                                                     \
+      out[i] = (CT)(a[i] >= b[i]);                                         \
+  }                                                                        \
+  static inline void _fast_le_##SFX##_neon(const void *restrict ap,        \
+                                           const void *restrict bp,        \
+                                           void *restrict op, size_t n) {  \
+    const CT *a = (const CT *)ap;                                          \
+    const CT *b = (const CT *)bp;                                          \
+    CT *out = (CT *)op;                                                    \
+    const UT one = USET1(1);                                               \
+    size_t i = 0;                                                          \
+    for (; i + (VPV) <= n; i += (VPV)) {                                   \
+      VT va = LOAD(a + i);                                                 \
+      VT vb = LOAD(b + i);                                                 \
+      STORE(out + i, REINTERP(UAND(CMPLE(va, vb), one)));                  \
+    }                                                                      \
+    for (; i < n; i++)                                                     \
+      out[i] = (CT)(a[i] <= b[i]);                                         \
   }
 
 /* --- Signed integer instantiations --- */
@@ -141,87 +140,87 @@ FAST_CMP_SINT_NEON(i64, int64_t, int64x2_t, uint64x2_t, 2,
  * Unsigned integer comparisons
  * ════════════════════════════════════════════════════════════════ */
 
-#define FAST_CMP_UINT_NEON(SFX, CT, VT, VPV, LOAD, STORE, AND,       \
-                           CMPEQ, CMPGT, CMPLT, CMPGE, CMPLE, SET1)  \
-  static inline void _fast_eq_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const VT one = SET1((CT)1);                                       \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      STORE(out + i, AND(CMPEQ(va, vb), one));                        \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] == b[i]);                                    \
-  }                                                                   \
-  static inline void _fast_gt_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const VT one = SET1((CT)1);                                       \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      STORE(out + i, AND(CMPGT(va, vb), one));                        \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] > b[i]);                                     \
-  }                                                                   \
-  static inline void _fast_lt_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const VT one = SET1((CT)1);                                       \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      STORE(out + i, AND(CMPLT(va, vb), one));                        \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] < b[i]);                                     \
-  }                                                                   \
-  static inline void _fast_ge_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const VT one = SET1((CT)1);                                       \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      STORE(out + i, AND(CMPGE(va, vb), one));                        \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] >= b[i]);                                    \
-  }                                                                   \
-  static inline void _fast_le_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const VT one = SET1((CT)1);                                       \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      STORE(out + i, AND(CMPLE(va, vb), one));                        \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] <= b[i]);                                    \
+#define FAST_CMP_UINT_NEON(SFX, CT, VT, VPV, LOAD, STORE, AND, CMPEQ, CMPGT, \
+                           CMPLT, CMPGE, CMPLE, SET1)                        \
+  static inline void _fast_eq_##SFX##_neon(const void *restrict ap,          \
+                                           const void *restrict bp,          \
+                                           void *restrict op, size_t n) {    \
+    const CT *a = (const CT *)ap;                                            \
+    const CT *b = (const CT *)bp;                                            \
+    CT *out = (CT *)op;                                                      \
+    const VT one = SET1((CT)1);                                              \
+    size_t i = 0;                                                            \
+    for (; i + (VPV) <= n; i += (VPV)) {                                     \
+      VT va = LOAD(a + i);                                                   \
+      VT vb = LOAD(b + i);                                                   \
+      STORE(out + i, AND(CMPEQ(va, vb), one));                               \
+    }                                                                        \
+    for (; i < n; i++)                                                       \
+      out[i] = (CT)(a[i] == b[i]);                                           \
+  }                                                                          \
+  static inline void _fast_gt_##SFX##_neon(const void *restrict ap,          \
+                                           const void *restrict bp,          \
+                                           void *restrict op, size_t n) {    \
+    const CT *a = (const CT *)ap;                                            \
+    const CT *b = (const CT *)bp;                                            \
+    CT *out = (CT *)op;                                                      \
+    const VT one = SET1((CT)1);                                              \
+    size_t i = 0;                                                            \
+    for (; i + (VPV) <= n; i += (VPV)) {                                     \
+      VT va = LOAD(a + i);                                                   \
+      VT vb = LOAD(b + i);                                                   \
+      STORE(out + i, AND(CMPGT(va, vb), one));                               \
+    }                                                                        \
+    for (; i < n; i++)                                                       \
+      out[i] = (CT)(a[i] > b[i]);                                            \
+  }                                                                          \
+  static inline void _fast_lt_##SFX##_neon(const void *restrict ap,          \
+                                           const void *restrict bp,          \
+                                           void *restrict op, size_t n) {    \
+    const CT *a = (const CT *)ap;                                            \
+    const CT *b = (const CT *)bp;                                            \
+    CT *out = (CT *)op;                                                      \
+    const VT one = SET1((CT)1);                                              \
+    size_t i = 0;                                                            \
+    for (; i + (VPV) <= n; i += (VPV)) {                                     \
+      VT va = LOAD(a + i);                                                   \
+      VT vb = LOAD(b + i);                                                   \
+      STORE(out + i, AND(CMPLT(va, vb), one));                               \
+    }                                                                        \
+    for (; i < n; i++)                                                       \
+      out[i] = (CT)(a[i] < b[i]);                                            \
+  }                                                                          \
+  static inline void _fast_ge_##SFX##_neon(const void *restrict ap,          \
+                                           const void *restrict bp,          \
+                                           void *restrict op, size_t n) {    \
+    const CT *a = (const CT *)ap;                                            \
+    const CT *b = (const CT *)bp;                                            \
+    CT *out = (CT *)op;                                                      \
+    const VT one = SET1((CT)1);                                              \
+    size_t i = 0;                                                            \
+    for (; i + (VPV) <= n; i += (VPV)) {                                     \
+      VT va = LOAD(a + i);                                                   \
+      VT vb = LOAD(b + i);                                                   \
+      STORE(out + i, AND(CMPGE(va, vb), one));                               \
+    }                                                                        \
+    for (; i < n; i++)                                                       \
+      out[i] = (CT)(a[i] >= b[i]);                                           \
+  }                                                                          \
+  static inline void _fast_le_##SFX##_neon(const void *restrict ap,          \
+                                           const void *restrict bp,          \
+                                           void *restrict op, size_t n) {    \
+    const CT *a = (const CT *)ap;                                            \
+    const CT *b = (const CT *)bp;                                            \
+    CT *out = (CT *)op;                                                      \
+    const VT one = SET1((CT)1);                                              \
+    size_t i = 0;                                                            \
+    for (; i + (VPV) <= n; i += (VPV)) {                                     \
+      VT va = LOAD(a + i);                                                   \
+      VT vb = LOAD(b + i);                                                   \
+      STORE(out + i, AND(CMPLE(va, vb), one));                               \
+    }                                                                        \
+    for (; i < n; i++)                                                       \
+      out[i] = (CT)(a[i] <= b[i]);                                           \
   }
 
 /* --- Unsigned integer instantiations --- */
@@ -257,98 +256,97 @@ FAST_CMP_UINT_NEON(u64, uint64_t, uint64x2_t, 2,
  * Use vbslq to select 1.0 or 0.0 based on the mask.
  * ════════════════════════════════════════════════════════════════ */
 
-#define FAST_CMP_FLOAT_NEON(SFX, CT, VT, UT, VPV, LOAD, STORE,       \
-                            CMPEQ, CMPGT, CMPLT, CMPGE, CMPLE,       \
-                            SET1, BSL)                                \
-  static inline void _fast_eq_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const VT one = SET1((CT)1.0);                                     \
-    const VT zero = SET1((CT)0.0);                                    \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      UT mask = CMPEQ(va, vb);                                        \
-      STORE(out + i, BSL(mask, one, zero));                           \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] == b[i]);                                    \
-  }                                                                   \
-  static inline void _fast_gt_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const VT one = SET1((CT)1.0);                                     \
-    const VT zero = SET1((CT)0.0);                                    \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      UT mask = CMPGT(va, vb);                                        \
-      STORE(out + i, BSL(mask, one, zero));                           \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] > b[i]);                                     \
-  }                                                                   \
-  static inline void _fast_lt_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const VT one = SET1((CT)1.0);                                     \
-    const VT zero = SET1((CT)0.0);                                    \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      UT mask = CMPLT(va, vb);                                        \
-      STORE(out + i, BSL(mask, one, zero));                           \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] < b[i]);                                     \
-  }                                                                   \
-  static inline void _fast_ge_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const VT one = SET1((CT)1.0);                                     \
-    const VT zero = SET1((CT)0.0);                                    \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      UT mask = CMPGE(va, vb);                                        \
-      STORE(out + i, BSL(mask, one, zero));                           \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] >= b[i]);                                    \
-  }                                                                   \
-  static inline void _fast_le_##SFX##_neon(                           \
-      const void *restrict ap, const void *restrict bp,               \
-      void *restrict op, size_t n) {                                  \
-    const CT *a = (const CT *)ap;                                     \
-    const CT *b = (const CT *)bp;                                     \
-    CT *out = (CT *)op;                                               \
-    const VT one = SET1((CT)1.0);                                     \
-    const VT zero = SET1((CT)0.0);                                    \
-    size_t i = 0;                                                     \
-    for (; i + (VPV) <= n; i += (VPV)) {                              \
-      VT va = LOAD(a + i);                                            \
-      VT vb = LOAD(b + i);                                            \
-      UT mask = CMPLE(va, vb);                                        \
-      STORE(out + i, BSL(mask, one, zero));                           \
-    }                                                                 \
-    for (; i < n; i++)                                                \
-      out[i] = (CT)(a[i] <= b[i]);                                    \
+#define FAST_CMP_FLOAT_NEON(SFX, CT, VT, UT, VPV, LOAD, STORE, CMPEQ, CMPGT, \
+                            CMPLT, CMPGE, CMPLE, SET1, BSL)                  \
+  static inline void _fast_eq_##SFX##_neon(const void *restrict ap,          \
+                                           const void *restrict bp,          \
+                                           void *restrict op, size_t n) {    \
+    const CT *a = (const CT *)ap;                                            \
+    const CT *b = (const CT *)bp;                                            \
+    CT *out = (CT *)op;                                                      \
+    const VT one = SET1((CT)1.0);                                            \
+    const VT zero = SET1((CT)0.0);                                           \
+    size_t i = 0;                                                            \
+    for (; i + (VPV) <= n; i += (VPV)) {                                     \
+      VT va = LOAD(a + i);                                                   \
+      VT vb = LOAD(b + i);                                                   \
+      UT mask = CMPEQ(va, vb);                                               \
+      STORE(out + i, BSL(mask, one, zero));                                  \
+    }                                                                        \
+    for (; i < n; i++)                                                       \
+      out[i] = (CT)(a[i] == b[i]);                                           \
+  }                                                                          \
+  static inline void _fast_gt_##SFX##_neon(const void *restrict ap,          \
+                                           const void *restrict bp,          \
+                                           void *restrict op, size_t n) {    \
+    const CT *a = (const CT *)ap;                                            \
+    const CT *b = (const CT *)bp;                                            \
+    CT *out = (CT *)op;                                                      \
+    const VT one = SET1((CT)1.0);                                            \
+    const VT zero = SET1((CT)0.0);                                           \
+    size_t i = 0;                                                            \
+    for (; i + (VPV) <= n; i += (VPV)) {                                     \
+      VT va = LOAD(a + i);                                                   \
+      VT vb = LOAD(b + i);                                                   \
+      UT mask = CMPGT(va, vb);                                               \
+      STORE(out + i, BSL(mask, one, zero));                                  \
+    }                                                                        \
+    for (; i < n; i++)                                                       \
+      out[i] = (CT)(a[i] > b[i]);                                            \
+  }                                                                          \
+  static inline void _fast_lt_##SFX##_neon(const void *restrict ap,          \
+                                           const void *restrict bp,          \
+                                           void *restrict op, size_t n) {    \
+    const CT *a = (const CT *)ap;                                            \
+    const CT *b = (const CT *)bp;                                            \
+    CT *out = (CT *)op;                                                      \
+    const VT one = SET1((CT)1.0);                                            \
+    const VT zero = SET1((CT)0.0);                                           \
+    size_t i = 0;                                                            \
+    for (; i + (VPV) <= n; i += (VPV)) {                                     \
+      VT va = LOAD(a + i);                                                   \
+      VT vb = LOAD(b + i);                                                   \
+      UT mask = CMPLT(va, vb);                                               \
+      STORE(out + i, BSL(mask, one, zero));                                  \
+    }                                                                        \
+    for (; i < n; i++)                                                       \
+      out[i] = (CT)(a[i] < b[i]);                                            \
+  }                                                                          \
+  static inline void _fast_ge_##SFX##_neon(const void *restrict ap,          \
+                                           const void *restrict bp,          \
+                                           void *restrict op, size_t n) {    \
+    const CT *a = (const CT *)ap;                                            \
+    const CT *b = (const CT *)bp;                                            \
+    CT *out = (CT *)op;                                                      \
+    const VT one = SET1((CT)1.0);                                            \
+    const VT zero = SET1((CT)0.0);                                           \
+    size_t i = 0;                                                            \
+    for (; i + (VPV) <= n; i += (VPV)) {                                     \
+      VT va = LOAD(a + i);                                                   \
+      VT vb = LOAD(b + i);                                                   \
+      UT mask = CMPGE(va, vb);                                               \
+      STORE(out + i, BSL(mask, one, zero));                                  \
+    }                                                                        \
+    for (; i < n; i++)                                                       \
+      out[i] = (CT)(a[i] >= b[i]);                                           \
+  }                                                                          \
+  static inline void _fast_le_##SFX##_neon(const void *restrict ap,          \
+                                           const void *restrict bp,          \
+                                           void *restrict op, size_t n) {    \
+    const CT *a = (const CT *)ap;                                            \
+    const CT *b = (const CT *)bp;                                            \
+    CT *out = (CT *)op;                                                      \
+    const VT one = SET1((CT)1.0);                                            \
+    const VT zero = SET1((CT)0.0);                                           \
+    size_t i = 0;                                                            \
+    for (; i + (VPV) <= n; i += (VPV)) {                                     \
+      VT va = LOAD(a + i);                                                   \
+      VT vb = LOAD(b + i);                                                   \
+      UT mask = CMPLE(va, vb);                                               \
+      STORE(out + i, BSL(mask, one, zero));                                  \
+    }                                                                        \
+    for (; i < n; i++)                                                       \
+      out[i] = (CT)(a[i] <= b[i]);                                           \
   }
 
 /* --- Float instantiations --- */

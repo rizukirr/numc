@@ -19,72 +19,72 @@
  * Binary: generic macros for signed int, unsigned int, float
  * ════════════════════════════════════════════════════════════════ */
 
-#define FAST_BIN_SINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)    \
-  static inline void _fast_##OP##_##SFX##_neon(                        \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t i = 0;                                                      \
-    for (; i + (VPV) <= n; i += (VPV)) {                               \
-      int##W##x##VPV##_t va = vld1q_s##W(a + i);                      \
-      int##W##x##VPV##_t vb = vld1q_s##W(b + i);                      \
-      vst1q_s##W(out + i, VEC_OP(va, vb));                             \
-    }                                                                  \
-    for (; i < n; i++)                                                 \
-      out[i] = (CT)(TAIL_EXPR);                                       \
+#define FAST_BIN_SINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)            \
+  static inline void _fast_##OP##_##SFX##_neon(const void *restrict ap,       \
+                                               const void *restrict bp,       \
+                                               void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t i = 0;                                                             \
+    for (; i + (VPV) <= n; i += (VPV)) {                                      \
+      int##W##x##VPV##_t va = vld1q_s##W(a + i);                              \
+      int##W##x##VPV##_t vb = vld1q_s##W(b + i);                              \
+      vst1q_s##W(out + i, VEC_OP(va, vb));                                    \
+    }                                                                         \
+    for (; i < n; i++)                                                        \
+      out[i] = (CT)(TAIL_EXPR);                                               \
   }
 
-#define FAST_BIN_UINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)    \
-  static inline void _fast_##OP##_##SFX##_neon(                        \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t i = 0;                                                      \
-    for (; i + (VPV) <= n; i += (VPV)) {                               \
-      uint##W##x##VPV##_t va = vld1q_u##W(a + i);                     \
-      uint##W##x##VPV##_t vb = vld1q_u##W(b + i);                     \
-      vst1q_u##W(out + i, VEC_OP(va, vb));                             \
-    }                                                                  \
-    for (; i < n; i++)                                                 \
-      out[i] = (CT)(TAIL_EXPR);                                       \
+#define FAST_BIN_UINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)            \
+  static inline void _fast_##OP##_##SFX##_neon(const void *restrict ap,       \
+                                               const void *restrict bp,       \
+                                               void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t i = 0;                                                             \
+    for (; i + (VPV) <= n; i += (VPV)) {                                      \
+      uint##W##x##VPV##_t va = vld1q_u##W(a + i);                             \
+      uint##W##x##VPV##_t vb = vld1q_u##W(b + i);                             \
+      vst1q_u##W(out + i, VEC_OP(va, vb));                                    \
+    }                                                                         \
+    for (; i < n; i++)                                                        \
+      out[i] = (CT)(TAIL_EXPR);                                               \
   }
 
-#define FAST_BIN_F32_NEON(OP, VEC_OP, TAIL_EXPR)                       \
-  static inline void _fast_##OP##_f32_neon(                            \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const float *a = (const float *)ap;                                \
-    const float *b = (const float *)bp;                                \
-    float *out = (float *)op;                                          \
-    size_t i = 0;                                                      \
-    for (; i + 4 <= n; i += 4) {                                       \
-      float32x4_t va = vld1q_f32(a + i);                               \
-      float32x4_t vb = vld1q_f32(b + i);                               \
-      vst1q_f32(out + i, VEC_OP(va, vb));                              \
-    }                                                                  \
-    for (; i < n; i++)                                                 \
-      out[i] = (float)(TAIL_EXPR);                                    \
+#define FAST_BIN_F32_NEON(OP, VEC_OP, TAIL_EXPR)                          \
+  static inline void _fast_##OP##_f32_neon(const void *restrict ap,       \
+                                           const void *restrict bp,       \
+                                           void *restrict op, size_t n) { \
+    const float *a = (const float *)ap;                                   \
+    const float *b = (const float *)bp;                                   \
+    float *out = (float *)op;                                             \
+    size_t i = 0;                                                         \
+    for (; i + 4 <= n; i += 4) {                                          \
+      float32x4_t va = vld1q_f32(a + i);                                  \
+      float32x4_t vb = vld1q_f32(b + i);                                  \
+      vst1q_f32(out + i, VEC_OP(va, vb));                                 \
+    }                                                                     \
+    for (; i < n; i++)                                                    \
+      out[i] = (float)(TAIL_EXPR);                                        \
   }
 
-#define FAST_BIN_F64_NEON(OP, VEC_OP, TAIL_EXPR)                       \
-  static inline void _fast_##OP##_f64_neon(                            \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const double *a = (const double *)ap;                              \
-    const double *b = (const double *)bp;                              \
-    double *out = (double *)op;                                        \
-    size_t i = 0;                                                      \
-    for (; i + 2 <= n; i += 2) {                                       \
-      float64x2_t va = vld1q_f64(a + i);                               \
-      float64x2_t vb = vld1q_f64(b + i);                               \
-      vst1q_f64(out + i, VEC_OP(va, vb));                              \
-    }                                                                  \
-    for (; i < n; i++)                                                 \
-      out[i] = (double)(TAIL_EXPR);                                   \
+#define FAST_BIN_F64_NEON(OP, VEC_OP, TAIL_EXPR)                          \
+  static inline void _fast_##OP##_f64_neon(const void *restrict ap,       \
+                                           const void *restrict bp,       \
+                                           void *restrict op, size_t n) { \
+    const double *a = (const double *)ap;                                 \
+    const double *b = (const double *)bp;                                 \
+    double *out = (double *)op;                                           \
+    size_t i = 0;                                                         \
+    for (; i + 2 <= n; i += 2) {                                          \
+      float64x2_t va = vld1q_f64(a + i);                                  \
+      float64x2_t vb = vld1q_f64(b + i);                                  \
+      vst1q_f64(out + i, VEC_OP(va, vb));                                 \
+    }                                                                     \
+    for (; i < n; i++)                                                    \
+      out[i] = (double)(TAIL_EXPR);                                       \
   }
 
 /* ── Add ─────────────────────────────────────────────────────────── */
@@ -274,32 +274,32 @@ FAST_BIN_F64_NEON(minimum, vminq_f64, a[i] < b[i] ? a[i] : b[i])
  * Unary operations
  * ════════════════════════════════════════════════════════════════ */
 
-#define FAST_UN_SINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)     \
-  static inline void _fast_##OP##_##SFX##_neon(                        \
-      const void *restrict ap, void *restrict op, size_t n) {          \
-    const CT *a = (const CT *)ap;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t i = 0;                                                      \
-    for (; i + (VPV) <= n; i += (VPV)) {                               \
-      int##W##x##VPV##_t va = vld1q_s##W(a + i);                      \
-      vst1q_s##W(out + i, VEC_OP);                                    \
-    }                                                                  \
-    for (; i < n; i++)                                                 \
-      out[i] = (CT)(TAIL_EXPR);                                       \
+#define FAST_UN_SINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)             \
+  static inline void _fast_##OP##_##SFX##_neon(const void *restrict ap,       \
+                                               void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t i = 0;                                                             \
+    for (; i + (VPV) <= n; i += (VPV)) {                                      \
+      int##W##x##VPV##_t va = vld1q_s##W(a + i);                              \
+      vst1q_s##W(out + i, VEC_OP);                                            \
+    }                                                                         \
+    for (; i < n; i++)                                                        \
+      out[i] = (CT)(TAIL_EXPR);                                               \
   }
 
-#define FAST_UN_UINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)     \
-  static inline void _fast_##OP##_##SFX##_neon(                        \
-      const void *restrict ap, void *restrict op, size_t n) {          \
-    const CT *a = (const CT *)ap;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t i = 0;                                                      \
-    for (; i + (VPV) <= n; i += (VPV)) {                               \
-      uint##W##x##VPV##_t va = vld1q_u##W(a + i);                     \
-      vst1q_u##W(out + i, VEC_OP);                                    \
-    }                                                                  \
-    for (; i < n; i++)                                                 \
-      out[i] = (CT)(TAIL_EXPR);                                       \
+#define FAST_UN_UINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)             \
+  static inline void _fast_##OP##_##SFX##_neon(const void *restrict ap,       \
+                                               void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t i = 0;                                                             \
+    for (; i + (VPV) <= n; i += (VPV)) {                                      \
+      uint##W##x##VPV##_t va = vld1q_u##W(a + i);                             \
+      vst1q_u##W(out + i, VEC_OP);                                            \
+    }                                                                         \
+    for (; i < n; i++)                                                        \
+      out[i] = (CT)(TAIL_EXPR);                                               \
   }
 
 /* ── Neg (signed integers: native vnegq) ─────────────────────────── */
@@ -311,17 +311,13 @@ FAST_UN_SINT_NEON(neg, i64, int64_t, 64, 2, vnegq_s64(va), -a[i])
 
 /* ── Neg (unsigned integers: 0 - val) ────────────────────────────── */
 
-FAST_UN_UINT_NEON(neg, u8, uint8_t, 8, 16,
-                  vsubq_u8(vdupq_n_u8(0), va),
+FAST_UN_UINT_NEON(neg, u8, uint8_t, 8, 16, vsubq_u8(vdupq_n_u8(0), va),
                   (uint8_t)(-(int8_t)a[i]))
-FAST_UN_UINT_NEON(neg, u16, uint16_t, 16, 8,
-                  vsubq_u16(vdupq_n_u16(0), va),
+FAST_UN_UINT_NEON(neg, u16, uint16_t, 16, 8, vsubq_u16(vdupq_n_u16(0), va),
                   (uint16_t)(-(int16_t)a[i]))
-FAST_UN_UINT_NEON(neg, u32, uint32_t, 32, 4,
-                  vsubq_u32(vdupq_n_u32(0), va),
+FAST_UN_UINT_NEON(neg, u32, uint32_t, 32, 4, vsubq_u32(vdupq_n_u32(0), va),
                   (uint32_t)(-(int32_t)a[i]))
-FAST_UN_UINT_NEON(neg, u64, uint64_t, 64, 2,
-                  vsubq_u64(vdupq_n_u64(0), va),
+FAST_UN_UINT_NEON(neg, u64, uint64_t, 64, 2, vsubq_u64(vdupq_n_u64(0), va),
                   (uint64_t)(-(int64_t)a[i]))
 
 /* ── Neg (float) ─────────────────────────────────────────────────── */

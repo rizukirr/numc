@@ -105,61 +105,46 @@ typedef void (*NumcRowReduceKernel)(const char *restrict base,
 GENERATE_NUMC_TYPES(STAMP_MIN_FUSED)
 #undef STAMP_MIN_FUSED
 
-#define F(OP, TE) [TE] = _##OP##_fused_##TE
+#define F(OP, TE)      [TE] = _##OP##_fused_##TE
 #define S(OP, TE, ISA) [TE] = _##OP##_fused_##ISA
 static const NumcRowReduceKernel min_fused_table[] = {
 #if NUMC_HAVE_AVX512
-    S(min, NUMC_DTYPE_INT8,   i8_avx512),
-    S(min, NUMC_DTYPE_INT16,  i16_avx512),
-    S(min, NUMC_DTYPE_INT32,  i32_avx512),
-    S(min, NUMC_DTYPE_INT64,  i64_avx512),
-    S(min, NUMC_DTYPE_UINT8,  u8_avx512),
+    S(min, NUMC_DTYPE_INT8, i8_avx512),
+    S(min, NUMC_DTYPE_INT16, i16_avx512),
+    S(min, NUMC_DTYPE_INT32, i32_avx512),
+    S(min, NUMC_DTYPE_INT64, i64_avx512),
+    S(min, NUMC_DTYPE_UINT8, u8_avx512),
     S(min, NUMC_DTYPE_UINT16, u16_avx512),
     S(min, NUMC_DTYPE_UINT32, u32_avx512),
     S(min, NUMC_DTYPE_UINT64, u64_avx512),
 #elif NUMC_HAVE_AVX2
-    S(min, NUMC_DTYPE_INT8,   i8_avx2),
-    S(min, NUMC_DTYPE_INT16,  i16_avx2),
-    S(min, NUMC_DTYPE_INT32,  i32_avx2),
-    S(min, NUMC_DTYPE_INT64,  i64_avx2),
-    S(min, NUMC_DTYPE_UINT8,  u8_avx2),
-    S(min, NUMC_DTYPE_UINT16, u16_avx2),
-    S(min, NUMC_DTYPE_UINT32, u32_avx2),
-    S(min, NUMC_DTYPE_UINT64, u64_avx2),
+    S(min, NUMC_DTYPE_INT8, i8_avx2),    S(min, NUMC_DTYPE_INT16, i16_avx2),
+    S(min, NUMC_DTYPE_INT32, i32_avx2),  S(min, NUMC_DTYPE_INT64, i64_avx2),
+    S(min, NUMC_DTYPE_UINT8, u8_avx2),   S(min, NUMC_DTYPE_UINT16, u16_avx2),
+    S(min, NUMC_DTYPE_UINT32, u32_avx2), S(min, NUMC_DTYPE_UINT64, u64_avx2),
 #elif NUMC_HAVE_SVE
-    S(min, NUMC_DTYPE_INT8,   i8_sve),
-    S(min, NUMC_DTYPE_INT16,  i16_sve),
-    S(min, NUMC_DTYPE_INT32,  i32_sve),
-    S(min, NUMC_DTYPE_INT64,  i64_sve),
-    S(min, NUMC_DTYPE_UINT8,  u8_sve),
-    S(min, NUMC_DTYPE_UINT16, u16_sve),
-    S(min, NUMC_DTYPE_UINT32, u32_sve),
-    S(min, NUMC_DTYPE_UINT64, u64_sve),
+    S(min, NUMC_DTYPE_INT8, i8_sve),    S(min, NUMC_DTYPE_INT16, i16_sve),
+    S(min, NUMC_DTYPE_INT32, i32_sve),  S(min, NUMC_DTYPE_INT64, i64_sve),
+    S(min, NUMC_DTYPE_UINT8, u8_sve),   S(min, NUMC_DTYPE_UINT16, u16_sve),
+    S(min, NUMC_DTYPE_UINT32, u32_sve), S(min, NUMC_DTYPE_UINT64, u64_sve),
 #elif NUMC_HAVE_NEON
-    S(min, NUMC_DTYPE_INT8,   i8_neon),
-    S(min, NUMC_DTYPE_INT16,  i16_neon),
-    S(min, NUMC_DTYPE_INT32,  i32_neon),
-    S(min, NUMC_DTYPE_INT64,  i64_neon),
-    S(min, NUMC_DTYPE_UINT8,  u8_neon),
-    S(min, NUMC_DTYPE_UINT16, u16_neon),
-    S(min, NUMC_DTYPE_UINT32, u32_neon),
-    S(min, NUMC_DTYPE_UINT64, u64_neon),
+    S(min, NUMC_DTYPE_INT8, i8_neon),    S(min, NUMC_DTYPE_INT16, i16_neon),
+    S(min, NUMC_DTYPE_INT32, i32_neon),  S(min, NUMC_DTYPE_INT64, i64_neon),
+    S(min, NUMC_DTYPE_UINT8, u8_neon),   S(min, NUMC_DTYPE_UINT16, u16_neon),
+    S(min, NUMC_DTYPE_UINT32, u32_neon), S(min, NUMC_DTYPE_UINT64, u64_neon),
 #elif NUMC_HAVE_RVV
-    S(min, NUMC_DTYPE_INT8,   i8_rvv),
-    S(min, NUMC_DTYPE_INT16,  i16_rvv),
-    S(min, NUMC_DTYPE_INT32,  i32_rvv),
-    S(min, NUMC_DTYPE_INT64,  i64_rvv),
-    S(min, NUMC_DTYPE_UINT8,  u8_rvv),
-    S(min, NUMC_DTYPE_UINT16, u16_rvv),
-    S(min, NUMC_DTYPE_UINT32, u32_rvv),
-    S(min, NUMC_DTYPE_UINT64, u64_rvv),
+    S(min, NUMC_DTYPE_INT8, i8_rvv),    S(min, NUMC_DTYPE_INT16, i16_rvv),
+    S(min, NUMC_DTYPE_INT32, i32_rvv),  S(min, NUMC_DTYPE_INT64, i64_rvv),
+    S(min, NUMC_DTYPE_UINT8, u8_rvv),   S(min, NUMC_DTYPE_UINT16, u16_rvv),
+    S(min, NUMC_DTYPE_UINT32, u32_rvv), S(min, NUMC_DTYPE_UINT64, u64_rvv),
 #else
     F(min, NUMC_DTYPE_INT8),    F(min, NUMC_DTYPE_INT16),
     F(min, NUMC_DTYPE_INT32),   F(min, NUMC_DTYPE_INT64),
     F(min, NUMC_DTYPE_UINT8),   F(min, NUMC_DTYPE_UINT16),
     F(min, NUMC_DTYPE_UINT32),  F(min, NUMC_DTYPE_UINT64),
 #endif
-    F(min, NUMC_DTYPE_FLOAT32), F(min, NUMC_DTYPE_FLOAT64),
+    F(min, NUMC_DTYPE_FLOAT32),
+    F(min, NUMC_DTYPE_FLOAT64),
 };
 #undef S
 #undef F

@@ -63,8 +63,8 @@ static inline void gemm_pack_b_f32(const float *b, float *packed, size_t kc,
 
 /* Pack a single NR-wide B strip for parallel packing. */
 static inline void _gemm_pack_b_strip_f32(const float *b, float *dest,
-                                           size_t kc, size_t nr_pack,
-                                           intptr_t rsb) {
+                                          size_t kc, size_t nr_pack,
+                                          intptr_t rsb) {
   if (nr_pack == GEMM_F32_NR) {
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb;
@@ -134,8 +134,8 @@ static inline void gemm_pack_b_f64(const double *b, double *packed, size_t kc,
 }
 
 static inline void _gemm_pack_b_strip_f64(const double *b, double *dest,
-                                           size_t kc, size_t nr_pack,
-                                           intptr_t rsb) {
+                                          size_t kc, size_t nr_pack,
+                                          intptr_t rsb) {
   if (nr_pack == GEMM_F64_NR) {
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb;
@@ -320,8 +320,8 @@ static inline void gemm_f32_avx512(const float *a, const float *b, float *out,
         for (size_t jr_idx = 0; jr_idx < n_jr; jr_idx++) {
           size_t jj = jr_idx * GEMM_F32_NR;
           size_t nr_pack = GEMM_MIN(GEMM_F32_NR, nc - jj);
-          _gemm_pack_b_strip_f32(b + pc * rsb + (jc + jj),
-                                 packed_b + jj * kc, kc, nr_pack, rsb);
+          _gemm_pack_b_strip_f32(b + pc * rsb + (jc + jj), packed_b + jj * kc,
+                                 kc, nr_pack, rsb);
         }
 
         size_t n_ic = (m_dim + GEMM_F32_MC - 1) / GEMM_F32_MC;
@@ -558,8 +558,8 @@ static inline void gemm_f64_avx512(const double *a, const double *b,
         for (size_t jr_idx = 0; jr_idx < n_jr; jr_idx++) {
           size_t jj = jr_idx * GEMM_F64_NR;
           size_t nr_pack = GEMM_MIN(GEMM_F64_NR, nc - jj);
-          _gemm_pack_b_strip_f64(b + pc * rsb + (jc + jj),
-                                 packed_b + jj * kc, kc, nr_pack, rsb);
+          _gemm_pack_b_strip_f64(b + pc * rsb + (jc + jj), packed_b + jj * kc,
+                                 kc, nr_pack, rsb);
         }
 
         size_t n_ic = (m_dim + GEMM_F64_MC - 1) / GEMM_F64_MC;
@@ -654,10 +654,10 @@ static inline void gemm_f64_avx512(const double *a, const double *b,
       }
     }
 #endif
-    }
   }
+}
 
-  numc_free(packed_b);
+numc_free(packed_b);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

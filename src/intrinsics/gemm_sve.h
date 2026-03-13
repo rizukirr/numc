@@ -87,8 +87,8 @@ static inline void gemm_pack_b_f32_sve(const float *b, float *packed, size_t kc,
 }
 
 static inline void _gemm_pack_b_strip_f32_sve(const float *b, float *dest,
-                                               size_t kc, size_t nr_pack,
-                                               intptr_t rsb, size_t nr) {
+                                              size_t kc, size_t nr_pack,
+                                              intptr_t rsb, size_t nr) {
   size_t vl = svcntw();
   svbool_t ptrue = svptrue_b32();
   if (nr_pack == nr) {
@@ -163,8 +163,8 @@ static inline void gemm_pack_b_f64_sve(const double *b, double *packed,
 }
 
 static inline void _gemm_pack_b_strip_f64_sve(const double *b, double *dest,
-                                               size_t kc, size_t nr_pack,
-                                               intptr_t rsb, size_t nr) {
+                                              size_t kc, size_t nr_pack,
+                                              intptr_t rsb, size_t nr) {
   size_t vl = svcntd();
   svbool_t ptrue = svptrue_b64();
   if (nr_pack == nr) {
@@ -421,8 +421,8 @@ static inline void gemm_f32_sve(const float *a, const float *b, float *out,
         for (size_t jr_idx = 0; jr_idx < n_jr; jr_idx++) {
           size_t jj = jr_idx * nr;
           size_t nr_pack = GEMM_MIN(nr, nc - jj);
-          _gemm_pack_b_strip_f32_sve(b + pc * rsb + jc + jj,
-                                     packed_b + jj * kc, kc, nr_pack, rsb, nr);
+          _gemm_pack_b_strip_f32_sve(b + pc * rsb + jc + jj, packed_b + jj * kc,
+                                     kc, nr_pack, rsb, nr);
         }
 
         size_t n_ic = (m_dim + GEMM_F32_MC - 1) / GEMM_F32_MC;
@@ -710,8 +710,8 @@ static inline void gemm_f64_sve(const double *a, const double *b, double *out,
         for (size_t jr_idx = 0; jr_idx < n_jr; jr_idx++) {
           size_t jj = jr_idx * nr;
           size_t nr_pack = GEMM_MIN(nr, nc - jj);
-          _gemm_pack_b_strip_f64_sve(b + pc * rsb + jc + jj,
-                                     packed_b + jj * kc, kc, nr_pack, rsb, nr);
+          _gemm_pack_b_strip_f64_sve(b + pc * rsb + jc + jj, packed_b + jj * kc,
+                                     kc, nr_pack, rsb, nr);
         }
 
         size_t n_ic = (m_dim + GEMM_F64_MC - 1) / GEMM_F64_MC;

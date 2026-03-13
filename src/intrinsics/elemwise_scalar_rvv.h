@@ -19,20 +19,18 @@
  * Scalar binary: signed integer macro
  * ==================================================================== */
 
-#define FAST_SCAL_SINT_RVV(OP, SFX, CT, SEW, VEC_OP)                      \
-  static inline void _fast_##OP##_scalar_##SFX##_rvv(                     \
-      const void *restrict ap, const void *restrict sp,                    \
-      void *restrict op, size_t n) {                                       \
+#define FAST_SCAL_SINT_RVV(OP, SFX, CT, SEW, VEC_OP)                       \
+  static inline void _fast_##OP##_scalar_##SFX##_rvv(                      \
+      const void *restrict ap, const void *restrict sp, void *restrict op, \
+      size_t n) {                                                          \
     const CT *a = (const CT *)ap;                                          \
     const CT s = *(const CT *)sp;                                          \
     CT *out = (CT *)op;                                                    \
     size_t vl;                                                             \
     for (size_t i = 0; i < n; i += vl) {                                   \
-      vl = __riscv_vsetvl_e##SEW##m4(n - i);                              \
-      vint##SEW##m4_t va =                                                 \
-          __riscv_vle##SEW##_v_i##SEW##m4(a + i, vl);                      \
-      __riscv_vse##SEW##_v_i##SEW##m4(out + i,                             \
-                                       VEC_OP(va, s, vl), vl);             \
+      vl = __riscv_vsetvl_e##SEW##m4(n - i);                               \
+      vint##SEW##m4_t va = __riscv_vle##SEW##_v_i##SEW##m4(a + i, vl);     \
+      __riscv_vse##SEW##_v_i##SEW##m4(out + i, VEC_OP(va, s, vl), vl);     \
     }                                                                      \
   }
 
@@ -40,20 +38,18 @@
  * Scalar binary: unsigned integer macro
  * ==================================================================== */
 
-#define FAST_SCAL_UINT_RVV(OP, SFX, CT, SEW, VEC_OP)                      \
-  static inline void _fast_##OP##_scalar_##SFX##_rvv(                     \
-      const void *restrict ap, const void *restrict sp,                    \
-      void *restrict op, size_t n) {                                       \
+#define FAST_SCAL_UINT_RVV(OP, SFX, CT, SEW, VEC_OP)                       \
+  static inline void _fast_##OP##_scalar_##SFX##_rvv(                      \
+      const void *restrict ap, const void *restrict sp, void *restrict op, \
+      size_t n) {                                                          \
     const CT *a = (const CT *)ap;                                          \
     const CT s = *(const CT *)sp;                                          \
     CT *out = (CT *)op;                                                    \
     size_t vl;                                                             \
     for (size_t i = 0; i < n; i += vl) {                                   \
-      vl = __riscv_vsetvl_e##SEW##m4(n - i);                              \
-      vuint##SEW##m4_t va =                                                \
-          __riscv_vle##SEW##_v_u##SEW##m4(a + i, vl);                      \
-      __riscv_vse##SEW##_v_u##SEW##m4(out + i,                             \
-                                       VEC_OP(va, s, vl), vl);             \
+      vl = __riscv_vsetvl_e##SEW##m4(n - i);                               \
+      vuint##SEW##m4_t va = __riscv_vle##SEW##_v_u##SEW##m4(a + i, vl);    \
+      __riscv_vse##SEW##_v_u##SEW##m4(out + i, VEC_OP(va, s, vl), vl);     \
     }                                                                      \
   }
 
@@ -61,33 +57,33 @@
  * Scalar binary: float macros
  * ==================================================================== */
 
-#define FAST_SCAL_F32_RVV(OP, VEC_OP)                                     \
-  static inline void _fast_##OP##_scalar_f32_rvv(                         \
-      const void *restrict ap, const void *restrict sp,                    \
-      void *restrict op, size_t n) {                                       \
+#define FAST_SCAL_F32_RVV(OP, VEC_OP)                                      \
+  static inline void _fast_##OP##_scalar_f32_rvv(                          \
+      const void *restrict ap, const void *restrict sp, void *restrict op, \
+      size_t n) {                                                          \
     const float *a = (const float *)ap;                                    \
     const float s = *(const float *)sp;                                    \
     float *out = (float *)op;                                              \
     size_t vl;                                                             \
     for (size_t i = 0; i < n; i += vl) {                                   \
-      vl = __riscv_vsetvl_e32m4(n - i);                                   \
-      vfloat32m4_t va = __riscv_vle32_v_f32m4(a + i, vl);                 \
-      __riscv_vse32_v_f32m4(out + i, VEC_OP(va, s, vl), vl);              \
+      vl = __riscv_vsetvl_e32m4(n - i);                                    \
+      vfloat32m4_t va = __riscv_vle32_v_f32m4(a + i, vl);                  \
+      __riscv_vse32_v_f32m4(out + i, VEC_OP(va, s, vl), vl);               \
     }                                                                      \
   }
 
-#define FAST_SCAL_F64_RVV(OP, VEC_OP)                                     \
-  static inline void _fast_##OP##_scalar_f64_rvv(                         \
-      const void *restrict ap, const void *restrict sp,                    \
-      void *restrict op, size_t n) {                                       \
+#define FAST_SCAL_F64_RVV(OP, VEC_OP)                                      \
+  static inline void _fast_##OP##_scalar_f64_rvv(                          \
+      const void *restrict ap, const void *restrict sp, void *restrict op, \
+      size_t n) {                                                          \
     const double *a = (const double *)ap;                                  \
     const double s = *(const double *)sp;                                  \
     double *out = (double *)op;                                            \
     size_t vl;                                                             \
     for (size_t i = 0; i < n; i += vl) {                                   \
-      vl = __riscv_vsetvl_e64m4(n - i);                                   \
-      vfloat64m4_t va = __riscv_vle64_v_f64m4(a + i, vl);                 \
-      __riscv_vse64_v_f64m4(out + i, VEC_OP(va, s, vl), vl);              \
+      vl = __riscv_vsetvl_e64m4(n - i);                                    \
+      vfloat64m4_t va = __riscv_vle64_v_f64m4(a + i, vl);                  \
+      __riscv_vse64_v_f64m4(out + i, VEC_OP(va, s, vl), vl);               \
     }                                                                      \
   }
 

@@ -14,81 +14,76 @@
 
 /* ── Signed integer macro ───────────────────────────────────────── */
 
-#define STAMP_CMPSC_SINT_SVE(SFX, CT, W, CNT)                         \
-  static inline void _cmpsc_eq_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svint##W##_t va = svld1_s##W(pg, a + i);                        \
-      svbool_t p = svcmpeq_n_s##W(pg, va, s);                         \
-      svst1_s##W(pg, out + i,                                          \
-                 svsel_s##W(p, svdup_s##W(1), svdup_s##W(0)));         \
-    }                                                                  \
-  }                                                                    \
-  static inline void _cmpsc_gt_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svint##W##_t va = svld1_s##W(pg, a + i);                        \
-      svbool_t p = svcmpgt_n_s##W(pg, va, s);                         \
-      svst1_s##W(pg, out + i,                                          \
-                 svsel_s##W(p, svdup_s##W(1), svdup_s##W(0)));         \
-    }                                                                  \
-  }                                                                    \
-  static inline void _cmpsc_lt_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svint##W##_t va = svld1_s##W(pg, a + i);                        \
-      svbool_t p = svcmplt_n_s##W(pg, va, s);                         \
-      svst1_s##W(pg, out + i,                                          \
-                 svsel_s##W(p, svdup_s##W(1), svdup_s##W(0)));         \
-    }                                                                  \
-  }                                                                    \
-  static inline void _cmpsc_ge_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svint##W##_t va = svld1_s##W(pg, a + i);                        \
-      svbool_t p = svcmpge_n_s##W(pg, va, s);                         \
-      svst1_s##W(pg, out + i,                                          \
-                 svsel_s##W(p, svdup_s##W(1), svdup_s##W(0)));         \
-    }                                                                  \
-  }                                                                    \
-  static inline void _cmpsc_le_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svint##W##_t va = svld1_s##W(pg, a + i);                        \
-      svbool_t p = svcmple_n_s##W(pg, va, s);                         \
-      svst1_s##W(pg, out + i,                                          \
-                 svsel_s##W(p, svdup_s##W(1), svdup_s##W(0)));         \
-    }                                                                  \
+#define STAMP_CMPSC_SINT_SVE(SFX, CT, W, CNT)                               \
+  static inline void _cmpsc_eq_##SFX##_sve(const void *restrict ap,         \
+                                           const void *restrict sp,         \
+                                           void *restrict op, size_t n) {   \
+    const CT *a = (const CT *)ap;                                           \
+    const CT s = *(const CT *)sp;                                           \
+    CT *out = (CT *)op;                                                     \
+    size_t vl = CNT();                                                      \
+    for (size_t i = 0; i < n; i += vl) {                                    \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);               \
+      svint##W##_t va = svld1_s##W(pg, a + i);                              \
+      svbool_t p = svcmpeq_n_s##W(pg, va, s);                               \
+      svst1_s##W(pg, out + i, svsel_s##W(p, svdup_s##W(1), svdup_s##W(0))); \
+    }                                                                       \
+  }                                                                         \
+  static inline void _cmpsc_gt_##SFX##_sve(const void *restrict ap,         \
+                                           const void *restrict sp,         \
+                                           void *restrict op, size_t n) {   \
+    const CT *a = (const CT *)ap;                                           \
+    const CT s = *(const CT *)sp;                                           \
+    CT *out = (CT *)op;                                                     \
+    size_t vl = CNT();                                                      \
+    for (size_t i = 0; i < n; i += vl) {                                    \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);               \
+      svint##W##_t va = svld1_s##W(pg, a + i);                              \
+      svbool_t p = svcmpgt_n_s##W(pg, va, s);                               \
+      svst1_s##W(pg, out + i, svsel_s##W(p, svdup_s##W(1), svdup_s##W(0))); \
+    }                                                                       \
+  }                                                                         \
+  static inline void _cmpsc_lt_##SFX##_sve(const void *restrict ap,         \
+                                           const void *restrict sp,         \
+                                           void *restrict op, size_t n) {   \
+    const CT *a = (const CT *)ap;                                           \
+    const CT s = *(const CT *)sp;                                           \
+    CT *out = (CT *)op;                                                     \
+    size_t vl = CNT();                                                      \
+    for (size_t i = 0; i < n; i += vl) {                                    \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);               \
+      svint##W##_t va = svld1_s##W(pg, a + i);                              \
+      svbool_t p = svcmplt_n_s##W(pg, va, s);                               \
+      svst1_s##W(pg, out + i, svsel_s##W(p, svdup_s##W(1), svdup_s##W(0))); \
+    }                                                                       \
+  }                                                                         \
+  static inline void _cmpsc_ge_##SFX##_sve(const void *restrict ap,         \
+                                           const void *restrict sp,         \
+                                           void *restrict op, size_t n) {   \
+    const CT *a = (const CT *)ap;                                           \
+    const CT s = *(const CT *)sp;                                           \
+    CT *out = (CT *)op;                                                     \
+    size_t vl = CNT();                                                      \
+    for (size_t i = 0; i < n; i += vl) {                                    \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);               \
+      svint##W##_t va = svld1_s##W(pg, a + i);                              \
+      svbool_t p = svcmpge_n_s##W(pg, va, s);                               \
+      svst1_s##W(pg, out + i, svsel_s##W(p, svdup_s##W(1), svdup_s##W(0))); \
+    }                                                                       \
+  }                                                                         \
+  static inline void _cmpsc_le_##SFX##_sve(const void *restrict ap,         \
+                                           const void *restrict sp,         \
+                                           void *restrict op, size_t n) {   \
+    const CT *a = (const CT *)ap;                                           \
+    const CT s = *(const CT *)sp;                                           \
+    CT *out = (CT *)op;                                                     \
+    size_t vl = CNT();                                                      \
+    for (size_t i = 0; i < n; i += vl) {                                    \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);               \
+      svint##W##_t va = svld1_s##W(pg, a + i);                              \
+      svbool_t p = svcmple_n_s##W(pg, va, s);                               \
+      svst1_s##W(pg, out + i, svsel_s##W(p, svdup_s##W(1), svdup_s##W(0))); \
+    }                                                                       \
   }
 
 STAMP_CMPSC_SINT_SVE(i8, int8_t, 8, svcntb)
@@ -99,81 +94,76 @@ STAMP_CMPSC_SINT_SVE(i64, int64_t, 64, svcntd)
 
 /* ── Unsigned integer macro ─────────────────────────────────────── */
 
-#define STAMP_CMPSC_UINT_SVE(SFX, CT, W, CNT)                         \
-  static inline void _cmpsc_eq_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svuint##W##_t va = svld1_u##W(pg, a + i);                       \
-      svbool_t p = svcmpeq_n_u##W(pg, va, s);                         \
-      svst1_u##W(pg, out + i,                                          \
-                 svsel_u##W(p, svdup_u##W(1), svdup_u##W(0)));         \
-    }                                                                  \
-  }                                                                    \
-  static inline void _cmpsc_gt_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svuint##W##_t va = svld1_u##W(pg, a + i);                       \
-      svbool_t p = svcmpgt_n_u##W(pg, va, s);                         \
-      svst1_u##W(pg, out + i,                                          \
-                 svsel_u##W(p, svdup_u##W(1), svdup_u##W(0)));         \
-    }                                                                  \
-  }                                                                    \
-  static inline void _cmpsc_lt_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svuint##W##_t va = svld1_u##W(pg, a + i);                       \
-      svbool_t p = svcmplt_n_u##W(pg, va, s);                         \
-      svst1_u##W(pg, out + i,                                          \
-                 svsel_u##W(p, svdup_u##W(1), svdup_u##W(0)));         \
-    }                                                                  \
-  }                                                                    \
-  static inline void _cmpsc_ge_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svuint##W##_t va = svld1_u##W(pg, a + i);                       \
-      svbool_t p = svcmpge_n_u##W(pg, va, s);                         \
-      svst1_u##W(pg, out + i,                                          \
-                 svsel_u##W(p, svdup_u##W(1), svdup_u##W(0)));         \
-    }                                                                  \
-  }                                                                    \
-  static inline void _cmpsc_le_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svuint##W##_t va = svld1_u##W(pg, a + i);                       \
-      svbool_t p = svcmple_n_u##W(pg, va, s);                         \
-      svst1_u##W(pg, out + i,                                          \
-                 svsel_u##W(p, svdup_u##W(1), svdup_u##W(0)));         \
-    }                                                                  \
+#define STAMP_CMPSC_UINT_SVE(SFX, CT, W, CNT)                               \
+  static inline void _cmpsc_eq_##SFX##_sve(const void *restrict ap,         \
+                                           const void *restrict sp,         \
+                                           void *restrict op, size_t n) {   \
+    const CT *a = (const CT *)ap;                                           \
+    const CT s = *(const CT *)sp;                                           \
+    CT *out = (CT *)op;                                                     \
+    size_t vl = CNT();                                                      \
+    for (size_t i = 0; i < n; i += vl) {                                    \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);               \
+      svuint##W##_t va = svld1_u##W(pg, a + i);                             \
+      svbool_t p = svcmpeq_n_u##W(pg, va, s);                               \
+      svst1_u##W(pg, out + i, svsel_u##W(p, svdup_u##W(1), svdup_u##W(0))); \
+    }                                                                       \
+  }                                                                         \
+  static inline void _cmpsc_gt_##SFX##_sve(const void *restrict ap,         \
+                                           const void *restrict sp,         \
+                                           void *restrict op, size_t n) {   \
+    const CT *a = (const CT *)ap;                                           \
+    const CT s = *(const CT *)sp;                                           \
+    CT *out = (CT *)op;                                                     \
+    size_t vl = CNT();                                                      \
+    for (size_t i = 0; i < n; i += vl) {                                    \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);               \
+      svuint##W##_t va = svld1_u##W(pg, a + i);                             \
+      svbool_t p = svcmpgt_n_u##W(pg, va, s);                               \
+      svst1_u##W(pg, out + i, svsel_u##W(p, svdup_u##W(1), svdup_u##W(0))); \
+    }                                                                       \
+  }                                                                         \
+  static inline void _cmpsc_lt_##SFX##_sve(const void *restrict ap,         \
+                                           const void *restrict sp,         \
+                                           void *restrict op, size_t n) {   \
+    const CT *a = (const CT *)ap;                                           \
+    const CT s = *(const CT *)sp;                                           \
+    CT *out = (CT *)op;                                                     \
+    size_t vl = CNT();                                                      \
+    for (size_t i = 0; i < n; i += vl) {                                    \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);               \
+      svuint##W##_t va = svld1_u##W(pg, a + i);                             \
+      svbool_t p = svcmplt_n_u##W(pg, va, s);                               \
+      svst1_u##W(pg, out + i, svsel_u##W(p, svdup_u##W(1), svdup_u##W(0))); \
+    }                                                                       \
+  }                                                                         \
+  static inline void _cmpsc_ge_##SFX##_sve(const void *restrict ap,         \
+                                           const void *restrict sp,         \
+                                           void *restrict op, size_t n) {   \
+    const CT *a = (const CT *)ap;                                           \
+    const CT s = *(const CT *)sp;                                           \
+    CT *out = (CT *)op;                                                     \
+    size_t vl = CNT();                                                      \
+    for (size_t i = 0; i < n; i += vl) {                                    \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);               \
+      svuint##W##_t va = svld1_u##W(pg, a + i);                             \
+      svbool_t p = svcmpge_n_u##W(pg, va, s);                               \
+      svst1_u##W(pg, out + i, svsel_u##W(p, svdup_u##W(1), svdup_u##W(0))); \
+    }                                                                       \
+  }                                                                         \
+  static inline void _cmpsc_le_##SFX##_sve(const void *restrict ap,         \
+                                           const void *restrict sp,         \
+                                           void *restrict op, size_t n) {   \
+    const CT *a = (const CT *)ap;                                           \
+    const CT s = *(const CT *)sp;                                           \
+    CT *out = (CT *)op;                                                     \
+    size_t vl = CNT();                                                      \
+    for (size_t i = 0; i < n; i += vl) {                                    \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);               \
+      svuint##W##_t va = svld1_u##W(pg, a + i);                             \
+      svbool_t p = svcmple_n_u##W(pg, va, s);                               \
+      svst1_u##W(pg, out + i, svsel_u##W(p, svdup_u##W(1), svdup_u##W(0))); \
+    }                                                                       \
   }
 
 STAMP_CMPSC_UINT_SVE(u8, uint8_t, 8, svcntb)
@@ -184,81 +174,81 @@ STAMP_CMPSC_UINT_SVE(u64, uint64_t, 64, svcntd)
 
 /* ── Float macro ────────────────────────────────────────────────── */
 
-#define STAMP_CMPSC_FLOAT_SVE(SFX, CT, W, CNT)                        \
-  static inline void _cmpsc_eq_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svfloat##W##_t va = svld1_f##W(pg, a + i);                      \
-      svbool_t p = svcmpeq_n_f##W(pg, va, s);                         \
-      svst1_f##W(pg, out + i,                                          \
-                 svsel_f##W(p, svdup_f##W((CT)1), svdup_f##W((CT)0))); \
-    }                                                                  \
-  }                                                                    \
-  static inline void _cmpsc_gt_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svfloat##W##_t va = svld1_f##W(pg, a + i);                      \
-      svbool_t p = svcmpgt_n_f##W(pg, va, s);                         \
-      svst1_f##W(pg, out + i,                                          \
-                 svsel_f##W(p, svdup_f##W((CT)1), svdup_f##W((CT)0))); \
-    }                                                                  \
-  }                                                                    \
-  static inline void _cmpsc_lt_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svfloat##W##_t va = svld1_f##W(pg, a + i);                      \
-      svbool_t p = svcmplt_n_f##W(pg, va, s);                         \
-      svst1_f##W(pg, out + i,                                          \
-                 svsel_f##W(p, svdup_f##W((CT)1), svdup_f##W((CT)0))); \
-    }                                                                  \
-  }                                                                    \
-  static inline void _cmpsc_ge_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svfloat##W##_t va = svld1_f##W(pg, a + i);                      \
-      svbool_t p = svcmpge_n_f##W(pg, va, s);                         \
-      svst1_f##W(pg, out + i,                                          \
-                 svsel_f##W(p, svdup_f##W((CT)1), svdup_f##W((CT)0))); \
-    }                                                                  \
-  }                                                                    \
-  static inline void _cmpsc_le_##SFX##_sve(                           \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svfloat##W##_t va = svld1_f##W(pg, a + i);                      \
-      svbool_t p = svcmple_n_f##W(pg, va, s);                         \
-      svst1_f##W(pg, out + i,                                          \
-                 svsel_f##W(p, svdup_f##W((CT)1), svdup_f##W((CT)0))); \
-    }                                                                  \
+#define STAMP_CMPSC_FLOAT_SVE(SFX, CT, W, CNT)                            \
+  static inline void _cmpsc_eq_##SFX##_sve(const void *restrict ap,       \
+                                           const void *restrict sp,       \
+                                           void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                         \
+    const CT s = *(const CT *)sp;                                         \
+    CT *out = (CT *)op;                                                   \
+    size_t vl = CNT();                                                    \
+    for (size_t i = 0; i < n; i += vl) {                                  \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);             \
+      svfloat##W##_t va = svld1_f##W(pg, a + i);                          \
+      svbool_t p = svcmpeq_n_f##W(pg, va, s);                             \
+      svst1_f##W(pg, out + i,                                             \
+                 svsel_f##W(p, svdup_f##W((CT)1), svdup_f##W((CT)0)));    \
+    }                                                                     \
+  }                                                                       \
+  static inline void _cmpsc_gt_##SFX##_sve(const void *restrict ap,       \
+                                           const void *restrict sp,       \
+                                           void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                         \
+    const CT s = *(const CT *)sp;                                         \
+    CT *out = (CT *)op;                                                   \
+    size_t vl = CNT();                                                    \
+    for (size_t i = 0; i < n; i += vl) {                                  \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);             \
+      svfloat##W##_t va = svld1_f##W(pg, a + i);                          \
+      svbool_t p = svcmpgt_n_f##W(pg, va, s);                             \
+      svst1_f##W(pg, out + i,                                             \
+                 svsel_f##W(p, svdup_f##W((CT)1), svdup_f##W((CT)0)));    \
+    }                                                                     \
+  }                                                                       \
+  static inline void _cmpsc_lt_##SFX##_sve(const void *restrict ap,       \
+                                           const void *restrict sp,       \
+                                           void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                         \
+    const CT s = *(const CT *)sp;                                         \
+    CT *out = (CT *)op;                                                   \
+    size_t vl = CNT();                                                    \
+    for (size_t i = 0; i < n; i += vl) {                                  \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);             \
+      svfloat##W##_t va = svld1_f##W(pg, a + i);                          \
+      svbool_t p = svcmplt_n_f##W(pg, va, s);                             \
+      svst1_f##W(pg, out + i,                                             \
+                 svsel_f##W(p, svdup_f##W((CT)1), svdup_f##W((CT)0)));    \
+    }                                                                     \
+  }                                                                       \
+  static inline void _cmpsc_ge_##SFX##_sve(const void *restrict ap,       \
+                                           const void *restrict sp,       \
+                                           void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                         \
+    const CT s = *(const CT *)sp;                                         \
+    CT *out = (CT *)op;                                                   \
+    size_t vl = CNT();                                                    \
+    for (size_t i = 0; i < n; i += vl) {                                  \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);             \
+      svfloat##W##_t va = svld1_f##W(pg, a + i);                          \
+      svbool_t p = svcmpge_n_f##W(pg, va, s);                             \
+      svst1_f##W(pg, out + i,                                             \
+                 svsel_f##W(p, svdup_f##W((CT)1), svdup_f##W((CT)0)));    \
+    }                                                                     \
+  }                                                                       \
+  static inline void _cmpsc_le_##SFX##_sve(const void *restrict ap,       \
+                                           const void *restrict sp,       \
+                                           void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                         \
+    const CT s = *(const CT *)sp;                                         \
+    CT *out = (CT *)op;                                                   \
+    size_t vl = CNT();                                                    \
+    for (size_t i = 0; i < n; i += vl) {                                  \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);             \
+      svfloat##W##_t va = svld1_f##W(pg, a + i);                          \
+      svbool_t p = svcmple_n_f##W(pg, va, s);                             \
+      svst1_f##W(pg, out + i,                                             \
+                 svsel_f##W(p, svdup_f##W((CT)1), svdup_f##W((CT)0)));    \
+    }                                                                     \
   }
 
 STAMP_CMPSC_FLOAT_SVE(f32, float, 32, svcntw)

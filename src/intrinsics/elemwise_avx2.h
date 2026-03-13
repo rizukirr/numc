@@ -19,55 +19,55 @@
  * Binary: generic integer macro (for ops with native AVX2 support)
  * ════════════════════════════════════════════════════════════════ */
 
-#define FAST_BIN_INT_AVX2(OP, SFX, CT, VPV, VEC_OP, TAIL_EXPR)        \
-  static inline void _fast_##OP##_##SFX##_avx2(                       \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t i = 0;                                                      \
-    for (; i + (VPV) <= n; i += (VPV)) {                               \
-      __m256i va = _mm256_loadu_si256((const __m256i *)(a + i));       \
-      __m256i vb = _mm256_loadu_si256((const __m256i *)(b + i));       \
-      _mm256_storeu_si256((__m256i *)(out + i), VEC_OP(va, vb));       \
-    }                                                                  \
-    for (; i < n; i++)                                                 \
-      out[i] = (CT)(TAIL_EXPR);                                       \
+#define FAST_BIN_INT_AVX2(OP, SFX, CT, VPV, VEC_OP, TAIL_EXPR)                \
+  static inline void _fast_##OP##_##SFX##_avx2(const void *restrict ap,       \
+                                               const void *restrict bp,       \
+                                               void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t i = 0;                                                             \
+    for (; i + (VPV) <= n; i += (VPV)) {                                      \
+      __m256i va = _mm256_loadu_si256((const __m256i *)(a + i));              \
+      __m256i vb = _mm256_loadu_si256((const __m256i *)(b + i));              \
+      _mm256_storeu_si256((__m256i *)(out + i), VEC_OP(va, vb));              \
+    }                                                                         \
+    for (; i < n; i++)                                                        \
+      out[i] = (CT)(TAIL_EXPR);                                               \
   }
 
-#define FAST_BIN_F32_AVX2(OP, VEC_OP, TAIL_EXPR)                      \
-  static inline void _fast_##OP##_f32_avx2(                           \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const float *a = (const float *)ap;                                \
-    const float *b = (const float *)bp;                                \
-    float *out = (float *)op;                                          \
-    size_t i = 0;                                                      \
-    for (; i + 8 <= n; i += 8) {                                       \
-      __m256 va = _mm256_loadu_ps(a + i);                              \
-      __m256 vb = _mm256_loadu_ps(b + i);                              \
-      _mm256_storeu_ps(out + i, VEC_OP(va, vb));                       \
-    }                                                                  \
-    for (; i < n; i++)                                                 \
-      out[i] = (float)(TAIL_EXPR);                                    \
+#define FAST_BIN_F32_AVX2(OP, VEC_OP, TAIL_EXPR)                          \
+  static inline void _fast_##OP##_f32_avx2(const void *restrict ap,       \
+                                           const void *restrict bp,       \
+                                           void *restrict op, size_t n) { \
+    const float *a = (const float *)ap;                                   \
+    const float *b = (const float *)bp;                                   \
+    float *out = (float *)op;                                             \
+    size_t i = 0;                                                         \
+    for (; i + 8 <= n; i += 8) {                                          \
+      __m256 va = _mm256_loadu_ps(a + i);                                 \
+      __m256 vb = _mm256_loadu_ps(b + i);                                 \
+      _mm256_storeu_ps(out + i, VEC_OP(va, vb));                          \
+    }                                                                     \
+    for (; i < n; i++)                                                    \
+      out[i] = (float)(TAIL_EXPR);                                        \
   }
 
-#define FAST_BIN_F64_AVX2(OP, VEC_OP, TAIL_EXPR)                      \
-  static inline void _fast_##OP##_f64_avx2(                           \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const double *a = (const double *)ap;                              \
-    const double *b = (const double *)bp;                              \
-    double *out = (double *)op;                                        \
-    size_t i = 0;                                                      \
-    for (; i + 4 <= n; i += 4) {                                       \
-      __m256d va = _mm256_loadu_pd(a + i);                             \
-      __m256d vb = _mm256_loadu_pd(b + i);                             \
-      _mm256_storeu_pd(out + i, VEC_OP(va, vb));                       \
-    }                                                                  \
-    for (; i < n; i++)                                                 \
-      out[i] = (double)(TAIL_EXPR);                                   \
+#define FAST_BIN_F64_AVX2(OP, VEC_OP, TAIL_EXPR)                          \
+  static inline void _fast_##OP##_f64_avx2(const void *restrict ap,       \
+                                           const void *restrict bp,       \
+                                           void *restrict op, size_t n) { \
+    const double *a = (const double *)ap;                                 \
+    const double *b = (const double *)bp;                                 \
+    double *out = (double *)op;                                           \
+    size_t i = 0;                                                         \
+    for (; i + 4 <= n; i += 4) {                                          \
+      __m256d va = _mm256_loadu_pd(a + i);                                \
+      __m256d vb = _mm256_loadu_pd(b + i);                                \
+      _mm256_storeu_pd(out + i, VEC_OP(va, vb));                          \
+    }                                                                     \
+    for (; i < n; i++)                                                    \
+      out[i] = (double)(TAIL_EXPR);                                       \
   }
 
 /* ── Add ─────────────────────────────────────────────────────────── */
@@ -117,8 +117,7 @@ static inline void _fast_maximum_i64_avx2(const void *restrict ap,
     __m256i va = _mm256_loadu_si256((const __m256i *)(a + i));
     __m256i vb = _mm256_loadu_si256((const __m256i *)(b + i));
     __m256i gt = _mm256_cmpgt_epi64(va, vb);
-    _mm256_storeu_si256((__m256i *)(out + i),
-                        _mm256_blendv_epi8(vb, va, gt));
+    _mm256_storeu_si256((__m256i *)(out + i), _mm256_blendv_epi8(vb, va, gt));
   }
   for (; i < n; i++)
     out[i] = a[i] > b[i] ? a[i] : b[i];
@@ -146,9 +145,8 @@ static inline void _fast_maximum_u64_avx2(const void *restrict ap,
     __m256i va = _mm256_loadu_si256((const __m256i *)(a + i));
     __m256i vb = _mm256_loadu_si256((const __m256i *)(b + i));
     __m256i gt = _mm256_cmpgt_epi64(_mm256_xor_si256(va, bias),
-                                     _mm256_xor_si256(vb, bias));
-    _mm256_storeu_si256((__m256i *)(out + i),
-                        _mm256_blendv_epi8(vb, va, gt));
+                                    _mm256_xor_si256(vb, bias));
+    _mm256_storeu_si256((__m256i *)(out + i), _mm256_blendv_epi8(vb, va, gt));
   }
   for (; i < n; i++)
     out[i] = a[i] > b[i] ? a[i] : b[i];
@@ -179,8 +177,7 @@ static inline void _fast_minimum_i64_avx2(const void *restrict ap,
     __m256i va = _mm256_loadu_si256((const __m256i *)(a + i));
     __m256i vb = _mm256_loadu_si256((const __m256i *)(b + i));
     __m256i gt = _mm256_cmpgt_epi64(va, vb);
-    _mm256_storeu_si256((__m256i *)(out + i),
-                        _mm256_blendv_epi8(va, vb, gt));
+    _mm256_storeu_si256((__m256i *)(out + i), _mm256_blendv_epi8(va, vb, gt));
   }
   for (; i < n; i++)
     out[i] = a[i] < b[i] ? a[i] : b[i];
@@ -207,9 +204,8 @@ static inline void _fast_minimum_u64_avx2(const void *restrict ap,
     __m256i va = _mm256_loadu_si256((const __m256i *)(a + i));
     __m256i vb = _mm256_loadu_si256((const __m256i *)(b + i));
     __m256i gt = _mm256_cmpgt_epi64(_mm256_xor_si256(va, bias),
-                                     _mm256_xor_si256(vb, bias));
-    _mm256_storeu_si256((__m256i *)(out + i),
-                        _mm256_blendv_epi8(va, vb, gt));
+                                    _mm256_xor_si256(vb, bias));
+    _mm256_storeu_si256((__m256i *)(out + i), _mm256_blendv_epi8(va, vb, gt));
   }
   for (; i < n; i++)
     out[i] = a[i] < b[i] ? a[i] : b[i];
@@ -220,20 +216,16 @@ FAST_BIN_F64_AVX2(minimum, _mm256_min_pd, a[i] < b[i] ? a[i] : b[i])
 
 /* ── Mul (16/32-bit: native mullo) ───────────────────────────────── */
 
-FAST_BIN_INT_AVX2(mul, i16, int16_t, 16, _mm256_mullo_epi16,
-                  a[i] * b[i])
-FAST_BIN_INT_AVX2(mul, i32, int32_t, 8, _mm256_mullo_epi32,
-                  a[i] * b[i])
-FAST_BIN_INT_AVX2(mul, u16, uint16_t, 16, _mm256_mullo_epi16,
-                  a[i] * b[i])
-FAST_BIN_INT_AVX2(mul, u32, uint32_t, 8, _mm256_mullo_epi32,
-                  a[i] * b[i])
+FAST_BIN_INT_AVX2(mul, i16, int16_t, 16, _mm256_mullo_epi16, a[i] * b[i])
+FAST_BIN_INT_AVX2(mul, i32, int32_t, 8, _mm256_mullo_epi32, a[i] * b[i])
+FAST_BIN_INT_AVX2(mul, u16, uint16_t, 16, _mm256_mullo_epi16, a[i] * b[i])
+FAST_BIN_INT_AVX2(mul, u32, uint32_t, 8, _mm256_mullo_epi32, a[i] * b[i])
 
 /* ── Mul i8/u8: widening trick (no native 8-bit multiply) ──────── */
 
 static inline void _fast_mul_i8_avx2(const void *restrict ap,
-                                     const void *restrict bp,
-                                     void *restrict op, size_t n) {
+                                     const void *restrict bp, void *restrict op,
+                                     size_t n) {
   const int8_t *a = (const int8_t *)ap;
   const int8_t *b = (const int8_t *)bp;
   int8_t *out = (int8_t *)op;
@@ -243,14 +235,13 @@ static inline void _fast_mul_i8_avx2(const void *restrict ap,
     __m256i va = _mm256_loadu_si256((const __m256i *)(a + i));
     __m256i vb = _mm256_loadu_si256((const __m256i *)(b + i));
     /* Even bytes: mask to 16-bit, multiply, mask result */
-    __m256i lo = _mm256_and_si256(
-        _mm256_mullo_epi16(_mm256_and_si256(va, mask),
-                           _mm256_and_si256(vb, mask)),
-        mask);
+    __m256i lo =
+        _mm256_and_si256(_mm256_mullo_epi16(_mm256_and_si256(va, mask),
+                                            _mm256_and_si256(vb, mask)),
+                         mask);
     /* Odd bytes: shift right 8, multiply, shift left 8 */
     __m256i hi = _mm256_slli_epi16(
-        _mm256_mullo_epi16(_mm256_srli_epi16(va, 8),
-                           _mm256_srli_epi16(vb, 8)),
+        _mm256_mullo_epi16(_mm256_srli_epi16(va, 8), _mm256_srli_epi16(vb, 8)),
         8);
     _mm256_storeu_si256((__m256i *)(out + i), _mm256_or_si256(lo, hi));
   }
@@ -259,8 +250,8 @@ static inline void _fast_mul_i8_avx2(const void *restrict ap,
 }
 
 static inline void _fast_mul_u8_avx2(const void *restrict ap,
-                                     const void *restrict bp,
-                                     void *restrict op, size_t n) {
+                                     const void *restrict bp, void *restrict op,
+                                     size_t n) {
   const uint8_t *a = (const uint8_t *)ap;
   const uint8_t *b = (const uint8_t *)bp;
   uint8_t *out = (uint8_t *)op;
@@ -269,13 +260,12 @@ static inline void _fast_mul_u8_avx2(const void *restrict ap,
   for (; i + 32 <= n; i += 32) {
     __m256i va = _mm256_loadu_si256((const __m256i *)(a + i));
     __m256i vb = _mm256_loadu_si256((const __m256i *)(b + i));
-    __m256i lo = _mm256_and_si256(
-        _mm256_mullo_epi16(_mm256_and_si256(va, mask),
-                           _mm256_and_si256(vb, mask)),
-        mask);
+    __m256i lo =
+        _mm256_and_si256(_mm256_mullo_epi16(_mm256_and_si256(va, mask),
+                                            _mm256_and_si256(vb, mask)),
+                         mask);
     __m256i hi = _mm256_slli_epi16(
-        _mm256_mullo_epi16(_mm256_srli_epi16(va, 8),
-                           _mm256_srli_epi16(vb, 8)),
+        _mm256_mullo_epi16(_mm256_srli_epi16(va, 8), _mm256_srli_epi16(vb, 8)),
         8);
     _mm256_storeu_si256((__m256i *)(out + i), _mm256_or_si256(lo, hi));
   }
@@ -316,18 +306,18 @@ FAST_BIN_F64_AVX2(mul, _mm256_mul_pd, a[i] * b[i])
  * Unary operations
  * ════════════════════════════════════════════════════════════════ */
 
-#define FAST_UN_INT_AVX2(OP, SFX, CT, VPV, VEC_OP, TAIL_EXPR)         \
-  static inline void _fast_##OP##_##SFX##_avx2(                       \
-      const void *restrict ap, void *restrict op, size_t n) {         \
-    const CT *a = (const CT *)ap;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t i = 0;                                                      \
-    for (; i + (VPV) <= n; i += (VPV)) {                               \
-      __m256i va = _mm256_loadu_si256((const __m256i *)(a + i));       \
-      _mm256_storeu_si256((__m256i *)(out + i), VEC_OP);               \
-    }                                                                  \
-    for (; i < n; i++)                                                 \
-      out[i] = (CT)(TAIL_EXPR);                                       \
+#define FAST_UN_INT_AVX2(OP, SFX, CT, VPV, VEC_OP, TAIL_EXPR)                 \
+  static inline void _fast_##OP##_##SFX##_avx2(const void *restrict ap,       \
+                                               void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t i = 0;                                                             \
+    for (; i + (VPV) <= n; i += (VPV)) {                                      \
+      __m256i va = _mm256_loadu_si256((const __m256i *)(a + i));              \
+      _mm256_storeu_si256((__m256i *)(out + i), VEC_OP);                      \
+    }                                                                         \
+    for (; i < n; i++)                                                        \
+      out[i] = (CT)(TAIL_EXPR);                                               \
   }
 
 /* ── Neg ─────────────────────────────────────────────────────────── */
@@ -341,10 +331,8 @@ FAST_UN_INT_AVX2(neg, i64, int64_t, 4, NEG_VEC(64), -a[i])
 FAST_UN_INT_AVX2(neg, u8, uint8_t, 32, NEG_VEC(8), (uint8_t)(-(int8_t)a[i]))
 FAST_UN_INT_AVX2(neg, u16, uint16_t, 16, NEG_VEC(16),
                  (uint16_t)(-(int16_t)a[i]))
-FAST_UN_INT_AVX2(neg, u32, uint32_t, 8, NEG_VEC(32),
-                 (uint32_t)(-(int32_t)a[i]))
-FAST_UN_INT_AVX2(neg, u64, uint64_t, 4, NEG_VEC(64),
-                 (uint64_t)(-(int64_t)a[i]))
+FAST_UN_INT_AVX2(neg, u32, uint32_t, 8, NEG_VEC(32), (uint32_t)(-(int32_t)a[i]))
+FAST_UN_INT_AVX2(neg, u64, uint64_t, 4, NEG_VEC(64), (uint64_t)(-(int64_t)a[i]))
 #undef NEG_VEC
 
 static inline void _fast_neg_f32_avx2(const void *restrict ap,
@@ -354,8 +342,7 @@ static inline void _fast_neg_f32_avx2(const void *restrict ap,
   const __m256 sign = _mm256_set1_ps(-0.0f);
   size_t i = 0;
   for (; i + 8 <= n; i += 8)
-    _mm256_storeu_ps(out + i,
-                     _mm256_xor_ps(_mm256_loadu_ps(a + i), sign));
+    _mm256_storeu_ps(out + i, _mm256_xor_ps(_mm256_loadu_ps(a + i), sign));
   for (; i < n; i++)
     out[i] = -a[i];
 }
@@ -367,8 +354,7 @@ static inline void _fast_neg_f64_avx2(const void *restrict ap,
   const __m256d sign = _mm256_set1_pd(-0.0);
   size_t i = 0;
   for (; i + 4 <= n; i += 4)
-    _mm256_storeu_pd(out + i,
-                     _mm256_xor_pd(_mm256_loadu_pd(a + i), sign));
+    _mm256_storeu_pd(out + i, _mm256_xor_pd(_mm256_loadu_pd(a + i), sign));
   for (; i < n; i++)
     out[i] = -a[i];
 }
@@ -393,8 +379,7 @@ static inline void _fast_abs_i64_avx2(const void *restrict ap,
     __m256i va = _mm256_loadu_si256((const __m256i *)(a + i));
     __m256i neg = _mm256_sub_epi64(zero, va);
     __m256i pos = _mm256_cmpgt_epi64(va, zero);
-    _mm256_storeu_si256((__m256i *)(out + i),
-                        _mm256_blendv_epi8(neg, va, pos));
+    _mm256_storeu_si256((__m256i *)(out + i), _mm256_blendv_epi8(neg, va, pos));
   }
   for (; i < n; i++)
     out[i] = a[i] < 0 ? -a[i] : a[i];
@@ -404,12 +389,10 @@ static inline void _fast_abs_f32_avx2(const void *restrict ap,
                                       void *restrict op, size_t n) {
   const float *a = (const float *)ap;
   float *out = (float *)op;
-  const __m256 mask =
-      _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF));
+  const __m256 mask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF));
   size_t i = 0;
   for (; i + 8 <= n; i += 8)
-    _mm256_storeu_ps(out + i,
-                     _mm256_and_ps(_mm256_loadu_ps(a + i), mask));
+    _mm256_storeu_ps(out + i, _mm256_and_ps(_mm256_loadu_ps(a + i), mask));
   for (; i < n; i++)
     out[i] = a[i] < 0 ? -a[i] : a[i];
 }
@@ -422,8 +405,7 @@ static inline void _fast_abs_f64_avx2(const void *restrict ap,
       _mm256_castsi256_pd(_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL));
   size_t i = 0;
   for (; i + 4 <= n; i += 4)
-    _mm256_storeu_pd(out + i,
-                     _mm256_and_pd(_mm256_loadu_pd(a + i), mask));
+    _mm256_storeu_pd(out + i, _mm256_and_pd(_mm256_loadu_pd(a + i), mask));
   for (; i < n; i++)
     out[i] = a[i] < 0 ? -a[i] : a[i];
 }

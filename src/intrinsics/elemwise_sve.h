@@ -19,72 +19,72 @@
  * Binary: signed integer macro
  * ════════════════════════════════════════════════════════════════ */
 
-#define FAST_BIN_SINT_SVE(OP, SFX, CT, W, CNT, VEC_OP)                \
-  static inline void _fast_##OP##_##SFX##_sve(                        \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    size_t i = 0;                                                      \
-    for (; i < n; i += vl) {                                           \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svint##W##_t va = svld1_s##W(pg, a + i);                        \
-      svint##W##_t vb = svld1_s##W(pg, b + i);                        \
-      svst1_s##W(pg, out + i, VEC_OP(pg, va, vb));                    \
-    }                                                                  \
+#define FAST_BIN_SINT_SVE(OP, SFX, CT, W, CNT, VEC_OP)                       \
+  static inline void _fast_##OP##_##SFX##_sve(const void *restrict ap,       \
+                                              const void *restrict bp,       \
+                                              void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                            \
+    const CT *b = (const CT *)bp;                                            \
+    CT *out = (CT *)op;                                                      \
+    size_t vl = CNT();                                                       \
+    size_t i = 0;                                                            \
+    for (; i < n; i += vl) {                                                 \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);                \
+      svint##W##_t va = svld1_s##W(pg, a + i);                               \
+      svint##W##_t vb = svld1_s##W(pg, b + i);                               \
+      svst1_s##W(pg, out + i, VEC_OP(pg, va, vb));                           \
+    }                                                                        \
   }
 
-#define FAST_BIN_UINT_SVE(OP, SFX, CT, W, CNT, VEC_OP)                \
-  static inline void _fast_##OP##_##SFX##_sve(                        \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    size_t i = 0;                                                      \
-    for (; i < n; i += vl) {                                           \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svuint##W##_t va = svld1_u##W(pg, a + i);                       \
-      svuint##W##_t vb = svld1_u##W(pg, b + i);                       \
-      svst1_u##W(pg, out + i, VEC_OP(pg, va, vb));                    \
-    }                                                                  \
+#define FAST_BIN_UINT_SVE(OP, SFX, CT, W, CNT, VEC_OP)                       \
+  static inline void _fast_##OP##_##SFX##_sve(const void *restrict ap,       \
+                                              const void *restrict bp,       \
+                                              void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                            \
+    const CT *b = (const CT *)bp;                                            \
+    CT *out = (CT *)op;                                                      \
+    size_t vl = CNT();                                                       \
+    size_t i = 0;                                                            \
+    for (; i < n; i += vl) {                                                 \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);                \
+      svuint##W##_t va = svld1_u##W(pg, a + i);                              \
+      svuint##W##_t vb = svld1_u##W(pg, b + i);                              \
+      svst1_u##W(pg, out + i, VEC_OP(pg, va, vb));                           \
+    }                                                                        \
   }
 
-#define FAST_BIN_F32_SVE(OP, VEC_OP)                                   \
-  static inline void _fast_##OP##_f32_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const float *a = (const float *)ap;                                \
-    const float *b = (const float *)bp;                                \
-    float *out = (float *)op;                                          \
-    size_t vl = svcntw();                                              \
-    size_t i = 0;                                                      \
-    for (; i < n; i += vl) {                                           \
-      svbool_t pg = svwhilelt_b32((uint32_t)i, (uint32_t)n);          \
-      svfloat32_t va = svld1_f32(pg, a + i);                          \
-      svfloat32_t vb = svld1_f32(pg, b + i);                          \
-      svst1_f32(pg, out + i, VEC_OP(pg, va, vb));                     \
-    }                                                                  \
+#define FAST_BIN_F32_SVE(OP, VEC_OP)                                     \
+  static inline void _fast_##OP##_f32_sve(const void *restrict ap,       \
+                                          const void *restrict bp,       \
+                                          void *restrict op, size_t n) { \
+    const float *a = (const float *)ap;                                  \
+    const float *b = (const float *)bp;                                  \
+    float *out = (float *)op;                                            \
+    size_t vl = svcntw();                                                \
+    size_t i = 0;                                                        \
+    for (; i < n; i += vl) {                                             \
+      svbool_t pg = svwhilelt_b32((uint32_t)i, (uint32_t)n);             \
+      svfloat32_t va = svld1_f32(pg, a + i);                             \
+      svfloat32_t vb = svld1_f32(pg, b + i);                             \
+      svst1_f32(pg, out + i, VEC_OP(pg, va, vb));                        \
+    }                                                                    \
   }
 
-#define FAST_BIN_F64_SVE(OP, VEC_OP)                                   \
-  static inline void _fast_##OP##_f64_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const double *a = (const double *)ap;                              \
-    const double *b = (const double *)bp;                              \
-    double *out = (double *)op;                                        \
-    size_t vl = svcntd();                                              \
-    size_t i = 0;                                                      \
-    for (; i < n; i += vl) {                                           \
-      svbool_t pg = svwhilelt_b64((uint32_t)i, (uint32_t)n);          \
-      svfloat64_t va = svld1_f64(pg, a + i);                          \
-      svfloat64_t vb = svld1_f64(pg, b + i);                          \
-      svst1_f64(pg, out + i, VEC_OP(pg, va, vb));                     \
-    }                                                                  \
+#define FAST_BIN_F64_SVE(OP, VEC_OP)                                     \
+  static inline void _fast_##OP##_f64_sve(const void *restrict ap,       \
+                                          const void *restrict bp,       \
+                                          void *restrict op, size_t n) { \
+    const double *a = (const double *)ap;                                \
+    const double *b = (const double *)bp;                                \
+    double *out = (double *)op;                                          \
+    size_t vl = svcntd();                                                \
+    size_t i = 0;                                                        \
+    for (; i < n; i += vl) {                                             \
+      svbool_t pg = svwhilelt_b64((uint32_t)i, (uint32_t)n);             \
+      svfloat64_t va = svld1_f64(pg, a + i);                             \
+      svfloat64_t vb = svld1_f64(pg, b + i);                             \
+      svst1_f64(pg, out + i, VEC_OP(pg, va, vb));                        \
+    }                                                                    \
   }
 
 /* ── Add ─────────────────────────────────────────────────────────── */
@@ -163,18 +163,18 @@ FAST_BIN_F64_SVE(minimum, svmin_f64_x)
 
 /* ── Neg (signed integers) ───────────────────────────────────────── */
 
-#define FAST_NEG_SINT_SVE(SFX, CT, W, CNT)                            \
-  static inline void _fast_neg_##SFX##_sve(                            \
-      const void *restrict ap, void *restrict op, size_t n) {          \
-    const CT *a = (const CT *)ap;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    size_t i = 0;                                                      \
-    for (; i < n; i += vl) {                                           \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svint##W##_t va = svld1_s##W(pg, a + i);                        \
-      svst1_s##W(pg, out + i, svneg_s##W##_x(pg, va));                \
-    }                                                                  \
+#define FAST_NEG_SINT_SVE(SFX, CT, W, CNT)                                \
+  static inline void _fast_neg_##SFX##_sve(const void *restrict ap,       \
+                                           void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                         \
+    CT *out = (CT *)op;                                                   \
+    size_t vl = CNT();                                                    \
+    size_t i = 0;                                                         \
+    for (; i < n; i += vl) {                                              \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);             \
+      svint##W##_t va = svld1_s##W(pg, a + i);                            \
+      svst1_s##W(pg, out + i, svneg_s##W##_x(pg, va));                    \
+    }                                                                     \
   }
 
 FAST_NEG_SINT_SVE(i8, int8_t, 8, svcntb)
@@ -186,19 +186,18 @@ FAST_NEG_SINT_SVE(i64, int64_t, 64, svcntd)
 
 /* ── Neg (unsigned integers): 0 - val ────────────────────────────── */
 
-#define FAST_NEG_UINT_SVE(SFX, CT, W, CNT)                            \
-  static inline void _fast_neg_##SFX##_sve(                            \
-      const void *restrict ap, void *restrict op, size_t n) {          \
-    const CT *a = (const CT *)ap;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    size_t i = 0;                                                      \
-    for (; i < n; i += vl) {                                           \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svuint##W##_t va = svld1_u##W(pg, a + i);                       \
-      svst1_u##W(pg, out + i,                                          \
-                 svsub_u##W##_x(pg, svdup_u##W(0), va));              \
-    }                                                                  \
+#define FAST_NEG_UINT_SVE(SFX, CT, W, CNT)                                \
+  static inline void _fast_neg_##SFX##_sve(const void *restrict ap,       \
+                                           void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                         \
+    CT *out = (CT *)op;                                                   \
+    size_t vl = CNT();                                                    \
+    size_t i = 0;                                                         \
+    for (; i < n; i += vl) {                                              \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);             \
+      svuint##W##_t va = svld1_u##W(pg, a + i);                           \
+      svst1_u##W(pg, out + i, svsub_u##W##_x(pg, svdup_u##W(0), va));     \
+    }                                                                     \
   }
 
 FAST_NEG_UINT_SVE(u8, uint8_t, 8, svcntb)
@@ -210,8 +209,8 @@ FAST_NEG_UINT_SVE(u64, uint64_t, 64, svcntd)
 
 /* ── Neg (float) ─────────────────────────────────────────────────── */
 
-static inline void _fast_neg_f32_sve(const void *restrict ap,
-                                     void *restrict op, size_t n) {
+static inline void _fast_neg_f32_sve(const void *restrict ap, void *restrict op,
+                                     size_t n) {
   const float *a = (const float *)ap;
   float *out = (float *)op;
   size_t vl = svcntw();
@@ -223,8 +222,8 @@ static inline void _fast_neg_f32_sve(const void *restrict ap,
   }
 }
 
-static inline void _fast_neg_f64_sve(const void *restrict ap,
-                                     void *restrict op, size_t n) {
+static inline void _fast_neg_f64_sve(const void *restrict ap, void *restrict op,
+                                     size_t n) {
   const double *a = (const double *)ap;
   double *out = (double *)op;
   size_t vl = svcntd();
@@ -238,18 +237,18 @@ static inline void _fast_neg_f64_sve(const void *restrict ap,
 
 /* ── Abs (signed integers) ───────────────────────────────────────── */
 
-#define FAST_ABS_SINT_SVE(SFX, CT, W, CNT)                            \
-  static inline void _fast_abs_##SFX##_sve(                            \
-      const void *restrict ap, void *restrict op, size_t n) {          \
-    const CT *a = (const CT *)ap;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    size_t i = 0;                                                      \
-    for (; i < n; i += vl) {                                           \
-      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);         \
-      svint##W##_t va = svld1_s##W(pg, a + i);                        \
-      svst1_s##W(pg, out + i, svabs_s##W##_x(pg, va));                \
-    }                                                                  \
+#define FAST_ABS_SINT_SVE(SFX, CT, W, CNT)                                \
+  static inline void _fast_abs_##SFX##_sve(const void *restrict ap,       \
+                                           void *restrict op, size_t n) { \
+    const CT *a = (const CT *)ap;                                         \
+    CT *out = (CT *)op;                                                   \
+    size_t vl = CNT();                                                    \
+    size_t i = 0;                                                         \
+    for (; i < n; i += vl) {                                              \
+      svbool_t pg = svwhilelt_b##W((uint32_t)i, (uint32_t)n);             \
+      svint##W##_t va = svld1_s##W(pg, a + i);                            \
+      svst1_s##W(pg, out + i, svabs_s##W##_x(pg, va));                    \
+    }                                                                     \
   }
 
 FAST_ABS_SINT_SVE(i8, int8_t, 8, svcntb)
@@ -261,8 +260,8 @@ FAST_ABS_SINT_SVE(i64, int64_t, 64, svcntd)
 
 /* ── Abs (float) ─────────────────────────────────────────────────── */
 
-static inline void _fast_abs_f32_sve(const void *restrict ap,
-                                     void *restrict op, size_t n) {
+static inline void _fast_abs_f32_sve(const void *restrict ap, void *restrict op,
+                                     size_t n) {
   const float *a = (const float *)ap;
   float *out = (float *)op;
   size_t vl = svcntw();
@@ -274,8 +273,8 @@ static inline void _fast_abs_f32_sve(const void *restrict ap,
   }
 }
 
-static inline void _fast_abs_f64_sve(const void *restrict ap,
-                                     void *restrict op, size_t n) {
+static inline void _fast_abs_f64_sve(const void *restrict ap, void *restrict op,
+                                     size_t n) {
   const double *a = (const double *)ap;
   double *out = (double *)op;
   size_t vl = svcntd();

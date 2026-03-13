@@ -18,72 +18,72 @@
  * Generic macros for signed int, unsigned int, float scalar ops
  * ════════════════════════════════════════════════════════════════ */
 
-#define FAST_SCAL_SINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)   \
-  static inline void _fast_##OP##_scalar_##SFX##_neon(                 \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    int##W##x##VPV##_t vs = vdupq_n_s##W(s);                          \
-    size_t i = 0;                                                      \
-    for (; i + (VPV) <= n; i += (VPV)) {                               \
-      int##W##x##VPV##_t va = vld1q_s##W(a + i);                      \
-      vst1q_s##W(out + i, VEC_OP(va, vs));                             \
-    }                                                                  \
-    for (; i < n; i++)                                                 \
-      out[i] = (CT)(TAIL_EXPR);                                       \
+#define FAST_SCAL_SINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)        \
+  static inline void _fast_##OP##_scalar_##SFX##_neon(                     \
+      const void *restrict ap, const void *restrict sp, void *restrict op, \
+      size_t n) {                                                          \
+    const CT *a = (const CT *)ap;                                          \
+    const CT s = *(const CT *)sp;                                          \
+    CT *out = (CT *)op;                                                    \
+    int##W##x##VPV##_t vs = vdupq_n_s##W(s);                               \
+    size_t i = 0;                                                          \
+    for (; i + (VPV) <= n; i += (VPV)) {                                   \
+      int##W##x##VPV##_t va = vld1q_s##W(a + i);                           \
+      vst1q_s##W(out + i, VEC_OP(va, vs));                                 \
+    }                                                                      \
+    for (; i < n; i++)                                                     \
+      out[i] = (CT)(TAIL_EXPR);                                            \
   }
 
-#define FAST_SCAL_UINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)   \
-  static inline void _fast_##OP##_scalar_##SFX##_neon(                 \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT s = *(const CT *)sp;                                      \
-    CT *out = (CT *)op;                                                \
-    uint##W##x##VPV##_t vs = vdupq_n_u##W(s);                         \
-    size_t i = 0;                                                      \
-    for (; i + (VPV) <= n; i += (VPV)) {                               \
-      uint##W##x##VPV##_t va = vld1q_u##W(a + i);                     \
-      vst1q_u##W(out + i, VEC_OP(va, vs));                             \
-    }                                                                  \
-    for (; i < n; i++)                                                 \
-      out[i] = (CT)(TAIL_EXPR);                                       \
+#define FAST_SCAL_UINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)        \
+  static inline void _fast_##OP##_scalar_##SFX##_neon(                     \
+      const void *restrict ap, const void *restrict sp, void *restrict op, \
+      size_t n) {                                                          \
+    const CT *a = (const CT *)ap;                                          \
+    const CT s = *(const CT *)sp;                                          \
+    CT *out = (CT *)op;                                                    \
+    uint##W##x##VPV##_t vs = vdupq_n_u##W(s);                              \
+    size_t i = 0;                                                          \
+    for (; i + (VPV) <= n; i += (VPV)) {                                   \
+      uint##W##x##VPV##_t va = vld1q_u##W(a + i);                          \
+      vst1q_u##W(out + i, VEC_OP(va, vs));                                 \
+    }                                                                      \
+    for (; i < n; i++)                                                     \
+      out[i] = (CT)(TAIL_EXPR);                                            \
   }
 
-#define FAST_SCAL_F32_NEON(OP, VEC_OP, TAIL_EXPR)                     \
-  static inline void _fast_##OP##_scalar_f32_neon(                     \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const float *a = (const float *)ap;                                \
-    const float s = *(const float *)sp;                                \
-    float *out = (float *)op;                                          \
-    float32x4_t vs = vdupq_n_f32(s);                                  \
-    size_t i = 0;                                                      \
-    for (; i + 4 <= n; i += 4) {                                       \
-      float32x4_t va = vld1q_f32(a + i);                               \
-      vst1q_f32(out + i, VEC_OP(va, vs));                              \
-    }                                                                  \
-    for (; i < n; i++)                                                 \
-      out[i] = (float)(TAIL_EXPR);                                    \
+#define FAST_SCAL_F32_NEON(OP, VEC_OP, TAIL_EXPR)                          \
+  static inline void _fast_##OP##_scalar_f32_neon(                         \
+      const void *restrict ap, const void *restrict sp, void *restrict op, \
+      size_t n) {                                                          \
+    const float *a = (const float *)ap;                                    \
+    const float s = *(const float *)sp;                                    \
+    float *out = (float *)op;                                              \
+    float32x4_t vs = vdupq_n_f32(s);                                       \
+    size_t i = 0;                                                          \
+    for (; i + 4 <= n; i += 4) {                                           \
+      float32x4_t va = vld1q_f32(a + i);                                   \
+      vst1q_f32(out + i, VEC_OP(va, vs));                                  \
+    }                                                                      \
+    for (; i < n; i++)                                                     \
+      out[i] = (float)(TAIL_EXPR);                                         \
   }
 
-#define FAST_SCAL_F64_NEON(OP, VEC_OP, TAIL_EXPR)                     \
-  static inline void _fast_##OP##_scalar_f64_neon(                     \
-      const void *restrict ap, const void *restrict sp,                \
-      void *restrict op, size_t n) {                                   \
-    const double *a = (const double *)ap;                              \
-    const double s = *(const double *)sp;                              \
-    double *out = (double *)op;                                        \
-    float64x2_t vs = vdupq_n_f64(s);                                  \
-    size_t i = 0;                                                      \
-    for (; i + 2 <= n; i += 2) {                                       \
-      float64x2_t va = vld1q_f64(a + i);                               \
-      vst1q_f64(out + i, VEC_OP(va, vs));                              \
-    }                                                                  \
-    for (; i < n; i++)                                                 \
-      out[i] = (double)(TAIL_EXPR);                                   \
+#define FAST_SCAL_F64_NEON(OP, VEC_OP, TAIL_EXPR)                          \
+  static inline void _fast_##OP##_scalar_f64_neon(                         \
+      const void *restrict ap, const void *restrict sp, void *restrict op, \
+      size_t n) {                                                          \
+    const double *a = (const double *)ap;                                  \
+    const double s = *(const double *)sp;                                  \
+    double *out = (double *)op;                                            \
+    float64x2_t vs = vdupq_n_f64(s);                                       \
+    size_t i = 0;                                                          \
+    for (; i + 2 <= n; i += 2) {                                           \
+      float64x2_t va = vld1q_f64(a + i);                                   \
+      vst1q_f64(out + i, VEC_OP(va, vs));                                  \
+    }                                                                      \
+    for (; i < n; i++)                                                     \
+      out[i] = (double)(TAIL_EXPR);                                        \
   }
 
 /* ── Add scalar ──────────────────────────────────────────────────── */
@@ -125,8 +125,7 @@ FAST_SCAL_UINT_NEON(mul, u32, uint32_t, 32, 4, vmulq_u32, a[i] * s)
 
 static inline void _fast_mul_scalar_i64_neon(const void *restrict ap,
                                              const void *restrict sp,
-                                             void *restrict op,
-                                             size_t n) {
+                                             void *restrict op, size_t n) {
   const int64_t *a = (const int64_t *)ap;
   const int64_t s = *(const int64_t *)sp;
   int64_t *out = (int64_t *)op;
@@ -136,8 +135,7 @@ static inline void _fast_mul_scalar_i64_neon(const void *restrict ap,
 
 static inline void _fast_mul_scalar_u64_neon(const void *restrict ap,
                                              const void *restrict sp,
-                                             void *restrict op,
-                                             size_t n) {
+                                             void *restrict op, size_t n) {
   const uint64_t *a = (const uint64_t *)ap;
   const uint64_t s = *(const uint64_t *)sp;
   uint64_t *out = (uint64_t *)op;

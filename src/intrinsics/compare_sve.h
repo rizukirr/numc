@@ -17,83 +17,82 @@
  * Signed integer comparisons
  * ════════════════════════════════════════════════════════════════ */
 
-#define FAST_CMP_SINT_SVE(SFX, CT, BITS, SVT, LD, ST, SEL, DUP,      \
-                          CMPEQ, CMPGT, CMPLT, CMPGE, CMPLE, WHILELT, \
-                          CNT)                                          \
-  static inline void _fast_eq_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPEQ(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                      \
-    }                                                                  \
-  }                                                                    \
-  static inline void _fast_gt_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPGT(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                      \
-    }                                                                  \
-  }                                                                    \
-  static inline void _fast_lt_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPLT(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                      \
-    }                                                                  \
-  }                                                                    \
-  static inline void _fast_ge_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPGE(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                      \
-    }                                                                  \
-  }                                                                    \
-  static inline void _fast_le_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPLE(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                      \
-    }                                                                  \
+#define FAST_CMP_SINT_SVE(SFX, CT, BITS, SVT, LD, ST, SEL, DUP, CMPEQ, CMPGT, \
+                          CMPLT, CMPGE, CMPLE, WHILELT, CNT)                  \
+  static inline void _fast_eq_##SFX##_sve(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl = CNT();                                                        \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                        \
+      SVT va = LD(pg, a + i);                                                 \
+      SVT vb = LD(pg, b + i);                                                 \
+      svbool_t cmp = CMPEQ(pg, va, vb);                                       \
+      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                              \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_gt_##SFX##_sve(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl = CNT();                                                        \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                        \
+      SVT va = LD(pg, a + i);                                                 \
+      SVT vb = LD(pg, b + i);                                                 \
+      svbool_t cmp = CMPGT(pg, va, vb);                                       \
+      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                              \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_lt_##SFX##_sve(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl = CNT();                                                        \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                        \
+      SVT va = LD(pg, a + i);                                                 \
+      SVT vb = LD(pg, b + i);                                                 \
+      svbool_t cmp = CMPLT(pg, va, vb);                                       \
+      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                              \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_ge_##SFX##_sve(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl = CNT();                                                        \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                        \
+      SVT va = LD(pg, a + i);                                                 \
+      SVT vb = LD(pg, b + i);                                                 \
+      svbool_t cmp = CMPGE(pg, va, vb);                                       \
+      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                              \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_le_##SFX##_sve(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl = CNT();                                                        \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                        \
+      SVT va = LD(pg, a + i);                                                 \
+      SVT vb = LD(pg, b + i);                                                 \
+      svbool_t cmp = CMPLE(pg, va, vb);                                       \
+      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                              \
+    }                                                                         \
   }
 
 /* clang-format off */
@@ -125,83 +124,82 @@ FAST_CMP_SINT_SVE(i64, int64_t, 64, svint64_t, svld1_s64, svst1_s64,
  * Unsigned integer comparisons
  * ════════════════════════════════════════════════════════════════ */
 
-#define FAST_CMP_UINT_SVE(SFX, CT, BITS, SVT, LD, ST, SEL, DUP,      \
-                          CMPEQ, CMPGT, CMPLT, CMPGE, CMPLE, WHILELT, \
-                          CNT)                                          \
-  static inline void _fast_eq_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPEQ(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                      \
-    }                                                                  \
-  }                                                                    \
-  static inline void _fast_gt_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPGT(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                      \
-    }                                                                  \
-  }                                                                    \
-  static inline void _fast_lt_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPLT(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                      \
-    }                                                                  \
-  }                                                                    \
-  static inline void _fast_ge_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPGE(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                      \
-    }                                                                  \
-  }                                                                    \
-  static inline void _fast_le_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPLE(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                      \
-    }                                                                  \
+#define FAST_CMP_UINT_SVE(SFX, CT, BITS, SVT, LD, ST, SEL, DUP, CMPEQ, CMPGT, \
+                          CMPLT, CMPGE, CMPLE, WHILELT, CNT)                  \
+  static inline void _fast_eq_##SFX##_sve(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl = CNT();                                                        \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                        \
+      SVT va = LD(pg, a + i);                                                 \
+      SVT vb = LD(pg, b + i);                                                 \
+      svbool_t cmp = CMPEQ(pg, va, vb);                                       \
+      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                              \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_gt_##SFX##_sve(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl = CNT();                                                        \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                        \
+      SVT va = LD(pg, a + i);                                                 \
+      SVT vb = LD(pg, b + i);                                                 \
+      svbool_t cmp = CMPGT(pg, va, vb);                                       \
+      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                              \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_lt_##SFX##_sve(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl = CNT();                                                        \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                        \
+      SVT va = LD(pg, a + i);                                                 \
+      SVT vb = LD(pg, b + i);                                                 \
+      svbool_t cmp = CMPLT(pg, va, vb);                                       \
+      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                              \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_ge_##SFX##_sve(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl = CNT();                                                        \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                        \
+      SVT va = LD(pg, a + i);                                                 \
+      SVT vb = LD(pg, b + i);                                                 \
+      svbool_t cmp = CMPGE(pg, va, vb);                                       \
+      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                              \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_le_##SFX##_sve(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl = CNT();                                                        \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                        \
+      SVT va = LD(pg, a + i);                                                 \
+      SVT vb = LD(pg, b + i);                                                 \
+      svbool_t cmp = CMPLE(pg, va, vb);                                       \
+      ST(pg, out + i, SEL(cmp, DUP(1), DUP(0)));                              \
+    }                                                                         \
   }
 
 /* clang-format off */
@@ -233,83 +231,82 @@ FAST_CMP_UINT_SVE(u64, uint64_t, 64, svuint64_t, svld1_u64, svst1_u64,
  * Floating-point comparisons
  * ════════════════════════════════════════════════════════════════ */
 
-#define FAST_CMP_FLOAT_SVE(SFX, CT, BITS, SVT, LD, ST, SEL, DUP,     \
-                           CMPEQ, CMPGT, CMPLT, CMPGE, CMPLE,         \
-                           WHILELT, CNT)                                \
-  static inline void _fast_eq_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPEQ(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP((CT)1), DUP((CT)0)));              \
-    }                                                                  \
-  }                                                                    \
-  static inline void _fast_gt_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPGT(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP((CT)1), DUP((CT)0)));              \
-    }                                                                  \
-  }                                                                    \
-  static inline void _fast_lt_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPLT(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP((CT)1), DUP((CT)0)));              \
-    }                                                                  \
-  }                                                                    \
-  static inline void _fast_ge_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPGE(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP((CT)1), DUP((CT)0)));              \
-    }                                                                  \
-  }                                                                    \
-  static inline void _fast_le_##SFX##_sve(                             \
-      const void *restrict ap, const void *restrict bp,                \
-      void *restrict op, size_t n) {                                   \
-    const CT *a = (const CT *)ap;                                      \
-    const CT *b = (const CT *)bp;                                      \
-    CT *out = (CT *)op;                                                \
-    size_t vl = CNT();                                                 \
-    for (size_t i = 0; i < n; i += vl) {                               \
-      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                \
-      SVT va = LD(pg, a + i);                                         \
-      SVT vb = LD(pg, b + i);                                         \
-      svbool_t cmp = CMPLE(pg, va, vb);                               \
-      ST(pg, out + i, SEL(cmp, DUP((CT)1), DUP((CT)0)));              \
-    }                                                                  \
+#define FAST_CMP_FLOAT_SVE(SFX, CT, BITS, SVT, LD, ST, SEL, DUP, CMPEQ, CMPGT, \
+                           CMPLT, CMPGE, CMPLE, WHILELT, CNT)                  \
+  static inline void _fast_eq_##SFX##_sve(const void *restrict ap,             \
+                                          const void *restrict bp,             \
+                                          void *restrict op, size_t n) {       \
+    const CT *a = (const CT *)ap;                                              \
+    const CT *b = (const CT *)bp;                                              \
+    CT *out = (CT *)op;                                                        \
+    size_t vl = CNT();                                                         \
+    for (size_t i = 0; i < n; i += vl) {                                       \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                         \
+      SVT va = LD(pg, a + i);                                                  \
+      SVT vb = LD(pg, b + i);                                                  \
+      svbool_t cmp = CMPEQ(pg, va, vb);                                        \
+      ST(pg, out + i, SEL(cmp, DUP((CT)1), DUP((CT)0)));                       \
+    }                                                                          \
+  }                                                                            \
+  static inline void _fast_gt_##SFX##_sve(const void *restrict ap,             \
+                                          const void *restrict bp,             \
+                                          void *restrict op, size_t n) {       \
+    const CT *a = (const CT *)ap;                                              \
+    const CT *b = (const CT *)bp;                                              \
+    CT *out = (CT *)op;                                                        \
+    size_t vl = CNT();                                                         \
+    for (size_t i = 0; i < n; i += vl) {                                       \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                         \
+      SVT va = LD(pg, a + i);                                                  \
+      SVT vb = LD(pg, b + i);                                                  \
+      svbool_t cmp = CMPGT(pg, va, vb);                                        \
+      ST(pg, out + i, SEL(cmp, DUP((CT)1), DUP((CT)0)));                       \
+    }                                                                          \
+  }                                                                            \
+  static inline void _fast_lt_##SFX##_sve(const void *restrict ap,             \
+                                          const void *restrict bp,             \
+                                          void *restrict op, size_t n) {       \
+    const CT *a = (const CT *)ap;                                              \
+    const CT *b = (const CT *)bp;                                              \
+    CT *out = (CT *)op;                                                        \
+    size_t vl = CNT();                                                         \
+    for (size_t i = 0; i < n; i += vl) {                                       \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                         \
+      SVT va = LD(pg, a + i);                                                  \
+      SVT vb = LD(pg, b + i);                                                  \
+      svbool_t cmp = CMPLT(pg, va, vb);                                        \
+      ST(pg, out + i, SEL(cmp, DUP((CT)1), DUP((CT)0)));                       \
+    }                                                                          \
+  }                                                                            \
+  static inline void _fast_ge_##SFX##_sve(const void *restrict ap,             \
+                                          const void *restrict bp,             \
+                                          void *restrict op, size_t n) {       \
+    const CT *a = (const CT *)ap;                                              \
+    const CT *b = (const CT *)bp;                                              \
+    CT *out = (CT *)op;                                                        \
+    size_t vl = CNT();                                                         \
+    for (size_t i = 0; i < n; i += vl) {                                       \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                         \
+      SVT va = LD(pg, a + i);                                                  \
+      SVT vb = LD(pg, b + i);                                                  \
+      svbool_t cmp = CMPGE(pg, va, vb);                                        \
+      ST(pg, out + i, SEL(cmp, DUP((CT)1), DUP((CT)0)));                       \
+    }                                                                          \
+  }                                                                            \
+  static inline void _fast_le_##SFX##_sve(const void *restrict ap,             \
+                                          const void *restrict bp,             \
+                                          void *restrict op, size_t n) {       \
+    const CT *a = (const CT *)ap;                                              \
+    const CT *b = (const CT *)bp;                                              \
+    CT *out = (CT *)op;                                                        \
+    size_t vl = CNT();                                                         \
+    for (size_t i = 0; i < n; i += vl) {                                       \
+      svbool_t pg = WHILELT((uint32_t)i, (uint32_t)n);                         \
+      SVT va = LD(pg, a + i);                                                  \
+      SVT vb = LD(pg, b + i);                                                  \
+      svbool_t cmp = CMPLE(pg, va, vb);                                        \
+      ST(pg, out + i, SEL(cmp, DUP((CT)1), DUP((CT)0)));                       \
+    }                                                                          \
   }
 
 /* clang-format off */

@@ -91,8 +91,8 @@ static inline void gemm_pack_b_f32(const float *b, float *packed, size_t kc,
 
 /* Pack a single NR-wide B strip for parallel packing. */
 static inline void _gemm_pack_b_strip_f32(const float *b, float *dest,
-                                           size_t kc, size_t nr_pack,
-                                           intptr_t rsb) {
+                                          size_t kc, size_t nr_pack,
+                                          intptr_t rsb) {
   if (nr_pack == GEMM_F32_NR) {
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb;
@@ -198,8 +198,8 @@ static inline void gemm_pack_b_f64(const double *b, double *packed, size_t kc,
 }
 
 static inline void _gemm_pack_b_strip_f64(const double *b, double *dest,
-                                           size_t kc, size_t nr_pack,
-                                           intptr_t rsb) {
+                                          size_t kc, size_t nr_pack,
+                                          intptr_t rsb) {
   if (nr_pack == GEMM_F64_NR) {
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb;
@@ -406,20 +406,16 @@ static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
       ".p2align 5\n\t"
       "3:\n\t"
       /* === K iterations 0-1 === */
-      GEMM_F32_ASM_K_ITER
-      GEMM_F32_ASM_K_ITER
-      "prefetcht0 384(%[ap])\n\t"     /* A ahead */
+      GEMM_F32_ASM_K_ITER GEMM_F32_ASM_K_ITER
+      "prefetcht0 384(%[ap])\n\t" /* A ahead */
       /* === K iterations 2-3 === */
-      GEMM_F32_ASM_K_ITER
-      GEMM_F32_ASM_K_ITER
-      "prefetcht0 512(%[bp])\n\t"     /* B ahead */
+      GEMM_F32_ASM_K_ITER GEMM_F32_ASM_K_ITER
+      "prefetcht0 512(%[bp])\n\t" /* B ahead */
       /* === K iterations 4-5 === */
-      GEMM_F32_ASM_K_ITER
-      GEMM_F32_ASM_K_ITER
-      "prefetcht0 768(%[ap])\n\t"     /* A further */
+      GEMM_F32_ASM_K_ITER GEMM_F32_ASM_K_ITER
+      "prefetcht0 768(%[ap])\n\t" /* A further */
       /* === K iterations 6-7 === */
-      GEMM_F32_ASM_K_ITER
-      GEMM_F32_ASM_K_ITER
+      GEMM_F32_ASM_K_ITER GEMM_F32_ASM_K_ITER
 
       "dec %%rcx\n\t"
       "jnz 3b\n\t"
@@ -633,8 +629,8 @@ static inline void gemm_f32_avx2(const float *a, const float *b, float *out,
         for (size_t jr_idx = 0; jr_idx < n_jr; jr_idx++) {
           size_t jj = jr_idx * GEMM_F32_NR;
           size_t nr_pack = GEMM_MIN(GEMM_F32_NR, nc - jj);
-          _gemm_pack_b_strip_f32(b + pc * rsb + (jc + jj),
-                                 packed_b + jj * kc, kc, nr_pack, rsb);
+          _gemm_pack_b_strip_f32(b + pc * rsb + (jc + jj), packed_b + jj * kc,
+                                 kc, nr_pack, rsb);
         }
 
         size_t n_ic = (m_dim + GEMM_F32_MC - 1) / GEMM_F32_MC;
@@ -742,26 +738,26 @@ static inline void gemm_f32_avx2(const float *a, const float *b, float *out,
  */
 
 /* MSVC intrinsics K-iter: B pre-loaded in b0/b1 before call. */
-#define GEMM_F64_K_ITER(ap, b0, b1)                \
-  do {                                             \
-    __m256d a0 = _mm256_broadcast_sd((ap) + 0);    \
-    __m256d a1 = _mm256_broadcast_sd((ap) + 1);    \
-    c00 = _mm256_fmadd_pd(a0, b0, c00);            \
-    c01 = _mm256_fmadd_pd(a0, b1, c01);            \
-    c10 = _mm256_fmadd_pd(a1, b0, c10);            \
-    c11 = _mm256_fmadd_pd(a1, b1, c11);            \
-    a0 = _mm256_broadcast_sd((ap) + 2);            \
-    a1 = _mm256_broadcast_sd((ap) + 3);            \
-    c20 = _mm256_fmadd_pd(a0, b0, c20);            \
-    c21 = _mm256_fmadd_pd(a0, b1, c21);            \
-    c30 = _mm256_fmadd_pd(a1, b0, c30);            \
-    c31 = _mm256_fmadd_pd(a1, b1, c31);            \
-    a0 = _mm256_broadcast_sd((ap) + 4);            \
-    a1 = _mm256_broadcast_sd((ap) + 5);            \
-    c40 = _mm256_fmadd_pd(a0, b0, c40);            \
-    c41 = _mm256_fmadd_pd(a0, b1, c41);            \
-    c50 = _mm256_fmadd_pd(a1, b0, c50);            \
-    c51 = _mm256_fmadd_pd(a1, b1, c51);            \
+#define GEMM_F64_K_ITER(ap, b0, b1)             \
+  do {                                          \
+    __m256d a0 = _mm256_broadcast_sd((ap) + 0); \
+    __m256d a1 = _mm256_broadcast_sd((ap) + 1); \
+    c00 = _mm256_fmadd_pd(a0, b0, c00);         \
+    c01 = _mm256_fmadd_pd(a0, b1, c01);         \
+    c10 = _mm256_fmadd_pd(a1, b0, c10);         \
+    c11 = _mm256_fmadd_pd(a1, b1, c11);         \
+    a0 = _mm256_broadcast_sd((ap) + 2);         \
+    a1 = _mm256_broadcast_sd((ap) + 3);         \
+    c20 = _mm256_fmadd_pd(a0, b0, c20);         \
+    c21 = _mm256_fmadd_pd(a0, b1, c21);         \
+    c30 = _mm256_fmadd_pd(a1, b0, c30);         \
+    c31 = _mm256_fmadd_pd(a1, b1, c31);         \
+    a0 = _mm256_broadcast_sd((ap) + 4);         \
+    a1 = _mm256_broadcast_sd((ap) + 5);         \
+    c40 = _mm256_fmadd_pd(a0, b0, c40);         \
+    c41 = _mm256_fmadd_pd(a0, b1, c41);         \
+    c50 = _mm256_fmadd_pd(a1, b0, c50);         \
+    c51 = _mm256_fmadd_pd(a1, b1, c51);         \
   } while (0)
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -790,28 +786,28 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
    * iteration (or initial pre-load). Uses 2 A broadcast registers
    * (ymm14/ymm15) for better ILP — allows second broadcast to overlap
    * with first FMA pair. Pre-loads next B at end for next iteration. */
-#define GEMM_F64_ASM_K_ITER                        \
-  "vbroadcastsd (%[ap]), %%ymm14\n\t"              \
-  "vbroadcastsd 8(%[ap]), %%ymm15\n\t"             \
-  "vfmadd231pd %%ymm14, %%ymm12, %%ymm0\n\t"      \
-  "vfmadd231pd %%ymm14, %%ymm13, %%ymm1\n\t"      \
-  "vfmadd231pd %%ymm15, %%ymm12, %%ymm2\n\t"      \
-  "vfmadd231pd %%ymm15, %%ymm13, %%ymm3\n\t"      \
-  "vbroadcastsd 16(%[ap]), %%ymm14\n\t"            \
-  "vbroadcastsd 24(%[ap]), %%ymm15\n\t"            \
-  "vfmadd231pd %%ymm14, %%ymm12, %%ymm4\n\t"      \
-  "vfmadd231pd %%ymm14, %%ymm13, %%ymm5\n\t"      \
-  "vfmadd231pd %%ymm15, %%ymm12, %%ymm6\n\t"      \
-  "vfmadd231pd %%ymm15, %%ymm13, %%ymm7\n\t"      \
-  "vbroadcastsd 32(%[ap]), %%ymm14\n\t"            \
-  "vbroadcastsd 40(%[ap]), %%ymm15\n\t"            \
-  "vfmadd231pd %%ymm14, %%ymm12, %%ymm8\n\t"      \
-  "vfmadd231pd %%ymm14, %%ymm13, %%ymm9\n\t"      \
-  "vfmadd231pd %%ymm15, %%ymm12, %%ymm10\n\t"     \
-  "vfmadd231pd %%ymm15, %%ymm13, %%ymm11\n\t"     \
-  "add %[csa_bytes], %[ap]\n\t"                    \
-  "add %[rsb_bytes], %[bp]\n\t"                    \
-  "vmovupd (%[bp]), %%ymm12\n\t"                   \
+#define GEMM_F64_ASM_K_ITER                   \
+  "vbroadcastsd (%[ap]), %%ymm14\n\t"         \
+  "vbroadcastsd 8(%[ap]), %%ymm15\n\t"        \
+  "vfmadd231pd %%ymm14, %%ymm12, %%ymm0\n\t"  \
+  "vfmadd231pd %%ymm14, %%ymm13, %%ymm1\n\t"  \
+  "vfmadd231pd %%ymm15, %%ymm12, %%ymm2\n\t"  \
+  "vfmadd231pd %%ymm15, %%ymm13, %%ymm3\n\t"  \
+  "vbroadcastsd 16(%[ap]), %%ymm14\n\t"       \
+  "vbroadcastsd 24(%[ap]), %%ymm15\n\t"       \
+  "vfmadd231pd %%ymm14, %%ymm12, %%ymm4\n\t"  \
+  "vfmadd231pd %%ymm14, %%ymm13, %%ymm5\n\t"  \
+  "vfmadd231pd %%ymm15, %%ymm12, %%ymm6\n\t"  \
+  "vfmadd231pd %%ymm15, %%ymm13, %%ymm7\n\t"  \
+  "vbroadcastsd 32(%[ap]), %%ymm14\n\t"       \
+  "vbroadcastsd 40(%[ap]), %%ymm15\n\t"       \
+  "vfmadd231pd %%ymm14, %%ymm12, %%ymm8\n\t"  \
+  "vfmadd231pd %%ymm14, %%ymm13, %%ymm9\n\t"  \
+  "vfmadd231pd %%ymm15, %%ymm12, %%ymm10\n\t" \
+  "vfmadd231pd %%ymm15, %%ymm13, %%ymm11\n\t" \
+  "add %[csa_bytes], %[ap]\n\t"               \
+  "add %[rsb_bytes], %[bp]\n\t"               \
+  "vmovupd (%[bp]), %%ymm12\n\t"              \
   "vmovupd 32(%[bp]), %%ymm13\n\t"
 
   __asm__ __volatile__(
@@ -867,15 +863,14 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
       "jz 4f\n\t"
 
       ".p2align 5\n\t"
-      "3:\n\t"
-      GEMM_F64_ASM_K_ITER /* iter 0 */
-      GEMM_F64_ASM_K_ITER /* iter 1 */
-      GEMM_F64_ASM_K_ITER /* iter 2 */
-      GEMM_F64_ASM_K_ITER /* iter 3 */
-      GEMM_F64_ASM_K_ITER /* iter 4 */
-      GEMM_F64_ASM_K_ITER /* iter 5 */
-      GEMM_F64_ASM_K_ITER /* iter 6 */
-      GEMM_F64_ASM_K_ITER /* iter 7 */
+      "3:\n\t" GEMM_F64_ASM_K_ITER                /* iter 0 */
+          GEMM_F64_ASM_K_ITER                     /* iter 1 */
+              GEMM_F64_ASM_K_ITER                 /* iter 2 */
+                  GEMM_F64_ASM_K_ITER             /* iter 3 */
+                      GEMM_F64_ASM_K_ITER         /* iter 4 */
+                          GEMM_F64_ASM_K_ITER     /* iter 5 */
+                              GEMM_F64_ASM_K_ITER /* iter 6 */
+      GEMM_F64_ASM_K_ITER                         /* iter 7 */
 
       "dec %%rcx\n\t"
       "jnz 3b\n\t"
@@ -887,9 +882,7 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
       "jz 6f\n\t"
 
       ".p2align 5\n\t"
-      "5:\n\t"
-      GEMM_F64_ASM_K_ITER
-      "dec %%rcx\n\t"
+      "5:\n\t" GEMM_F64_ASM_K_ITER "dec %%rcx\n\t"
       "jnz 5b\n\t"
 
       "6:\n\t"
@@ -1103,8 +1096,8 @@ static inline void gemm_f64_avx2(const double *a, const double *b, double *out,
         for (size_t jr_idx = 0; jr_idx < n_jr; jr_idx++) {
           size_t jj = jr_idx * GEMM_F64_NR;
           size_t nr_pack = GEMM_MIN(GEMM_F64_NR, nc - jj);
-          _gemm_pack_b_strip_f64(b + pc * rsb + (jc + jj),
-                                 packed_b + jj * kc, kc, nr_pack, rsb);
+          _gemm_pack_b_strip_f64(b + pc * rsb + (jc + jj), packed_b + jj * kc,
+                                 kc, nr_pack, rsb);
         }
 
         size_t n_ic = (m_dim + GEMM_F64_MC - 1) / GEMM_F64_MC;
@@ -1132,8 +1125,8 @@ static inline void gemm_f64_avx2(const double *a, const double *b, double *out,
             } else {
               NUMC_ALIGNAS(32) double tmp[GEMM_F64_MR * GEMM_F64_NR];
               gemm_ukernel_f64_6x8(packed_a + ir * kc, packed_b + jr * kc, tmp,
-                                   kc, 1, GEMM_F64_MR, GEMM_F64_NR,
-                                   GEMM_F64_NR, 1);
+                                   kc, 1, GEMM_F64_MR, GEMM_F64_NR, GEMM_F64_NR,
+                                   1);
               double *dst = out + (ic + ir) * rso + (jc + jr);
               if (first) {
                 for (size_t ii = 0; ii < mr_cur; ii++)
@@ -1181,8 +1174,8 @@ static inline void gemm_f64_avx2(const double *a, const double *b, double *out,
             } else {
               NUMC_ALIGNAS(32) double tmp[GEMM_F64_MR * GEMM_F64_NR];
               gemm_ukernel_f64_6x8(packed_a + ir * kc, packed_b + jr * kc, tmp,
-                                   kc, 1, GEMM_F64_MR, GEMM_F64_NR,
-                                   GEMM_F64_NR, 1);
+                                   kc, 1, GEMM_F64_MR, GEMM_F64_NR, GEMM_F64_NR,
+                                   1);
               double *dst = out + (ic + ir) * rso + (jc + jr);
               if (first) {
                 for (size_t ii = 0; ii < mr_cur; ii++)

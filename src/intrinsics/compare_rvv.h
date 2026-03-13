@@ -17,93 +17,92 @@
  * Signed integer comparisons
  * ════════════════════════════════════════════════════════════════ */
 
-#define FAST_CMP_SINT_RVV(SFX, CT, BITS, BOOLBITS, VTYPE, SETVL, LOAD,  \
-                          STORE, MVV, MERGE, CMPEQ, CMPGT, CMPLT, CMPGE, \
-                          CMPLE)                                          \
-  static inline void _fast_eq_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPEQ(va, vb, vl);                      \
-      VTYPE zeros = MVV(0, vl);                                          \
-      VTYPE result = MERGE(zeros, 1, mask, vl);                          \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
-  }                                                                       \
-  static inline void _fast_gt_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPGT(va, vb, vl);                      \
-      VTYPE zeros = MVV(0, vl);                                          \
-      VTYPE result = MERGE(zeros, 1, mask, vl);                          \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
-  }                                                                       \
-  static inline void _fast_lt_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPLT(va, vb, vl);                      \
-      VTYPE zeros = MVV(0, vl);                                          \
-      VTYPE result = MERGE(zeros, 1, mask, vl);                          \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
-  }                                                                       \
-  static inline void _fast_ge_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPGE(va, vb, vl);                      \
-      VTYPE zeros = MVV(0, vl);                                          \
-      VTYPE result = MERGE(zeros, 1, mask, vl);                          \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
-  }                                                                       \
-  static inline void _fast_le_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPLE(va, vb, vl);                      \
-      VTYPE zeros = MVV(0, vl);                                          \
-      VTYPE result = MERGE(zeros, 1, mask, vl);                          \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
+#define FAST_CMP_SINT_RVV(SFX, CT, BITS, BOOLBITS, VTYPE, SETVL, LOAD, STORE, \
+                          MVV, MERGE, CMPEQ, CMPGT, CMPLT, CMPGE, CMPLE)      \
+  static inline void _fast_eq_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPEQ(va, vb, vl);                           \
+      VTYPE zeros = MVV(0, vl);                                               \
+      VTYPE result = MERGE(zeros, 1, mask, vl);                               \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_gt_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPGT(va, vb, vl);                           \
+      VTYPE zeros = MVV(0, vl);                                               \
+      VTYPE result = MERGE(zeros, 1, mask, vl);                               \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_lt_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPLT(va, vb, vl);                           \
+      VTYPE zeros = MVV(0, vl);                                               \
+      VTYPE result = MERGE(zeros, 1, mask, vl);                               \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_ge_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPGE(va, vb, vl);                           \
+      VTYPE zeros = MVV(0, vl);                                               \
+      VTYPE result = MERGE(zeros, 1, mask, vl);                               \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_le_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPLE(va, vb, vl);                           \
+      VTYPE zeros = MVV(0, vl);                                               \
+      VTYPE result = MERGE(zeros, 1, mask, vl);                               \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
   }
 
 /* clang-format off */
@@ -152,93 +151,92 @@ FAST_CMP_SINT_RVV(i64, int64_t, 64, 16, vint64m4_t,
  * Unsigned integer comparisons
  * ════════════════════════════════════════════════════════════════ */
 
-#define FAST_CMP_UINT_RVV(SFX, CT, BITS, BOOLBITS, VTYPE, SETVL, LOAD,  \
-                          STORE, MVV, MERGE, CMPEQ, CMPGT, CMPLT, CMPGE, \
-                          CMPLE)                                          \
-  static inline void _fast_eq_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPEQ(va, vb, vl);                      \
-      VTYPE zeros = MVV(0, vl);                                          \
-      VTYPE result = MERGE(zeros, 1, mask, vl);                          \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
-  }                                                                       \
-  static inline void _fast_gt_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPGT(va, vb, vl);                      \
-      VTYPE zeros = MVV(0, vl);                                          \
-      VTYPE result = MERGE(zeros, 1, mask, vl);                          \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
-  }                                                                       \
-  static inline void _fast_lt_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPLT(va, vb, vl);                      \
-      VTYPE zeros = MVV(0, vl);                                          \
-      VTYPE result = MERGE(zeros, 1, mask, vl);                          \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
-  }                                                                       \
-  static inline void _fast_ge_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPGE(va, vb, vl);                      \
-      VTYPE zeros = MVV(0, vl);                                          \
-      VTYPE result = MERGE(zeros, 1, mask, vl);                          \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
-  }                                                                       \
-  static inline void _fast_le_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPLE(va, vb, vl);                      \
-      VTYPE zeros = MVV(0, vl);                                          \
-      VTYPE result = MERGE(zeros, 1, mask, vl);                          \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
+#define FAST_CMP_UINT_RVV(SFX, CT, BITS, BOOLBITS, VTYPE, SETVL, LOAD, STORE, \
+                          MVV, MERGE, CMPEQ, CMPGT, CMPLT, CMPGE, CMPLE)      \
+  static inline void _fast_eq_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPEQ(va, vb, vl);                           \
+      VTYPE zeros = MVV(0, vl);                                               \
+      VTYPE result = MERGE(zeros, 1, mask, vl);                               \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_gt_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPGT(va, vb, vl);                           \
+      VTYPE zeros = MVV(0, vl);                                               \
+      VTYPE result = MERGE(zeros, 1, mask, vl);                               \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_lt_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPLT(va, vb, vl);                           \
+      VTYPE zeros = MVV(0, vl);                                               \
+      VTYPE result = MERGE(zeros, 1, mask, vl);                               \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_ge_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPGE(va, vb, vl);                           \
+      VTYPE zeros = MVV(0, vl);                                               \
+      VTYPE result = MERGE(zeros, 1, mask, vl);                               \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_le_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPLE(va, vb, vl);                           \
+      VTYPE zeros = MVV(0, vl);                                               \
+      VTYPE result = MERGE(zeros, 1, mask, vl);                               \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
   }
 
 /* clang-format off */
@@ -287,93 +285,93 @@ FAST_CMP_UINT_RVV(u64, uint64_t, 64, 16, vuint64m4_t,
  * Float comparisons (vfmerge_vfm for float merge)
  * ════════════════════════════════════════════════════════════════ */
 
-#define FAST_CMP_FLOAT_RVV(SFX, CT, FONE, BITS, BOOLBITS, VTYPE, SETVL, \
-                           LOAD, STORE, FMVV, FMERGE, CMPEQ, CMPGT,     \
-                           CMPLT, CMPGE, CMPLE)                          \
-  static inline void _fast_eq_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPEQ(va, vb, vl);                      \
-      VTYPE zeros = FMVV(0, vl);                                         \
-      VTYPE result = FMERGE(zeros, FONE, mask, vl);                      \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
-  }                                                                       \
-  static inline void _fast_gt_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPGT(va, vb, vl);                      \
-      VTYPE zeros = FMVV(0, vl);                                         \
-      VTYPE result = FMERGE(zeros, FONE, mask, vl);                      \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
-  }                                                                       \
-  static inline void _fast_lt_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPLT(va, vb, vl);                      \
-      VTYPE zeros = FMVV(0, vl);                                         \
-      VTYPE result = FMERGE(zeros, FONE, mask, vl);                      \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
-  }                                                                       \
-  static inline void _fast_ge_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPGE(va, vb, vl);                      \
-      VTYPE zeros = FMVV(0, vl);                                         \
-      VTYPE result = FMERGE(zeros, FONE, mask, vl);                      \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
-  }                                                                       \
-  static inline void _fast_le_##SFX##_rvv(                               \
-      const void *restrict ap, const void *restrict bp,                   \
-      void *restrict op, size_t n) {                                      \
-    const CT *a = (const CT *)ap;                                         \
-    const CT *b = (const CT *)bp;                                         \
-    CT *out = (CT *)op;                                                   \
-    size_t vl;                                                            \
-    for (size_t i = 0; i < n; i += vl) {                                  \
-      vl = SETVL(n - i);                                                  \
-      VTYPE va = LOAD(a + i, vl);                                        \
-      VTYPE vb = LOAD(b + i, vl);                                        \
-      vbool##BOOLBITS##_t mask = CMPLE(va, vb, vl);                      \
-      VTYPE zeros = FMVV(0, vl);                                         \
-      VTYPE result = FMERGE(zeros, FONE, mask, vl);                      \
-      STORE(out + i, result, vl);                                        \
-    }                                                                     \
+#define FAST_CMP_FLOAT_RVV(SFX, CT, FONE, BITS, BOOLBITS, VTYPE, SETVL, LOAD, \
+                           STORE, FMVV, FMERGE, CMPEQ, CMPGT, CMPLT, CMPGE,   \
+                           CMPLE)                                             \
+  static inline void _fast_eq_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPEQ(va, vb, vl);                           \
+      VTYPE zeros = FMVV(0, vl);                                              \
+      VTYPE result = FMERGE(zeros, FONE, mask, vl);                           \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_gt_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPGT(va, vb, vl);                           \
+      VTYPE zeros = FMVV(0, vl);                                              \
+      VTYPE result = FMERGE(zeros, FONE, mask, vl);                           \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_lt_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPLT(va, vb, vl);                           \
+      VTYPE zeros = FMVV(0, vl);                                              \
+      VTYPE result = FMERGE(zeros, FONE, mask, vl);                           \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_ge_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPGE(va, vb, vl);                           \
+      VTYPE zeros = FMVV(0, vl);                                              \
+      VTYPE result = FMERGE(zeros, FONE, mask, vl);                           \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
+  }                                                                           \
+  static inline void _fast_le_##SFX##_rvv(const void *restrict ap,            \
+                                          const void *restrict bp,            \
+                                          void *restrict op, size_t n) {      \
+    const CT *a = (const CT *)ap;                                             \
+    const CT *b = (const CT *)bp;                                             \
+    CT *out = (CT *)op;                                                       \
+    size_t vl;                                                                \
+    for (size_t i = 0; i < n; i += vl) {                                      \
+      vl = SETVL(n - i);                                                      \
+      VTYPE va = LOAD(a + i, vl);                                             \
+      VTYPE vb = LOAD(b + i, vl);                                             \
+      vbool##BOOLBITS##_t mask = CMPLE(va, vb, vl);                           \
+      VTYPE zeros = FMVV(0, vl);                                              \
+      VTYPE result = FMERGE(zeros, FONE, mask, vl);                           \
+      STORE(out + i, result, vl);                                             \
+    }                                                                         \
   }
 
 /* clang-format off */

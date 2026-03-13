@@ -89,36 +89,36 @@ static const NumcBinaryKernel div_table[] = {
 
 /* ── SIMD fast-path dispatch for binary ops ─────────────────────── */
 
-#if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || \
-    NUMC_HAVE_NEON || NUMC_HAVE_RVV
+#if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || \
+    NUMC_HAVE_RVV
 
 typedef void (*FastBinKern)(const void *restrict, const void *restrict,
                             void *restrict, size_t);
 
 #if NUMC_HAVE_AVX512
-#define FBIN(OP, SFX) (FastBinKern)_fast_##OP##_##SFX##_avx512
+#define FBIN(OP, SFX) (FastBinKern) _fast_##OP##_##SFX##_avx512
 #elif NUMC_HAVE_AVX2
-#define FBIN(OP, SFX) (FastBinKern)_fast_##OP##_##SFX##_avx2
+#define FBIN(OP, SFX) (FastBinKern) _fast_##OP##_##SFX##_avx2
 #elif NUMC_HAVE_SVE
-#define FBIN(OP, SFX) (FastBinKern)_fast_##OP##_##SFX##_sve
+#define FBIN(OP, SFX) (FastBinKern) _fast_##OP##_##SFX##_sve
 #elif NUMC_HAVE_NEON
-#define FBIN(OP, SFX) (FastBinKern)_fast_##OP##_##SFX##_neon
+#define FBIN(OP, SFX) (FastBinKern) _fast_##OP##_##SFX##_neon
 #elif NUMC_HAVE_RVV
-#define FBIN(OP, SFX) (FastBinKern)_fast_##OP##_##SFX##_rvv
+#define FBIN(OP, SFX) (FastBinKern) _fast_##OP##_##SFX##_rvv
 #endif
 
-#define FBIN_TABLE(OP)                                                 \
-  static const FastBinKern OP##_fast_table[] = {                       \
-      [NUMC_DTYPE_INT8] = FBIN(OP, i8),                               \
-      [NUMC_DTYPE_INT16] = FBIN(OP, i16),                             \
-      [NUMC_DTYPE_INT32] = FBIN(OP, i32),                             \
-      [NUMC_DTYPE_INT64] = FBIN(OP, i64),                             \
-      [NUMC_DTYPE_UINT8] = FBIN(OP, u8),                              \
-      [NUMC_DTYPE_UINT16] = FBIN(OP, u16),                            \
-      [NUMC_DTYPE_UINT32] = FBIN(OP, u32),                            \
-      [NUMC_DTYPE_UINT64] = FBIN(OP, u64),                            \
-      [NUMC_DTYPE_FLOAT32] = FBIN(OP, f32),                           \
-      [NUMC_DTYPE_FLOAT64] = FBIN(OP, f64),                           \
+#define FBIN_TABLE(OP)                           \
+  static const FastBinKern OP##_fast_table[] = { \
+      [NUMC_DTYPE_INT8] = FBIN(OP, i8),          \
+      [NUMC_DTYPE_INT16] = FBIN(OP, i16),        \
+      [NUMC_DTYPE_INT32] = FBIN(OP, i32),        \
+      [NUMC_DTYPE_INT64] = FBIN(OP, i64),        \
+      [NUMC_DTYPE_UINT8] = FBIN(OP, u8),         \
+      [NUMC_DTYPE_UINT16] = FBIN(OP, u16),       \
+      [NUMC_DTYPE_UINT32] = FBIN(OP, u32),       \
+      [NUMC_DTYPE_UINT64] = FBIN(OP, u64),       \
+      [NUMC_DTYPE_FLOAT32] = FBIN(OP, f32),      \
+      [NUMC_DTYPE_FLOAT64] = FBIN(OP, f64),      \
   }
 
 FBIN_TABLE(add);
@@ -129,45 +129,45 @@ FBIN_TABLE(mul);
 
 /* Dispatch: use SIMD kernel with OMP chunking for contiguous arrays,
    fall back to generic _binary_op for non-contiguous / broadcast */
-#define DEFINE_BINARY_SIMD(NAME, FAST_TABLE, FALLBACK_TABLE)                \
-  int numc_##NAME(const NumcArray *a, const NumcArray *b, NumcArray *out) { \
-    int err = _check_binary(a, b, out);                                     \
-    if (err)                                                                \
-      return err;                                                           \
-    if (a->is_contiguous && b->is_contiguous && out->is_contiguous &&       \
-        a->dim == b->dim) {                                                 \
-      bool same_shape = true;                                               \
-      for (size_t d = 0; d < a->dim; d++)                                   \
-        if (a->shape[d] != b->shape[d]) {                                   \
-          same_shape = false;                                               \
-          break;                                                            \
-        }                                                                   \
-      if (same_shape) {                                                     \
-        FastBinKern kern = FAST_TABLE[a->dtype];                            \
-        size_t n = a->size, es = a->elem_size, total = n * es;             \
-        int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);                 \
-        if (nt >= 2) {                                                      \
-          size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;                \
+#define DEFINE_BINARY_SIMD(NAME, FAST_TABLE, FALLBACK_TABLE)                   \
+  int numc_##NAME(const NumcArray *a, const NumcArray *b, NumcArray *out) {    \
+    int err = _check_binary(a, b, out);                                        \
+    if (err)                                                                   \
+      return err;                                                              \
+    if (a->is_contiguous && b->is_contiguous && out->is_contiguous &&          \
+        a->dim == b->dim) {                                                    \
+      bool same_shape = true;                                                  \
+      for (size_t d = 0; d < a->dim; d++)                                      \
+        if (a->shape[d] != b->shape[d]) {                                      \
+          same_shape = false;                                                  \
+          break;                                                               \
+        }                                                                      \
+      if (same_shape) {                                                        \
+        FastBinKern kern = FAST_TABLE[a->dtype];                               \
+        size_t n = a->size, es = a->elem_size, total = n * es;                 \
+        int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);                     \
+        if (nt >= 2) {                                                         \
+          size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;                    \
           NUMC_PRAGMA(                                                      \
-              omp parallel for schedule(static) num_threads(nt))            \
-          for (int t = 0; t < nt; t++) {                                   \
-            size_t s = (size_t)t * chunk;                                  \
-            size_t e = s + chunk;                                           \
-            if (e > n)                                                      \
-              e = n;                                                        \
-            if (s < n)                                                      \
-              kern((const char *)a->data + s * es,                         \
-                   (const char *)b->data + s * es,                         \
-                   (char *)out->data + s * es, e - s);                     \
-          }                                                                 \
-        } else {                                                            \
-          kern(a->data, b->data, out->data, n);                            \
-        }                                                                   \
-        return 0;                                                           \
-      }                                                                     \
-    }                                                                       \
-    _binary_op(a, b, out, FALLBACK_TABLE);                                  \
-    return 0;                                                               \
+              omp parallel for schedule(static) num_threads(nt))               \
+          for (int t = 0; t < nt; t++) {                                       \
+            size_t s = (size_t)t * chunk;                                      \
+            size_t e = s + chunk;                                              \
+            if (e > n)                                                         \
+              e = n;                                                           \
+            if (s < n)                                                         \
+              kern((const char *)a->data + s * es,                             \
+                   (const char *)b->data + s * es, (char *)out->data + s * es, \
+                   e - s);                                                     \
+          }                                                                    \
+        } else {                                                               \
+          kern(a->data, b->data, out->data, n);                                \
+        }                                                                      \
+        return 0;                                                              \
+      }                                                                        \
+    }                                                                          \
+    _binary_op(a, b, out, FALLBACK_TABLE);                                     \
+    return 0;                                                                  \
   }
 
 DEFINE_BINARY_SIMD(add, add_fast_table, add_table)
@@ -203,8 +203,8 @@ DEFINE_BINARY_SIMD(mul, mul_fast_table, mul_table)
     return _scalar_op_inplace(a, scalar, TABLE);                  \
   }
 
-#if !(NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || \
-      NUMC_HAVE_NEON || NUMC_HAVE_RVV)
+#if !(NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || \
+      NUMC_HAVE_RVV)
 DEFINE_ELEMWISE_BINARY(add, add_table)
 DEFINE_ELEMWISE_BINARY(sub, sub_table)
 DEFINE_ELEMWISE_BINARY(mul, mul_table)
@@ -213,36 +213,37 @@ DEFINE_ELEMWISE_BINARY(div, div_table)
 
 /* ── SIMD scalar arithmetic dispatch ──────────────────────────────── */
 
-#if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || \
-    NUMC_HAVE_NEON || NUMC_HAVE_RVV
+#if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || \
+    NUMC_HAVE_RVV
 
 typedef void (*FastScKern)(const void *restrict, const void *restrict,
                            void *restrict, size_t);
 
 #if NUMC_HAVE_AVX512
-#define FSC(OP, SFX) (FastScKern)_fast_##OP##_scalar_##SFX##_avx512
+#define FSC(OP, SFX) (FastScKern) _fast_##OP##_scalar_##SFX##_avx512
 #elif NUMC_HAVE_AVX2
-#define FSC(OP, SFX) (FastScKern)_fast_##OP##_scalar_##SFX##_avx2
+#define FSC(OP, SFX) (FastScKern) _fast_##OP##_scalar_##SFX##_avx2
 #elif NUMC_HAVE_SVE
-#define FSC(OP, SFX) (FastScKern)_fast_##OP##_scalar_##SFX##_sve
+#define FSC(OP, SFX) (FastScKern) _fast_##OP##_scalar_##SFX##_sve
 #elif NUMC_HAVE_NEON
-#define FSC(OP, SFX) (FastScKern)_fast_##OP##_scalar_##SFX##_neon
+#define FSC(OP, SFX) (FastScKern) _fast_##OP##_scalar_##SFX##_neon
 #elif NUMC_HAVE_RVV
-#define FSC(OP, SFX) (FastScKern)_fast_##OP##_scalar_##SFX##_rvv
+#define FSC(OP, SFX) (FastScKern) _fast_##OP##_scalar_##SFX##_rvv
 #endif
 
-#define FSC_TABLE(OP)                                                  \
-  static const FastScKern OP##_sc_fast[] = {                           \
-      [NUMC_DTYPE_INT8] = FSC(OP, i8),                                \
-      [NUMC_DTYPE_INT16] = FSC(OP, i16),                              \
-      [NUMC_DTYPE_INT32] = FSC(OP, i32),                              \
-      [NUMC_DTYPE_INT64] = FSC(OP, i64),                              \
-      [NUMC_DTYPE_UINT8] = FSC(OP, u8),                               \
-      [NUMC_DTYPE_UINT16] = FSC(OP, u16),                             \
-      [NUMC_DTYPE_UINT32] = FSC(OP, u32),                             \
-      [NUMC_DTYPE_UINT64] = FSC(OP, u64),                             \
-      [NUMC_DTYPE_FLOAT32] = FSC(OP, f32),                            \
-      [NUMC_DTYPE_FLOAT64] = FSC(OP, f64),                            \
+#define FSC_TABLE(OP)                          \
+  static const FastScKern OP##_sc_fast[] =     \
+      {                                        \
+          [NUMC_DTYPE_INT8] = FSC(OP, i8),     \
+          [NUMC_DTYPE_INT16] = FSC(OP, i16),   \
+          [NUMC_DTYPE_INT32] = FSC(OP, i32),   \
+          [NUMC_DTYPE_INT64] = FSC(OP, i64),   \
+          [NUMC_DTYPE_UINT8] = FSC(OP, u8),    \
+          [NUMC_DTYPE_UINT16] = FSC(OP, u16),  \
+          [NUMC_DTYPE_UINT32] = FSC(OP, u32),  \
+          [NUMC_DTYPE_UINT64] = FSC(OP, u64),  \
+          [NUMC_DTYPE_FLOAT32] = FSC(OP, f32), \
+          [NUMC_DTYPE_FLOAT64] = FSC(OP, f64), \
   }
 
 FSC_TABLE(add);
@@ -251,67 +252,67 @@ FSC_TABLE(mul);
 #undef FSC_TABLE
 #undef FSC
 
-#define DEFINE_SCALAR_SIMD(NAME, FAST_TABLE, FALLBACK_TABLE)           \
-  int numc_##NAME##_scalar(const NumcArray *a, double scalar,          \
-                           NumcArray *out) {                           \
-    int err = _check_unary(a, out);                                    \
-    if (err)                                                           \
-      return err;                                                      \
-    char buf[8];                                                       \
-    _double_to_dtype(scalar, a->dtype, buf);                           \
-    if (a->is_contiguous && out->is_contiguous) {                      \
-      FastScKern kern = FAST_TABLE[a->dtype];                          \
-      size_t n = a->size, es = a->elem_size, total = n * es;          \
-      int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);              \
-      if (nt >= 2) {                                                   \
-        size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;             \
+#define DEFINE_SCALAR_SIMD(NAME, FAST_TABLE, FALLBACK_TABLE)      \
+  int numc_##NAME##_scalar(const NumcArray *a, double scalar,     \
+                           NumcArray *out) {                      \
+    int err = _check_unary(a, out);                               \
+    if (err)                                                      \
+      return err;                                                 \
+    char buf[8];                                                  \
+    _double_to_dtype(scalar, a->dtype, buf);                      \
+    if (a->is_contiguous && out->is_contiguous) {                 \
+      FastScKern kern = FAST_TABLE[a->dtype];                     \
+      size_t n = a->size, es = a->elem_size, total = n * es;      \
+      int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);          \
+      if (nt >= 2) {                                              \
+        size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;         \
         NUMC_PRAGMA(                                                   \
-            omp parallel for schedule(static) num_threads(nt))         \
-        for (int t = 0; t < nt; t++) {                                \
-          size_t s = (size_t)t * chunk;                                \
-          size_t e = s + chunk;                                        \
-          if (e > n)                                                   \
-            e = n;                                                     \
-          if (s < n)                                                   \
-            kern((const char *)a->data + s * es, buf,                  \
-                 (char *)out->data + s * es, e - s);                   \
-        }                                                              \
-      } else {                                                         \
-        kern(a->data, buf, out->data, n);                              \
-      }                                                                \
-      return 0;                                                        \
-    }                                                                  \
-    _scalar_op(a, buf, out, FALLBACK_TABLE);                           \
-    return 0;                                                          \
-  }                                                                    \
-  int numc_##NAME##_scalar_inplace(NumcArray *a, double scalar) {      \
-    if (!a)                                                            \
-      return NUMC_ERR_NULL;                                            \
-    char buf[8];                                                       \
-    _double_to_dtype(scalar, a->dtype, buf);                           \
-    if (a->is_contiguous) {                                            \
-      FastScKern kern = FAST_TABLE[a->dtype];                          \
-      size_t n = a->size, es = a->elem_size, total = n * es;          \
-      int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);              \
-      if (nt >= 2) {                                                   \
-        size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;             \
+            omp parallel for schedule(static) num_threads(nt))    \
+        for (int t = 0; t < nt; t++) {                            \
+          size_t s = (size_t)t * chunk;                           \
+          size_t e = s + chunk;                                   \
+          if (e > n)                                              \
+            e = n;                                                \
+          if (s < n)                                              \
+            kern((const char *)a->data + s * es, buf,             \
+                 (char *)out->data + s * es, e - s);              \
+        }                                                         \
+      } else {                                                    \
+        kern(a->data, buf, out->data, n);                         \
+      }                                                           \
+      return 0;                                                   \
+    }                                                             \
+    _scalar_op(a, buf, out, FALLBACK_TABLE);                      \
+    return 0;                                                     \
+  }                                                               \
+  int numc_##NAME##_scalar_inplace(NumcArray *a, double scalar) { \
+    if (!a)                                                       \
+      return NUMC_ERR_NULL;                                       \
+    char buf[8];                                                  \
+    _double_to_dtype(scalar, a->dtype, buf);                      \
+    if (a->is_contiguous) {                                       \
+      FastScKern kern = FAST_TABLE[a->dtype];                     \
+      size_t n = a->size, es = a->elem_size, total = n * es;      \
+      int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);          \
+      if (nt >= 2) {                                              \
+        size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;         \
         NUMC_PRAGMA(                                                   \
-            omp parallel for schedule(static) num_threads(nt))         \
-        for (int t = 0; t < nt; t++) {                                \
-          size_t s = (size_t)t * chunk;                                \
-          size_t e = s + chunk;                                        \
-          if (e > n)                                                   \
-            e = n;                                                     \
-          if (s < n)                                                   \
-            kern((const char *)a->data + s * es, buf,                  \
-                 (char *)a->data + s * es, e - s);                     \
-        }                                                              \
-      } else {                                                         \
-        kern(a->data, buf, a->data, n);                                \
-      }                                                                \
-      return 0;                                                        \
-    }                                                                  \
-    return _scalar_op_inplace(a, scalar, FALLBACK_TABLE);              \
+            omp parallel for schedule(static) num_threads(nt))    \
+        for (int t = 0; t < nt; t++) {                            \
+          size_t s = (size_t)t * chunk;                           \
+          size_t e = s + chunk;                                   \
+          if (e > n)                                              \
+            e = n;                                                \
+          if (s < n)                                              \
+            kern((const char *)a->data + s * es, buf,             \
+                 (char *)a->data + s * es, e - s);                \
+        }                                                         \
+      } else {                                                    \
+        kern(a->data, buf, a->data, n);                           \
+      }                                                           \
+      return 0;                                                   \
+    }                                                             \
+    return _scalar_op_inplace(a, scalar, FALLBACK_TABLE);         \
   }
 
 DEFINE_SCALAR_SIMD(add, add_sc_fast, add_table)
