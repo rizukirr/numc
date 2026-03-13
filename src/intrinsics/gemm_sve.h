@@ -86,6 +86,29 @@ static inline void gemm_pack_b_f32_sve(const float *b, float *packed, size_t kc,
   }
 }
 
+static inline void _gemm_pack_b_strip_f32_sve(const float *b, float *dest,
+                                               size_t kc, size_t nr_pack,
+                                               intptr_t rsb, size_t nr) {
+  size_t vl = svcntw();
+  svbool_t ptrue = svptrue_b32();
+  if (nr_pack == nr) {
+    for (size_t p = 0; p < kc; p++) {
+      const float *src = b + p * rsb;
+      svst1_f32(ptrue, dest + p * nr, svld1_f32(ptrue, src));
+      svst1_f32(ptrue, dest + p * nr + vl, svld1_f32(ptrue, src + vl));
+    }
+  } else {
+    for (size_t p = 0; p < kc; p++) {
+      const float *src = b + p * rsb;
+      size_t j = 0;
+      for (; j < nr_pack; j++)
+        dest[p * nr + j] = src[j];
+      for (; j < nr; j++)
+        dest[p * nr + j] = 0.0f;
+    }
+  }
+}
+
 static inline void gemm_pack_a_f32_sve(const float *a, float *packed, size_t mc,
                                        size_t kc, intptr_t rsa, intptr_t csa) {
   size_t ir = 0;
@@ -132,6 +155,29 @@ static inline void gemm_pack_b_f64_sve(const double *b, double *packed,
       const double *src = b + p * rsb + jr;
       size_t j = 0;
       for (; j < rem; j++)
+        dest[p * nr + j] = src[j];
+      for (; j < nr; j++)
+        dest[p * nr + j] = 0.0;
+    }
+  }
+}
+
+static inline void _gemm_pack_b_strip_f64_sve(const double *b, double *dest,
+                                               size_t kc, size_t nr_pack,
+                                               intptr_t rsb, size_t nr) {
+  size_t vl = svcntd();
+  svbool_t ptrue = svptrue_b64();
+  if (nr_pack == nr) {
+    for (size_t p = 0; p < kc; p++) {
+      const double *src = b + p * rsb;
+      svst1_f64(ptrue, dest + p * nr, svld1_f64(ptrue, src));
+      svst1_f64(ptrue, dest + p * nr + vl, svld1_f64(ptrue, src + vl));
+    }
+  } else {
+    for (size_t p = 0; p < kc; p++) {
+      const double *src = b + p * rsb;
+      size_t j = 0;
+      for (; j < nr_pack; j++)
         dest[p * nr + j] = src[j];
       for (; j < nr; j++)
         dest[p * nr + j] = 0.0;
@@ -359,22 +405,28 @@ static inline void gemm_f32_sve(const float *a, const float *b, float *out,
 
   for (size_t jc = 0; jc < n_dim; jc += GEMM_F32_NC) {
     size_t nc = GEMM_MIN(GEMM_F32_NC, n_dim - jc);
-
-    for (size_t pc = 0; pc < k_dim; pc += GEMM_F32_KC) {
-      size_t kc = GEMM_MIN(GEMM_F32_KC, k_dim - pc);
-      int first = (pc == 0);
-
-      gemm_pack_b_f32_sve(b + pc * rsb + jc, packed_b, kc, nc, rsb, nr);
-
-      size_t n_ic = (m_dim + GEMM_F32_MC - 1) / GEMM_F32_MC;
-      size_t n_jr = (nc + nr - 1) / nr;
-      size_t n_tasks = n_ic * n_jr;
+    size_t n_jr = (nc + nr - 1) / nr;
 
 #ifdef _OPENMP
-#pragma omp parallel if ((uint64_t)m_dim * kc * nc > GEMM_OMP_THRESHOLD)
-      {
-        NUMC_ALIGNAS(16) float packed_a[GEMM_F32_MC * GEMM_F32_KC];
+#pragma omp parallel if ((uint64_t)m_dim * k_dim * nc > GEMM_OMP_THRESHOLD)
+    {
+      NUMC_ALIGNAS(16) float packed_a[GEMM_F32_MC * GEMM_F32_KC];
+
+      for (size_t pc = 0; pc < k_dim; pc += GEMM_F32_KC) {
+        size_t kc = GEMM_MIN(GEMM_F32_KC, k_dim - pc);
+        int first = (pc == 0);
         size_t last_ic = (size_t)-1;
+
+#pragma omp for schedule(static)
+        for (size_t jr_idx = 0; jr_idx < n_jr; jr_idx++) {
+          size_t jj = jr_idx * nr;
+          size_t nr_pack = GEMM_MIN(nr, nc - jj);
+          _gemm_pack_b_strip_f32_sve(b + pc * rsb + jc + jj,
+                                     packed_b + jj * kc, kc, nr_pack, rsb, nr);
+        }
+
+        size_t n_ic = (m_dim + GEMM_F32_MC - 1) / GEMM_F32_MC;
+        size_t n_tasks = n_ic * n_jr;
 
 #pragma omp for schedule(static)
         for (size_t task = 0; task < n_tasks; task++) {
@@ -413,9 +465,19 @@ static inline void gemm_f32_sve(const float *a, const float *b, float *out,
           }
         }
       }
+    }
 #else
-      {
-        NUMC_ALIGNAS(16) float packed_a[GEMM_F32_MC * GEMM_F32_KC];
+    {
+      NUMC_ALIGNAS(16) float packed_a[GEMM_F32_MC * GEMM_F32_KC];
+
+      for (size_t pc = 0; pc < k_dim; pc += GEMM_F32_KC) {
+        size_t kc = GEMM_MIN(GEMM_F32_KC, k_dim - pc);
+        int first = (pc == 0);
+
+        gemm_pack_b_f32_sve(b + pc * rsb + jc, packed_b, kc, nc, rsb, nr);
+
+        size_t n_ic = (m_dim + GEMM_F32_MC - 1) / GEMM_F32_MC;
+        size_t n_tasks = n_ic * n_jr;
 
         for (size_t task = 0; task < n_tasks; task++) {
           size_t ic = (task / n_jr) * GEMM_F32_MC;
@@ -451,8 +513,8 @@ static inline void gemm_f32_sve(const float *a, const float *b, float *out,
           }
         }
       }
-#endif
     }
+#endif
   }
 
   numc_free(packed_b);
@@ -632,22 +694,28 @@ static inline void gemm_f64_sve(const double *a, const double *b, double *out,
 
   for (size_t jc = 0; jc < n_dim; jc += GEMM_F64_NC) {
     size_t nc = GEMM_MIN(GEMM_F64_NC, n_dim - jc);
-
-    for (size_t pc = 0; pc < k_dim; pc += GEMM_F64_KC) {
-      size_t kc = GEMM_MIN(GEMM_F64_KC, k_dim - pc);
-      int first = (pc == 0);
-
-      gemm_pack_b_f64_sve(b + pc * rsb + jc, packed_b, kc, nc, rsb, nr);
-
-      size_t n_ic = (m_dim + GEMM_F64_MC - 1) / GEMM_F64_MC;
-      size_t n_jr = (nc + nr - 1) / nr;
-      size_t n_tasks = n_ic * n_jr;
+    size_t n_jr = (nc + nr - 1) / nr;
 
 #ifdef _OPENMP
-#pragma omp parallel if ((uint64_t)m_dim * kc * nc > GEMM_OMP_THRESHOLD)
-      {
-        NUMC_ALIGNAS(16) double packed_a[GEMM_F64_MC * GEMM_F64_KC];
+#pragma omp parallel if ((uint64_t)m_dim * k_dim * nc > GEMM_OMP_THRESHOLD)
+    {
+      NUMC_ALIGNAS(16) double packed_a[GEMM_F64_MC * GEMM_F64_KC];
+
+      for (size_t pc = 0; pc < k_dim; pc += GEMM_F64_KC) {
+        size_t kc = GEMM_MIN(GEMM_F64_KC, k_dim - pc);
+        int first = (pc == 0);
         size_t last_ic = (size_t)-1;
+
+#pragma omp for schedule(static)
+        for (size_t jr_idx = 0; jr_idx < n_jr; jr_idx++) {
+          size_t jj = jr_idx * nr;
+          size_t nr_pack = GEMM_MIN(nr, nc - jj);
+          _gemm_pack_b_strip_f64_sve(b + pc * rsb + jc + jj,
+                                     packed_b + jj * kc, kc, nr_pack, rsb, nr);
+        }
+
+        size_t n_ic = (m_dim + GEMM_F64_MC - 1) / GEMM_F64_MC;
+        size_t n_tasks = n_ic * n_jr;
 
 #pragma omp for schedule(static)
         for (size_t task = 0; task < n_tasks; task++) {
@@ -686,9 +754,19 @@ static inline void gemm_f64_sve(const double *a, const double *b, double *out,
           }
         }
       }
+    }
 #else
-      {
-        NUMC_ALIGNAS(16) double packed_a[GEMM_F64_MC * GEMM_F64_KC];
+    {
+      NUMC_ALIGNAS(16) double packed_a[GEMM_F64_MC * GEMM_F64_KC];
+
+      for (size_t pc = 0; pc < k_dim; pc += GEMM_F64_KC) {
+        size_t kc = GEMM_MIN(GEMM_F64_KC, k_dim - pc);
+        int first = (pc == 0);
+
+        gemm_pack_b_f64_sve(b + pc * rsb + jc, packed_b, kc, nc, rsb, nr);
+
+        size_t n_ic = (m_dim + GEMM_F64_MC - 1) / GEMM_F64_MC;
+        size_t n_tasks = n_ic * n_jr;
 
         for (size_t task = 0; task < n_tasks; task++) {
           size_t ic = (task / n_jr) * GEMM_F64_MC;
@@ -724,8 +802,8 @@ static inline void gemm_f64_sve(const double *a, const double *b, double *out,
           }
         }
       }
-#endif
     }
+#endif
   }
 
   numc_free(packed_b);

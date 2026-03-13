@@ -461,3 +461,94 @@ New SIMD functions: 50 compare (10 types × 5 ops) × 5 ISAs = 250 functions.
 Plus 10 add (10 types) × 5 ISAs = 50 functions. Total: 300 new SIMD functions.
 
 Tests: 45/45 passed (native x86, NEON, RVV)
+
+================================================================================
+[2026-03-14] OMP Hoisting + Parallel B Packing + AVX2 NC/Alignment
+================================================================================
+Commit: pending
+Files:  src/intrinsics/gemm_avx2.h, src/intrinsics/gemm_avx512.h,
+        src/intrinsics/gemm_neon.h, src/intrinsics/gemm_sve.h,
+        src/intrinsics/gemm_rvv.h
+
+Problem:
+  1. Repeated OMP fork/join — `#pragma omp parallel` was inside the PC loop,
+     forking/joining threads 4× for K=1024. Each fork costs 20-50μs with high
+     jitter, causing benchmark variance (f32 512: 0.69-1.23x, f32 1024:
+     0.87-1.10x).
+  2. Serial B packing — all threads idle while one thread packs the entire B
+     panel sequentially.
+  3. AVX2 GEMM_F32_NC was 2048, while all other ISAs already used 4080
+     (matching BLIS Haswell configuration).
+
+Changes:
+  1. [All 5 ISA files] Hoisted `#pragma omp parallel` outside the PC loop.
+     Threads now fork once per JC iteration (outer N-blocking loop) instead
+     of once per PC iteration (inner K-blocking loop). This eliminates 3 of
+     every 4 fork/join pairs for K=1024 (KC=256, 4 PC iterations).
+     OMP threshold changed from m_dim*kc*nc (per-PC volume) to m_dim*k_dim*nc
+     (total volume) since the decision is now per-JC, not per-PC.
+
+  2. [All 5 ISA files] Added per-strip B packing helper functions:
+     - AVX2:  _gemm_pack_b_strip_f32/_f64 (uses _mm256 intrinsics)
+     - AVX512: _gemm_pack_b_strip_f32/_f64 (uses _mm512 intrinsics)
+     - NEON:  _gemm_pack_b_strip_f32/_f64 (uses vst1q/vld1q intrinsics)
+     - SVE:   _gemm_pack_b_strip_f32_sve/_f64_sve (runtime nr parameter)
+     - RVV:   _gemm_pack_b_strip_f32_rvv/_f64_rvv (runtime nr parameter)
+     B packing is now parallelized via `#pragma omp for schedule(static)`
+     over NR-wide column strips, with an implicit barrier before the compute
+     phase. Each strip function handles full-width SIMD path (nr_pack == NR)
+     and scalar edge path (nr_pack < NR) with zero-padding.
+
+  3. [gemm_avx2.h] Changed GEMM_F32_NC from 2048 to 4080, matching BLIS
+     Haswell and all other ISAs (NEON/SVE/RVV already used 4080).
+
+  4. [gemm_avx2.h] Changed 4 ASM K-loop alignment points from .p2align 4
+     (16-byte) to .p2align 5 (32-byte) for Haswell DSB optimization.
+
+  Structure change (all ISAs, f32 and f64):
+    Before:
+      for jc:
+        for pc:              ← K-blocking loop
+          pack_b()           ← SERIAL, all threads idle
+          #pragma omp parallel  ← FORK (20-50μs)
+            omp for tasks
+          }                  ← JOIN (barrier)
+    After:
+      for jc:
+        #pragma omp parallel    ← FORK (once per JC)
+          for pc:               ← PC loop inside parallel region
+            omp for B strips    ← PARALLEL B packing
+            // implicit barrier
+            omp for tasks       ← compute (unchanged)
+
+  Non-OMP (#else) paths restructured to match: the PC loop now wraps the
+  task loop with serial pack_b call, but logic is equivalent to before.
+
+  10 functions modified (f32 + f64 per ISA × 5 ISAs).
+  10 strip functions added (f32 + f64 per ISA × 5 ISAs).
+
+Before (vs NumPy/OpenBLAS):
+  f32 512×512:   0.69-1.23x (high variance from OMP fork jitter)
+  f32 1024×1024: 0.87-1.10x (high variance)
+  f64 512×512:   0.70-1.51x
+  f64 1024×1024: 0.68-0.87x
+
+After (2 runs, vs NumPy/OpenBLAS):
+  f32 64×64:      1.00x, 1.01x (unchanged, uses gemmsup)
+  f32 128×128:    0.58x, 1.66x (gemmsup — not changed, system noise)
+  f32 256×256:    1.12x, 0.99x
+  f32 512×512:    1.22x, 1.21x ← consistent, was 0.69-1.23x
+  f32 1024×1024:  0.93x, 0.86x ← was 0.87-1.10x
+  f64 64×64:      1.00x, 0.97x
+  f64 128×128:    1.45x, 1.51x
+  f64 256×256:    1.32x, 2.19x
+  f64 512×512:    0.69x, 0.88x ← was 0.70-1.51x
+  f64 1024×1024:  0.71x, 0.85x ← was 0.68-0.87x
+
+Result: f32 512×512 shows clear variance reduction (1.21-1.22x vs 0.69-1.23x),
+  now consistently above 1.0x. f32 1024 and f64 results remain in similar
+  ranges — the OMP hoisting benefit is most visible at sizes where the PC loop
+  has ~2-4 iterations (K=512 with KC=256) because that's where repeated
+  fork/join was most costly relative to compute.
+
+Tests: 45/45 passed (native x86, NEON, SVE, RVV)

@@ -56,7 +56,7 @@
 #define GEMM_OMP_THRESHOLD (1 << 20)
 
 /* N-dimension blocking for L3 residency (B panel: KC × NC elements) */
-#define GEMM_F32_NC 2048
+#define GEMM_F32_NC 4080
 #define GEMM_F64_NC 2048
 
 /* ── Float32 packing routines ──────────────────────────────────────────── */
@@ -82,6 +82,28 @@ static inline void gemm_pack_b_f32(const float *b, float *packed, size_t kc,
       const float *src = b + p * rsb + jr;
       size_t j = 0;
       for (; j < rem; j++)
+        dest[p * GEMM_F32_NR + j] = src[j];
+      for (; j < GEMM_F32_NR; j++)
+        dest[p * GEMM_F32_NR + j] = 0.0f;
+    }
+  }
+}
+
+/* Pack a single NR-wide B strip for parallel packing. */
+static inline void _gemm_pack_b_strip_f32(const float *b, float *dest,
+                                           size_t kc, size_t nr_pack,
+                                           intptr_t rsb) {
+  if (nr_pack == GEMM_F32_NR) {
+    for (size_t p = 0; p < kc; p++) {
+      const float *src = b + p * rsb;
+      _mm256_storeu_ps(dest + p * GEMM_F32_NR, _mm256_loadu_ps(src));
+      _mm256_storeu_ps(dest + p * GEMM_F32_NR + 8, _mm256_loadu_ps(src + 8));
+    }
+  } else {
+    for (size_t p = 0; p < kc; p++) {
+      const float *src = b + p * rsb;
+      size_t j = 0;
+      for (; j < nr_pack; j++)
         dest[p * GEMM_F32_NR + j] = src[j];
       for (; j < GEMM_F32_NR; j++)
         dest[p * GEMM_F32_NR + j] = 0.0f;
@@ -168,6 +190,27 @@ static inline void gemm_pack_b_f64(const double *b, double *packed, size_t kc,
       const double *src = b + p * rsb + jr;
       size_t j = 0;
       for (; j < rem; j++)
+        dest[p * GEMM_F64_NR + j] = src[j];
+      for (; j < GEMM_F64_NR; j++)
+        dest[p * GEMM_F64_NR + j] = 0.0;
+    }
+  }
+}
+
+static inline void _gemm_pack_b_strip_f64(const double *b, double *dest,
+                                           size_t kc, size_t nr_pack,
+                                           intptr_t rsb) {
+  if (nr_pack == GEMM_F64_NR) {
+    for (size_t p = 0; p < kc; p++) {
+      const double *src = b + p * rsb;
+      _mm256_storeu_pd(dest + p * GEMM_F64_NR, _mm256_loadu_pd(src));
+      _mm256_storeu_pd(dest + p * GEMM_F64_NR + 4, _mm256_loadu_pd(src + 4));
+    }
+  } else {
+    for (size_t p = 0; p < kc; p++) {
+      const double *src = b + p * rsb;
+      size_t j = 0;
+      for (; j < nr_pack; j++)
         dest[p * GEMM_F64_NR + j] = src[j];
       for (; j < GEMM_F64_NR; j++)
         dest[p * GEMM_F64_NR + j] = 0.0;
@@ -360,7 +403,7 @@ static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
       "shr $3, %%rcx\n\t"
       "jz 4f\n\t"
 
-      ".p2align 4\n\t"
+      ".p2align 5\n\t"
       "3:\n\t"
       /* === K iterations 0-1 === */
       GEMM_F32_ASM_K_ITER
@@ -387,7 +430,7 @@ static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
       "and $7, %%rcx\n\t"
       "jz 6f\n\t"
 
-      ".p2align 4\n\t"
+      ".p2align 5\n\t"
       "5:\n\t"
       "vmovups (%[bp]), %%ymm12\n\t"
       "vmovups 32(%[bp]), %%ymm13\n\t"
@@ -566,7 +609,6 @@ static inline void gemm_f32_avx2(const float *a, const float *b, float *out,
                                  size_t m_dim, size_t k_dim, size_t n_dim,
                                  intptr_t rsa, intptr_t csa, intptr_t rsb,
                                  intptr_t rso) {
-  /* B packing buffer — shared across threads, fits L3 */
   size_t nc_max = GEMM_MIN(GEMM_F32_NC, n_dim);
   float *packed_b = (float *)numc_malloc(
       32, GEMM_F32_KC * (nc_max + GEMM_F32_NR) * sizeof(float));
@@ -575,25 +617,28 @@ static inline void gemm_f32_avx2(const float *a, const float *b, float *out,
 
   for (size_t jc = 0; jc < n_dim; jc += GEMM_F32_NC) {
     size_t nc = GEMM_MIN(GEMM_F32_NC, n_dim - jc);
-
-    for (size_t pc = 0; pc < k_dim; pc += GEMM_F32_KC) {
-      size_t kc = GEMM_MIN(GEMM_F32_KC, k_dim - pc);
-      int first = (pc == 0);
-
-      gemm_pack_b_f32(b + pc * rsb + jc, packed_b, kc, nc, rsb);
-
-      /* 2D IC×JR parallelism: linearize (ic_idx, jr_idx) into flat tasks.
-       * With schedule(static), contiguous tasks share the same IC block,
-       * so each thread packs A at most once or twice (at IC boundaries). */
-      size_t n_ic = (m_dim + GEMM_F32_MC - 1) / GEMM_F32_MC;
-      size_t n_jr = (nc + GEMM_F32_NR - 1) / GEMM_F32_NR;
-      size_t n_tasks = n_ic * n_jr;
+    size_t n_jr = (nc + GEMM_F32_NR - 1) / GEMM_F32_NR;
 
 #ifdef _OPENMP
-#pragma omp parallel if ((uint64_t)m_dim * kc * nc > GEMM_OMP_THRESHOLD)
-      {
-        NUMC_ALIGNAS(32) float packed_a[GEMM_F32_MC * GEMM_F32_KC];
+#pragma omp parallel if ((uint64_t)m_dim * k_dim * nc > GEMM_OMP_THRESHOLD)
+    {
+      NUMC_ALIGNAS(32) float packed_a[GEMM_F32_MC * GEMM_F32_KC];
+
+      for (size_t pc = 0; pc < k_dim; pc += GEMM_F32_KC) {
+        size_t kc = GEMM_MIN(GEMM_F32_KC, k_dim - pc);
+        int first = (pc == 0);
         size_t last_ic = (size_t)-1;
+
+#pragma omp for schedule(static)
+        for (size_t jr_idx = 0; jr_idx < n_jr; jr_idx++) {
+          size_t jj = jr_idx * GEMM_F32_NR;
+          size_t nr_pack = GEMM_MIN(GEMM_F32_NR, nc - jj);
+          _gemm_pack_b_strip_f32(b + pc * rsb + (jc + jj),
+                                 packed_b + jj * kc, kc, nr_pack, rsb);
+        }
+
+        size_t n_ic = (m_dim + GEMM_F32_MC - 1) / GEMM_F32_MC;
+        size_t n_tasks = n_ic * n_jr;
 
 #pragma omp for schedule(static)
         for (size_t task = 0; task < n_tasks; task++) {
@@ -633,9 +678,19 @@ static inline void gemm_f32_avx2(const float *a, const float *b, float *out,
           }
         }
       }
+    }
 #else
-      {
-        NUMC_ALIGNAS(32) float packed_a[GEMM_F32_MC * GEMM_F32_KC];
+    {
+      NUMC_ALIGNAS(32) float packed_a[GEMM_F32_MC * GEMM_F32_KC];
+
+      for (size_t pc = 0; pc < k_dim; pc += GEMM_F32_KC) {
+        size_t kc = GEMM_MIN(GEMM_F32_KC, k_dim - pc);
+        int first = (pc == 0);
+
+        gemm_pack_b_f32(b + pc * rsb + jc, packed_b, kc, nc, rsb);
+
+        size_t n_ic = (m_dim + GEMM_F32_MC - 1) / GEMM_F32_MC;
+        size_t n_tasks = n_ic * n_jr;
 
         for (size_t task = 0; task < n_tasks; task++) {
           size_t ic = (task / n_jr) * GEMM_F32_MC;
@@ -672,8 +727,8 @@ static inline void gemm_f32_avx2(const float *a, const float *b, float *out,
           }
         }
       }
-#endif
     }
+#endif
   }
 
   numc_free(packed_b);
@@ -805,7 +860,7 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
       "shr $3, %%rcx\n\t"
       "jz 4f\n\t"
 
-      ".p2align 4\n\t"
+      ".p2align 5\n\t"
       "3:\n\t"
       /* === K iteration 0 === */
       GEMM_F64_ASM_K_ITER
@@ -839,7 +894,7 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
       "and $7, %%rcx\n\t"
       "jz 6f\n\t"
 
-      ".p2align 4\n\t"
+      ".p2align 5\n\t"
       "5:\n\t" GEMM_F64_ASM_K_ITER "dec %%rcx\n\t"
       "jnz 5b\n\t"
 
@@ -1002,22 +1057,28 @@ static inline void gemm_f64_avx2(const double *a, const double *b, double *out,
 
   for (size_t jc = 0; jc < n_dim; jc += GEMM_F64_NC) {
     size_t nc = GEMM_MIN(GEMM_F64_NC, n_dim - jc);
-
-    for (size_t pc = 0; pc < k_dim; pc += GEMM_F64_KC) {
-      size_t kc = GEMM_MIN(GEMM_F64_KC, k_dim - pc);
-      int first = (pc == 0);
-
-      gemm_pack_b_f64(b + pc * rsb + jc, packed_b, kc, nc, rsb);
-
-      size_t n_ic = (m_dim + GEMM_F64_MC - 1) / GEMM_F64_MC;
-      size_t n_jr = (nc + GEMM_F64_NR - 1) / GEMM_F64_NR;
-      size_t n_tasks = n_ic * n_jr;
+    size_t n_jr = (nc + GEMM_F64_NR - 1) / GEMM_F64_NR;
 
 #ifdef _OPENMP
-#pragma omp parallel if ((uint64_t)m_dim * kc * nc > GEMM_OMP_THRESHOLD)
-      {
-        NUMC_ALIGNAS(32) double packed_a[GEMM_F64_MC * GEMM_F64_KC];
+#pragma omp parallel if ((uint64_t)m_dim * k_dim * nc > GEMM_OMP_THRESHOLD)
+    {
+      NUMC_ALIGNAS(32) double packed_a[GEMM_F64_MC * GEMM_F64_KC];
+
+      for (size_t pc = 0; pc < k_dim; pc += GEMM_F64_KC) {
+        size_t kc = GEMM_MIN(GEMM_F64_KC, k_dim - pc);
+        int first = (pc == 0);
         size_t last_ic = (size_t)-1;
+
+#pragma omp for schedule(static)
+        for (size_t jr_idx = 0; jr_idx < n_jr; jr_idx++) {
+          size_t jj = jr_idx * GEMM_F64_NR;
+          size_t nr_pack = GEMM_MIN(GEMM_F64_NR, nc - jj);
+          _gemm_pack_b_strip_f64(b + pc * rsb + (jc + jj),
+                                 packed_b + jj * kc, kc, nr_pack, rsb);
+        }
+
+        size_t n_ic = (m_dim + GEMM_F64_MC - 1) / GEMM_F64_MC;
+        size_t n_tasks = n_ic * n_jr;
 
 #pragma omp for schedule(static)
         for (size_t task = 0; task < n_tasks; task++) {
@@ -1041,8 +1102,8 @@ static inline void gemm_f64_avx2(const double *a, const double *b, double *out,
             } else {
               NUMC_ALIGNAS(32) double tmp[GEMM_F64_MR * GEMM_F64_NR];
               gemm_ukernel_f64_6x8(packed_a + ir * kc, packed_b + jr * kc, tmp,
-                                   kc, 1, GEMM_F64_MR, GEMM_F64_NR, GEMM_F64_NR,
-                                   1);
+                                   kc, 1, GEMM_F64_MR, GEMM_F64_NR,
+                                   GEMM_F64_NR, 1);
               double *dst = out + (ic + ir) * rso + (jc + jr);
               if (first) {
                 for (size_t ii = 0; ii < mr_cur; ii++)
@@ -1057,9 +1118,19 @@ static inline void gemm_f64_avx2(const double *a, const double *b, double *out,
           }
         }
       }
+    }
 #else
-      {
-        NUMC_ALIGNAS(32) double packed_a[GEMM_F64_MC * GEMM_F64_KC];
+    {
+      NUMC_ALIGNAS(32) double packed_a[GEMM_F64_MC * GEMM_F64_KC];
+
+      for (size_t pc = 0; pc < k_dim; pc += GEMM_F64_KC) {
+        size_t kc = GEMM_MIN(GEMM_F64_KC, k_dim - pc);
+        int first = (pc == 0);
+
+        gemm_pack_b_f64(b + pc * rsb + jc, packed_b, kc, nc, rsb);
+
+        size_t n_ic = (m_dim + GEMM_F64_MC - 1) / GEMM_F64_MC;
+        size_t n_tasks = n_ic * n_jr;
 
         for (size_t task = 0; task < n_tasks; task++) {
           size_t ic = (task / n_jr) * GEMM_F64_MC;
@@ -1080,8 +1151,8 @@ static inline void gemm_f64_avx2(const double *a, const double *b, double *out,
             } else {
               NUMC_ALIGNAS(32) double tmp[GEMM_F64_MR * GEMM_F64_NR];
               gemm_ukernel_f64_6x8(packed_a + ir * kc, packed_b + jr * kc, tmp,
-                                   kc, 1, GEMM_F64_MR, GEMM_F64_NR, GEMM_F64_NR,
-                                   1);
+                                   kc, 1, GEMM_F64_MR, GEMM_F64_NR,
+                                   GEMM_F64_NR, 1);
               double *dst = out + (ic + ir) * rso + (jc + jr);
               if (first) {
                 for (size_t ii = 0; ii < mr_cur; ii++)
@@ -1096,8 +1167,8 @@ static inline void gemm_f64_avx2(const double *a, const double *b, double *out,
           }
         }
       }
-#endif
     }
+#endif
   }
 
   numc_free(packed_b);
