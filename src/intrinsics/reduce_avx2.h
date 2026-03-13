@@ -214,6 +214,175 @@ DEFINE_FUSED_REDUCE_AVX2(_max_fused_u32_avx2, uint32_t,
 
 #undef DEFINE_FUSED_REDUCE_AVX2
 
+/* ── 64-bit integer min/max (emulated, no native AVX2 support) ──── *
+ *
+ * AVX2 lacks vpminsq/vpmaxsq/vpminuq/vpmaxuq.  We emulate using:
+ *   signed:   cmp = vpcmpgtq(a, b);  result = blendvpd(b, a, cmp)
+ *   unsigned: XOR with sign-bit to reduce to signed, cmpgt, blendvpd */
+
+static inline __m256i _mm256_max_epi64_emu(__m256i a, __m256i b) {
+  __m256i gt = _mm256_cmpgt_epi64(a, b);
+  return _mm256_blendv_epi8(b, a, gt);
+}
+static inline __m256i _mm256_min_epi64_emu(__m256i a, __m256i b) {
+  __m256i gt = _mm256_cmpgt_epi64(a, b);
+  return _mm256_blendv_epi8(a, b, gt);
+}
+static inline __m256i _mm256_max_epu64_emu(__m256i a, __m256i b) {
+  __m256i sign = _mm256_set1_epi64x((int64_t)0x8000000000000000ULL);
+  __m256i gt = _mm256_cmpgt_epi64(_mm256_xor_si256(a, sign),
+                                  _mm256_xor_si256(b, sign));
+  return _mm256_blendv_epi8(b, a, gt);
+}
+static inline __m256i _mm256_min_epu64_emu(__m256i a, __m256i b) {
+  __m256i sign = _mm256_set1_epi64x((int64_t)0x8000000000000000ULL);
+  __m256i gt = _mm256_cmpgt_epi64(_mm256_xor_si256(a, sign),
+                                  _mm256_xor_si256(b, sign));
+  return _mm256_blendv_epi8(a, b, gt);
+}
+
+/* 64-bit horizontal reduction: 256→128→64 bits */
+static inline int64_t _hmax_epi64_avx2(__m256i v) {
+  __m128i lo = _mm256_castsi256_si128(v);
+  __m128i hi = _mm256_extracti128_si256(v, 1);
+  /* max of lo and hi 128-bit halves (2 x i64 each) */
+  __m128i gt = _mm_cmpgt_epi64(lo, hi);
+  __m128i m = _mm_blendv_epi8(hi, lo, gt);
+  /* max of two 64-bit lanes */
+  __m128i shuf = _mm_srli_si128(m, 8);
+  __m128i gt2 = _mm_cmpgt_epi64(m, shuf);
+  m = _mm_blendv_epi8(shuf, m, gt2);
+  return _mm_cvtsi128_si64(m);
+}
+static inline int64_t _hmin_epi64_avx2(__m256i v) {
+  __m128i lo = _mm256_castsi256_si128(v);
+  __m128i hi = _mm256_extracti128_si256(v, 1);
+  __m128i gt = _mm_cmpgt_epi64(lo, hi);
+  __m128i m = _mm_blendv_epi8(lo, hi, gt);
+  __m128i shuf = _mm_srli_si128(m, 8);
+  __m128i gt2 = _mm_cmpgt_epi64(m, shuf);
+  m = _mm_blendv_epi8(m, shuf, gt2);
+  return _mm_cvtsi128_si64(m);
+}
+static inline uint64_t _hmax_epu64_avx2(__m256i v) {
+  __m128i sign = _mm_set1_epi64x((int64_t)0x8000000000000000ULL);
+  __m128i lo = _mm256_castsi256_si128(v);
+  __m128i hi = _mm256_extracti128_si256(v, 1);
+  __m128i gt = _mm_cmpgt_epi64(_mm_xor_si128(lo, sign),
+                               _mm_xor_si128(hi, sign));
+  __m128i m = _mm_blendv_epi8(hi, lo, gt);
+  __m128i shuf = _mm_srli_si128(m, 8);
+  __m128i gt2 = _mm_cmpgt_epi64(_mm_xor_si128(m, sign),
+                                _mm_xor_si128(shuf, sign));
+  m = _mm_blendv_epi8(shuf, m, gt2);
+  return (uint64_t)_mm_cvtsi128_si64(m);
+}
+static inline uint64_t _hmin_epu64_avx2(__m256i v) {
+  __m128i sign = _mm_set1_epi64x((int64_t)0x8000000000000000ULL);
+  __m128i lo = _mm256_castsi256_si128(v);
+  __m128i hi = _mm256_extracti128_si256(v, 1);
+  __m128i gt = _mm_cmpgt_epi64(_mm_xor_si128(lo, sign),
+                               _mm_xor_si128(hi, sign));
+  __m128i m = _mm_blendv_epi8(lo, hi, gt);
+  __m128i shuf = _mm_srli_si128(m, 8);
+  __m128i gt2 = _mm_cmpgt_epi64(_mm_xor_si128(m, sign),
+                                _mm_xor_si128(shuf, sign));
+  m = _mm_blendv_epi8(m, shuf, gt2);
+  return (uint64_t)_mm_cvtsi128_si64(m);
+}
+
+/* ── 64-bit full array reductions ──────────────────────────────────── */
+
+#define DEFINE_REDUCE_FULL_64_AVX2(NAME, CT, INIT_VEC, CMP256, HREDUCE, \
+                                   SCMP)                                 \
+  static inline CT NAME(const CT *restrict a, size_t n) {                \
+    const size_t EPV = 4; /* 256 / 64 */                                 \
+    __m256i a0 = INIT_VEC, a1 = INIT_VEC;                                \
+    __m256i a2 = INIT_VEC, a3 = INIT_VEC;                                \
+    size_t i = 0;                                                        \
+    for (; i + 4 * EPV <= n; i += 4 * EPV) {                             \
+      a0 = CMP256(a0, RLOADI(a + i));                                    \
+      a1 = CMP256(a1, RLOADI(a + i + EPV));                              \
+      a2 = CMP256(a2, RLOADI(a + i + 2 * EPV));                          \
+      a3 = CMP256(a3, RLOADI(a + i + 3 * EPV));                          \
+    }                                                                    \
+    a0 = CMP256(CMP256(a0, a1), CMP256(a2, a3));                         \
+    for (; i + EPV <= n; i += EPV)                                       \
+      a0 = CMP256(a0, RLOADI(a + i));                                    \
+    CT result = HREDUCE(a0);                                             \
+    for (; i < n; i++)                                                   \
+      result = SCMP(a[i], result);                                       \
+    return result;                                                       \
+  }
+
+DEFINE_REDUCE_FULL_64_AVX2(reduce_max_i64_avx2, int64_t,
+  _mm256_set1_epi64x(INT64_MIN),
+  _mm256_max_epi64_emu, _hmax_epi64_avx2, _RSMAX)
+DEFINE_REDUCE_FULL_64_AVX2(reduce_max_u64_avx2, uint64_t,
+  _mm256_setzero_si256(),
+  _mm256_max_epu64_emu, _hmax_epu64_avx2, _RSMAX)
+DEFINE_REDUCE_FULL_64_AVX2(reduce_min_i64_avx2, int64_t,
+  _mm256_set1_epi64x(INT64_MAX),
+  _mm256_min_epi64_emu, _hmin_epi64_avx2, _RSMIN)
+DEFINE_REDUCE_FULL_64_AVX2(reduce_min_u64_avx2, uint64_t,
+  _mm256_set1_epi64x(-1),
+  _mm256_min_epu64_emu, _hmin_epu64_avx2, _RSMIN)
+
+#undef DEFINE_REDUCE_FULL_64_AVX2
+
+/* ── 64-bit fused row-reduce (axis-1) ──────────────────────────────── */
+
+#define DEFINE_FUSED_64_AVX2(NAME, CT, CMP256, SCMP)                          \
+  static inline void NAME(const char *restrict base, intptr_t row_stride,     \
+                           size_t nrows, char *restrict dst,                   \
+                           size_t ncols) {                                     \
+    CT *restrict d = (CT *)dst;                                               \
+    const size_t EPV = 4;                                                     \
+    size_t r = 0;                                                             \
+    for (; r + 4 <= nrows; r += 4) {                                          \
+      const CT *restrict s0 = (const CT *)(base + r * row_stride);            \
+      const CT *restrict s1 =                                                 \
+          (const CT *)(base + (r + 1) * row_stride);                          \
+      const CT *restrict s2 =                                                 \
+          (const CT *)(base + (r + 2) * row_stride);                          \
+      const CT *restrict s3 =                                                 \
+          (const CT *)(base + (r + 3) * row_stride);                          \
+      size_t i = 0;                                                           \
+      for (; i + EPV <= ncols; i += EPV) {                                    \
+        __m256i dv  = RLOADI(d + i);                                          \
+        __m256i v01 = CMP256(RLOADI(s0 + i), RLOADI(s1 + i));                \
+        __m256i v23 = CMP256(RLOADI(s2 + i), RLOADI(s3 + i));                \
+        RSTOREI(d + i, CMP256(dv, CMP256(v01, v23)));                        \
+      }                                                                       \
+      for (; i < ncols; i++) {                                                \
+        CT v = SCMP(s0[i], s1[i]);                                            \
+        v = SCMP(v, s2[i]);                                                   \
+        v = SCMP(v, s3[i]);                                                   \
+        d[i] = SCMP(v, d[i]);                                                \
+      }                                                                       \
+    }                                                                         \
+    for (; r < nrows; r++) {                                                  \
+      const CT *restrict s =                                                  \
+          (const CT *)(base + r * row_stride);                                \
+      size_t i = 0;                                                           \
+      for (; i + EPV <= ncols; i += EPV)                                      \
+        RSTOREI(d + i, CMP256(RLOADI(d + i), RLOADI(s + i)));                \
+      for (; i < ncols; i++)                                                  \
+        d[i] = SCMP(s[i], d[i]);                                             \
+    }                                                                         \
+  }
+
+DEFINE_FUSED_64_AVX2(_max_fused_i64_avx2, int64_t,
+  _mm256_max_epi64_emu, _RSMAX)
+DEFINE_FUSED_64_AVX2(_max_fused_u64_avx2, uint64_t,
+  _mm256_max_epu64_emu, _RSMAX)
+DEFINE_FUSED_64_AVX2(_min_fused_i64_avx2, int64_t,
+  _mm256_min_epi64_emu, _RSMIN)
+DEFINE_FUSED_64_AVX2(_min_fused_u64_avx2, uint64_t,
+  _mm256_min_epu64_emu, _RSMIN)
+
+#undef DEFINE_FUSED_64_AVX2
+
 // clang-format on
 
 #undef RLOADI

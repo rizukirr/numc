@@ -14,8 +14,18 @@
 #include <stdint.h>
 
 #include "arch_dispatch.h"
-#if NUMC_HAVE_AVX2
+#if NUMC_HAVE_AVX512
+#include "intrinsics/reduce_avx512.h"
+#elif NUMC_HAVE_AVX2
 #include "intrinsics/reduce_avx2.h"
+#endif
+#if NUMC_HAVE_SVE
+#include "intrinsics/reduce_sve.h"
+#elif NUMC_HAVE_NEON
+#include "intrinsics/reduce_neon.h"
+#endif
+#if NUMC_HAVE_RVV
+#include "intrinsics/reduce_rvv.h"
 #endif
 
 /* ── Pairwise summation for float types ──────────────────────────────
@@ -136,69 +146,135 @@ DEFINE_VEC_MINMAX(max_f64, double, -INFINITY, NUMC_VMAX)
 DEFINE_VEC_MINMAX(min_f32, float, INFINITY, NUMC_VMIN)
 DEFINE_VEC_MINMAX(min_f64, double, INFINITY, NUMC_VMIN)
 
-/* 64-bit and float types: scalar (no AVX2 min/max for i64/u64,
- * floats auto-vectorize well via SLP with 8 accumulators) */
-DEFINE_VEC_MINMAX(max_i64, int64_t, INT64_MIN, NUMC_VMAX)
-DEFINE_VEC_MINMAX(max_u64, uint64_t, 0, NUMC_VMAX)
-DEFINE_VEC_MINMAX(min_i64, int64_t, INT64_MAX, NUMC_VMIN)
-DEFINE_VEC_MINMAX(min_u64, uint64_t, UINT64_MAX, NUMC_VMIN)
+/* Integer min/max: SIMD dispatch by ISA priority.
+ * Each ISA provides reduce_{min,max}_{i8..u64}_SUFFIX functions. */
 
-/* 8/16/32-bit integer types: explicit AVX2 SIMD when available */
-#if NUMC_HAVE_AVX2
+#define _VEC_WRAP(NAME, CT, SIMD_FN) \
+  static inline CT _vec_##NAME(const CT *a, size_t n) { return SIMD_FN(a, n); }
 
-static inline int8_t _vec_max_i8(const int8_t *a, size_t n) {
-  return reduce_max_i8_avx2(a, n);
-}
-static inline int16_t _vec_max_i16(const int16_t *a, size_t n) {
-  return reduce_max_i16_avx2(a, n);
-}
-static inline int32_t _vec_max_i32(const int32_t *a, size_t n) {
-  return reduce_max_i32_avx2(a, n);
-}
-static inline uint8_t _vec_max_u8(const uint8_t *a, size_t n) {
-  return reduce_max_u8_avx2(a, n);
-}
-static inline uint16_t _vec_max_u16(const uint16_t *a, size_t n) {
-  return reduce_max_u16_avx2(a, n);
-}
-static inline uint32_t _vec_max_u32(const uint32_t *a, size_t n) {
-  return reduce_max_u32_avx2(a, n);
-}
-static inline int8_t _vec_min_i8(const int8_t *a, size_t n) {
-  return reduce_min_i8_avx2(a, n);
-}
-static inline int16_t _vec_min_i16(const int16_t *a, size_t n) {
-  return reduce_min_i16_avx2(a, n);
-}
-static inline int32_t _vec_min_i32(const int32_t *a, size_t n) {
-  return reduce_min_i32_avx2(a, n);
-}
-static inline uint8_t _vec_min_u8(const uint8_t *a, size_t n) {
-  return reduce_min_u8_avx2(a, n);
-}
-static inline uint16_t _vec_min_u16(const uint16_t *a, size_t n) {
-  return reduce_min_u16_avx2(a, n);
-}
-static inline uint32_t _vec_min_u32(const uint32_t *a, size_t n) {
-  return reduce_min_u32_avx2(a, n);
-}
+#if NUMC_HAVE_AVX512
+
+
+_VEC_WRAP(max_i8,  int8_t,   reduce_max_i8_avx512)
+_VEC_WRAP(max_i16, int16_t,  reduce_max_i16_avx512)
+_VEC_WRAP(max_i32, int32_t,  reduce_max_i32_avx512)
+_VEC_WRAP(max_i64, int64_t,  reduce_max_i64_avx512)
+_VEC_WRAP(max_u8,  uint8_t,  reduce_max_u8_avx512)
+_VEC_WRAP(max_u16, uint16_t, reduce_max_u16_avx512)
+_VEC_WRAP(max_u32, uint32_t, reduce_max_u32_avx512)
+_VEC_WRAP(max_u64, uint64_t, reduce_max_u64_avx512)
+_VEC_WRAP(min_i8,  int8_t,   reduce_min_i8_avx512)
+_VEC_WRAP(min_i16, int16_t,  reduce_min_i16_avx512)
+_VEC_WRAP(min_i32, int32_t,  reduce_min_i32_avx512)
+_VEC_WRAP(min_i64, int64_t,  reduce_min_i64_avx512)
+_VEC_WRAP(min_u8,  uint8_t,  reduce_min_u8_avx512)
+_VEC_WRAP(min_u16, uint16_t, reduce_min_u16_avx512)
+_VEC_WRAP(min_u32, uint32_t, reduce_min_u32_avx512)
+_VEC_WRAP(min_u64, uint64_t, reduce_min_u64_avx512)
+
+#elif NUMC_HAVE_AVX2
+
+
+_VEC_WRAP(max_i8,  int8_t,   reduce_max_i8_avx2)
+_VEC_WRAP(max_i16, int16_t,  reduce_max_i16_avx2)
+_VEC_WRAP(max_i32, int32_t,  reduce_max_i32_avx2)
+_VEC_WRAP(max_i64, int64_t,  reduce_max_i64_avx2)
+_VEC_WRAP(max_u8,  uint8_t,  reduce_max_u8_avx2)
+_VEC_WRAP(max_u16, uint16_t, reduce_max_u16_avx2)
+_VEC_WRAP(max_u32, uint32_t, reduce_max_u32_avx2)
+_VEC_WRAP(max_u64, uint64_t, reduce_max_u64_avx2)
+_VEC_WRAP(min_i8,  int8_t,   reduce_min_i8_avx2)
+_VEC_WRAP(min_i16, int16_t,  reduce_min_i16_avx2)
+_VEC_WRAP(min_i32, int32_t,  reduce_min_i32_avx2)
+_VEC_WRAP(min_i64, int64_t,  reduce_min_i64_avx2)
+_VEC_WRAP(min_u8,  uint8_t,  reduce_min_u8_avx2)
+_VEC_WRAP(min_u16, uint16_t, reduce_min_u16_avx2)
+_VEC_WRAP(min_u32, uint32_t, reduce_min_u32_avx2)
+_VEC_WRAP(min_u64, uint64_t, reduce_min_u64_avx2)
+
+#elif NUMC_HAVE_SVE
+
+
+_VEC_WRAP(max_i8,  int8_t,   reduce_max_i8_sve)
+_VEC_WRAP(max_i16, int16_t,  reduce_max_i16_sve)
+_VEC_WRAP(max_i32, int32_t,  reduce_max_i32_sve)
+_VEC_WRAP(max_i64, int64_t,  reduce_max_i64_sve)
+_VEC_WRAP(max_u8,  uint8_t,  reduce_max_u8_sve)
+_VEC_WRAP(max_u16, uint16_t, reduce_max_u16_sve)
+_VEC_WRAP(max_u32, uint32_t, reduce_max_u32_sve)
+_VEC_WRAP(max_u64, uint64_t, reduce_max_u64_sve)
+_VEC_WRAP(min_i8,  int8_t,   reduce_min_i8_sve)
+_VEC_WRAP(min_i16, int16_t,  reduce_min_i16_sve)
+_VEC_WRAP(min_i32, int32_t,  reduce_min_i32_sve)
+_VEC_WRAP(min_i64, int64_t,  reduce_min_i64_sve)
+_VEC_WRAP(min_u8,  uint8_t,  reduce_min_u8_sve)
+_VEC_WRAP(min_u16, uint16_t, reduce_min_u16_sve)
+_VEC_WRAP(min_u32, uint32_t, reduce_min_u32_sve)
+_VEC_WRAP(min_u64, uint64_t, reduce_min_u64_sve)
+
+#elif NUMC_HAVE_NEON
+
+
+_VEC_WRAP(max_i8,  int8_t,   reduce_max_i8_neon)
+_VEC_WRAP(max_i16, int16_t,  reduce_max_i16_neon)
+_VEC_WRAP(max_i32, int32_t,  reduce_max_i32_neon)
+_VEC_WRAP(max_i64, int64_t,  reduce_max_i64_neon)
+_VEC_WRAP(max_u8,  uint8_t,  reduce_max_u8_neon)
+_VEC_WRAP(max_u16, uint16_t, reduce_max_u16_neon)
+_VEC_WRAP(max_u32, uint32_t, reduce_max_u32_neon)
+_VEC_WRAP(max_u64, uint64_t, reduce_max_u64_neon)
+_VEC_WRAP(min_i8,  int8_t,   reduce_min_i8_neon)
+_VEC_WRAP(min_i16, int16_t,  reduce_min_i16_neon)
+_VEC_WRAP(min_i32, int32_t,  reduce_min_i32_neon)
+_VEC_WRAP(min_i64, int64_t,  reduce_min_i64_neon)
+_VEC_WRAP(min_u8,  uint8_t,  reduce_min_u8_neon)
+_VEC_WRAP(min_u16, uint16_t, reduce_min_u16_neon)
+_VEC_WRAP(min_u32, uint32_t, reduce_min_u32_neon)
+_VEC_WRAP(min_u64, uint64_t, reduce_min_u64_neon)
+
+#elif NUMC_HAVE_RVV
+
+
+_VEC_WRAP(max_i8,  int8_t,   reduce_max_i8_rvv)
+_VEC_WRAP(max_i16, int16_t,  reduce_max_i16_rvv)
+_VEC_WRAP(max_i32, int32_t,  reduce_max_i32_rvv)
+_VEC_WRAP(max_i64, int64_t,  reduce_max_i64_rvv)
+_VEC_WRAP(max_u8,  uint8_t,  reduce_max_u8_rvv)
+_VEC_WRAP(max_u16, uint16_t, reduce_max_u16_rvv)
+_VEC_WRAP(max_u32, uint32_t, reduce_max_u32_rvv)
+_VEC_WRAP(max_u64, uint64_t, reduce_max_u64_rvv)
+_VEC_WRAP(min_i8,  int8_t,   reduce_min_i8_rvv)
+_VEC_WRAP(min_i16, int16_t,  reduce_min_i16_rvv)
+_VEC_WRAP(min_i32, int32_t,  reduce_min_i32_rvv)
+_VEC_WRAP(min_i64, int64_t,  reduce_min_i64_rvv)
+_VEC_WRAP(min_u8,  uint8_t,  reduce_min_u8_rvv)
+_VEC_WRAP(min_u16, uint16_t, reduce_min_u16_rvv)
+_VEC_WRAP(min_u32, uint32_t, reduce_min_u32_rvv)
+_VEC_WRAP(min_u64, uint64_t, reduce_min_u64_rvv)
 
 #else /* scalar fallback */
 
-DEFINE_VEC_MINMAX(max_i8, int8_t, INT8_MIN, NUMC_VMAX)
-DEFINE_VEC_MINMAX(max_i16, int16_t, INT16_MIN, NUMC_VMAX)
-DEFINE_VEC_MINMAX(max_i32, int32_t, INT32_MIN, NUMC_VMAX)
-DEFINE_VEC_MINMAX(max_u8, uint8_t, 0, NUMC_VMAX)
-DEFINE_VEC_MINMAX(max_u16, uint16_t, 0, NUMC_VMAX)
-DEFINE_VEC_MINMAX(max_u32, uint32_t, 0, NUMC_VMAX)
-DEFINE_VEC_MINMAX(min_i8, int8_t, INT8_MAX, NUMC_VMIN)
-DEFINE_VEC_MINMAX(min_i16, int16_t, INT16_MAX, NUMC_VMIN)
-DEFINE_VEC_MINMAX(min_i32, int32_t, INT32_MAX, NUMC_VMIN)
-DEFINE_VEC_MINMAX(min_u8, uint8_t, UINT8_MAX, NUMC_VMIN)
+
+DEFINE_VEC_MINMAX(max_i8,  int8_t,   INT8_MIN,   NUMC_VMAX)
+DEFINE_VEC_MINMAX(max_i16, int16_t,  INT16_MIN,  NUMC_VMAX)
+DEFINE_VEC_MINMAX(max_i32, int32_t,  INT32_MIN,  NUMC_VMAX)
+DEFINE_VEC_MINMAX(max_i64, int64_t,  INT64_MIN,  NUMC_VMAX)
+DEFINE_VEC_MINMAX(max_u8,  uint8_t,  0,          NUMC_VMAX)
+DEFINE_VEC_MINMAX(max_u16, uint16_t, 0,          NUMC_VMAX)
+DEFINE_VEC_MINMAX(max_u32, uint32_t, 0,          NUMC_VMAX)
+DEFINE_VEC_MINMAX(max_u64, uint64_t, 0,          NUMC_VMAX)
+DEFINE_VEC_MINMAX(min_i8,  int8_t,   INT8_MAX,   NUMC_VMIN)
+DEFINE_VEC_MINMAX(min_i16, int16_t,  INT16_MAX,  NUMC_VMIN)
+DEFINE_VEC_MINMAX(min_i32, int32_t,  INT32_MAX,  NUMC_VMIN)
+DEFINE_VEC_MINMAX(min_i64, int64_t,  INT64_MAX,  NUMC_VMIN)
+DEFINE_VEC_MINMAX(min_u8,  uint8_t,  UINT8_MAX,  NUMC_VMIN)
 DEFINE_VEC_MINMAX(min_u16, uint16_t, UINT16_MAX, NUMC_VMIN)
 DEFINE_VEC_MINMAX(min_u32, uint32_t, UINT32_MAX, NUMC_VMIN)
+DEFINE_VEC_MINMAX(min_u64, uint64_t, UINT64_MAX, NUMC_VMIN)
 
-#endif /* NUMC_HAVE_AVX2 */
+#endif
+
+#undef _VEC_WRAP
 
 #undef DEFINE_VEC_MINMAX
 #undef NUMC_VMAX

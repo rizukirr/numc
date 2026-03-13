@@ -100,3 +100,88 @@ Note: Benchmark results have high run-to-run variance due to system load
   change eliminates the packed GEMM scheduling variance for 128x128.
 
 Tests: 45/45 passed (native x86, NEON cross-compile, RVV cross-compile)
+
+================================================================================
+[2026-03-13] AVX2 Emulated 64-bit Integer Min/Max for Reductions
+================================================================================
+Commit: (pending)
+Files:  src/intrinsics/reduce_avx2.h, src/reduction/helpers.h,
+        src/reduction/max.c, src/reduction/min.c
+
+Problem:
+  AVX2 lacks native 64-bit integer min/max instructions (vpminsq/vpmaxsq are
+  AVX-512 only). The 64-bit int/uint min/max reductions (full, axis=0, axis=1)
+  were using scalar fallbacks while 8/16/32-bit types had AVX2 SIMD kernels.
+  This caused i64/u64 axis-1 reductions to run at 0.46-0.55x vs NumPy.
+
+Changes:
+  1. [reduce_avx2.h] Added emulated 64-bit min/max using vpcmpgtq + vpblendvb:
+     - _mm256_max/min_epi64_emu (signed) — compare-and-blend
+     - _mm256_max/min_epu64_emu (unsigned) — XOR sign-bit trick + compare
+  2. [reduce_avx2.h] Added horizontal reductions (_hmax/hmin_epi64/epu64_avx2)
+  3. [reduce_avx2.h] Added full array reductions via DEFINE_REDUCE_FULL_64_AVX2
+  4. [reduce_avx2.h] Added fused row-reduce via DEFINE_FUSED_64_AVX2 macro
+  5. [helpers.h] Added AVX2 wrappers for _vec_max/min_i64/u64
+  6. [max.c, min.c] Wired _max/min_fused_i64/u64_avx2 into dispatch tables
+
+Before (vs NumPy, 1000x1000 axis=1):
+  MAX i64:  ~0.55x    MIN i64:  ~0.55x
+  MAX u64:  ~0.46x    MIN u64:  ~0.46x
+
+After (vs NumPy, 1000x1000):
+  Full reduction:
+    MAX i64: 1.90x    MIN i64: 3.26x
+    MAX u64: 2.51x    MIN u64: 2.71x
+  Axis=0:
+    MAX i64: 1.82x    MIN i64: 1.85x
+    MAX u64: 1.37x    MIN u64: 1.36x
+  Axis=1:
+    MAX i64: 1.24x    MIN i64: 1.26x
+    MAX u64: 1.25x    MIN u64: 1.26x
+
+Result: All 64-bit integer min/max reductions now beat NumPy across all
+        reduction modes. The emulated vpcmpgtq+vpblendvb approach processes
+        4 int64s per cycle vs 1 for scalar.
+
+Tests: 45/45 passed (native x86, NEON cross-compile, RVV cross-compile)
+
+================================================================================
+[2026-03-13] Multi-ISA SIMD Min/Max Reduction Kernels
+================================================================================
+Commit: (pending)
+Files:  src/intrinsics/reduce_avx512.h (new), src/intrinsics/reduce_neon.h,
+        src/intrinsics/reduce_sve.h, src/intrinsics/reduce_rvv.h,
+        src/reduction/helpers.h, src/reduction/max.c, src/reduction/min.c,
+        CLAUDE.md
+
+Problem:
+  The SIMD min/max reduction kernels only existed for AVX2. The NEON, SVE,
+  and RVV headers were empty TODO stubs, and there was no AVX-512 header.
+  On non-x86 platforms, all integer min/max reductions fell back to scalar.
+
+Changes:
+  1. [reduce_avx512.h] New file — full AVX-512 implementation for all 8
+     integer types (i8-u64). Native 512-bit vectors, native 64-bit min/max
+     (vpminsq/vpmaxsq), native horizontal reduce (_mm512_reduce_*).
+     64 elements/vector for i8, 8 for i64.
+  2. [reduce_neon.h] Full NEON implementation for all 8 integer types.
+     128-bit vectors, native 8/16/32-bit min/max (vmaxq_s8 etc), emulated
+     64-bit via vcgtq_s64+vbslq_s64. Native horizontal reduce (vmaxvq_s8).
+  3. [reduce_sve.h] Full SVE implementation for all 8 integer types.
+     Scalable vectors with predication, native min/max for ALL widths
+     including 64-bit (svmax_s64_x), native horizontal reduce (svmaxv_s64).
+     SVE predication handles tails — no scalar cleanup needed.
+  4. [reduce_rvv.h] Full RVV implementation for all 8 integer types.
+     Scalable vectors with vsetvl, native min/max for ALL widths including
+     64-bit (__riscv_vmax_vv_i64m1), native horizontal reduce
+     (__riscv_vredmax_vs_i64m1_i64m1). Fixed tail bug: use vl not vlmax
+     for element-wise comparison to avoid reading undefined tail elements.
+  5. [helpers.h] Restructured dispatch chain: AVX-512 > AVX2 > SVE > NEON
+     > RVV > scalar. Unified _VEC_WRAP macro for all ISA wrappers.
+  6. [max.c, min.c] Expanded fused dispatch tables for all 6 ISAs.
+  7. [CLAUDE.md] Added rule: every SIMD intrinsic must be implemented for
+     ALL supported ISAs at the same time — no TODO stubs.
+
+Each ISA header provides 32 functions: 8 types × {min,max} × {full,fused}.
+
+Tests: 45/45 passed (native x86, NEON, SVE, RVV)
