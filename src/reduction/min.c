@@ -107,10 +107,21 @@ GENERATE_NUMC_TYPES(STAMP_MIN_FUSED)
 
 #define F(OP, TE) [TE] = _##OP##_fused_##TE
 static const NumcRowReduceKernel min_fused_table[] = {
+#if NUMC_HAVE_AVX2
+    [NUMC_DTYPE_INT8] = _min_fused_i8_avx2,
+    [NUMC_DTYPE_INT16] = _min_fused_i16_avx2,
+    [NUMC_DTYPE_INT32] = _min_fused_i32_avx2,
+    [NUMC_DTYPE_UINT8] = _min_fused_u8_avx2,
+    [NUMC_DTYPE_UINT16] = _min_fused_u16_avx2,
+    [NUMC_DTYPE_UINT32] = _min_fused_u32_avx2,
+#else
     F(min, NUMC_DTYPE_INT8),    F(min, NUMC_DTYPE_INT16),
-    F(min, NUMC_DTYPE_INT32),   F(min, NUMC_DTYPE_INT64),
+    F(min, NUMC_DTYPE_INT32),
     F(min, NUMC_DTYPE_UINT8),   F(min, NUMC_DTYPE_UINT16),
-    F(min, NUMC_DTYPE_UINT32),  F(min, NUMC_DTYPE_UINT64),
+    F(min, NUMC_DTYPE_UINT32),
+#endif
+    F(min, NUMC_DTYPE_INT64),
+    F(min, NUMC_DTYPE_UINT64),
     F(min, NUMC_DTYPE_FLOAT32), F(min, NUMC_DTYPE_FLOAT64),
 };
 #undef F

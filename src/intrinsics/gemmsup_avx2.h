@@ -110,12 +110,16 @@ static inline void gemmsup_edge_f32(const float *a, const float *b, float *c,
   }
 }
 
-/* Full gemmsup dispatch: tile MxN in 6x16 blocks, no packing */
+/* Full gemmsup dispatch: tile MxN in 6x16 blocks, no packing.
+ * OMP-parallel over MR-row tiles when compute volume warrants it. */
 static inline void gemmsup_f32_avx2(const float *a, const float *b, float *out,
                                     size_t M, size_t K, size_t N, intptr_t rsa,
                                     intptr_t csa, intptr_t rsb, intptr_t rso) {
   const size_t MR = 6, NR = 16;
-  for (size_t i = 0; i < M; i += MR) {
+  size_t n_ir = (M + MR - 1) / MR;
+#pragma omp parallel for schedule(static) if (M * K * N > (1 << 20))
+  for (size_t ir = 0; ir < n_ir; ir++) {
+    size_t i = ir * MR;
     size_t mr = GEMMSUP_MIN(MR, M - i);
     for (size_t j = 0; j < N; j += NR) {
       size_t nr = GEMMSUP_MIN(NR, N - j);
@@ -224,12 +228,16 @@ static inline void gemmsup_edge_f64(const double *a, const double *b, double *c,
   }
 }
 
+/* OMP-parallel over MR-row tiles when compute volume warrants it. */
 static inline void gemmsup_f64_avx2(const double *a, const double *b,
                                     double *out, size_t M, size_t K, size_t N,
                                     intptr_t rsa, intptr_t csa, intptr_t rsb,
                                     intptr_t rso) {
   const size_t MR = 6, NR = 8;
-  for (size_t i = 0; i < M; i += MR) {
+  size_t n_ir = (M + MR - 1) / MR;
+#pragma omp parallel for schedule(static) if (M * K * N > (1 << 20))
+  for (size_t ir = 0; ir < n_ir; ir++) {
+    size_t i = ir * MR;
     size_t mr = GEMMSUP_MIN(MR, M - i);
     for (size_t j = 0; j < N; j += NR) {
       size_t nr = GEMMSUP_MIN(NR, N - j);

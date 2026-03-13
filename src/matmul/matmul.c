@@ -6,6 +6,7 @@
 #include "arch_dispatch.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #if NUMC_HAVE_AVX2
 #include "intrinsics/gemm_avx2.h"
@@ -226,6 +227,7 @@ int numc_matmul_naive(const NumcArray *a, const NumcArray *b, NumcArray *out) {
     return err;
 
   MatmulKernel kern = matmul_table[a->dtype];
+  memset(out->data, 0, out->capacity);
   kern((const char *)a->data, (const char *)b->data, (char *)out->data,
        a->shape[0], b->shape[0], out->shape[1]);
   return 0;
@@ -242,7 +244,7 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
 #if NUMC_HAVE_AVX2 || NUMC_HAVE_NEON || NUMC_HAVE_SVE || NUMC_HAVE_RVV
   {
     size_t m = a->shape[0], k = a->shape[1], n = b->shape[1];
-    if ((uint64_t)m * k * n < GEMMSUP_FLOPS_THRESHOLD) {
+    if ((uint64_t)m * k * n <= GEMMSUP_FLOPS_THRESHOLD) {
       size_t elem = numc_dtype_size(a->dtype);
       intptr_t rsa = (intptr_t)(a->strides[0] / elem);
       intptr_t csa = (intptr_t)(a->strides[1] / elem);
@@ -301,6 +303,7 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
 
   /* Fallback to naive kernels (C23 + OpenMP) */
   MatmulKernel kern = matmul_table[a->dtype];
+  memset(out->data, 0, out->capacity);
   kern((const char *)a->data, (const char *)b->data, (char *)out->data,
        a->shape[0], b->shape[0], out->shape[1]);
   return 0;

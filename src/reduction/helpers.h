@@ -13,6 +13,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "arch_dispatch.h"
+#if NUMC_HAVE_AVX2
+#include "intrinsics/reduce_avx2.h"
+#endif
+
 /* ── Pairwise summation for float types ──────────────────────────────
  *
  * IEEE-754 non-associativity prevents the compiler from vectorizing
@@ -131,23 +136,69 @@ DEFINE_VEC_MINMAX(max_f64, double, -INFINITY, NUMC_VMAX)
 DEFINE_VEC_MINMAX(min_f32, float, INFINITY, NUMC_VMIN)
 DEFINE_VEC_MINMAX(min_f64, double, INFINITY, NUMC_VMIN)
 
+/* 64-bit and float types: scalar (no AVX2 min/max for i64/u64,
+ * floats auto-vectorize well via SLP with 8 accumulators) */
+DEFINE_VEC_MINMAX(max_i64, int64_t, INT64_MIN, NUMC_VMAX)
+DEFINE_VEC_MINMAX(max_u64, uint64_t, 0, NUMC_VMAX)
+DEFINE_VEC_MINMAX(min_i64, int64_t, INT64_MAX, NUMC_VMIN)
+DEFINE_VEC_MINMAX(min_u64, uint64_t, UINT64_MAX, NUMC_VMIN)
+
+/* 8/16/32-bit integer types: explicit AVX2 SIMD when available */
+#if NUMC_HAVE_AVX2
+
+static inline int8_t _vec_max_i8(const int8_t *a, size_t n) {
+  return reduce_max_i8_avx2(a, n);
+}
+static inline int16_t _vec_max_i16(const int16_t *a, size_t n) {
+  return reduce_max_i16_avx2(a, n);
+}
+static inline int32_t _vec_max_i32(const int32_t *a, size_t n) {
+  return reduce_max_i32_avx2(a, n);
+}
+static inline uint8_t _vec_max_u8(const uint8_t *a, size_t n) {
+  return reduce_max_u8_avx2(a, n);
+}
+static inline uint16_t _vec_max_u16(const uint16_t *a, size_t n) {
+  return reduce_max_u16_avx2(a, n);
+}
+static inline uint32_t _vec_max_u32(const uint32_t *a, size_t n) {
+  return reduce_max_u32_avx2(a, n);
+}
+static inline int8_t _vec_min_i8(const int8_t *a, size_t n) {
+  return reduce_min_i8_avx2(a, n);
+}
+static inline int16_t _vec_min_i16(const int16_t *a, size_t n) {
+  return reduce_min_i16_avx2(a, n);
+}
+static inline int32_t _vec_min_i32(const int32_t *a, size_t n) {
+  return reduce_min_i32_avx2(a, n);
+}
+static inline uint8_t _vec_min_u8(const uint8_t *a, size_t n) {
+  return reduce_min_u8_avx2(a, n);
+}
+static inline uint16_t _vec_min_u16(const uint16_t *a, size_t n) {
+  return reduce_min_u16_avx2(a, n);
+}
+static inline uint32_t _vec_min_u32(const uint32_t *a, size_t n) {
+  return reduce_min_u32_avx2(a, n);
+}
+
+#else /* scalar fallback */
+
 DEFINE_VEC_MINMAX(max_i8, int8_t, INT8_MIN, NUMC_VMAX)
 DEFINE_VEC_MINMAX(max_i16, int16_t, INT16_MIN, NUMC_VMAX)
 DEFINE_VEC_MINMAX(max_i32, int32_t, INT32_MIN, NUMC_VMAX)
-DEFINE_VEC_MINMAX(max_i64, int64_t, INT64_MIN, NUMC_VMAX)
 DEFINE_VEC_MINMAX(max_u8, uint8_t, 0, NUMC_VMAX)
 DEFINE_VEC_MINMAX(max_u16, uint16_t, 0, NUMC_VMAX)
 DEFINE_VEC_MINMAX(max_u32, uint32_t, 0, NUMC_VMAX)
-DEFINE_VEC_MINMAX(max_u64, uint64_t, 0, NUMC_VMAX)
-
 DEFINE_VEC_MINMAX(min_i8, int8_t, INT8_MAX, NUMC_VMIN)
 DEFINE_VEC_MINMAX(min_i16, int16_t, INT16_MAX, NUMC_VMIN)
 DEFINE_VEC_MINMAX(min_i32, int32_t, INT32_MAX, NUMC_VMIN)
-DEFINE_VEC_MINMAX(min_i64, int64_t, INT64_MAX, NUMC_VMIN)
 DEFINE_VEC_MINMAX(min_u8, uint8_t, UINT8_MAX, NUMC_VMIN)
 DEFINE_VEC_MINMAX(min_u16, uint16_t, UINT16_MAX, NUMC_VMIN)
 DEFINE_VEC_MINMAX(min_u32, uint32_t, UINT32_MAX, NUMC_VMIN)
-DEFINE_VEC_MINMAX(min_u64, uint64_t, UINT64_MAX, NUMC_VMIN)
+
+#endif /* NUMC_HAVE_AVX2 */
 
 #undef DEFINE_VEC_MINMAX
 #undef NUMC_VMAX

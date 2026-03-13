@@ -71,11 +71,12 @@ These are specific operations where NumPy (OpenBLAS) still beats numc. Contribut
 
 | Area | What's slow | vs NumPy | Why | Where to look |
 |---|---|---|---|---|
-| Matmul | f64 1024x1024 | 0.40x | OpenBLAS hand-tuned asm, better threading | `src/intrinsics/gemm_avx2.h` |
-| Matmul | f32 256x256 | 0.42x | OpenBLAS near-peak at this size | `src/intrinsics/gemm_avx2.h` |
-| Reduction | int8/uint8 min/max axis-1 | 0.28x–0.38x | Scalar fallback, no byte-width SIMD | `src/reduction/min.c`, `max.c` |
-| Reduction | int8/uint8 full min/max | 0.45x–0.50x | Same — needs SIMD min/max for bytes | `src/reduction/kernel.h` |
-| Reduction | int32 min/max axis-1 | 0.42x | Axis-fused kernel not SIMD-vectorized | `src/reduction/min.c`, `max.c` |
+| Matmul | f64 128×128 | 0.41x | OpenBLAS hand-tuned asm micro-kernels | `src/intrinsics/gemm_avx2.h` |
+| Matmul | f32 128×128 | 0.49x | Same — small GEMM dispatch overhead | `src/intrinsics/gemm_avx2.h` |
+| Reduction | int64/uint64 min/max axis-1 | 0.53x–0.57x | No AVX2 min/max for 64-bit integers | `src/reduction/min.c`, `max.c` |
+| Comparison | float64 scalar comparisons | 0.66x–0.77x | Scalar kernel not SIMD-optimized | `src/elemwise/compare.c` |
+| Matmul | f64 256×256, 1024×1024 | 0.74x–0.77x | K-loop unrolling, prefetching gaps | `src/intrinsics/gemm_avx2.h` |
+| Elemwise | int8/uint8 binary min/max/cmp | 0.78x–0.89x | Byte-width elemwise loops not SIMD | `src/elemwise/compare.c`, `src/elemwise/arithmetic.c` |
 
 Reference implementations for GEMM optimization are available in `external/blis/` and `external/openblas/` (gitignored, clone separately).
 

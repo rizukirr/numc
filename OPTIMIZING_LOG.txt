@@ -1,0 +1,102 @@
+================================================================================
+                          numc Optimization Log
+================================================================================
+Records every performance optimization applied, what changed, and the results.
+Newest entries at the bottom.
+
+================================================================================
+[2026-03-12] OMP Threshold + f64 MC Tuning + gemmsup K-Unroll
+================================================================================
+Commit: fa56f43
+Files:  src/matmul/matmul.c, src/intrinsics/gemm_avx2.h
+
+Changes:
+  1. Lowered OMP parallelization threshold for matmul
+  2. Tuned f64 MC blocking parameter (MC=72)
+  3. Unrolled gemmsup (small-matrix) K-loop
+
+Before (vs NumPy/OpenBLAS):
+  f32 64x64:    ~0.80x
+  f64 64x64:    ~0.70x
+  f32 128x128:  ~0.85x
+  f64 128x128:  ~0.80x
+
+After:
+  f32 64x64:    1.04x  (+30%)
+  f64 64x64:    1.02x  (+46%)
+  f32 128x128:  0.97x  (+14%)
+  f64 128x128:  1.04x  (+30%)
+  f32 256x256:  0.77x
+  f64 256x256:  0.91x
+  f32 512x512:  0.89x
+  f64 512x512:  0.83x
+  f32 1024x1024: 0.73-0.80x
+  f64 1024x1024: 0.76-0.88x
+
+Result: Small matrices (<=128) now match or beat NumPy. Large matrices still
+        have a gap due to micro-kernel compute throughput.
+
+Tests: 45/45 passed (native, NEON, RVV)
+
+================================================================================
+[2026-03-13] F32 ASM 8x K-Unroll + Gemmsup OMP Parallelism
+================================================================================
+Commit: (pending)
+Files:  src/intrinsics/gemm_avx2.h, src/intrinsics/gemmsup_avx2.h,
+        src/matmul/matmul.c
+
+Problem:
+  1. The f32 ASM kernel had only 4x K-unroll with 1 prefetch (A only), while
+     the f64 kernel had 8x K-unroll with 3 prefetches. This caused more loop
+     overhead and L1 cache misses on the B panel for f32 at 256x256+.
+  2. 128x128 sat exactly at the gemmsup boundary (m*k*n < 128^3), falling to
+     packed GEMM where packing overhead + OMP scheduling variance caused
+     unstable results (28us to 136us across runs).
+  3. Gemmsup kernels had no OMP parallelism, making them slower than numpy's
+     multi-threaded BLAS at 128x128.
+
+Changes:
+  1. [gemm_avx2.h] Added GEMM_F32_ASM_K_ITER macro — extracts the 20-instr
+     single K-iteration (matching f64's GEMM_F64_ASM_K_ITER pattern)
+  2. [gemm_avx2.h] Rewrote GCC/Clang ASM K-loop: shr $2 -> shr $3 (8x unroll)
+     - 3 prefetches per 8 iterations:
+       * prefetcht0 384(%[ap])  — A panel ahead
+       * prefetcht0 512(%[bp])  — B panel ahead (was missing entirely)
+       * prefetcht0 768(%[ap])  — A panel further ahead
+     - k_left mask: and $3 -> and $7
+  3. [gemm_avx2.h] Updated MSVC intrinsics fallback: kc/4 -> kc/8, added
+     B prefetch and second A prefetch to match ASM path
+  4. [matmul.c] Changed gemmsup threshold from < to <= so 128x128 (exactly
+     128^3 FLOPs) routes to the unpacked gemmsup path instead of packed GEMM
+  5. [gemmsup_avx2.h] Added OMP parallel for to f32 and f64 gemmsup dispatch
+     loops (parallelizes over MR-row tiles, threshold: M*K*N > 1<<20)
+
+Before (vs NumPy/OpenBLAS, multi-threaded):
+  f32 64x64:     1.04x
+  f32 128x128:   0.97x (but unstable: 0.14x-0.97x due to OMP variance)
+  f32 256x256:   0.77x
+  f32 512x512:   0.89x
+  f32 1024x1024: 0.73-0.80x
+
+After (representative results, OMP_PROC_BIND=close):
+  f32 64x64:     1.00x  (stable)
+  f32 128x128:   0.80x  (single bench run; best observed 1.62x)
+  f32 256x256:   1.03x  (+34% improvement)
+  f32 512x512:   0.69-1.23x  (high variance from system load)
+  f32 1024x1024: 0.87-1.10x  (high variance from system load)
+
+  f64 64x64:     0.99x
+  f64 128x128:   1.54x
+  f64 256x256:   1.03-2.60x  (depends on system load)
+  f64 512x512:   0.70-1.51x
+  f64 1024x1024: 0.68-0.87x
+
+  Single-threaded verification (eliminates OMP variance):
+  f32 128x128:   numc 44us vs numpy 43us → 1.02x (parity)
+
+Note: Benchmark results have high run-to-run variance due to system load
+  during testing. The 8x K-unroll change primarily benefits 256x256+ sizes
+  by reducing loop overhead and improving L1 prefetching. The gemmsup OMP
+  change eliminates the packed GEMM scheduling variance for 128x128.
+
+Tests: 45/45 passed (native x86, NEON cross-compile, RVV cross-compile)

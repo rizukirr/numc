@@ -51,8 +51,8 @@
 /* GEMM OMP threshold on compute volume (M × K × N operations).
  * Threading pays off when compute dominates OMP fork cost (~20-50μs).
  * 256×256: 16.8M ops → ~330μs single-threaded → threading helps.
- * 128×128: 2.1M ops → ~40μs single-threaded → threading still helps
- *          (OMP fork/join ~5-10μs, 4-thread speedup → ~15-20μs). */
+ * 128×128: 2.1M ops → ~44μs single-threaded → marginal, but numpy
+ *          uses threading here too, so we match their strategy. */
 #define GEMM_OMP_THRESHOLD (1 << 20)
 
 /* N-dimension blocking for L3 residency (B panel: KC × NC elements) */
@@ -264,11 +264,38 @@ static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
     c51 = _mm256_fmadd_ps(av, b1, c51);    \
   } while (0)
 
+/* clang-format off */
+#define GEMM_F32_ASM_K_ITER                     \
+  "vmovups (%[bp]), %%ymm12\n\t"                \
+  "vmovups 32(%[bp]), %%ymm13\n\t"              \
+  "vbroadcastss (%[ap]), %%ymm14\n\t"           \
+  "vfmadd231ps %%ymm14, %%ymm12, %%ymm0\n\t"   \
+  "vfmadd231ps %%ymm14, %%ymm13, %%ymm1\n\t"   \
+  "vbroadcastss 4(%[ap]), %%ymm14\n\t"          \
+  "vfmadd231ps %%ymm14, %%ymm12, %%ymm2\n\t"   \
+  "vfmadd231ps %%ymm14, %%ymm13, %%ymm3\n\t"   \
+  "vbroadcastss 8(%[ap]), %%ymm14\n\t"          \
+  "vfmadd231ps %%ymm14, %%ymm12, %%ymm4\n\t"   \
+  "vfmadd231ps %%ymm14, %%ymm13, %%ymm5\n\t"   \
+  "vbroadcastss 12(%[ap]), %%ymm14\n\t"         \
+  "vfmadd231ps %%ymm14, %%ymm12, %%ymm6\n\t"   \
+  "vfmadd231ps %%ymm14, %%ymm13, %%ymm7\n\t"   \
+  "vbroadcastss 16(%[ap]), %%ymm14\n\t"         \
+  "vfmadd231ps %%ymm14, %%ymm12, %%ymm8\n\t"   \
+  "vfmadd231ps %%ymm14, %%ymm13, %%ymm9\n\t"   \
+  "vbroadcastss 20(%[ap]), %%ymm14\n\t"         \
+  "vfmadd231ps %%ymm14, %%ymm12, %%ymm10\n\t"  \
+  "vfmadd231ps %%ymm14, %%ymm13, %%ymm11\n\t"  \
+  "add %[csa_bytes], %[ap]\n\t"                 \
+  "add %[rsb_bytes], %[bp]\n\t"
+/* clang-format on */
+
 #if defined(__GNUC__) || defined(__clang__)
 
 /* Inline-asm f32 6×16 micro-kernel: 12 accumulators pinned to ymm0-ymm11,
  * no register spills. Interleaves vbroadcastss (port 5) with vfmadd231ps
- * (ports 0,1) for optimal port utilization. 4× unrolled K-loop. */
+ * (ports 0,1) for optimal port utilization. 8× unrolled K-loop with
+ * 3 prefetches (A ahead, B ahead, A further) matching f64 kernel. */
 static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
                                          float *c, size_t kc, intptr_t rsa,
                                          intptr_t csa, intptr_t rsb,
@@ -328,119 +355,36 @@ static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
       "vmovups 32(%[c5]), %%ymm11\n\t"
 
       "2:\n\t"
-      /* K-loop: k_iter = kc >> 2 */
+      /* K-loop: k_iter = kc >> 3 (8× unrolled) */
       "mov %[kc], %%rcx\n\t"
-      "shr $2, %%rcx\n\t"
+      "shr $3, %%rcx\n\t"
       "jz 4f\n\t"
 
       ".p2align 4\n\t"
       "3:\n\t"
-      /* === K iteration 0 === */
-      "vmovups (%[bp]), %%ymm12\n\t"
-      "vmovups 32(%[bp]), %%ymm13\n\t"
-      "vbroadcastss (%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm0\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm1\n\t"
-      "vbroadcastss 4(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm2\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm3\n\t"
-      "vbroadcastss 8(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm4\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm5\n\t"
-      "vbroadcastss 12(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm6\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm7\n\t"
-      "vbroadcastss 16(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm8\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm9\n\t"
-      "vbroadcastss 20(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm10\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm11\n\t"
-      "add %[csa_bytes], %[ap]\n\t"
-      "add %[rsb_bytes], %[bp]\n\t"
-
-      /* === K iteration 1 === */
-      "vmovups (%[bp]), %%ymm12\n\t"
-      "vmovups 32(%[bp]), %%ymm13\n\t"
-      "vbroadcastss (%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm0\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm1\n\t"
-      "vbroadcastss 4(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm2\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm3\n\t"
-      "vbroadcastss 8(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm4\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm5\n\t"
-      "vbroadcastss 12(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm6\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm7\n\t"
-      "vbroadcastss 16(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm8\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm9\n\t"
-      "vbroadcastss 20(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm10\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm11\n\t"
-      "add %[csa_bytes], %[ap]\n\t"
-      "add %[rsb_bytes], %[bp]\n\t"
-
-      /* Prefetch next A block */
-      "prefetcht0 256(%[ap])\n\t"
-
-      /* === K iteration 2 === */
-      "vmovups (%[bp]), %%ymm12\n\t"
-      "vmovups 32(%[bp]), %%ymm13\n\t"
-      "vbroadcastss (%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm0\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm1\n\t"
-      "vbroadcastss 4(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm2\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm3\n\t"
-      "vbroadcastss 8(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm4\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm5\n\t"
-      "vbroadcastss 12(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm6\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm7\n\t"
-      "vbroadcastss 16(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm8\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm9\n\t"
-      "vbroadcastss 20(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm10\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm11\n\t"
-      "add %[csa_bytes], %[ap]\n\t"
-      "add %[rsb_bytes], %[bp]\n\t"
-
-      /* === K iteration 3 === */
-      "vmovups (%[bp]), %%ymm12\n\t"
-      "vmovups 32(%[bp]), %%ymm13\n\t"
-      "vbroadcastss (%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm0\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm1\n\t"
-      "vbroadcastss 4(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm2\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm3\n\t"
-      "vbroadcastss 8(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm4\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm5\n\t"
-      "vbroadcastss 12(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm6\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm7\n\t"
-      "vbroadcastss 16(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm8\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm9\n\t"
-      "vbroadcastss 20(%[ap]), %%ymm14\n\t"
-      "vfmadd231ps %%ymm14, %%ymm12, %%ymm10\n\t"
-      "vfmadd231ps %%ymm14, %%ymm13, %%ymm11\n\t"
-      "add %[csa_bytes], %[ap]\n\t"
-      "add %[rsb_bytes], %[bp]\n\t"
+      /* === K iterations 0-1 === */
+      GEMM_F32_ASM_K_ITER
+      GEMM_F32_ASM_K_ITER
+      "prefetcht0 384(%[ap])\n\t"     /* A ahead */
+      /* === K iterations 2-3 === */
+      GEMM_F32_ASM_K_ITER
+      GEMM_F32_ASM_K_ITER
+      "prefetcht0 512(%[bp])\n\t"     /* B ahead */
+      /* === K iterations 4-5 === */
+      GEMM_F32_ASM_K_ITER
+      GEMM_F32_ASM_K_ITER
+      "prefetcht0 768(%[ap])\n\t"     /* A further */
+      /* === K iterations 6-7 === */
+      GEMM_F32_ASM_K_ITER
+      GEMM_F32_ASM_K_ITER
 
       "dec %%rcx\n\t"
       "jnz 3b\n\t"
 
       "4:\n\t"
-      /* Handle k_left = kc & 3 */
+      /* Handle k_left = kc & 7 */
       "mov %[kc], %%rcx\n\t"
-      "and $3, %%rcx\n\t"
+      "and $7, %%rcx\n\t"
       "jz 6f\n\t"
 
       ".p2align 4\n\t"
@@ -538,11 +482,11 @@ static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
   }
 
   /* Pointer-based iteration through packed A (stride MR=6) and B (stride
-   * NR=16). 4× unrolled K-loop (BLIS pattern: k_iter = kc/4, k_left = kc%4). */
+   * NR=16). 8× unrolled K-loop (BLIS pattern: k_iter = kc/8, k_left = kc%8). */
   const float *ap = a;
   const float *bp = b;
-  size_t k_iter = kc / 4;
-  size_t k_left = kc % 4;
+  size_t k_iter = kc / 8;
+  size_t k_left = kc % 8;
 
   for (size_t ki = 0; ki < k_iter; ki++) {
     GEMM_F32_K_ITER(ap, bp);
@@ -551,7 +495,21 @@ static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
     GEMM_F32_K_ITER(ap, bp);
     ap += csa;
     bp += rsb;
-    _mm_prefetch((const char *)(ap + 64), _MM_HINT_T0);
+    _mm_prefetch((const char *)(ap + 96), _MM_HINT_T0);
+    GEMM_F32_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    GEMM_F32_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    _mm_prefetch((const char *)(bp + 128), _MM_HINT_T0);
+    GEMM_F32_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    GEMM_F32_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    _mm_prefetch((const char *)(ap + 192), _MM_HINT_T0);
     GEMM_F32_K_ITER(ap, bp);
     ap += csa;
     bp += rsb;
