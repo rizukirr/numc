@@ -4,14 +4,22 @@
 #include <numc/math.h>
 
 #include "arch_dispatch.h"
-#if NUMC_HAVE_AVX2
+#if NUMC_HAVE_AVX512
+#include "intrinsics/elemwise_avx2.h"
+#include "intrinsics/elemwise_avx512.h"
+#include "intrinsics/math_avx2.h"
+#elif NUMC_HAVE_AVX2
+#include "intrinsics/elemwise_avx2.h"
 #include "intrinsics/math_avx2.h"
 #elif NUMC_HAVE_SVE
+#include "intrinsics/elemwise_sve.h"
 #include "intrinsics/math_sve.h"
 #elif NUMC_HAVE_NEON
+#include "intrinsics/elemwise_neon.h"
 #include "intrinsics/math_neon.h"
 #endif
 #if NUMC_HAVE_RVV
+#include "intrinsics/elemwise_rvv.h"
 #include "intrinsics/math_rvv.h"
 #endif
 
@@ -481,6 +489,50 @@ static const NumcUnaryKernel abs_table[] = {
     /* unsigned types: NULL — never reached; numc_abs/_inplace guards them */
 };
 
+/* ── SIMD fast-path dispatch for unary ops ─────────────────────── */
+
+#if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || \
+    NUMC_HAVE_NEON || NUMC_HAVE_RVV
+
+typedef void (*FastUnKern)(const void *restrict, void *restrict, size_t);
+
+#if NUMC_HAVE_AVX512
+#define FUN(OP, SFX) (FastUnKern)_fast_##OP##_##SFX##_avx512
+#elif NUMC_HAVE_AVX2
+#define FUN(OP, SFX) (FastUnKern)_fast_##OP##_##SFX##_avx2
+#elif NUMC_HAVE_SVE
+#define FUN(OP, SFX) (FastUnKern)_fast_##OP##_##SFX##_sve
+#elif NUMC_HAVE_NEON
+#define FUN(OP, SFX) (FastUnKern)_fast_##OP##_##SFX##_neon
+#elif NUMC_HAVE_RVV
+#define FUN(OP, SFX) (FastUnKern)_fast_##OP##_##SFX##_rvv
+#endif
+
+static const FastUnKern neg_fast_table[] = {
+    [NUMC_DTYPE_INT8] = FUN(neg, i8),
+    [NUMC_DTYPE_INT16] = FUN(neg, i16),
+    [NUMC_DTYPE_INT32] = FUN(neg, i32),
+    [NUMC_DTYPE_INT64] = FUN(neg, i64),
+    [NUMC_DTYPE_UINT8] = FUN(neg, u8),
+    [NUMC_DTYPE_UINT16] = FUN(neg, u16),
+    [NUMC_DTYPE_UINT32] = FUN(neg, u32),
+    [NUMC_DTYPE_UINT64] = FUN(neg, u64),
+    [NUMC_DTYPE_FLOAT32] = FUN(neg, f32),
+    [NUMC_DTYPE_FLOAT64] = FUN(neg, f64),
+};
+
+static const FastUnKern abs_fast_table[] = {
+    [NUMC_DTYPE_INT8] = FUN(abs, i8),
+    [NUMC_DTYPE_INT16] = FUN(abs, i16),
+    [NUMC_DTYPE_INT32] = FUN(abs, i32),
+    [NUMC_DTYPE_INT64] = FUN(abs, i64),
+    [NUMC_DTYPE_FLOAT32] = FUN(abs, f32),
+    [NUMC_DTYPE_FLOAT64] = FUN(abs, f64),
+};
+#undef FUN
+
+#endif /* SIMD available */
+
 static const NumcUnaryKernel log_table[] = {
     E(log, NUMC_DTYPE_INT8),    E(log, NUMC_DTYPE_INT16),
     E(log, NUMC_DTYPE_INT32),   E(log, NUMC_DTYPE_INT64),
@@ -520,13 +572,148 @@ static const NumcUnaryKernel sqrt_table[] = {
     return _unary_op_inplace(a, TABLE);           \
   }
 
-DEFINE_ELEMWISE_UNARY(neg, neg_table)
-
 /* abs: unsigned types are always non-negative — just copy (or no-op). */
 static inline bool _dtype_is_unsigned(NumcDType dt) {
   return dt == NUMC_DTYPE_UINT8 || dt == NUMC_DTYPE_UINT16 ||
          dt == NUMC_DTYPE_UINT32 || dt == NUMC_DTYPE_UINT64;
 }
+
+#if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || \
+    NUMC_HAVE_NEON || NUMC_HAVE_RVV
+
+#define DEFINE_UNARY_SIMD(NAME, FAST_TABLE, FALLBACK_TABLE)        \
+  int numc_##NAME(NumcArray *a, NumcArray *out) {                  \
+    int err = _check_unary(a, out);                                \
+    if (err)                                                       \
+      return err;                                                  \
+    if (a->is_contiguous && out->is_contiguous) {                  \
+      FastUnKern kern = FAST_TABLE[a->dtype];                      \
+      if (kern) {                                                  \
+        size_t n = a->size, es = a->elem_size, total = n * es;    \
+        int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);        \
+        if (nt >= 2) {                                             \
+          size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;       \
+          NUMC_PRAGMA(                                             \
+              omp parallel for schedule(static) num_threads(nt))   \
+          for (int t = 0; t < nt; t++) {                           \
+            size_t s = (size_t)t * chunk;                          \
+            size_t e = s + chunk;                                  \
+            if (e > n)                                             \
+              e = n;                                               \
+            if (s < n)                                             \
+              kern((const char *)a->data + s * es,                 \
+                   (char *)out->data + s * es, e - s);             \
+          }                                                        \
+        } else {                                                   \
+          kern(a->data, out->data, n);                             \
+        }                                                          \
+        return 0;                                                  \
+      }                                                            \
+    }                                                              \
+    return _unary_op(a, out, FALLBACK_TABLE);                      \
+  }                                                                \
+  int numc_##NAME##_inplace(NumcArray *a) {                        \
+    if (!a)                                                        \
+      return NUMC_ERR_NULL;                                        \
+    if (a->is_contiguous) {                                        \
+      FastUnKern kern = FAST_TABLE[a->dtype];                      \
+      if (kern) {                                                  \
+        size_t n = a->size, es = a->elem_size, total = n * es;    \
+        int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);        \
+        if (nt >= 2) {                                             \
+          size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;       \
+          NUMC_PRAGMA(                                             \
+              omp parallel for schedule(static) num_threads(nt))   \
+          for (int t = 0; t < nt; t++) {                           \
+            size_t s = (size_t)t * chunk;                          \
+            size_t e = s + chunk;                                  \
+            if (e > n)                                             \
+              e = n;                                               \
+            if (s < n)                                             \
+              kern((const char *)a->data + s * es,                 \
+                   (char *)a->data + s * es, e - s);               \
+          }                                                        \
+        } else {                                                   \
+          kern(a->data, a->data, n);                               \
+        }                                                          \
+        return 0;                                                  \
+      }                                                            \
+    }                                                              \
+    return _unary_op_inplace(a, FALLBACK_TABLE);                   \
+  }
+
+DEFINE_UNARY_SIMD(neg, neg_fast_table, neg_table)
+
+int numc_abs(NumcArray *a, NumcArray *out) {
+  int err = _check_unary(a, out);
+  if (err)
+    return err;
+  if (_dtype_is_unsigned(a->dtype)) {
+    memcpy(out->data, a->data, a->capacity);
+    return 0;
+  }
+  if (a->is_contiguous && out->is_contiguous) {
+    FastUnKern kern = abs_fast_table[a->dtype];
+    if (kern) {
+      size_t n = a->size, es = a->elem_size, total = n * es;
+      int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);
+      if (nt >= 2) {
+        size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;
+        NUMC_PRAGMA(omp parallel for schedule(static) num_threads(nt))
+        for (int t = 0; t < nt; t++) {
+          size_t s = (size_t)t * chunk;
+          size_t e = s + chunk;
+          if (e > n)
+            e = n;
+          if (s < n)
+            kern((const char *)a->data + s * es,
+                 (char *)out->data + s * es, e - s);
+        }
+      } else {
+        kern(a->data, out->data, n);
+      }
+      return 0;
+    }
+  }
+  return _unary_op(a, out, abs_table);
+}
+
+int numc_abs_inplace(NumcArray *a) {
+  if (!a)
+    return NUMC_ERR_NULL;
+  if (_dtype_is_unsigned(a->dtype))
+    return 0;
+  if (a->is_contiguous) {
+    FastUnKern kern = abs_fast_table[a->dtype];
+    if (kern) {
+      size_t n = a->size, es = a->elem_size, total = n * es;
+      int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);
+      if (nt >= 2) {
+        size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;
+        NUMC_PRAGMA(omp parallel for schedule(static) num_threads(nt))
+        for (int t = 0; t < nt; t++) {
+          size_t s = (size_t)t * chunk;
+          size_t e = s + chunk;
+          if (e > n)
+            e = n;
+          if (s < n)
+            kern((const char *)a->data + s * es,
+                 (char *)a->data + s * es, e - s);
+        }
+      } else {
+        kern(a->data, a->data, n);
+      }
+      return 0;
+    }
+  }
+  return _unary_op_inplace(a, abs_table);
+}
+
+#undef DEFINE_UNARY_SIMD
+
+#else /* No SIMD available */
+
+DEFINE_ELEMWISE_UNARY(neg, neg_table)
 
 int numc_abs(NumcArray *a, NumcArray *out) {
   int err = _check_unary(a, out);
@@ -543,9 +730,11 @@ int numc_abs_inplace(NumcArray *a) {
   if (!a)
     return NUMC_ERR_NULL;
   if (_dtype_is_unsigned(a->dtype))
-    return 0; /* already non-negative, nothing to do */
+    return 0;
   return _unary_op_inplace(a, abs_table);
 }
+
+#endif
 DEFINE_ELEMWISE_UNARY(log, log_table)
 DEFINE_ELEMWISE_UNARY(exp, exp_table)
 DEFINE_ELEMWISE_UNARY(sqrt, sqrt_table)
