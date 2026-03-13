@@ -5,6 +5,7 @@
 #include "arch_dispatch.h"
 #if NUMC_HAVE_AVX512
 #include "intrinsics/compare_avx2.h"
+#include "intrinsics/compare_avx512.h"
 #include "intrinsics/compare_scalar_avx512.h"
 #include "intrinsics/elemwise_avx2.h"
 #include "intrinsics/elemwise_avx512.h"
@@ -181,6 +182,11 @@ typedef void (*FastBinKern)(const void *restrict, const void *restrict,
 
 FBIN_TABLE(maximum);
 FBIN_TABLE(minimum);
+FBIN_TABLE(eq);
+FBIN_TABLE(gt);
+FBIN_TABLE(lt);
+FBIN_TABLE(ge);
+FBIN_TABLE(le);
 #undef FBIN_TABLE
 #undef FBIN
 
@@ -227,63 +233,16 @@ FBIN_TABLE(minimum);
 
 DEFINE_BINARY_SIMD(maximum, maximum_fast_table, maximum_table)
 DEFINE_BINARY_SIMD(minimum, minimum_fast_table, minimum_table)
+DEFINE_BINARY_SIMD(eq, eq_fast_table, eq_table)
+DEFINE_BINARY_SIMD(gt, gt_fast_table, gt_table)
+DEFINE_BINARY_SIMD(lt, lt_fast_table, lt_table)
+DEFINE_BINARY_SIMD(ge, ge_fast_table, ge_table)
+DEFINE_BINARY_SIMD(le, le_fast_table, le_table)
 #undef DEFINE_BINARY_SIMD
 
 #else
 DEFINE_ELEMWISE_BINARY(maximum, maximum_table)
 DEFINE_ELEMWISE_BINARY(minimum, minimum_table)
-#endif
-
-#if NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || NUMC_HAVE_RVV
-#define DEFINE_CMP_WITH_SIMD(NAME, TABLE, SIMD_FN)                          \
-  int numc_##NAME(const NumcArray *a, const NumcArray *b, NumcArray *out) { \
-    int err = _check_binary(a, b, out);                                     \
-    if (err)                                                                \
-      return err;                                                           \
-    if (a->dtype == NUMC_DTYPE_UINT8 && a->is_contiguous &&                 \
-        b->is_contiguous && out->is_contiguous && a->dim == b->dim) {       \
-      bool same_shape = true;                                               \
-      for (size_t d = 0; d < a->dim; d++)                                   \
-        if (a->shape[d] != b->shape[d]) {                                   \
-          same_shape = false;                                               \
-          break;                                                            \
-        }                                                                   \
-      if (same_shape) {                                                     \
-        SIMD_FN((const uint8_t *)a->data, (const uint8_t *)b->data,         \
-                (uint8_t *)out->data, a->size);                             \
-        return 0;                                                           \
-      }                                                                     \
-    }                                                                       \
-    _binary_op(a, b, out, TABLE);                                           \
-    return 0;                                                               \
-  }
-#if NUMC_HAVE_AVX2
-DEFINE_CMP_WITH_SIMD(eq, eq_table, _cmp_eq_u8_avx2)
-DEFINE_CMP_WITH_SIMD(gt, gt_table, _cmp_gt_u8_avx2)
-DEFINE_CMP_WITH_SIMD(lt, lt_table, _cmp_lt_u8_avx2)
-DEFINE_CMP_WITH_SIMD(ge, ge_table, _cmp_ge_u8_avx2)
-DEFINE_CMP_WITH_SIMD(le, le_table, _cmp_le_u8_avx2)
-#elif NUMC_HAVE_SVE
-DEFINE_CMP_WITH_SIMD(eq, eq_table, _cmp_eq_u8_sve)
-DEFINE_CMP_WITH_SIMD(gt, gt_table, _cmp_gt_u8_sve)
-DEFINE_CMP_WITH_SIMD(lt, lt_table, _cmp_lt_u8_sve)
-DEFINE_CMP_WITH_SIMD(ge, ge_table, _cmp_ge_u8_sve)
-DEFINE_CMP_WITH_SIMD(le, le_table, _cmp_le_u8_sve)
-#elif NUMC_HAVE_NEON
-DEFINE_CMP_WITH_SIMD(eq, eq_table, _cmp_eq_u8_neon)
-DEFINE_CMP_WITH_SIMD(gt, gt_table, _cmp_gt_u8_neon)
-DEFINE_CMP_WITH_SIMD(lt, lt_table, _cmp_lt_u8_neon)
-DEFINE_CMP_WITH_SIMD(ge, ge_table, _cmp_ge_u8_neon)
-DEFINE_CMP_WITH_SIMD(le, le_table, _cmp_le_u8_neon)
-#elif NUMC_HAVE_RVV
-DEFINE_CMP_WITH_SIMD(eq, eq_table, _cmp_eq_u8_rvv)
-DEFINE_CMP_WITH_SIMD(gt, gt_table, _cmp_gt_u8_rvv)
-DEFINE_CMP_WITH_SIMD(lt, lt_table, _cmp_lt_u8_rvv)
-DEFINE_CMP_WITH_SIMD(ge, ge_table, _cmp_ge_u8_rvv)
-DEFINE_CMP_WITH_SIMD(le, le_table, _cmp_le_u8_rvv)
-#endif
-#undef DEFINE_CMP_WITH_SIMD
-#else
 DEFINE_ELEMWISE_BINARY(eq, eq_table)
 DEFINE_ELEMWISE_BINARY(gt, gt_table)
 DEFINE_ELEMWISE_BINARY(lt, lt_table)

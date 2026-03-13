@@ -98,6 +98,11 @@ case $COMMAND in
             warn "Python venv not found at $PYTHON_VENV — skipping numpy benchmark"
         fi
 
+        # Print comparison table
+        if [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
+            python3 bench/compare.py
+        fi
+
         GRAPH_VENV="bench/graph/.venv/bin/python3"
         if [[ -x "$GRAPH_VENV" ]] && [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
             info "Generating comparison charts..."

@@ -331,3 +331,133 @@ Result: 16-64 bit types now 2-7x faster than NumPy across all binary/unary
         element-wise operations. i8/u8 at parity (within noise).
 
 Tests: 45/45 passed (native x86, NEON, SVE, RVV)
+
+================================================================================
+[2026-03-13] SIMD Scalar Arithmetic Kernels — All ISAs, All Types
+================================================================================
+Commit: (pending)
+Files:  src/intrinsics/elemwise_scalar_avx2.h (new),
+        src/intrinsics/elemwise_scalar_avx512.h (new),
+        src/intrinsics/elemwise_scalar_neon.h (new),
+        src/intrinsics/elemwise_scalar_sve.h (new),
+        src/intrinsics/elemwise_scalar_rvv.h (new),
+        src/elemwise/arithmetic.c
+
+Problem:
+  Scalar arithmetic ops (add_scalar, sub_scalar, mul_scalar and their inplace
+  variants) relied on auto-vectorization via `#pragma omp simd` in the generic
+  kernel macro's `sb == 0` path. The compiler-generated code was suboptimal,
+  especially for integer types where broadcast + SIMD op patterns weren't
+  being recognized. add_scalar_inplace i64 was 0.67x vs NumPy.
+
+Changes:
+  1. [elemwise_scalar_avx2.h] New — 30 functions (10 types × 3 ops).
+     Broadcast scalar to ymm, process 32/16/8/4 elements per iteration.
+     Special: i8/u8 mul (widening trick), i64/u64 mul (scalar fallback).
+  2. [elemwise_scalar_avx512.h] New — 30 functions. 512-bit vectors.
+     Native unsigned ops. i8/u8 mul widening. i64/u64 mul scalar.
+  3. [elemwise_scalar_neon.h] New — 30 functions. 128-bit vectors.
+     Native i8 mul (vmulq_s8/u8). i64/u64 mul scalar.
+  4. [elemwise_scalar_sve.h] New — 30 functions. Predicated loops.
+     Uses _n_ scalar-immediate variants (svadd_n_s32_x etc) — no
+     explicit broadcast needed. Native ALL ops including i64 mul.
+  5. [elemwise_scalar_rvv.h] New — 30 functions. LMUL=m4.
+     Uses _vx/_vf vector-scalar intrinsics. Native ALL ops.
+  6. [arithmetic.c] Added FastScKern function pointer tables per op,
+     ISA-selected via FSC() macro. New DEFINE_SCALAR_SIMD macro
+     intercepts contiguous scalar ops and dispatches to SIMD kernels.
+     Handles both _scalar and _scalar_inplace with OMP chunking.
+     div_scalar kept on generic path (has power-of-2/reciprocal opts).
+
+Before (vs NumPy, 1M elements, representative):
+  add_scalar i32:          ~1.0x
+  sub_scalar i32:          ~1.0x
+  mul_scalar i32:          ~1.0x
+  add_scalar_inplace i64:  0.67x
+  mul_scalar_inplace u8:   ~0.80x
+
+After (vs NumPy, 1M elements):
+  add_scalar:   u32 23.76x, i32 22.03x, f32 7.18x, f64 2.01x, i64 2.15x
+  sub_scalar:   u32 21.72x, i32 19.67x, f32 6.29x, f64 2.00x, i64 2.02x
+  mul_scalar:   u32 16.22x, i32 14.83x, f32 5.72x, f64 1.76x, i64 1.63x
+  add_scalar_inplace: i32 4.41x, f32 4.55x, i64 1.32x (was 0.67x)
+  sub_scalar_inplace: i32 4.40x, f32 4.67x, i64 1.35x
+  mul_scalar_inplace: i32 4.29x, f32 4.37x, u8 0.77x (dispatch overhead)
+
+  i8/u8 scalar ops: 0.77-0.94x (dispatch overhead dominates for 1-byte)
+
+Result: 16-64 bit scalar arithmetic ops now 2-24x faster than NumPy.
+        add_scalar_inplace i64 fixed from 0.67x to 1.32x. Only i8/u8
+        remain at/below parity due to function pointer dispatch overhead.
+
+Each ISA header provides 30 functions: 10 types × 3 ops (add/sub/mul).
+Total: 150 new SIMD functions across 5 ISAs.
+
+Tests: 45/45 passed (native x86, NEON, SVE, RVV)
+
+================================================================================
+[2026-03-13] SIMD Binary Comparison + Add Dispatch — All ISAs, All Types
+================================================================================
+Commit: pending
+Files:  src/intrinsics/compare_avx2.h (rewritten)
+        src/intrinsics/compare_avx512.h (new)
+        src/intrinsics/compare_neon.h (new)
+        src/intrinsics/compare_sve.h (new)
+        src/intrinsics/compare_rvv.h (new)
+        src/intrinsics/elemwise_avx2.h (add kernels)
+        src/intrinsics/elemwise_avx512.h (add kernels)
+        src/intrinsics/elemwise_neon.h (add kernels)
+        src/intrinsics/elemwise_sve.h (add kernels)
+        src/intrinsics/elemwise_rvv.h (add kernels)
+        src/elemwise/compare.c (dispatch rewrite)
+        src/elemwise/arithmetic.c (add SIMD dispatch)
+
+Problem:
+  1. Binary comparison ops (eq/gt/lt/ge/le) only had SIMD dispatch for u8.
+     All other types (i8, i16-i64, u16-u64, f32, f64) fell through to the
+     heavy _binary_op path with broadcast checking, shape validation loops.
+  2. Binary add had NO SIMD fast-path at all — went through _binary_op for
+     every type. add i8 was 0.43x vs NumPy (167us vs 72us).
+
+Changes:
+  1. Rewrote compare_avx2.h with _fast_ functions for all 10 types × 5 ops.
+     Signed int: native cmpeq/cmpgt. Unsigned int: XOR sign-bit bias.
+     Float: _cmp_ps/_cmp_pd with ordered predicates, AND with 1.0.
+  2. Created compare headers for AVX-512, NEON, SVE, RVV (all 10 types × 5 ops).
+     AVX-512: native signed/unsigned cmp_mask, maskz_mov for floats.
+     NEON: native signed/unsigned cmp, AND with 1 vector.
+     SVE: predicated cmp + svsel for 0/1 conversion.
+     RVV: mask cmp + vmerge for 0/1 conversion.
+  3. Replaced old u8-only DEFINE_CMP_WITH_SIMD with FBIN_TABLE + DEFINE_BINARY_SIMD
+     for eq/gt/lt/ge/le — same dispatch pattern as maximum/minimum.
+  4. Added _fast_add_ SIMD kernels to all 5 ISA elemwise headers.
+     AVX2: _mm256_add_epiN / _mm256_add_ps/pd
+     AVX-512: _mm512_add_epiN / _mm512_add_ps/pd
+     NEON: vaddq_sN / vaddq_uN / vaddq_f32/f64
+     SVE: svadd_sN_x / svadd_uN_x / svadd_f32/f64_x
+     RVV: __riscv_vadd_vv_iNm4 / __riscv_vadd_vv_uNm4 / __riscv_vfadd_vv_fNm4
+  5. Wired add into FBIN_TABLE + DEFINE_BINARY_SIMD in arithmetic.c.
+
+Before:
+  add i8:     0.43x (167us vs 72us) — no SIMD dispatch, heavy _binary_op path
+  eq i8:      0.94x — generic kernel path (auto-vectorized but with dispatch overhead)
+  eq i16:     generic kernel (no SIMD dispatch)
+  eq i32:     generic kernel (no SIMD dispatch)
+  eq f32:     generic kernel (no SIMD dispatch)
+
+After:
+  add i8:     1.08x (70us vs 75us) — SIMD fast-path
+  add u8:     0.93x (69us vs 64us)
+  eq i16:     1.75x (47us vs 83us)
+  eq i32:     3.58x (44us vs 158us)
+  eq f32:     4.67x (42us vs 198us)
+  eq u32:     3.93x (44us vs 172us)
+  gt i32:     3.95x, ge i32: 3.77x, lt f32: 3.34x
+  i8/u8 comparisons: 0.77-0.94x (competitive, byte-width ops)
+
+Summary: 608 benchmarks, 568 faster, 5 parity, 35 slower. Geo mean 3.84x.
+
+New SIMD functions: 50 compare (10 types × 5 ops) × 5 ISAs = 250 functions.
+Plus 10 add (10 types) × 5 ISAs = 50 functions. Total: 300 new SIMD functions.
+
+Tests: 45/45 passed (native x86, NEON, RVV)

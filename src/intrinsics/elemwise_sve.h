@@ -87,6 +87,19 @@
     }                                                                  \
   }
 
+/* ── Add ─────────────────────────────────────────────────────────── */
+
+FAST_BIN_SINT_SVE(add, i8, int8_t, 8, svcntb, svadd_s8_x)
+FAST_BIN_SINT_SVE(add, i16, int16_t, 16, svcnth, svadd_s16_x)
+FAST_BIN_SINT_SVE(add, i32, int32_t, 32, svcntw, svadd_s32_x)
+FAST_BIN_SINT_SVE(add, i64, int64_t, 64, svcntd, svadd_s64_x)
+FAST_BIN_UINT_SVE(add, u8, uint8_t, 8, svcntb, svadd_u8_x)
+FAST_BIN_UINT_SVE(add, u16, uint16_t, 16, svcnth, svadd_u16_x)
+FAST_BIN_UINT_SVE(add, u32, uint32_t, 32, svcntw, svadd_u32_x)
+FAST_BIN_UINT_SVE(add, u64, uint64_t, 64, svcntd, svadd_u64_x)
+FAST_BIN_F32_SVE(add, svadd_f32_x)
+FAST_BIN_F64_SVE(add, svadd_f64_x)
+
 /* ── Sub ─────────────────────────────────────────────────────────── */
 
 FAST_BIN_SINT_SVE(sub, i8, int8_t, 8, svcntb, svsub_s8_x)

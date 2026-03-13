@@ -89,6 +89,19 @@
     }                                                                    \
   }
 
+/* ── Add ──────────────────────────────────────────────────────────── */
+
+FAST_BIN_SINT_RVV(add, i8, int8_t, 8, __riscv_vadd_vv_i8m4)
+FAST_BIN_SINT_RVV(add, i16, int16_t, 16, __riscv_vadd_vv_i16m4)
+FAST_BIN_SINT_RVV(add, i32, int32_t, 32, __riscv_vadd_vv_i32m4)
+FAST_BIN_SINT_RVV(add, i64, int64_t, 64, __riscv_vadd_vv_i64m4)
+FAST_BIN_UINT_RVV(add, u8, uint8_t, 8, __riscv_vadd_vv_u8m4)
+FAST_BIN_UINT_RVV(add, u16, uint16_t, 16, __riscv_vadd_vv_u16m4)
+FAST_BIN_UINT_RVV(add, u32, uint32_t, 32, __riscv_vadd_vv_u32m4)
+FAST_BIN_UINT_RVV(add, u64, uint64_t, 64, __riscv_vadd_vv_u64m4)
+FAST_BIN_F32_RVV(add, __riscv_vfadd_vv_f32m4)
+FAST_BIN_F64_RVV(add, __riscv_vfadd_vv_f64m4)
+
 /* ── Sub ──────────────────────────────────────────────────────────── */
 
 FAST_BIN_SINT_RVV(sub, i8, int8_t, 8, __riscv_vsub_vv_i8m4)

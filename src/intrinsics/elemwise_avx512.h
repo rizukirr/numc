@@ -70,6 +70,25 @@
       out[i] = (double)(TAIL_EXPR);                                   \
   }
 
+/* ── Add ─────────────────────────────────────────────────────────── */
+
+FAST_BIN_INT_AVX512(add, i8, int8_t, 64, _mm512_add_epi8, a[i] + b[i])
+FAST_BIN_INT_AVX512(add, i16, int16_t, 32, _mm512_add_epi16,
+                    a[i] + b[i])
+FAST_BIN_INT_AVX512(add, i32, int32_t, 16, _mm512_add_epi32,
+                    a[i] + b[i])
+FAST_BIN_INT_AVX512(add, i64, int64_t, 8, _mm512_add_epi64,
+                    a[i] + b[i])
+FAST_BIN_INT_AVX512(add, u8, uint8_t, 64, _mm512_add_epi8, a[i] + b[i])
+FAST_BIN_INT_AVX512(add, u16, uint16_t, 32, _mm512_add_epi16,
+                    a[i] + b[i])
+FAST_BIN_INT_AVX512(add, u32, uint32_t, 16, _mm512_add_epi32,
+                    a[i] + b[i])
+FAST_BIN_INT_AVX512(add, u64, uint64_t, 8, _mm512_add_epi64,
+                    a[i] + b[i])
+FAST_BIN_F32_AVX512(add, _mm512_add_ps, a[i] + b[i])
+FAST_BIN_F64_AVX512(add, _mm512_add_pd, a[i] + b[i])
+
 /* ── Sub ─────────────────────────────────────────────────────────── */
 
 FAST_BIN_INT_AVX512(sub, i8, int8_t, 64, _mm512_sub_epi8, a[i] - b[i])

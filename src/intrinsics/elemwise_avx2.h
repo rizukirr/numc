@@ -70,6 +70,19 @@
       out[i] = (double)(TAIL_EXPR);                                   \
   }
 
+/* ── Add ─────────────────────────────────────────────────────────── */
+
+FAST_BIN_INT_AVX2(add, i8, int8_t, 32, _mm256_add_epi8, a[i] + b[i])
+FAST_BIN_INT_AVX2(add, i16, int16_t, 16, _mm256_add_epi16, a[i] + b[i])
+FAST_BIN_INT_AVX2(add, i32, int32_t, 8, _mm256_add_epi32, a[i] + b[i])
+FAST_BIN_INT_AVX2(add, i64, int64_t, 4, _mm256_add_epi64, a[i] + b[i])
+FAST_BIN_INT_AVX2(add, u8, uint8_t, 32, _mm256_add_epi8, a[i] + b[i])
+FAST_BIN_INT_AVX2(add, u16, uint16_t, 16, _mm256_add_epi16, a[i] + b[i])
+FAST_BIN_INT_AVX2(add, u32, uint32_t, 8, _mm256_add_epi32, a[i] + b[i])
+FAST_BIN_INT_AVX2(add, u64, uint64_t, 4, _mm256_add_epi64, a[i] + b[i])
+FAST_BIN_F32_AVX2(add, _mm256_add_ps, a[i] + b[i])
+FAST_BIN_F64_AVX2(add, _mm256_add_pd, a[i] + b[i])
+
 /* ── Sub ─────────────────────────────────────────────────────────── */
 
 FAST_BIN_INT_AVX2(sub, i8, int8_t, 32, _mm256_sub_epi8, a[i] - b[i])
