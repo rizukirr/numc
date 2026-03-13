@@ -71,14 +71,22 @@ These are specific operations where NumPy (OpenBLAS) still beats numc. Contribut
 
 | Area | What's slow | vs NumPy | Why | Where to look |
 |---|---|---|---|---|
-| Matmul | f64 128×128 | 0.41x | OpenBLAS hand-tuned asm micro-kernels | `src/intrinsics/gemm_avx2.h` |
-| Matmul | f32 128×128 | 0.49x | Same — small GEMM dispatch overhead | `src/intrinsics/gemm_avx2.h` |
-| Reduction | int64/uint64 min/max axis-1 | 0.53x–0.57x | No AVX2 min/max for 64-bit integers | `src/reduction/min.c`, `max.c` |
-| Comparison | float64 scalar comparisons | 0.66x–0.77x | Scalar kernel not SIMD-optimized | `src/elemwise/compare.c` |
-| Matmul | f64 256×256, 1024×1024 | 0.74x–0.77x | K-loop unrolling, prefetching gaps | `src/intrinsics/gemm_avx2.h` |
-| Elemwise | int8/uint8 binary min/max/cmp | 0.78x–0.89x | Byte-width elemwise loops not SIMD | `src/elemwise/compare.c`, `src/elemwise/arithmetic.c` |
+| Matmul | f32 1024×1024 | 0.85–0.93x | f32 asm micro-kernel still uses 4× K-unroll (f64 has 8×) | `src/intrinsics/gemm_avx2.h` |
+| Matmul | f64 512×512 | 0.77–0.82x | Remaining ILP gap vs OpenBLAS hand-tuned asm | `src/intrinsics/gemm_avx2.h` |
+| Comparison | float64 scalar comparisons | 0.71–0.80x | Scalar compare kernel overhead | `src/elemwise/compare.c` |
+| Elemwise | int8/uint8 all ops | 0.77–0.98x | Byte-width ops competitive but not faster | `src/intrinsics/elemwise_avx2.h` |
 
-Reference implementations for GEMM optimization are available in `external/blis/` and `external/openblas/` (gitignored, clone separately).
+
+## Hardware Testing — Help Wanted
+
+All SIMD kernels (AVX-512, NEON, SVE, RVV) pass correctness tests via QEMU cross-compilation, but **performance has only been benchmarked on AVX2** (Intel i7-13620H). The library needs testing and benchmarking on native hardware for other architectures:
+
+- **AVX-512** — Intel Xeon / Ice Lake+ / AMD Zen 4+
+- **NEON** — Apple Silicon, Ampere Altra, AWS Graviton
+- **SVE/SVE2** — AWS Graviton 3/4, Fujitsu A64FX, NVIDIA Grace
+- **RVV** — SiFive P670, SpacemiT K1, Milk-V Pioneer
+
+If you have access to any of these, run `./run.sh bench` and open a PR with results. GEMM micro-kernel tuning parameters (cache blocking sizes, K-loop unroll factors) may need per-architecture adjustments.
 
 ## Contributing
 

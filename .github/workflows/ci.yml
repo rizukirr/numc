@@ -21,24 +21,20 @@ jobs:
 
       - name: Install Linting Tools
         run: |
-          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/llvm.gpg
-          echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main" | sudo tee /etc/apt/sources.list.d/llvm.list
           sudo apt-get update
-          sudo apt-get install -y clang-format-21 clang-tidy
+          sudo apt-get install -y clang-format clang-tidy cmake libomp-dev
 
       - name: Check Formatting
         run: |
-          find src include tests examples bench -type f \( -name '*.c' -o -name '*.h' \) -not -path '*/.venv/*' -not -path '*/vendor/*' | xargs clang-format-21 --dry-run --Werror
+          find src include tests examples bench -type f \( -name '*.c' -o -name '*.h' \) -not -path '*/.venv/*' -not -path '*/vendor/*' | xargs clang-format --dry-run --Werror
 
       - name: Static Analysis (Clang-Tidy)
         run: |
-          sudo apt-get install -y cmake libomp-dev
           cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DNUMC_BUILD_TESTS=ON
           find src -name "*.c" | xargs clang-tidy -p build --warnings-as-errors='*'
 
   # ── BUILD & TEST ───────────────────────────────────────────────────────────
   build-and-test:
-    needs: lint-and-format
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -84,7 +80,6 @@ jobs:
 
   # ── CROSS-COMPILE & TEST (ARM/RISC-V) ────────────────────────────────────
   cross-compile:
-    needs: lint-and-format
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -122,28 +117,3 @@ jobs:
 
       - name: Run Tests via QEMU
         run: ctest --test-dir build --output-on-failure --parallel $(nproc)
-
-  # ── CODE COVERAGE ──────────────────────────────────────────────────────────
-  coverage:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake libomp-dev lcov
-
-      - name: Configure & Build for Coverage
-        run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DNUMC_BUILD_TESTS=ON \
-            -DCMAKE_C_FLAGS="--coverage"
-          cmake --build build --parallel $(nproc)
-
-      - name: Generate Coverage Report
-        run: |
-          cd build
-          ctest --output-on-failure --parallel $(nproc)
-          lcov --capture --directory . --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' '*/external/*' '*/tests/*' --output-file coverage.info
-          lcov --list coverage.info
