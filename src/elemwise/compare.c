@@ -3,15 +3,22 @@
 #include <numc/math.h>
 
 #include "arch_dispatch.h"
-#if NUMC_HAVE_AVX2
+#if NUMC_HAVE_AVX512
 #include "intrinsics/compare_avx2.h"
+#include "intrinsics/compare_scalar_avx512.h"
+#elif NUMC_HAVE_AVX2
+#include "intrinsics/compare_avx2.h"
+#include "intrinsics/compare_scalar_avx2.h"
 #elif NUMC_HAVE_SVE
 #include "intrinsics/compare_sve.h"
+#include "intrinsics/compare_scalar_sve.h"
 #elif NUMC_HAVE_NEON
 #include "intrinsics/compare_neon.h"
+#include "intrinsics/compare_scalar_neon.h"
 #endif
 #if NUMC_HAVE_RVV
 #include "intrinsics/compare_rvv.h"
+#include "intrinsics/compare_scalar_rvv.h"
 #endif
 
 /* ── Stamp out maximum and minimum ──────────────────────────────────────*/
@@ -192,8 +199,100 @@ DEFINE_ELEMWISE_BINARY(ge, ge_table)
 DEFINE_ELEMWISE_BINARY(le, le_table)
 #endif
 
+/* ── SIMD scalar comparison dispatch ─────────────────────────────── */
+
+#if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || \
+    NUMC_HAVE_NEON || NUMC_HAVE_RVV
+
+typedef void (*CmpScKern)(const void *restrict, const void *restrict,
+                          void *restrict, size_t);
+
+#if NUMC_HAVE_AVX512
+#define CMPSC(OP, SFX) (CmpScKern)_cmpsc_##OP##_##SFX##_avx512
+#elif NUMC_HAVE_AVX2
+#define CMPSC(OP, SFX) (CmpScKern)_cmpsc_##OP##_##SFX##_avx2
+#elif NUMC_HAVE_SVE
+#define CMPSC(OP, SFX) (CmpScKern)_cmpsc_##OP##_##SFX##_sve
+#elif NUMC_HAVE_NEON
+#define CMPSC(OP, SFX) (CmpScKern)_cmpsc_##OP##_##SFX##_neon
+#elif NUMC_HAVE_RVV
+#define CMPSC(OP, SFX) (CmpScKern)_cmpsc_##OP##_##SFX##_rvv
+#endif
+
+#define CMPSC_TABLE(OP)                                                \
+  static const CmpScKern OP##_sc_table[] = {                           \
+      [NUMC_DTYPE_INT8] = CMPSC(OP, i8),                              \
+      [NUMC_DTYPE_INT16] = CMPSC(OP, i16),                            \
+      [NUMC_DTYPE_INT32] = CMPSC(OP, i32),                            \
+      [NUMC_DTYPE_INT64] = CMPSC(OP, i64),                            \
+      [NUMC_DTYPE_UINT8] = CMPSC(OP, u8),                             \
+      [NUMC_DTYPE_UINT16] = CMPSC(OP, u16),                           \
+      [NUMC_DTYPE_UINT32] = CMPSC(OP, u32),                           \
+      [NUMC_DTYPE_UINT64] = CMPSC(OP, u64),                           \
+      [NUMC_DTYPE_FLOAT32] = CMPSC(OP, f32),                          \
+      [NUMC_DTYPE_FLOAT64] = CMPSC(OP, f64),                          \
+  }
+
+CMPSC_TABLE(eq);
+CMPSC_TABLE(gt);
+CMPSC_TABLE(lt);
+CMPSC_TABLE(ge);
+CMPSC_TABLE(le);
+#undef CMPSC_TABLE
+#undef CMPSC
+
+#define DEFINE_CMP_SCALAR_WITH_SIMD(NAME, TABLE)                       \
+  int numc_##NAME##_scalar(const NumcArray *a, double scalar,          \
+                           NumcArray *out) {                           \
+    int err = _check_unary(a, out);                                    \
+    if (err)                                                           \
+      return err;                                                      \
+    char buf[8];                                                       \
+    _double_to_dtype(scalar, a->dtype, buf);                           \
+    if (a->is_contiguous && out->is_contiguous) {                      \
+      CmpScKern kern = NAME##_sc_table[a->dtype];                     \
+      size_t n = a->size;                                              \
+      size_t es = a->elem_size;                                        \
+      size_t total = n * es;                                           \
+      int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);              \
+      if (nt >= 2) {                                                   \
+        size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;            \
+        NUMC_PRAGMA(                                                   \
+            omp parallel for schedule(static) num_threads(nt))         \
+        for (int t = 0; t < nt; t++) {                                \
+          size_t s = (size_t)t * chunk;                               \
+          size_t e = s + chunk;                                        \
+          if (e > n)                                                   \
+            e = n;                                                     \
+          if (s < n)                                                   \
+            kern((const char *)a->data + s * es, buf,                 \
+                 (char *)out->data + s * es, e - s);                  \
+        }                                                              \
+      } else {                                                         \
+        kern(a->data, buf, out->data, n);                             \
+      }                                                                \
+      return 0;                                                        \
+    }                                                                  \
+    _scalar_op(a, buf, out, TABLE);                                    \
+    return 0;                                                          \
+  }                                                                    \
+  int numc_##NAME##_scalar_inplace(NumcArray *a, double scalar) {      \
+    return _scalar_op_inplace(a, scalar, TABLE);                       \
+  }
+
+DEFINE_CMP_SCALAR_WITH_SIMD(eq, eq_table)
+DEFINE_CMP_SCALAR_WITH_SIMD(gt, gt_table)
+DEFINE_CMP_SCALAR_WITH_SIMD(lt, lt_table)
+DEFINE_CMP_SCALAR_WITH_SIMD(ge, ge_table)
+DEFINE_CMP_SCALAR_WITH_SIMD(le, le_table)
+#undef DEFINE_CMP_SCALAR_WITH_SIMD
+
+#else /* No SIMD available */
+
 DEFINE_ELEMWISE_SCALAR(eq, eq_table)
 DEFINE_ELEMWISE_SCALAR(gt, gt_table)
 DEFINE_ELEMWISE_SCALAR(lt, lt_table)
 DEFINE_ELEMWISE_SCALAR(ge, ge_table)
 DEFINE_ELEMWISE_SCALAR(le, le_table)
+
+#endif
