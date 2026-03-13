@@ -89,13 +89,13 @@ jobs:
         include:
           - target: neon
             toolchain: cmake/toolchain-aarch64.cmake
-            packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu qemu-user-static
+            packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu qemu-user libgomp-dev-arm64-cross
           - target: sve
             toolchain: cmake/toolchain-aarch64-sve.cmake
-            packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu qemu-user-static
+            packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu qemu-user libgomp-dev-arm64-cross
           - target: rvv
             toolchain: cmake/toolchain-riscv64.cmake
-            packages: gcc-riscv64-linux-gnu g++-riscv64-linux-gnu qemu-user-static
+            packages: gcc-riscv64-linux-gnu g++-riscv64-linux-gnu qemu-user libgomp-dev-riscv64-cross
 
     steps:
       - uses: actions/checkout@v4
