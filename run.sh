@@ -55,8 +55,11 @@ run_demos() {
 
 # --- Main Logic ---
 COMMAND=$1
-# Priority: Argument $2 > Environment $CC > Default clang
-COMPILER=${2:-${CC:-clang}}
+# For commands with non-compiler subcommands, don't use $2 as compiler
+case "$1:$2" in
+    bench:matmul) COMPILER="${CC:-clang}" ;;
+    *)            COMPILER="${2:-${CC:-clang}}" ;;
+esac
 CC=$COMPILER
 
 case $COMMAND in
@@ -79,6 +82,7 @@ case $COMMAND in
         ;;
         
     "bench")
+        BENCH_FILTER=${2:-}
         build Release OFF
         BENCH_OUT="bench/numc/results.csv"
         NUMPY_OUT="bench/numpy/results.csv"
@@ -86,30 +90,54 @@ case $COMMAND in
         export OMP_PROC_BIND="${OMP_PROC_BIND:-close}"
         export OMP_PLACES="${OMP_PLACES:-cores}"
 
-        info "Running numc CSV benchmark..."
-        "./$BUILD_DIR/bin/bench_numc_csv" > "$BENCH_OUT"
-        success "numc results -> $BENCH_OUT ($(wc -l < "$BENCH_OUT") rows)"
+        if [[ "$BENCH_FILTER" == "matmul" ]]; then
+            info "Running numc matmul CSV benchmark..."
+            "./$BUILD_DIR/bin/bench_matmul_csv" > "$BENCH_OUT"
+            success "numc results -> $BENCH_OUT ($(wc -l < "$BENCH_OUT") rows)"
 
-        if [[ -x "$PYTHON_VENV" ]]; then
-            info "Running numpy CSV benchmark..."
-            LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy/bench.py" > "$NUMPY_OUT"
-            success "numpy results -> $NUMPY_OUT ($(wc -l < "$NUMPY_OUT") rows)"
+            if [[ -x "$PYTHON_VENV" ]]; then
+                info "Running numpy matmul CSV benchmark..."
+                LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy/bench.py" --matmul > "$NUMPY_OUT"
+                success "numpy results -> $NUMPY_OUT ($(wc -l < "$NUMPY_OUT") rows)"
+            else
+                warn "Python venv not found at $PYTHON_VENV — skipping numpy benchmark"
+            fi
+
+            if [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
+                python3 bench/compare.py --filter matmul
+            fi
+
+            GRAPH_VENV="bench/graph/.venv/bin/python3"
+            if [[ -x "$GRAPH_VENV" ]] && [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
+                info "Generating matmul chart..."
+                "$GRAPH_VENV" bench/graph/plot.py --filter matmul
+                success "Chart saved to bench/graph/output/matmul.png"
+            fi
         else
-            warn "Python venv not found at $PYTHON_VENV — skipping numpy benchmark"
-        fi
+            info "Running numc CSV benchmark..."
+            "./$BUILD_DIR/bin/bench_numc_csv" > "$BENCH_OUT"
+            success "numc results -> $BENCH_OUT ($(wc -l < "$BENCH_OUT") rows)"
 
-        # Print comparison table
-        if [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
-            python3 bench/compare.py
-        fi
+            if [[ -x "$PYTHON_VENV" ]]; then
+                info "Running numpy CSV benchmark..."
+                LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy/bench.py" > "$NUMPY_OUT"
+                success "numpy results -> $NUMPY_OUT ($(wc -l < "$NUMPY_OUT") rows)"
+            else
+                warn "Python venv not found at $PYTHON_VENV — skipping numpy benchmark"
+            fi
 
-        GRAPH_VENV="bench/graph/.venv/bin/python3"
-        if [[ -x "$GRAPH_VENV" ]] && [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
-            info "Generating comparison charts..."
-            "$GRAPH_VENV" bench/graph/plot.py
-            success "Charts saved to bench/graph/output/"
-        else
-            warn "Graph venv not found or CSV files missing — skipping chart generation"
+            if [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
+                python3 bench/compare.py
+            fi
+
+            GRAPH_VENV="bench/graph/.venv/bin/python3"
+            if [[ -x "$GRAPH_VENV" ]] && [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
+                info "Generating comparison charts..."
+                "$GRAPH_VENV" bench/graph/plot.py
+                success "Charts saved to bench/graph/output/"
+            else
+                warn "Graph venv not found or CSV files missing — skipping chart generation"
+            fi
         fi
         ;;
 
@@ -274,7 +302,8 @@ case $COMMAND in
     echo "  debug [cc]     Build Debug + ASan and run demos"
     echo "  release [cc]   Build Release and run demos"
     echo "  test [cc]      Build Debug + ASan and run ctest"
-    echo "  bench [cc]     Build Release and run CSV benchmarks"
+    echo "  bench [cc]     Build Release and run CSV benchmarks (all ops)"
+    echo "  bench matmul   Build Release and run matmul-only benchmarks"
     echo "  cross-arm      Cross-build for AArch64 and run via QEMU"
     echo "  clean          Remove all build directories"
     echo "  rebuild [cc]   Fresh debug build"

@@ -250,12 +250,24 @@ def plot_all_ops_speedup(merged):
 # ── Main ──────────────────────────────────────────────────────────────
 
 def main():
+    # Optional --filter flag (e.g., --filter matmul)
+    cat_filter = None
+    if "--filter" in sys.argv:
+        idx = sys.argv.index("--filter")
+        if idx + 1 < len(sys.argv):
+            cat_filter = sys.argv[idx + 1]
+
     print("Loading benchmark CSVs...")
     numc, numpy = load()
     merged = merge(numc, numpy)
     print(f"Merged: {len(merged)} rows\n")
 
     print("Generating graphs:")
+
+    if cat_filter == "matmul":
+        plot_matmul(merged)
+        print(f"\nDone! Matmul chart saved to {OUT_DIR}/")
+        return
 
     # Overview
     plot_overview(merged)

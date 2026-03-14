@@ -31,3 +31,7 @@ target_link_libraries(bench_matmul PRIVATE numc::numc)
 # Comprehensive CSV benchmark
 add_executable(bench_numc_csv numc/bench.c)
 target_link_libraries(bench_numc_csv PRIVATE numc::numc)
+
+# Matmul-only CSV benchmark (fast iteration)
+add_executable(bench_matmul_csv numc/bench_matmul_csv.c)
+target_link_libraries(bench_matmul_csv PRIVATE numc::numc)

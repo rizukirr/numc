@@ -43,11 +43,20 @@ def main():
         print("Missing CSV files. Run ./run.sh bench first.", file=sys.stderr)
         sys.exit(1)
 
+    # Optional category filter (e.g., --filter matmul)
+    cat_filter = None
+    if "--filter" in sys.argv:
+        idx = sys.argv.index("--filter")
+        if idx + 1 < len(sys.argv):
+            cat_filter = sys.argv[idx + 1]
+
     numc = load_csv(NUMC_CSV)
     numpy = load_csv(NUMPY_CSV)
 
     # Match keys present in both
     common = sorted(set(numc) & set(numpy))
+    if cat_filter:
+        common = [k for k in common if k[0] == cat_filter]
     if not common:
         print("No matching benchmarks found.", file=sys.stderr)
         sys.exit(1)

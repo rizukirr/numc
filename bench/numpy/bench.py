@@ -400,6 +400,15 @@ def bench_random(name, size):
 def main():
     print("library,category,operation,dtype,size,shape,time_us,throughput_mops")
 
+    # Optional --matmul flag for matmul-only benchmark
+    if "--matmul" in sys.argv:
+        bench_matmul(64, 64, 64, 50, 200)
+        bench_matmul(128, 128, 128, 50, 50)
+        bench_matmul(256, 256, 256, 50, 20)
+        bench_matmul(512, 512, 512, 10, 5)
+        bench_matmul(1024, 1024, 1024, 5, 3)
+        return
+
     # Binary element-wise
     bench_binary("add", np.add, SIZE)
     bench_binary("sub", np.subtract, SIZE)
