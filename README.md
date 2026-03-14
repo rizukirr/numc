@@ -65,18 +65,6 @@ Matmul dispatch: **GEMMSUP** (small matrices) → **Packed GEMM** (5-loop Goto's
 
 [Project Wiki](https://github.com/rizukirr/numc/wiki) — API reference, architecture guide, usage examples.
 
-## Known Slow Paths — Help Wanted
-
-These are specific operations where NumPy (OpenBLAS) still beats numc. Contributions and ideas welcome.
-
-| Area | What's slow | vs NumPy | Why | Where to look |
-|---|---|---|---|---|
-| Matmul | f32 1024×1024 | 0.85–0.93x | f32 asm micro-kernel still uses 4× K-unroll (f64 has 8×) | `src/intrinsics/gemm_avx2.h` |
-| Matmul | f64 512×512 | 0.77–0.82x | Remaining ILP gap vs OpenBLAS hand-tuned asm | `src/intrinsics/gemm_avx2.h` |
-| Comparison | float64 scalar comparisons | 0.71–0.80x | Scalar compare kernel overhead | `src/elemwise/compare.c` |
-| Elemwise | int8/uint8 all ops | 0.77–0.98x | Byte-width ops competitive but not faster | `src/intrinsics/elemwise_avx2.h` |
-
-
 ## Hardware Testing — Help Wanted
 
 All SIMD kernels (AVX-512, NEON, SVE, RVV) pass correctness tests via QEMU cross-compilation, but **performance has only been benchmarked on AVX2** (Intel i7-13620H). The library needs testing and benchmarking on native hardware for other architectures:
