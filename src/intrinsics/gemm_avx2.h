@@ -59,6 +59,25 @@
 #define GEMM_F32_NC 4080
 #define GEMM_F64_NC 4080
 
+static inline __m256i _gemm_mask_i32_lanes(size_t lanes) {
+  static const int32_t mask_tbl[9][8] = {
+      {0, 0, 0, 0, 0, 0, 0, 0},         {-1, 0, 0, 0, 0, 0, 0, 0},
+      {-1, -1, 0, 0, 0, 0, 0, 0},       {-1, -1, -1, 0, 0, 0, 0, 0},
+      {-1, -1, -1, -1, 0, 0, 0, 0},     {-1, -1, -1, -1, -1, 0, 0, 0},
+      {-1, -1, -1, -1, -1, -1, 0, 0},   {-1, -1, -1, -1, -1, -1, -1, 0},
+      {-1, -1, -1, -1, -1, -1, -1, -1},
+  };
+  return _mm256_loadu_si256((const __m256i *)mask_tbl[lanes]);
+}
+
+static inline __m256i _gemm_mask_i64_lanes(size_t lanes) {
+  static const int64_t mask_tbl[5][4] = {
+      {0, 0, 0, 0},    {-1, 0, 0, 0},    {-1, -1, 0, 0},
+      {-1, -1, -1, 0}, {-1, -1, -1, -1},
+  };
+  return _mm256_loadu_si256((const __m256i *)mask_tbl[lanes]);
+}
+
 /* ── Float32 packing routines ──────────────────────────────────────────── */
 
 /* Pack B[kc × nc] into NR-wide micropanels (row-panel format).
@@ -78,13 +97,18 @@ static inline void gemm_pack_b_f32(const float *b, float *packed, size_t kc,
   if (jr < nc) {
     float *dest = packed + jr * kc;
     size_t rem = nc - jr;
+    __m256 z = _mm256_setzero_ps();
+    __m256i m0 = _gemm_mask_i32_lanes(rem < 8 ? rem : 8);
+    __m256i m1 = _gemm_mask_i32_lanes(rem > 8 ? rem - 8 : 0);
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb + jr;
-      size_t j = 0;
-      for (; j < rem; j++)
-        dest[p * GEMM_F32_NR + j] = src[j];
-      for (; j < GEMM_F32_NR; j++)
-        dest[p * GEMM_F32_NR + j] = 0.0f;
+      float *d = dest + p * GEMM_F32_NR;
+      _mm256_storeu_ps(d, _mm256_maskload_ps(src, m0));
+      if (rem > 8) {
+        _mm256_storeu_ps(d + 8, _mm256_maskload_ps(src + 8, m1));
+      } else {
+        _mm256_storeu_ps(d + 8, z);
+      }
     }
   }
 }
@@ -100,13 +124,18 @@ static inline void _gemm_pack_b_strip_f32(const float *b, float *dest,
       _mm256_storeu_ps(dest + p * GEMM_F32_NR + 8, _mm256_loadu_ps(src + 8));
     }
   } else {
+    __m256 z = _mm256_setzero_ps();
+    __m256i m0 = _gemm_mask_i32_lanes(nr_pack < 8 ? nr_pack : 8);
+    __m256i m1 = _gemm_mask_i32_lanes(nr_pack > 8 ? nr_pack - 8 : 0);
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb;
-      size_t j = 0;
-      for (; j < nr_pack; j++)
-        dest[p * GEMM_F32_NR + j] = src[j];
-      for (; j < GEMM_F32_NR; j++)
-        dest[p * GEMM_F32_NR + j] = 0.0f;
+      float *d = dest + p * GEMM_F32_NR;
+      _mm256_storeu_ps(d, _mm256_maskload_ps(src, m0));
+      if (nr_pack > 8) {
+        _mm256_storeu_ps(d + 8, _mm256_maskload_ps(src + 8, m1));
+      } else {
+        _mm256_storeu_ps(d + 8, z);
+      }
     }
   }
 }
@@ -140,12 +169,16 @@ static inline void gemm_pack_a_f32(const float *a, float *packed, size_t mc,
     if (ir < mc) {
       float *dest = packed + ir * kc;
       size_t rem = mc - ir;
+      __m256i m6 = _gemm_mask_i32_lanes(GEMM_F32_MR);
       for (size_t p = 0; p < kc; p++) {
-        size_t i = 0;
-        for (; i < rem; i++)
-          dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p];
-        for (; i < GEMM_F32_MR; i++)
-          dest[p * GEMM_F32_MR + i] = 0.0f;
+        float v0 = rem > 0 ? a[(ir + 0) * rsa + p] : 0.0f;
+        float v1 = rem > 1 ? a[(ir + 1) * rsa + p] : 0.0f;
+        float v2 = rem > 2 ? a[(ir + 2) * rsa + p] : 0.0f;
+        float v3 = rem > 3 ? a[(ir + 3) * rsa + p] : 0.0f;
+        float v4 = rem > 4 ? a[(ir + 4) * rsa + p] : 0.0f;
+        float v5 = rem > 5 ? a[(ir + 5) * rsa + p] : 0.0f;
+        __m256 vv = _mm256_setr_ps(v0, v1, v2, v3, v4, v5, 0.0f, 0.0f);
+        _mm256_maskstore_ps(dest + p * GEMM_F32_MR, m6, vv);
       }
     }
     return;
@@ -160,12 +193,16 @@ static inline void gemm_pack_a_f32(const float *a, float *packed, size_t mc,
   if (ir < mc) {
     float *dest = packed + ir * kc;
     size_t rem = mc - ir;
+    __m256i m6 = _gemm_mask_i32_lanes(GEMM_F32_MR);
     for (size_t p = 0; p < kc; p++) {
-      size_t i = 0;
-      for (; i < rem; i++)
-        dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p * csa];
-      for (; i < GEMM_F32_MR; i++)
-        dest[p * GEMM_F32_MR + i] = 0.0f;
+      float v0 = rem > 0 ? a[(ir + 0) * rsa + p * csa] : 0.0f;
+      float v1 = rem > 1 ? a[(ir + 1) * rsa + p * csa] : 0.0f;
+      float v2 = rem > 2 ? a[(ir + 2) * rsa + p * csa] : 0.0f;
+      float v3 = rem > 3 ? a[(ir + 3) * rsa + p * csa] : 0.0f;
+      float v4 = rem > 4 ? a[(ir + 4) * rsa + p * csa] : 0.0f;
+      float v5 = rem > 5 ? a[(ir + 5) * rsa + p * csa] : 0.0f;
+      __m256 vv = _mm256_setr_ps(v0, v1, v2, v3, v4, v5, 0.0f, 0.0f);
+      _mm256_maskstore_ps(dest + p * GEMM_F32_MR, m6, vv);
     }
   }
 }
@@ -186,13 +223,18 @@ static inline void gemm_pack_b_f64(const double *b, double *packed, size_t kc,
   if (jr < nc) {
     double *dest = packed + jr * kc;
     size_t rem = nc - jr;
+    __m256d z = _mm256_setzero_pd();
+    __m256i m0 = _gemm_mask_i64_lanes(rem < 4 ? rem : 4);
+    __m256i m1 = _gemm_mask_i64_lanes(rem > 4 ? rem - 4 : 0);
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb + jr;
-      size_t j = 0;
-      for (; j < rem; j++)
-        dest[p * GEMM_F64_NR + j] = src[j];
-      for (; j < GEMM_F64_NR; j++)
-        dest[p * GEMM_F64_NR + j] = 0.0;
+      double *d = dest + p * GEMM_F64_NR;
+      _mm256_storeu_pd(d, _mm256_maskload_pd(src, m0));
+      if (rem > 4) {
+        _mm256_storeu_pd(d + 4, _mm256_maskload_pd(src + 4, m1));
+      } else {
+        _mm256_storeu_pd(d + 4, z);
+      }
     }
   }
 }
@@ -207,13 +249,18 @@ static inline void _gemm_pack_b_strip_f64(const double *b, double *dest,
       _mm256_storeu_pd(dest + p * GEMM_F64_NR + 4, _mm256_loadu_pd(src + 4));
     }
   } else {
+    __m256d z = _mm256_setzero_pd();
+    __m256i m0 = _gemm_mask_i64_lanes(nr_pack < 4 ? nr_pack : 4);
+    __m256i m1 = _gemm_mask_i64_lanes(nr_pack > 4 ? nr_pack - 4 : 0);
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb;
-      size_t j = 0;
-      for (; j < nr_pack; j++)
-        dest[p * GEMM_F64_NR + j] = src[j];
-      for (; j < GEMM_F64_NR; j++)
-        dest[p * GEMM_F64_NR + j] = 0.0;
+      double *d = dest + p * GEMM_F64_NR;
+      _mm256_storeu_pd(d, _mm256_maskload_pd(src, m0));
+      if (nr_pack > 4) {
+        _mm256_storeu_pd(d + 4, _mm256_maskload_pd(src + 4, m1));
+      } else {
+        _mm256_storeu_pd(d + 4, z);
+      }
     }
   }
 }
@@ -244,12 +291,18 @@ static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
     if (ir < mc) {
       double *dest = packed + ir * kc;
       size_t rem = mc - ir;
+      __m256i m2 = _gemm_mask_i64_lanes(2);
       for (size_t p = 0; p < kc; p++) {
-        size_t i = 0;
-        for (; i < rem; i++)
-          dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p];
-        for (; i < GEMM_F64_MR; i++)
-          dest[p * GEMM_F64_MR + i] = 0.0;
+        double v0 = rem > 0 ? a[(ir + 0) * rsa + p] : 0.0;
+        double v1 = rem > 1 ? a[(ir + 1) * rsa + p] : 0.0;
+        double v2 = rem > 2 ? a[(ir + 2) * rsa + p] : 0.0;
+        double v3 = rem > 3 ? a[(ir + 3) * rsa + p] : 0.0;
+        double v4 = rem > 4 ? a[(ir + 4) * rsa + p] : 0.0;
+        double v5 = rem > 5 ? a[(ir + 5) * rsa + p] : 0.0;
+        _mm256_storeu_pd(dest + p * GEMM_F64_MR,
+                         _mm256_setr_pd(v0, v1, v2, v3));
+        _mm256_maskstore_pd(dest + p * GEMM_F64_MR + 4, m2,
+                            _mm256_setr_pd(v4, v5, 0.0, 0.0));
       }
     }
     return;
@@ -264,12 +317,17 @@ static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
   if (ir < mc) {
     double *dest = packed + ir * kc;
     size_t rem = mc - ir;
+    __m256i m2 = _gemm_mask_i64_lanes(2);
     for (size_t p = 0; p < kc; p++) {
-      size_t i = 0;
-      for (; i < rem; i++)
-        dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p * csa];
-      for (; i < GEMM_F64_MR; i++)
-        dest[p * GEMM_F64_MR + i] = 0.0;
+      double v0 = rem > 0 ? a[(ir + 0) * rsa + p * csa] : 0.0;
+      double v1 = rem > 1 ? a[(ir + 1) * rsa + p * csa] : 0.0;
+      double v2 = rem > 2 ? a[(ir + 2) * rsa + p * csa] : 0.0;
+      double v3 = rem > 3 ? a[(ir + 3) * rsa + p * csa] : 0.0;
+      double v4 = rem > 4 ? a[(ir + 4) * rsa + p * csa] : 0.0;
+      double v5 = rem > 5 ? a[(ir + 5) * rsa + p * csa] : 0.0;
+      _mm256_storeu_pd(dest + p * GEMM_F64_MR, _mm256_setr_pd(v0, v1, v2, v3));
+      _mm256_maskstore_pd(dest + p * GEMM_F64_MR + 4, m2,
+                          _mm256_setr_pd(v4, v5, 0.0, 0.0));
     }
   }
 }
@@ -282,26 +340,26 @@ static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
  */
 
 /* MSVC intrinsics K-iter: B pre-loaded in b0/b1 before call. */
-#define GEMM_F32_K_ITER(ap, b0, b1)             \
-  do {                                          \
-    __m256 a0 = _mm256_broadcast_ss((ap) + 0);  \
-    __m256 a1 = _mm256_broadcast_ss((ap) + 1);  \
-    c00 = _mm256_fmadd_ps(a0, b0, c00);         \
-    c01 = _mm256_fmadd_ps(a0, b1, c01);         \
-    c10 = _mm256_fmadd_ps(a1, b0, c10);         \
-    c11 = _mm256_fmadd_ps(a1, b1, c11);         \
-    a0 = _mm256_broadcast_ss((ap) + 2);         \
-    a1 = _mm256_broadcast_ss((ap) + 3);         \
-    c20 = _mm256_fmadd_ps(a0, b0, c20);         \
-    c21 = _mm256_fmadd_ps(a0, b1, c21);         \
-    c30 = _mm256_fmadd_ps(a1, b0, c30);         \
-    c31 = _mm256_fmadd_ps(a1, b1, c31);         \
-    a0 = _mm256_broadcast_ss((ap) + 4);         \
-    a1 = _mm256_broadcast_ss((ap) + 5);         \
-    c40 = _mm256_fmadd_ps(a0, b0, c40);         \
-    c41 = _mm256_fmadd_ps(a0, b1, c41);         \
-    c50 = _mm256_fmadd_ps(a1, b0, c50);         \
-    c51 = _mm256_fmadd_ps(a1, b1, c51);         \
+#define GEMM_F32_K_ITER(ap, b0, b1)            \
+  do {                                         \
+    __m256 a0 = _mm256_broadcast_ss((ap) + 0); \
+    __m256 a1 = _mm256_broadcast_ss((ap) + 1); \
+    c00 = _mm256_fmadd_ps(a0, b0, c00);        \
+    c01 = _mm256_fmadd_ps(a0, b1, c01);        \
+    c10 = _mm256_fmadd_ps(a1, b0, c10);        \
+    c11 = _mm256_fmadd_ps(a1, b1, c11);        \
+    a0 = _mm256_broadcast_ss((ap) + 2);        \
+    a1 = _mm256_broadcast_ss((ap) + 3);        \
+    c20 = _mm256_fmadd_ps(a0, b0, c20);        \
+    c21 = _mm256_fmadd_ps(a0, b1, c21);        \
+    c30 = _mm256_fmadd_ps(a1, b0, c30);        \
+    c31 = _mm256_fmadd_ps(a1, b1, c31);        \
+    a0 = _mm256_broadcast_ss((ap) + 4);        \
+    a1 = _mm256_broadcast_ss((ap) + 5);        \
+    c40 = _mm256_fmadd_ps(a0, b0, c40);        \
+    c41 = _mm256_fmadd_ps(a0, b1, c41);        \
+    c50 = _mm256_fmadd_ps(a1, b0, c50);        \
+    c51 = _mm256_fmadd_ps(a1, b1, c51);        \
   } while (0)
 
 /* clang-format off */
@@ -405,18 +463,14 @@ static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
       "jz 4f\n\t"
 
       ".p2align 5\n\t"
-      "3:\n\t"
-      GEMM_F32_ASM_K_ITER /* iter 0 */
-      GEMM_F32_ASM_K_ITER /* iter 1 */
-      "prefetcht0 384(%[ap])\n\t"
-      GEMM_F32_ASM_K_ITER /* iter 2 */
-      GEMM_F32_ASM_K_ITER /* iter 3 */
-      "prefetcht0 512(%[bp])\n\t"
-      GEMM_F32_ASM_K_ITER /* iter 4 */
-      GEMM_F32_ASM_K_ITER /* iter 5 */
-      "prefetcht0 768(%[ap])\n\t"
-      GEMM_F32_ASM_K_ITER /* iter 6 */
-      GEMM_F32_ASM_K_ITER /* iter 7 */
+      "3:\n\t" GEMM_F32_ASM_K_ITER                    /* iter 0 */
+      GEMM_F32_ASM_K_ITER                             /* iter 1 */
+      "prefetcht0 384(%[ap])\n\t" GEMM_F32_ASM_K_ITER /* iter 2 */
+      GEMM_F32_ASM_K_ITER                             /* iter 3 */
+      "prefetcht0 512(%[bp])\n\t" GEMM_F32_ASM_K_ITER /* iter 4 */
+      GEMM_F32_ASM_K_ITER                             /* iter 5 */
+      "prefetcht0 768(%[ap])\n\t" GEMM_F32_ASM_K_ITER /* iter 6 */
+      GEMM_F32_ASM_K_ITER                             /* iter 7 */
 
       "dec %%rcx\n\t"
       "jnz 3b\n\t"
@@ -428,9 +482,7 @@ static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
       "jz 6f\n\t"
 
       ".p2align 5\n\t"
-      "5:\n\t"
-      GEMM_F32_ASM_K_ITER
-      "dec %%rcx\n\t"
+      "5:\n\t" GEMM_F32_ASM_K_ITER "dec %%rcx\n\t"
       "jnz 5b\n\t"
 
       "6:\n\t"
@@ -877,18 +929,14 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
       "jz 4f\n\t"
 
       ".p2align 5\n\t"
-      "3:\n\t"
-      GEMM_F64_ASM_K_ITER /* iter 0 */
-      GEMM_F64_ASM_K_ITER /* iter 1 */
-      "prefetcht0 384(%[ap])\n\t"
-      GEMM_F64_ASM_K_ITER /* iter 2 */
-      GEMM_F64_ASM_K_ITER /* iter 3 */
-      "prefetcht0 512(%[bp])\n\t"
-      GEMM_F64_ASM_K_ITER /* iter 4 */
-      GEMM_F64_ASM_K_ITER /* iter 5 */
-      "prefetcht0 768(%[ap])\n\t"
-      GEMM_F64_ASM_K_ITER /* iter 6 */
-      GEMM_F64_ASM_K_ITER /* iter 7 */
+      "3:\n\t" GEMM_F64_ASM_K_ITER                    /* iter 0 */
+      GEMM_F64_ASM_K_ITER                             /* iter 1 */
+      "prefetcht0 384(%[ap])\n\t" GEMM_F64_ASM_K_ITER /* iter 2 */
+      GEMM_F64_ASM_K_ITER                             /* iter 3 */
+      "prefetcht0 512(%[bp])\n\t" GEMM_F64_ASM_K_ITER /* iter 4 */
+      GEMM_F64_ASM_K_ITER                             /* iter 5 */
+      "prefetcht0 768(%[ap])\n\t" GEMM_F64_ASM_K_ITER /* iter 6 */
+      GEMM_F64_ASM_K_ITER                             /* iter 7 */
 
       "dec %%rcx\n\t"
       "jnz 3b\n\t"

@@ -240,11 +240,25 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   if (err)
     return err;
 
-  /* Small-matrix path: unpacked SIMD GEMM (avoids packing overhead) */
+  /* Small-matrix path: unpacked SIMD GEMM (avoids packing overhead).
+   * AVX2 tuning note:
+   * - f32 gemmsup is beneficial mostly for very small sizes; around 128^3,
+   *   packed GEMM tends to win due to better A/B locality.
+   * - f64 gemmsup remains good up to roughly 128^3 on typical AVX2 CPUs.
+   */
 #if NUMC_HAVE_AVX2 || NUMC_HAVE_NEON || NUMC_HAVE_SVE || NUMC_HAVE_RVV
   {
     size_t m = a->shape[0], k = a->shape[1], n = b->shape[1];
-    if ((uint64_t)m * k * n <= GEMMSUP_FLOPS_THRESHOLD) {
+    uint64_t flops = (uint64_t)m * k * n;
+    uint64_t gemmsup_threshold = GEMMSUP_FLOPS_THRESHOLD;
+#if NUMC_HAVE_AVX2
+    if (a->dtype == NUMC_DTYPE_FLOAT32) {
+      gemmsup_threshold = (96ULL * 96ULL * 96ULL);
+    } else if (a->dtype == NUMC_DTYPE_FLOAT64) {
+      gemmsup_threshold = (48ULL * 48ULL * 48ULL);
+    }
+#endif
+    if (flops <= gemmsup_threshold) {
       size_t elem = numc_dtype_size(a->dtype);
       intptr_t rsa = (intptr_t)(a->strides[0] / elem);
       intptr_t csa = (intptr_t)(a->strides[1] / elem);
