@@ -600,3 +600,51 @@ Result: f64 1024×1024 now near parity with NumPy/OpenBLAS (0.93-0.94x vs 0.71x)
   breaks the serial dependency chain for A broadcasts.
 
 Tests: 45/45 passed (native x86, NEON, RVV)
+
+================================================================================
+[2026-03-14] F32 AVX2 Micro-kernel Tuning (BLIS/OpenBLAS-style B Pre-load)
+================================================================================
+Commit: pending
+Files:  src/intrinsics/gemm_avx2.h
+
+Problem:
+  f32 matmul at 512×512 and 1024×1024 was 0.85-0.93x and 0.91-1.28x vs
+  NumPy/OpenBLAS. Same structural ILP bottlenecks as the f64 kernel before
+  tuning: B loaded at START of K-iter (load-use stall), single A broadcast
+  register (serial dependency chain).
+
+  Reference: OpenBLAS Haswell sgemm (sgemm_kernel_16x4_haswell.S) uses
+  2 alternating B broadcast registers. BLIS pattern uses B pre-load at
+  end of each iter. Applied same pattern as f64 tuning (commit f890a0f).
+
+Changes:
+  1. ASM GEMM_F32_ASM_K_ITER macro rewritten:
+     - ymm12/ymm13: B vectors pre-loaded at END of prev iter (ready for next)
+     - ymm14/ymm15: 2 alternating A broadcast registers (better ILP)
+     - ymm0-ymm11: 12 accumulators (unchanged)
+     - All 16 YMM registers now utilized (was 15)
+  2. Initial B pre-load added before K-loop entry
+  3. Explicit A/B prefetches removed from 8x unrolled K-loop body
+     (rely on HW prefetcher for packed sequential access, BLIS-style)
+  4. C prefetch refresh added between K-loop and store
+  5. MSVC intrinsics fallback updated to match: GEMM_F32_K_ITER(ap, b0, b1)
+     with pre-loaded b0/b1 variables and C prefetch refresh before store
+  6. ymm15 added to ASM clobber list
+
+Before (vs NumPy/OpenBLAS, numc absolute times):
+  f32 512x512:    ~641us (0.91-1.28x vs numpy, high variance)
+  f32 1024x1024:  ~4380-4641us (0.85-0.93x vs numpy)
+
+After (3 runs, numc absolute times + vs NumPy):
+  f32 64x64:      6.73-6.84us (1.00-1.01x)
+  f32 128x128:    42-51us (0.46-0.52x — gemmsup, not changed)
+  f32 256x256:    70-160us (0.73-1.14x — variance)
+  f32 512x512:    460-490us (1.15-1.31x) <- ~25-30% faster, consistently >1.0x
+  f32 1024x1024:  4312-4326us (0.88-1.12x) <- ~5-7% faster
+
+Result: f32 512x512 improved ~25-30% in absolute time (641us -> 460-490us),
+  now consistently beating NumPy. f32 1024x1024 shows modest 5-7% improvement
+  in absolute time; at this size the HW prefetcher already covers much of the
+  load-use stall during longer K-loops, limiting the B pre-load benefit.
+
+Tests: 45/45 passed (native x86, NEON, RVV)
