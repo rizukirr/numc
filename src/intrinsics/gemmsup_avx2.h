@@ -30,41 +30,46 @@ static inline void gemmsup_ukernel_f32_6x16(const float *a, const float *b,
   __m256 c40 = _mm256_setzero_ps(), c41 = _mm256_setzero_ps();
   __m256 c50 = _mm256_setzero_ps(), c51 = _mm256_setzero_ps();
 
-  /* 4× K-loop unroll to reduce loop overhead */
-#define GEMMSUP_F32_K_BODY(p_off)                           \
-  do {                                                      \
-    const float *bp_ = b + (p_off) * rsb;                   \
-    __m256 b0_ = _mm256_loadu_ps(bp_);                      \
-    __m256 b1_ = _mm256_loadu_ps(bp_ + 8);                  \
-    __m256 av_;                                             \
-    av_ = _mm256_broadcast_ss(a + 0 * rsa + (p_off) * csa); \
-    c00 = _mm256_fmadd_ps(av_, b0_, c00);                   \
-    c01 = _mm256_fmadd_ps(av_, b1_, c01);                   \
-    av_ = _mm256_broadcast_ss(a + 1 * rsa + (p_off) * csa); \
-    c10 = _mm256_fmadd_ps(av_, b0_, c10);                   \
-    c11 = _mm256_fmadd_ps(av_, b1_, c11);                   \
-    av_ = _mm256_broadcast_ss(a + 2 * rsa + (p_off) * csa); \
-    c20 = _mm256_fmadd_ps(av_, b0_, c20);                   \
-    c21 = _mm256_fmadd_ps(av_, b1_, c21);                   \
-    av_ = _mm256_broadcast_ss(a + 3 * rsa + (p_off) * csa); \
-    c30 = _mm256_fmadd_ps(av_, b0_, c30);                   \
-    c31 = _mm256_fmadd_ps(av_, b1_, c31);                   \
-    av_ = _mm256_broadcast_ss(a + 4 * rsa + (p_off) * csa); \
-    c40 = _mm256_fmadd_ps(av_, b0_, c40);                   \
-    c41 = _mm256_fmadd_ps(av_, b1_, c41);                   \
-    av_ = _mm256_broadcast_ss(a + 5 * rsa + (p_off) * csa); \
-    c50 = _mm256_fmadd_ps(av_, b0_, c50);                   \
-    c51 = _mm256_fmadd_ps(av_, b1_, c51);                   \
+  /* 2 alternating A broadcast variables (a0_/a1_) for ILP. */
+#define GEMMSUP_F32_K_BODY(p_off)                            \
+  do {                                                       \
+    const float *bp_ = b + (p_off) * rsb;                    \
+    __m256 b0_ = _mm256_loadu_ps(bp_);                       \
+    __m256 b1_ = _mm256_loadu_ps(bp_ + 8);                   \
+    __m256 a0_, a1_;                                         \
+    a0_ = _mm256_broadcast_ss(a + 0 * rsa + (p_off) * csa); \
+    a1_ = _mm256_broadcast_ss(a + 1 * rsa + (p_off) * csa); \
+    c00 = _mm256_fmadd_ps(a0_, b0_, c00);                    \
+    c01 = _mm256_fmadd_ps(a0_, b1_, c01);                    \
+    c10 = _mm256_fmadd_ps(a1_, b0_, c10);                    \
+    c11 = _mm256_fmadd_ps(a1_, b1_, c11);                    \
+    a0_ = _mm256_broadcast_ss(a + 2 * rsa + (p_off) * csa); \
+    a1_ = _mm256_broadcast_ss(a + 3 * rsa + (p_off) * csa); \
+    c20 = _mm256_fmadd_ps(a0_, b0_, c20);                    \
+    c21 = _mm256_fmadd_ps(a0_, b1_, c21);                    \
+    c30 = _mm256_fmadd_ps(a1_, b0_, c30);                    \
+    c31 = _mm256_fmadd_ps(a1_, b1_, c31);                    \
+    a0_ = _mm256_broadcast_ss(a + 4 * rsa + (p_off) * csa); \
+    a1_ = _mm256_broadcast_ss(a + 5 * rsa + (p_off) * csa); \
+    c40 = _mm256_fmadd_ps(a0_, b0_, c40);                    \
+    c41 = _mm256_fmadd_ps(a0_, b1_, c41);                    \
+    c50 = _mm256_fmadd_ps(a1_, b0_, c50);                    \
+    c51 = _mm256_fmadd_ps(a1_, b1_, c51);                    \
   } while (0)
 
-  size_t k_iter = kc / 4;
-  size_t k_left = kc % 4;
+  /* 8× K-loop unroll */
+  size_t k_iter = kc / 8;
+  size_t k_left = kc % 8;
   size_t p = 0;
-  for (size_t ki = 0; ki < k_iter; ki++, p += 4) {
+  for (size_t ki = 0; ki < k_iter; ki++, p += 8) {
     GEMMSUP_F32_K_BODY(p);
     GEMMSUP_F32_K_BODY(p + 1);
     GEMMSUP_F32_K_BODY(p + 2);
     GEMMSUP_F32_K_BODY(p + 3);
+    GEMMSUP_F32_K_BODY(p + 4);
+    GEMMSUP_F32_K_BODY(p + 5);
+    GEMMSUP_F32_K_BODY(p + 6);
+    GEMMSUP_F32_K_BODY(p + 7);
   }
   for (size_t pi = 0; pi < k_left; pi++, p++) {
     GEMMSUP_F32_K_BODY(p);
@@ -149,41 +154,46 @@ static inline void gemmsup_ukernel_f64_6x8(const double *a, const double *b,
   __m256d c40 = _mm256_setzero_pd(), c41 = _mm256_setzero_pd();
   __m256d c50 = _mm256_setzero_pd(), c51 = _mm256_setzero_pd();
 
-  /* 4× K-loop unroll to reduce loop overhead */
-#define GEMMSUP_F64_K_BODY(p_off)                           \
-  do {                                                      \
-    const double *bp_ = b + (p_off) * rsb;                  \
-    __m256d b0_ = _mm256_loadu_pd(bp_);                     \
-    __m256d b1_ = _mm256_loadu_pd(bp_ + 4);                 \
-    __m256d av_;                                            \
-    av_ = _mm256_broadcast_sd(a + 0 * rsa + (p_off) * csa); \
-    c00 = _mm256_fmadd_pd(av_, b0_, c00);                   \
-    c01 = _mm256_fmadd_pd(av_, b1_, c01);                   \
-    av_ = _mm256_broadcast_sd(a + 1 * rsa + (p_off) * csa); \
-    c10 = _mm256_fmadd_pd(av_, b0_, c10);                   \
-    c11 = _mm256_fmadd_pd(av_, b1_, c11);                   \
-    av_ = _mm256_broadcast_sd(a + 2 * rsa + (p_off) * csa); \
-    c20 = _mm256_fmadd_pd(av_, b0_, c20);                   \
-    c21 = _mm256_fmadd_pd(av_, b1_, c21);                   \
-    av_ = _mm256_broadcast_sd(a + 3 * rsa + (p_off) * csa); \
-    c30 = _mm256_fmadd_pd(av_, b0_, c30);                   \
-    c31 = _mm256_fmadd_pd(av_, b1_, c31);                   \
-    av_ = _mm256_broadcast_sd(a + 4 * rsa + (p_off) * csa); \
-    c40 = _mm256_fmadd_pd(av_, b0_, c40);                   \
-    c41 = _mm256_fmadd_pd(av_, b1_, c41);                   \
-    av_ = _mm256_broadcast_sd(a + 5 * rsa + (p_off) * csa); \
-    c50 = _mm256_fmadd_pd(av_, b0_, c50);                   \
-    c51 = _mm256_fmadd_pd(av_, b1_, c51);                   \
+  /* 2 alternating A broadcast variables (a0_/a1_) for ILP. */
+#define GEMMSUP_F64_K_BODY(p_off)                            \
+  do {                                                       \
+    const double *bp_ = b + (p_off) * rsb;                   \
+    __m256d b0_ = _mm256_loadu_pd(bp_);                      \
+    __m256d b1_ = _mm256_loadu_pd(bp_ + 4);                  \
+    __m256d a0_, a1_;                                        \
+    a0_ = _mm256_broadcast_sd(a + 0 * rsa + (p_off) * csa); \
+    a1_ = _mm256_broadcast_sd(a + 1 * rsa + (p_off) * csa); \
+    c00 = _mm256_fmadd_pd(a0_, b0_, c00);                    \
+    c01 = _mm256_fmadd_pd(a0_, b1_, c01);                    \
+    c10 = _mm256_fmadd_pd(a1_, b0_, c10);                    \
+    c11 = _mm256_fmadd_pd(a1_, b1_, c11);                    \
+    a0_ = _mm256_broadcast_sd(a + 2 * rsa + (p_off) * csa); \
+    a1_ = _mm256_broadcast_sd(a + 3 * rsa + (p_off) * csa); \
+    c20 = _mm256_fmadd_pd(a0_, b0_, c20);                    \
+    c21 = _mm256_fmadd_pd(a0_, b1_, c21);                    \
+    c30 = _mm256_fmadd_pd(a1_, b0_, c30);                    \
+    c31 = _mm256_fmadd_pd(a1_, b1_, c31);                    \
+    a0_ = _mm256_broadcast_sd(a + 4 * rsa + (p_off) * csa); \
+    a1_ = _mm256_broadcast_sd(a + 5 * rsa + (p_off) * csa); \
+    c40 = _mm256_fmadd_pd(a0_, b0_, c40);                    \
+    c41 = _mm256_fmadd_pd(a0_, b1_, c41);                    \
+    c50 = _mm256_fmadd_pd(a1_, b0_, c50);                    \
+    c51 = _mm256_fmadd_pd(a1_, b1_, c51);                    \
   } while (0)
 
-  size_t k_iter = kc / 4;
-  size_t k_left = kc % 4;
+  /* 8× K-loop unroll */
+  size_t k_iter = kc / 8;
+  size_t k_left = kc % 8;
   size_t p = 0;
-  for (size_t ki = 0; ki < k_iter; ki++, p += 4) {
+  for (size_t ki = 0; ki < k_iter; ki++, p += 8) {
     GEMMSUP_F64_K_BODY(p);
     GEMMSUP_F64_K_BODY(p + 1);
     GEMMSUP_F64_K_BODY(p + 2);
     GEMMSUP_F64_K_BODY(p + 3);
+    GEMMSUP_F64_K_BODY(p + 4);
+    GEMMSUP_F64_K_BODY(p + 5);
+    GEMMSUP_F64_K_BODY(p + 6);
+    GEMMSUP_F64_K_BODY(p + 7);
   }
   for (size_t pi = 0; pi < k_left; pi++, p++) {
     GEMMSUP_F64_K_BODY(p);

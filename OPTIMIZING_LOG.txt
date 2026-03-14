@@ -648,3 +648,40 @@ Result: f32 512x512 improved ~25-30% in absolute time (641us -> 460-490us),
   load-use stall during longer K-loops, limiting the B pre-load benefit.
 
 Tests: 45/45 passed (native x86, NEON, RVV)
+
+================================================================================
+[2026-03-14] Gemmsup AVX2 Micro-kernel: 2 Broadcast Regs + 8x K-Unroll
+================================================================================
+Commit: pending
+Files:  src/intrinsics/gemmsup_avx2.h
+
+Problem:
+  f32 128x128 matmul was 0.46-0.52x vs NumPy/OpenBLAS (~42-51us).
+  The gemmsup (unpacked) micro-kernel had:
+  1. Single A broadcast variable (av_) — serial dependency chain
+  2. Only 4x K-loop unroll — higher loop overhead
+
+Changes:
+  1. f32 and f64 gemmsup micro-kernels: replaced single A broadcast
+     variable (av_) with 2 alternating variables (a0_/a1_) for ILP
+  2. K-loop unroll increased from 4x to 8x
+  Note: B pre-load pattern not applicable here because gemmsup uses
+  index-based B access (b + p_off * rsb), not pointer-walk. Running
+  pointer approach was tested but caused GPR register spills (regression).
+
+Before (vs NumPy/OpenBLAS, numc absolute times):
+  f32 128x128:  ~42-51us (0.46-0.52x)
+  f64 128x128:  ~25-35us (1.12-1.74x)
+
+After (2 runs, vs NumPy/OpenBLAS):
+  f32 64x64:    6.73-6.75us (1.01-1.04x) — unchanged
+  f32 128x128:  30-37us (0.64-0.79x) <- ~25-40% faster
+  f64 128x128:  25-26us (1.47-1.55x) — maintained
+
+Result: f32 128x128 improved from ~42-51us to ~30-37us (~25-40% faster).
+  Ratio vs NumPy improved from 0.46-0.52x to 0.64-0.79x. Remaining gap
+  is fundamentally due to strided (unpacked) A access — OpenBLAS uses
+  packed GEMM with hand-optimized asm at this size, which we can't
+  match without an efficient packing path for small matrices.
+
+Tests: 45/45 passed (native x86, NEON, RVV)
