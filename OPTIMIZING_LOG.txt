@@ -398,7 +398,7 @@ Tests: 45/45 passed (native x86, NEON, SVE, RVV)
 ================================================================================
 [2026-03-13] SIMD Binary Comparison + Add Dispatch — All ISAs, All Types
 ================================================================================
-Commit: pending
+Commit: d770445
 Files:  src/intrinsics/compare_avx2.h (rewritten)
         src/intrinsics/compare_avx512.h (new)
         src/intrinsics/compare_neon.h (new)
@@ -465,7 +465,7 @@ Tests: 45/45 passed (native x86, NEON, RVV)
 ================================================================================
 [2026-03-14] OMP Hoisting + Parallel B Packing + AVX2 NC/Alignment
 ================================================================================
-Commit: pending
+Commit: 594fc5e
 Files:  src/intrinsics/gemm_avx2.h, src/intrinsics/gemm_avx512.h,
         src/intrinsics/gemm_neon.h, src/intrinsics/gemm_sve.h,
         src/intrinsics/gemm_rvv.h
@@ -556,7 +556,7 @@ Tests: 45/45 passed (native x86, NEON, SVE, RVV)
 ================================================================================
 [2026-03-14] F64 AVX2 Micro-kernel Tuning (BLIS-style B Pre-load)
 ================================================================================
-Commit: pending
+Commit: f890a0f
 Files:  src/intrinsics/gemm_avx2.h
 
 Problem:
@@ -604,7 +604,7 @@ Tests: 45/45 passed (native x86, NEON, RVV)
 ================================================================================
 [2026-03-14] F32 AVX2 Micro-kernel Tuning (BLIS/OpenBLAS-style B Pre-load)
 ================================================================================
-Commit: pending
+Commit: 5723dfb
 Files:  src/intrinsics/gemm_avx2.h
 
 Problem:
