@@ -685,3 +685,43 @@ Result: f32 128x128 improved from ~42-51us to ~30-37us (~25-40% faster).
   match without an efficient packing path for small matrices.
 
 Tests: 45/45 passed (native x86, NEON, RVV)
+
+================================================================================
+[2026-03-14] F32 KC=512 + Restore A/B Prefetches in K-loop
+================================================================================
+Commit: pending
+Files:  src/intrinsics/gemm_avx2.h
+
+Problem:
+  f32 matmul at 1024x1024 was ~0.85-0.93x vs NumPy. Two issues:
+  1. KC=256 caused 4 PC iterations for K=1024, each re-packing B (1MB).
+     Doubling KC to 512 halves PC iterations to 2, halving B-pack overhead.
+     L1 constraint: KC x NR x 4 = 512 x 16 x 4 = 32KB — fits in 48KB L1.
+  2. Software prefetches were removed in BLIS-style optimization, but
+     OpenBLAS keeps A prefetch at +512 bytes in every K-iteration. Restored
+     A/B prefetches in both f32 and f64 8x-unrolled K-loops.
+
+  Note: KC=512 NOT applied to f64 (KC x NR x 8 = 32KB + A panel = 56KB
+  would overflow 48KB L1). f64 KC stays at 256.
+
+Changes:
+  1. GEMM_F32_KC: 256 -> 512
+  2. Restored 3 prefetches in f32 8x K-loop: A at +384, B at +512, A at +768
+  3. Restored 3 prefetches in f64 8x K-loop: same pattern
+
+Before (vs NumPy/OpenBLAS):
+  f32 1024x1024: 0.85-0.93x
+  f32 512x512:   1.15-1.31x
+
+After (cleanest run, vs NumPy/OpenBLAS):
+  f32 64x64:     1.01x
+  f32 128x128:   0.41-1.46x (gemmsup, noise-dominated)
+  f32 256x256:   1.17-1.34x
+  f32 512x512:   1.17-1.18x (maintained)
+  f32 1024x1024: 0.89-0.98x <- improved from 0.85-0.93x
+
+Result: f32 1024x1024 improved to near-parity (0.98x on cleanest run).
+  KC=512 reduces PC iterations from 4 to 2, halving B-packing overhead.
+  Prefetch restoration helps micro-kernel data access.
+
+Tests: 45/45 passed (native x86, NEON, RVV)

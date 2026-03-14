@@ -21,7 +21,7 @@
 #define GEMM_F32_MR 6
 #define GEMM_F32_NR 16
 #define GEMM_F32_MC 168
-#define GEMM_F32_KC 256
+#define GEMM_F32_KC 512
 
 #define GEMM_F64_MR 6
 #define GEMM_F64_NR 8
@@ -411,10 +411,13 @@ static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
       "3:\n\t"
       GEMM_F32_ASM_K_ITER /* iter 0 */
       GEMM_F32_ASM_K_ITER /* iter 1 */
+      "prefetcht0 384(%[ap])\n\t"
       GEMM_F32_ASM_K_ITER /* iter 2 */
       GEMM_F32_ASM_K_ITER /* iter 3 */
+      "prefetcht0 512(%[bp])\n\t"
       GEMM_F32_ASM_K_ITER /* iter 4 */
       GEMM_F32_ASM_K_ITER /* iter 5 */
+      "prefetcht0 768(%[ap])\n\t"
       GEMM_F32_ASM_K_ITER /* iter 6 */
       GEMM_F32_ASM_K_ITER /* iter 7 */
 
@@ -877,14 +880,18 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
       "jz 4f\n\t"
 
       ".p2align 5\n\t"
-      "3:\n\t" GEMM_F64_ASM_K_ITER                /* iter 0 */
-          GEMM_F64_ASM_K_ITER                     /* iter 1 */
-              GEMM_F64_ASM_K_ITER                 /* iter 2 */
-                  GEMM_F64_ASM_K_ITER             /* iter 3 */
-                      GEMM_F64_ASM_K_ITER         /* iter 4 */
-                          GEMM_F64_ASM_K_ITER     /* iter 5 */
-                              GEMM_F64_ASM_K_ITER /* iter 6 */
-      GEMM_F64_ASM_K_ITER                         /* iter 7 */
+      "3:\n\t"
+      GEMM_F64_ASM_K_ITER /* iter 0 */
+      GEMM_F64_ASM_K_ITER /* iter 1 */
+      "prefetcht0 384(%[ap])\n\t"
+      GEMM_F64_ASM_K_ITER /* iter 2 */
+      GEMM_F64_ASM_K_ITER /* iter 3 */
+      "prefetcht0 512(%[bp])\n\t"
+      GEMM_F64_ASM_K_ITER /* iter 4 */
+      GEMM_F64_ASM_K_ITER /* iter 5 */
+      "prefetcht0 768(%[ap])\n\t"
+      GEMM_F64_ASM_K_ITER /* iter 6 */
+      GEMM_F64_ASM_K_ITER /* iter 7 */
 
       "dec %%rcx\n\t"
       "jnz 3b\n\t"
