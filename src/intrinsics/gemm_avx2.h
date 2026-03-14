@@ -363,7 +363,6 @@ static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
       "prefetcht0 (%[c3])\n\t"
       "prefetcht0 (%[c4])\n\t"
       "prefetcht0 (%[c5])\n\t"
-
       /* Zero or load accumulators */
       "test %[first], %[first]\n\t"
       "jz 1f\n\t"
@@ -381,7 +380,6 @@ static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
       "vxorps %%ymm10, %%ymm10, %%ymm10\n\t"
       "vxorps %%ymm11, %%ymm11, %%ymm11\n\t"
       "jmp 2f\n\t"
-
       "1:\n\t"
       /* first=0: load existing C values */
       "vmovups (%[c0]), %%ymm0\n\t"
@@ -396,7 +394,6 @@ static inline void gemm_ukernel_f32_6x16(const float *a, const float *b,
       "vmovups 32(%[c4]), %%ymm9\n\t"
       "vmovups (%[c5]), %%ymm10\n\t"
       "vmovups 32(%[c5]), %%ymm11\n\t"
-
       "2:\n\t"
       /* Pre-load first B vector pair (BLIS-style) */
       "vmovups (%[bp]), %%ymm12\n\t"

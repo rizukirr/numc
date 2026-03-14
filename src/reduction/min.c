@@ -74,7 +74,10 @@ typedef void (*NumcRowReduceKernel)(const char *restrict base,
                                     intptr_t row_stride, size_t nrows,
                                     char *restrict dst, size_t ncols);
 
+/* Scalar fallback — used on platforms without SIMD min/max intrinsics,
+ * and always used for float32/float64. */
 #define STAMP_MIN_FUSED(TE, CT)                                               \
+  __attribute__((unused))                                                     \
   static void _min_fused_##TE(const char *restrict base, intptr_t row_stride, \
                               size_t nrows, char *restrict dst,               \
                               size_t ncols) {                                 \

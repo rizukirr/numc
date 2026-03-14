@@ -42,7 +42,7 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "riscv64")
 endif()
 
 target_compile_options(numc PRIVATE
-    -Wall -Wextra -Wpedantic -Wno-pass-failed
+    -Wall -Wextra -Wpedantic -Wno-pass-failed -Wno-overlength-strings
     $<$<BOOL:${NUMC_WERROR}>:-Werror>
     $<$<CONFIG:Debug>:-g -O0 -fno-omit-frame-pointer>
     $<$<CONFIG:Release>:-O3 ${MARCH_FLAG} -fno-math-errno -fno-signed-zeros -fno-trapping-math -funroll-loops>
