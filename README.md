@@ -1,84 +1,101 @@
 # numc
 
-A high-performance N-dimensional tensor library in pure C23. No external dependencies.
+A high-performance Numpy-like N-dimensional tensor library in pure C. Zero dependencies — no BLAS, no Fortran, no Python runtime.
 
-Packed SIMD GEMM, vectorized elementwise ops, and OpenMP parallelization across **AVX2**, **AVX-512**, **NEON**, **SVE**, and **RVV** — all with a scalar fallback so it builds anywhere.
+Hand-written SIMD kernels (AVX2, AVX-512, NEON, SVE, RVV), packed GEMM with Goto's algorithm, arena-based memory, and OpenMP parallelization. Scalar fallback ensures it builds on any platform.
 
-## Why numc
+## Example
 
-- **Zero dependencies** — no BLAS, no Fortran runtime, no Python. Just C and a compiler.
-- **Arena allocator** — all tensors owned by a context. Free the context, free everything. O(1).
-- **10 data types** — int8/16/32/64, uint8/16/32/64, float32, float64. Every op supports all of them.
-- **NumPy-compatible broadcasting** — same semantics, faster execution.
+```c
+#include <numc/numc.h>
+
+int main(void) {
+  NumcCtx *ctx = numc_ctx_create();
+
+  size_t shape[] = {2, 3};
+  NumcArray *a = numc_array_fill(ctx, shape, 2, NUMC_DTYPE_FLOAT32, &(float){1.0f});
+  NumcArray *b = numc_array_fill(ctx, shape, 2, NUMC_DTYPE_FLOAT32, &(float){2.0f});
+  NumcArray *c = numc_array_create(ctx, shape, 2, NUMC_DTYPE_FLOAT32);
+
+  numc_add(a, b, c);       // c = a + b
+  numc_array_print(c);     // [[3, 3, 3], [3, 3, 3]]
+
+  numc_ctx_free(ctx);      // frees a, b, c in O(1)
+}
+```
+
+## Features
+
+- **Arena allocator** — all arrays owned by a `NumcCtx`. Free the context, free everything in O(1). Checkpoint/restore for scoped temporaries.
+- **10 dtypes** — `int8/16/32/64`, `uint8/16/32/64`, `float32`, `float64`. Every operation supports all of them.
+- **NumPy-compatible broadcasting** — same shape semantics, same edge cases.
+- **Zero-copy views** — slice, transpose, reshape without copying data.
+- **GEMM** — 3-tier dispatch: GEMMSUP (small), packed 5-loop Goto's (large), naive fallback. ISA-specific micro-kernels (e.g., 6x16 f32 on AVX2).
+- **Elementwise ops** — add, sub, mul, div, pow, abs, neg, exp, log, sqrt, clip, fma, where, comparisons. All vectorized with direct SIMD fast-paths.
+- **Reductions** — sum, mean, max, min, argmax, argmin. Per-axis with keepdim support.
+- **OpenMP** — auto-parallelization above 512 KB threshold. 2D IC x JR parallelism for GEMM.
 
 ## Performance
 
-Benchmarked against NumPy (OpenBLAS) on i7-13620H. numc wins across **all 13 operation categories** (1.7x–11.4x median speedup).
+Benchmarked against NumPy (OpenBLAS backend) on i7-13620H. numc wins across all 13 operation categories (1.7x-11.4x median speedup).
 
 ![Overview](bench/graph/output/overview.png)
 
-Full breakdown with per-operation charts: [benchmark results](bench/graph/README.md).
+Per-operation breakdown: [benchmark results](bench/graph/README.md).
 
-> GEMM micro-kernels for AVX-512, NEON, SVE, and RVV pass correctness tests via QEMU but lack native hardware benchmarks. Contributions welcome — run `./run.sh bench` and open a PR.
-
-## Quick Start
+## Build
 
 ```bash
 git clone https://github.com/rizukirr/numc.git
 cd numc
-./run.sh release    # optimized build
-./run.sh test       # test suite (ASan enabled)
-./run.sh bench      # benchmark vs NumPy
+./run.sh release        # optimized build
+./run.sh test           # tests with AddressSanitizer
+./run.sh bench          # benchmark vs NumPy
+./run.sh check          # clang-format + clang-tidy + test+ASan
 ```
 
-### Cross-Compilation
+### Cross-compilation
 
-Requires cross-compilers and QEMU user-mode.
+Requires cross-compilers and QEMU user-mode emulation.
 
 ```bash
-./run.sh neon test    # AArch64 NEON
-./run.sh sve test     # AArch64 SVE
-./run.sh rvv test     # RISC-V RVV
+./run.sh neon test      # AArch64 NEON
+./run.sh sve test       # AArch64 SVE
+./run.sh rvv test       # RISC-V RVV
+./run.sh avx512 test    # x86 AVX-512
 ```
 
-### CMake Options
+### CMake options
 
-| Option | Default | |
+| Option | Default | Purpose |
 |---|---|---|
 | `NUMC_ENABLE_ASAN` | `OFF` | AddressSanitizer |
-| `NUMC_WERROR` | `OFF` | Warnings as errors |
+| `NUMC_WERROR` | `OFF` | `-Werror` |
 | `NUMC_OPTIMIZE_NATIVE` | `ON` | `-march=native` |
 
 ## Architecture
 
 ```
-Public API → Dispatcher → Kernels
+Public API (include/numc/) → Dispatcher (src/*/dispatch.h) → Kernels (src/*/kernel.h)
 ```
 
-1. **API** (`include/numc/`) — validates inputs, allocates output via arena
-2. **Dispatcher** (`src/*/dispatch.h`) — contiguous fast-path (flat SIMD loop) vs strided N-D walk
-3. **Kernels** (`src/*/kernel.h`) — per-type code via X-macros, `__builtin_assume_aligned`, OpenMP
+- **API layer** validates inputs, allocates output via the arena
+- **Dispatcher** selects contiguous fast-path (flat SIMD loop) or strided N-D walker
+- **Kernels** are X-macro generated per-dtype, with `__builtin_assume_aligned` and OpenMP
 
-Matmul dispatch: **GEMMSUP** (small matrices) → **Packed GEMM** (5-loop Goto's algorithm) → **Naive fallback**.
+GEMM dispatch: GEMMSUP → packed GEMM (5-loop, cache-blocked MC/KC/NC panels) → naive fallback.
 
 ## Documentation
 
-[Project Wiki](https://github.com/rizukirr/numc/wiki) — API reference, architecture guide, usage examples.
+[Project Wiki](https://github.com/rizukirr/numc/wiki) — API reference, architecture details, usage examples.
 
-## Hardware Testing — Help Wanted
+## Hardware testing wanted
 
-All SIMD kernels (AVX-512, NEON, SVE, RVV) pass correctness tests via QEMU cross-compilation, but **performance has only been benchmarked on AVX2** (Intel i7-13620H). The library needs testing and benchmarking on native hardware for other architectures:
-
-- **AVX-512** — Intel Xeon / Ice Lake+ / AMD Zen 4+
-- **NEON** — Apple Silicon, Ampere Altra, AWS Graviton
-- **SVE/SVE2** — AWS Graviton 3/4, Fujitsu A64FX, NVIDIA Grace
-- **RVV** — SiFive P670, SpacemiT K1, Milk-V Pioneer
-
-If you have access to any of these, run `./run.sh bench` and open a PR with results. GEMM micro-kernel tuning parameters (cache blocking sizes, K-loop unroll factors) may need per-architecture adjustments.
+SIMD kernels pass correctness tests via QEMU but only AVX2 has native benchmarks. If you have access to AVX-512, NEON (Apple Silicon / Graviton), SVE, or RVV hardware, run `./run.sh bench` and open a PR.
 
 ## Contributing
 
-See the [contributing guide](https://github.com/rizukirr/numc/blob/main/CONTRIBUTING.md). For benchmarks, see [bench/README.md](bench/README.md).
+See [CONTRIBUTING.md](https://github.com/rizukirr/numc/blob/main/CONTRIBUTING.md).
 
 ## Support
 
@@ -86,8 +103,4 @@ See the [contributing guide](https://github.com/rizukirr/numc/blob/main/CONTRIBU
 
 ## License
 
-Copyright (c) 2026 Rizki Rakasiwi
-
-numc is free software: you can redistribute it and/or modify it under the terms of the **GNU Lesser General Public License v3.0** as published by the Free Software Foundation.
-
-See [COPYING.LESSER](COPYING.LESSER) and [COPYING](COPYING) for details.
+Copyright (c) 2026 Rizki Rakasiwi. Licensed under [LGPL-3.0](COPYING.LESSER).
