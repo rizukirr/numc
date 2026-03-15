@@ -9,12 +9,12 @@
 
 /*
  * Cache-blocking parameters for AVX2 packed GEMM (BLIS-derived).
- *   - MC × KC panel of A resides in L2  (f32: 168×256×4 = 172KB < 256KB)
- *                                        (f64:  96×256×8 = 196KB < 256KB)
- *   - KC × NR sliver of B resides in L1 (f32: 256×16×4 = 16KB < 32KB)
- *                                        (f64: 256× 8×8 = 16KB < 32KB)
+ *   - MC × KC panel of A resides in L2  (f32: 168×512×4 = 336KB)
+ *                                        (f64:  72×256×8 = 144KB)
+ *   - KC × NR sliver of B resides in L1 (f32: 512×16×4 = 32KB < 48KB)
+ *                                        (f64: 256× 8×8 = 16KB < 48KB)
  *   - KC × NC panel of B resides in L3
- * MC=168 (f32) and MC=128 (f64) maximize L2 utilization. Thread utilization
+ * MC=168 (f32) and MC=72 (f64) maximize L2 utilization. Thread utilization
  * is maintained via 2D IC×JR parallelism: tasks = ceil(M/MC) × ceil(N/NR),
  * giving many more work items than 1D IC-loop alone.
  */

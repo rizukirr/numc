@@ -1581,9 +1581,79 @@ Result (same-session A/B comparison: git stash → baseline × 5 runs, restore �
     512×512:       498.54          464.56      -6.8%       1334.54         1255.18     -5.9%
     1024×1024:     5038.37         4647.18     -7.8%       11144.29        9709.58     -12.9%
 
-  Assessment: Consistent improvement across all sizes, both dtypes. f32 gains
-  6-9%, f64 gains 2-13%. The larger f64 gain at 1024×1024 (-12.9%) makes sense:
-  larger matrices spend proportionally more time in packing, and f64 A-packing
-  was the most scalar-heavy (48 bytes per MR row per K-iter vs 24 for f32).
-  The small f64 128×128 gain (-1.6%) is expected since packing is a smaller
-  fraction of total time at small sizes. Tests: 45/45.
+   Assessment: Consistent improvement across all sizes, both dtypes. f32 gains
+   6-9%, f64 gains 2-13%. The larger f64 gain at 1024×1024 (-12.9%) makes sense:
+   larger matrices spend proportionally more time in packing, and f64 A-packing
+   was the most scalar-heavy (48 bytes per MR row per K-iter vs 24 for f32).
+   The small f64 128×128 gain (-1.6%) is expected since packing is a smaller
+   fraction of total time at small sizes. Tests: 45/45.
+
+================================================================================
+Optimization #15: B-Packing K-Unroll (4x) — Neutral Result, Reverted
+================================================================================
+
+Problem:
+  B-packing copies NR-wide columns from source B into the packed buffer, one
+  K-row at a time. Hypothesis: 4× K-loop unroll in B-packing would reduce loop
+  overhead and improve store throughput for large KC values (KC=512 for f32).
+
+Solution:
+  Unrolled the inner K-loop in gemm_pack_b_f32 and gemm_pack_b_f64 from 1× to
+  4× iterations, processing 4 rows of B per loop body with 4 sequential
+  _mm256_storeu calls.
+
+Result:
+  Correctness: 45/45 tests passed.
+
+  No measurable improvement at any size. The compiler already optimizes the
+  simple B-pack copy loop at -O3, producing near-identical code to the manual
+  unroll. The B-pack loop body is trivial (load + store per row), so loop
+  overhead is negligible relative to memory bandwidth.
+
+Action taken:
+  Reverted the unroll. Baseline unchanged.
+
+Conclusion:
+  Manual K-unroll in B-packing provides no benefit when the compiler already
+  handles the straightforward copy loop well at -O3. Focus packing improvements
+  on more complex paths (A-packing transpose, edge tiles).
+
+================================================================================
+Optimization #16: schedule(guided) for OMP Compute Loop — Mixed Result, Reverted
+================================================================================
+
+Problem:
+  The packed GEMM compute loop uses `schedule(static)` for IC×JR 2D parallelism.
+  Hypothesis: `schedule(guided)` would provide better load balancing for cases
+  where some threads finish early (e.g., edge MR tiles with less compute).
+
+Solution:
+  Changed `#pragma omp for schedule(static)` to `#pragma omp for schedule(guided)`
+  on the compute loop in both f32 and f64 packed GEMM paths.
+
+Result:
+  Correctness: 45/45 tests passed.
+
+  Same-session A/B comparison (numc absolute times, us):
+
+    | Size | f32 static | f32 guided | Δ       | f64 static | f64 guided | Δ       |
+    |------|-----------|-----------|---------|-----------|-----------|---------|
+    | 128  | 17.50     | 25.85     | +47.8%  | 34.03     | 34.12     | +0.3%   |
+    | 256  | 69.57     | 72.30     | +3.9%   | 138.30    | 137.50    | -0.6%   |
+    | 512  | 485.82    | 471.10    | -3.0%   | 1161.44   | 1129.80   | -2.7%   |
+    | 1024 | 4506.18   | 3527.00   | -21.7%  | 9820.40   | 8340.00   | -15.1%  |
+
+  schedule(guided) helped 1024 significantly (f32: -21.7%, f64: -15.1%) but
+  severely regressed f32 128 (+47.8%). The regression at small sizes happens
+  because guided gives the first thread a disproportionately large chunk,
+  leaving other threads starved when the total task count is small (e.g.,
+  128×128 with MC=168 → 1 IC block, ceil(128/16) = 8 JR tasks).
+
+Action taken:
+  Reverted to schedule(static). Tests: 45/45.
+
+Conclusion:
+  schedule(guided) is not a drop-in improvement — it needs a size-dependent
+  dispatch (guided for large, static for small) or a different approach entirely.
+  A better solution would be P/E core-aware thread capping, which addresses the
+  root cause (E-cores creating barrier overhead) rather than the symptom.
