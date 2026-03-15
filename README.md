@@ -1,6 +1,6 @@
 # numc
 
-A high-performance Numpy-like N-dimensional tensor library in pure C. Zero dependencies — no BLAS, no Fortran, no Python runtime.
+A high-performance N-dimensional tensor library in pure C. Zero dependencies — no BLAS, no Fortran, no Python runtime.
 
 Hand-written SIMD kernels (AVX2, AVX-512, NEON, SVE, RVV), packed GEMM with Goto's algorithm, arena-based memory, and OpenMP parallelization. Scalar fallback ensures it builds on any platform.
 
