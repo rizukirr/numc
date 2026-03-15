@@ -37,7 +37,7 @@ int main(void) {
 
 ## Performance
 
-Benchmarked against NumPy (OpenBLAS backend) on i7-13620H. numc wins across all 13 operation categories (1.7x-11.4x median speedup).
+Benchmarked against NumPy (OpenBLAS backend) on i7-13620H. numc wins across all 13 operation categories.
 
 ![Overview](bench/graph/output/overview.png)
 
