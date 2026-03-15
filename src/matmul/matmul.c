@@ -27,6 +27,7 @@
 
 #if NUMC_HAVE_AVX512
 #include "intrinsics/gemm_avx512.h"
+#include "intrinsics/gemmsup_avx512.h"
 #endif
 
 #if NUMC_HAVE_NEON
@@ -246,12 +247,17 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
    *   packed GEMM tends to win due to better A/B locality.
    * - f64 gemmsup remains good up to roughly 128^3 on typical AVX2 CPUs.
    */
-#if NUMC_HAVE_AVX2 || NUMC_HAVE_NEON || NUMC_HAVE_SVE || NUMC_HAVE_RVV
+#if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_NEON || NUMC_HAVE_SVE || \
+    NUMC_HAVE_RVV
   {
     size_t m = a->shape[0], k = a->shape[1], n = b->shape[1];
     uint64_t flops = (uint64_t)m * k * n;
+#if NUMC_HAVE_AVX512
+    uint64_t gemmsup_threshold = GEMMSUP512_FLOPS_THRESHOLD;
+#else
     uint64_t gemmsup_threshold = GEMMSUP_FLOPS_THRESHOLD;
-#if NUMC_HAVE_AVX2
+#endif
+#if NUMC_HAVE_AVX2 && !NUMC_HAVE_AVX512
     if (a->dtype == NUMC_DTYPE_FLOAT32) {
       gemmsup_threshold = (96ULL * 96ULL * 96ULL);
     } else if (a->dtype == NUMC_DTYPE_FLOAT64) {
@@ -265,7 +271,10 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
       intptr_t rsb = (intptr_t)(b->strides[0] / elem);
       intptr_t rso = (intptr_t)(out->strides[0] / elem);
       if (a->dtype == NUMC_DTYPE_FLOAT32) {
-#if NUMC_HAVE_AVX2
+#if NUMC_HAVE_AVX512
+        gemmsup_f32_avx512((const float *)a->data, (const float *)b->data,
+                           (float *)out->data, m, k, n, rsa, csa, rsb, rso);
+#elif NUMC_HAVE_AVX2
         gemmsup_f32_avx2((const float *)a->data, (const float *)b->data,
                          (float *)out->data, m, k, n, rsa, csa, rsb, rso);
 #elif NUMC_HAVE_SVE
@@ -281,7 +290,10 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
         return 0;
       }
       if (a->dtype == NUMC_DTYPE_FLOAT64) {
-#if NUMC_HAVE_AVX2
+#if NUMC_HAVE_AVX512
+        gemmsup_f64_avx512((const double *)a->data, (const double *)b->data,
+                           (double *)out->data, m, k, n, rsa, csa, rsb, rso);
+#elif NUMC_HAVE_AVX2
         gemmsup_f64_avx2((const double *)a->data, (const double *)b->data,
                          (double *)out->data, m, k, n, rsa, csa, rsb, rso);
 #elif NUMC_HAVE_SVE

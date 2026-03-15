@@ -14,9 +14,15 @@
 #define GEMMSUP_FLOPS_THRESHOLD (128UL * 128UL * 128UL)
 #endif
 
+/* OMP gate for gemmsup: parallelize from ~128^3 and up. */
+#ifndef GEMMSUP_OMP_THRESHOLD
+#define GEMMSUP_OMP_THRESHOLD (1ULL << 20)
+#endif
+
 /* =================================================================
    Float32 unpacked 6x12 micro-kernel (NEON 128-bit)
-   6 rows x 12 cols = 18 accumulators (float32x4_t) + 3 B + 6 A = 27 regs
+   6 rows x 12 cols = 18 accumulators (float32x4_t) + 3 B + 2 A = 23 regs
+   8x K-loop unroll with 2 alternating A broadcast registers.
    ================================================================= */
 
 static inline void gemmsup_ukernel_f32_6x12(const float *a, const float *b,
@@ -30,38 +36,58 @@ static inline void gemmsup_ukernel_f32_6x12(const float *a, const float *b,
   float32x4_t c40 = vdupq_n_f32(0), c41 = vdupq_n_f32(0), c42 = vdupq_n_f32(0);
   float32x4_t c50 = vdupq_n_f32(0), c51 = vdupq_n_f32(0), c52 = vdupq_n_f32(0);
 
-  for (size_t p = 0; p < kc; p++) {
-    const float *bp = b + p * rsb;
-    float32x4_t b0 = vld1q_f32(bp);
-    float32x4_t b1 = vld1q_f32(bp + 4);
-    float32x4_t b2 = vld1q_f32(bp + 8);
+  /* 2 alternating A broadcast registers for ILP. */
+#define GEMMSUP_NEON_F32_K_BODY(p_off)             \
+  do {                                             \
+    const float *bp_ = b + (p_off) * rsb;          \
+    float32x4_t b0_ = vld1q_f32(bp_);              \
+    float32x4_t b1_ = vld1q_f32(bp_ + 4);          \
+    float32x4_t b2_ = vld1q_f32(bp_ + 8);          \
+    float32x4_t a0_, a1_;                          \
+    a0_ = vdupq_n_f32(a[0 * rsa + (p_off) * csa]); \
+    a1_ = vdupq_n_f32(a[1 * rsa + (p_off) * csa]); \
+    c00 = vfmaq_f32(c00, a0_, b0_);                \
+    c01 = vfmaq_f32(c01, a0_, b1_);                \
+    c02 = vfmaq_f32(c02, a0_, b2_);                \
+    c10 = vfmaq_f32(c10, a1_, b0_);                \
+    c11 = vfmaq_f32(c11, a1_, b1_);                \
+    c12 = vfmaq_f32(c12, a1_, b2_);                \
+    a0_ = vdupq_n_f32(a[2 * rsa + (p_off) * csa]); \
+    a1_ = vdupq_n_f32(a[3 * rsa + (p_off) * csa]); \
+    c20 = vfmaq_f32(c20, a0_, b0_);                \
+    c21 = vfmaq_f32(c21, a0_, b1_);                \
+    c22 = vfmaq_f32(c22, a0_, b2_);                \
+    c30 = vfmaq_f32(c30, a1_, b0_);                \
+    c31 = vfmaq_f32(c31, a1_, b1_);                \
+    c32 = vfmaq_f32(c32, a1_, b2_);                \
+    a0_ = vdupq_n_f32(a[4 * rsa + (p_off) * csa]); \
+    a1_ = vdupq_n_f32(a[5 * rsa + (p_off) * csa]); \
+    c40 = vfmaq_f32(c40, a0_, b0_);                \
+    c41 = vfmaq_f32(c41, a0_, b1_);                \
+    c42 = vfmaq_f32(c42, a0_, b2_);                \
+    c50 = vfmaq_f32(c50, a1_, b0_);                \
+    c51 = vfmaq_f32(c51, a1_, b1_);                \
+    c52 = vfmaq_f32(c52, a1_, b2_);                \
+  } while (0)
 
-    float32x4_t av;
-    av = vdupq_n_f32(a[0 * rsa + p * csa]);
-    c00 = vfmaq_f32(c00, av, b0);
-    c01 = vfmaq_f32(c01, av, b1);
-    c02 = vfmaq_f32(c02, av, b2);
-    av = vdupq_n_f32(a[1 * rsa + p * csa]);
-    c10 = vfmaq_f32(c10, av, b0);
-    c11 = vfmaq_f32(c11, av, b1);
-    c12 = vfmaq_f32(c12, av, b2);
-    av = vdupq_n_f32(a[2 * rsa + p * csa]);
-    c20 = vfmaq_f32(c20, av, b0);
-    c21 = vfmaq_f32(c21, av, b1);
-    c22 = vfmaq_f32(c22, av, b2);
-    av = vdupq_n_f32(a[3 * rsa + p * csa]);
-    c30 = vfmaq_f32(c30, av, b0);
-    c31 = vfmaq_f32(c31, av, b1);
-    c32 = vfmaq_f32(c32, av, b2);
-    av = vdupq_n_f32(a[4 * rsa + p * csa]);
-    c40 = vfmaq_f32(c40, av, b0);
-    c41 = vfmaq_f32(c41, av, b1);
-    c42 = vfmaq_f32(c42, av, b2);
-    av = vdupq_n_f32(a[5 * rsa + p * csa]);
-    c50 = vfmaq_f32(c50, av, b0);
-    c51 = vfmaq_f32(c51, av, b1);
-    c52 = vfmaq_f32(c52, av, b2);
+  /* 8x K-loop unroll */
+  size_t k_iter = kc / 8;
+  size_t k_left = kc % 8;
+  size_t p = 0;
+  for (size_t ki = 0; ki < k_iter; ki++, p += 8) {
+    GEMMSUP_NEON_F32_K_BODY(p);
+    GEMMSUP_NEON_F32_K_BODY(p + 1);
+    GEMMSUP_NEON_F32_K_BODY(p + 2);
+    GEMMSUP_NEON_F32_K_BODY(p + 3);
+    GEMMSUP_NEON_F32_K_BODY(p + 4);
+    GEMMSUP_NEON_F32_K_BODY(p + 5);
+    GEMMSUP_NEON_F32_K_BODY(p + 6);
+    GEMMSUP_NEON_F32_K_BODY(p + 7);
   }
+  for (size_t pi = 0; pi < k_left; pi++, p++) {
+    GEMMSUP_NEON_F32_K_BODY(p);
+  }
+#undef GEMMSUP_NEON_F32_K_BODY
 
   vst1q_f32(c, c00);
   vst1q_f32(c + 4, c01);
@@ -108,11 +134,17 @@ static inline void gemmsup_edge_f32_neon(const float *a, const float *b,
   }
 }
 
+/* Full gemmsup dispatch: tile MxN in 6x12 blocks, no packing.
+ * OMP-parallel over MR-row tiles when compute volume warrants it. */
 static inline void gemmsup_f32_neon(const float *a, const float *b, float *out,
                                     size_t M, size_t K, size_t N, intptr_t rsa,
                                     intptr_t csa, intptr_t rsb, intptr_t rso) {
   const size_t MR = 6, NR = 12;
-  for (size_t i = 0; i < M; i += MR) {
+  size_t n_ir = (M + MR - 1) / MR;
+#pragma omp parallel for schedule(static) if ((uint64_t)M * K * N > \
+                                                  GEMMSUP_OMP_THRESHOLD)
+  for (size_t ir = 0; ir < n_ir; ir++) {
+    size_t i = ir * MR;
     size_t mr = GEMMSUP_MIN(MR, M - i);
     for (size_t j = 0; j < N; j += NR) {
       size_t nr = GEMMSUP_MIN(NR, N - j);
@@ -128,11 +160,13 @@ static inline void gemmsup_f32_neon(const float *a, const float *b, float *out,
 }
 
 /* =================================================================
-   Float64 unpacked 4x8 micro-kernel (NEON 128-bit)
-   4 rows x 8 cols = 16 accumulators (float64x2_t) + 4 B + 4 A = 24 regs
+   Float64 unpacked 6x8 micro-kernel (NEON 128-bit)
+   6 rows x 8 cols = 24 accumulators (float64x2_t) + 4 B + 2 A = 30 regs
+   Bumped from MR=4 to MR=6 to better utilize register file.
+   8x K-loop unroll with 2 alternating A broadcast registers.
    ================================================================= */
 
-static inline void gemmsup_ukernel_f64_4x8(const double *a, const double *b,
+static inline void gemmsup_ukernel_f64_6x8(const double *a, const double *b,
                                            double *c, size_t kc, intptr_t rsa,
                                            intptr_t csa, intptr_t rsb,
                                            intptr_t rso) {
@@ -144,36 +178,70 @@ static inline void gemmsup_ukernel_f64_4x8(const double *a, const double *b,
               c23 = vdupq_n_f64(0);
   float64x2_t c30 = vdupq_n_f64(0), c31 = vdupq_n_f64(0), c32 = vdupq_n_f64(0),
               c33 = vdupq_n_f64(0);
+  float64x2_t c40 = vdupq_n_f64(0), c41 = vdupq_n_f64(0), c42 = vdupq_n_f64(0),
+              c43 = vdupq_n_f64(0);
+  float64x2_t c50 = vdupq_n_f64(0), c51 = vdupq_n_f64(0), c52 = vdupq_n_f64(0),
+              c53 = vdupq_n_f64(0);
 
-  for (size_t p = 0; p < kc; p++) {
-    const double *bp = b + p * rsb;
-    float64x2_t b0 = vld1q_f64(bp);
-    float64x2_t b1 = vld1q_f64(bp + 2);
-    float64x2_t b2 = vld1q_f64(bp + 4);
-    float64x2_t b3 = vld1q_f64(bp + 6);
+  /* 2 alternating A broadcast registers for ILP. */
+#define GEMMSUP_NEON_F64_K_BODY(p_off)             \
+  do {                                             \
+    const double *bp_ = b + (p_off) * rsb;         \
+    float64x2_t b0_ = vld1q_f64(bp_);              \
+    float64x2_t b1_ = vld1q_f64(bp_ + 2);          \
+    float64x2_t b2_ = vld1q_f64(bp_ + 4);          \
+    float64x2_t b3_ = vld1q_f64(bp_ + 6);          \
+    float64x2_t a0_, a1_;                          \
+    a0_ = vdupq_n_f64(a[0 * rsa + (p_off) * csa]); \
+    a1_ = vdupq_n_f64(a[1 * rsa + (p_off) * csa]); \
+    c00 = vfmaq_f64(c00, a0_, b0_);                \
+    c01 = vfmaq_f64(c01, a0_, b1_);                \
+    c02 = vfmaq_f64(c02, a0_, b2_);                \
+    c03 = vfmaq_f64(c03, a0_, b3_);                \
+    c10 = vfmaq_f64(c10, a1_, b0_);                \
+    c11 = vfmaq_f64(c11, a1_, b1_);                \
+    c12 = vfmaq_f64(c12, a1_, b2_);                \
+    c13 = vfmaq_f64(c13, a1_, b3_);                \
+    a0_ = vdupq_n_f64(a[2 * rsa + (p_off) * csa]); \
+    a1_ = vdupq_n_f64(a[3 * rsa + (p_off) * csa]); \
+    c20 = vfmaq_f64(c20, a0_, b0_);                \
+    c21 = vfmaq_f64(c21, a0_, b1_);                \
+    c22 = vfmaq_f64(c22, a0_, b2_);                \
+    c23 = vfmaq_f64(c23, a0_, b3_);                \
+    c30 = vfmaq_f64(c30, a1_, b0_);                \
+    c31 = vfmaq_f64(c31, a1_, b1_);                \
+    c32 = vfmaq_f64(c32, a1_, b2_);                \
+    c33 = vfmaq_f64(c33, a1_, b3_);                \
+    a0_ = vdupq_n_f64(a[4 * rsa + (p_off) * csa]); \
+    a1_ = vdupq_n_f64(a[5 * rsa + (p_off) * csa]); \
+    c40 = vfmaq_f64(c40, a0_, b0_);                \
+    c41 = vfmaq_f64(c41, a0_, b1_);                \
+    c42 = vfmaq_f64(c42, a0_, b2_);                \
+    c43 = vfmaq_f64(c43, a0_, b3_);                \
+    c50 = vfmaq_f64(c50, a1_, b0_);                \
+    c51 = vfmaq_f64(c51, a1_, b1_);                \
+    c52 = vfmaq_f64(c52, a1_, b2_);                \
+    c53 = vfmaq_f64(c53, a1_, b3_);                \
+  } while (0)
 
-    float64x2_t av;
-    av = vdupq_n_f64(a[0 * rsa + p * csa]);
-    c00 = vfmaq_f64(c00, av, b0);
-    c01 = vfmaq_f64(c01, av, b1);
-    c02 = vfmaq_f64(c02, av, b2);
-    c03 = vfmaq_f64(c03, av, b3);
-    av = vdupq_n_f64(a[1 * rsa + p * csa]);
-    c10 = vfmaq_f64(c10, av, b0);
-    c11 = vfmaq_f64(c11, av, b1);
-    c12 = vfmaq_f64(c12, av, b2);
-    c13 = vfmaq_f64(c13, av, b3);
-    av = vdupq_n_f64(a[2 * rsa + p * csa]);
-    c20 = vfmaq_f64(c20, av, b0);
-    c21 = vfmaq_f64(c21, av, b1);
-    c22 = vfmaq_f64(c22, av, b2);
-    c23 = vfmaq_f64(c23, av, b3);
-    av = vdupq_n_f64(a[3 * rsa + p * csa]);
-    c30 = vfmaq_f64(c30, av, b0);
-    c31 = vfmaq_f64(c31, av, b1);
-    c32 = vfmaq_f64(c32, av, b2);
-    c33 = vfmaq_f64(c33, av, b3);
+  /* 8x K-loop unroll */
+  size_t k_iter = kc / 8;
+  size_t k_left = kc % 8;
+  size_t p = 0;
+  for (size_t ki = 0; ki < k_iter; ki++, p += 8) {
+    GEMMSUP_NEON_F64_K_BODY(p);
+    GEMMSUP_NEON_F64_K_BODY(p + 1);
+    GEMMSUP_NEON_F64_K_BODY(p + 2);
+    GEMMSUP_NEON_F64_K_BODY(p + 3);
+    GEMMSUP_NEON_F64_K_BODY(p + 4);
+    GEMMSUP_NEON_F64_K_BODY(p + 5);
+    GEMMSUP_NEON_F64_K_BODY(p + 6);
+    GEMMSUP_NEON_F64_K_BODY(p + 7);
   }
+  for (size_t pi = 0; pi < k_left; pi++, p++) {
+    GEMMSUP_NEON_F64_K_BODY(p);
+  }
+#undef GEMMSUP_NEON_F64_K_BODY
 
   vst1q_f64(c, c00);
   vst1q_f64(c + 2, c01);
@@ -191,6 +259,14 @@ static inline void gemmsup_ukernel_f64_4x8(const double *a, const double *b,
   vst1q_f64(c + 3 * rso + 2, c31);
   vst1q_f64(c + 3 * rso + 4, c32);
   vst1q_f64(c + 3 * rso + 6, c33);
+  vst1q_f64(c + 4 * rso, c40);
+  vst1q_f64(c + 4 * rso + 2, c41);
+  vst1q_f64(c + 4 * rso + 4, c42);
+  vst1q_f64(c + 4 * rso + 6, c43);
+  vst1q_f64(c + 5 * rso, c50);
+  vst1q_f64(c + 5 * rso + 2, c51);
+  vst1q_f64(c + 5 * rso + 4, c52);
+  vst1q_f64(c + 5 * rso + 6, c53);
 }
 
 static inline void gemmsup_edge_f64_neon(const double *a, const double *b,
@@ -217,17 +293,22 @@ static inline void gemmsup_edge_f64_neon(const double *a, const double *b,
   }
 }
 
+/* OMP-parallel over MR-row tiles when compute volume warrants it. */
 static inline void gemmsup_f64_neon(const double *a, const double *b,
                                     double *out, size_t M, size_t K, size_t N,
                                     intptr_t rsa, intptr_t csa, intptr_t rsb,
                                     intptr_t rso) {
-  const size_t MR = 4, NR = 8;
-  for (size_t i = 0; i < M; i += MR) {
+  const size_t MR = 6, NR = 8;
+  size_t n_ir = (M + MR - 1) / MR;
+#pragma omp parallel for schedule(static) if ((uint64_t)M * K * N > \
+                                                  GEMMSUP_OMP_THRESHOLD)
+  for (size_t ir = 0; ir < n_ir; ir++) {
+    size_t i = ir * MR;
     size_t mr = GEMMSUP_MIN(MR, M - i);
     for (size_t j = 0; j < N; j += NR) {
       size_t nr = GEMMSUP_MIN(NR, N - j);
       if (mr == MR && nr == NR) {
-        gemmsup_ukernel_f64_4x8(a + i * rsa, b + j, out + i * rso + j, K, rsa,
+        gemmsup_ukernel_f64_6x8(a + i * rsa, b + j, out + i * rso + j, K, rsa,
                                 csa, rsb, rso);
       } else {
         gemmsup_edge_f64_neon(a + i * rsa, b + j, out + i * rso + j, mr, nr, K,

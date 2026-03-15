@@ -73,6 +73,15 @@ static inline void gemm_pack_b_f32(const float *b, float *packed, size_t kc,
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb + jr;
       size_t j = 0;
+      /* SIMD fast path for common remainder sizes */
+      if (rem >= 8) {
+        vst1q_f32(dest + p * GEMM_F32_NR, vld1q_f32(src));
+        vst1q_f32(dest + p * GEMM_F32_NR + 4, vld1q_f32(src + 4));
+        j = 8;
+      } else if (rem >= 4) {
+        vst1q_f32(dest + p * GEMM_F32_NR, vld1q_f32(src));
+        j = 4;
+      }
       for (; j < rem; j++)
         dest[p * GEMM_F32_NR + j] = src[j];
       for (; j < GEMM_F32_NR; j++)
@@ -105,23 +114,121 @@ static inline void _gemm_pack_b_strip_f32(const float *b, float *dest,
 
 static inline void gemm_pack_a_f32(const float *a, float *packed, size_t mc,
                                    size_t kc, intptr_t rsa, intptr_t csa) {
-  size_t ir = 0;
-  for (; ir + GEMM_F32_MR <= mc; ir += GEMM_F32_MR) {
-    float *dest = packed + ir * kc;
-    for (size_t p = 0; p < kc; p++) {
-      for (size_t i = 0; i < GEMM_F32_MR; i++)
-        dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p * csa];
+  if (csa == 1) {
+    /* Fast path: row-major A — transpose 8 rows x 4 K-cols at a time */
+    size_t ir = 0;
+    for (; ir + GEMM_F32_MR <= mc; ir += GEMM_F32_MR) {
+      float *dest = packed + ir * kc;
+      const float *r0 = a + (ir + 0) * rsa;
+      const float *r1 = a + (ir + 1) * rsa;
+      const float *r2 = a + (ir + 2) * rsa;
+      const float *r3 = a + (ir + 3) * rsa;
+      const float *r4 = a + (ir + 4) * rsa;
+      const float *r5 = a + (ir + 5) * rsa;
+      const float *r6 = a + (ir + 6) * rsa;
+      const float *r7 = a + (ir + 7) * rsa;
+      size_t p = 0;
+      /* Process 4 K-columns at a time via 4x4 NEON transpose:
+       * vzip1q_f32(a,b) = [a0,b0,a1,b1], vzip2q_f32(a,b) = [a2,b2,a3,b3]
+       * Then vcombine low/high halves to get correct column layout. */
+      for (; p + 4 <= kc; p += 4) {
+        /* Load 4 consecutive floats from each of 8 rows */
+        float32x4_t row0 = vld1q_f32(r0 + p);
+        float32x4_t row1 = vld1q_f32(r1 + p);
+        float32x4_t row2 = vld1q_f32(r2 + p);
+        float32x4_t row3 = vld1q_f32(r3 + p);
+        float32x4_t row4 = vld1q_f32(r4 + p);
+        float32x4_t row5 = vld1q_f32(r5 + p);
+        float32x4_t row6 = vld1q_f32(r6 + p);
+        float32x4_t row7 = vld1q_f32(r7 + p);
+        /* Transpose rows 0-3: step 1 — interleave pairs */
+        float32x4_t t01a =
+            vzip1q_f32(row0, row1); /* [r0[0],r1[0],r0[1],r1[1]] */
+        float32x4_t t01b =
+            vzip2q_f32(row0, row1); /* [r0[2],r1[2],r0[3],r1[3]] */
+        float32x4_t t23a =
+            vzip1q_f32(row2, row3); /* [r2[0],r3[0],r2[1],r3[1]] */
+        float32x4_t t23b =
+            vzip2q_f32(row2, row3); /* [r2[2],r3[2],r2[3],r3[3]] */
+        /* col p+0: [r0[0],r1[0],r2[0],r3[0]] */
+        float32x4_t col0_lo =
+            vcombine_f32(vget_low_f32(t01a), vget_low_f32(t23a));
+        /* col p+1: [r0[1],r1[1],r2[1],r3[1]] */
+        float32x4_t col1_lo =
+            vcombine_f32(vget_high_f32(t01a), vget_high_f32(t23a));
+        /* col p+2: [r0[2],r1[2],r2[2],r3[2]] */
+        float32x4_t col2_lo =
+            vcombine_f32(vget_low_f32(t01b), vget_low_f32(t23b));
+        /* col p+3: [r0[3],r1[3],r2[3],r3[3]] */
+        float32x4_t col3_lo =
+            vcombine_f32(vget_high_f32(t01b), vget_high_f32(t23b));
+        /* Transpose rows 4-7: same pattern */
+        float32x4_t t45a = vzip1q_f32(row4, row5);
+        float32x4_t t45b = vzip2q_f32(row4, row5);
+        float32x4_t t67a = vzip1q_f32(row6, row7);
+        float32x4_t t67b = vzip2q_f32(row6, row7);
+        float32x4_t col0_hi =
+            vcombine_f32(vget_low_f32(t45a), vget_low_f32(t67a));
+        float32x4_t col1_hi =
+            vcombine_f32(vget_high_f32(t45a), vget_high_f32(t67a));
+        float32x4_t col2_hi =
+            vcombine_f32(vget_low_f32(t45b), vget_low_f32(t67b));
+        float32x4_t col3_hi =
+            vcombine_f32(vget_high_f32(t45b), vget_high_f32(t67b));
+        /* Store: each K-column p becomes packed row of 8 = [rows0-3, rows4-7]
+         */
+        vst1q_f32(dest + (p + 0) * GEMM_F32_MR, col0_lo);
+        vst1q_f32(dest + (p + 0) * GEMM_F32_MR + 4, col0_hi);
+        vst1q_f32(dest + (p + 1) * GEMM_F32_MR, col1_lo);
+        vst1q_f32(dest + (p + 1) * GEMM_F32_MR + 4, col1_hi);
+        vst1q_f32(dest + (p + 2) * GEMM_F32_MR, col2_lo);
+        vst1q_f32(dest + (p + 2) * GEMM_F32_MR + 4, col2_hi);
+        vst1q_f32(dest + (p + 3) * GEMM_F32_MR, col3_lo);
+        vst1q_f32(dest + (p + 3) * GEMM_F32_MR + 4, col3_hi);
+      }
+      /* Scalar cleanup for remaining K columns */
+      for (; p < kc; p++) {
+        dest[p * GEMM_F32_MR + 0] = r0[p];
+        dest[p * GEMM_F32_MR + 1] = r1[p];
+        dest[p * GEMM_F32_MR + 2] = r2[p];
+        dest[p * GEMM_F32_MR + 3] = r3[p];
+        dest[p * GEMM_F32_MR + 4] = r4[p];
+        dest[p * GEMM_F32_MR + 5] = r5[p];
+        dest[p * GEMM_F32_MR + 6] = r6[p];
+        dest[p * GEMM_F32_MR + 7] = r7[p];
+      }
     }
-  }
-  if (ir < mc) {
-    float *dest = packed + ir * kc;
-    size_t rem = mc - ir;
-    for (size_t p = 0; p < kc; p++) {
-      size_t i = 0;
-      for (; i < rem; i++)
-        dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p * csa];
-      for (; i < GEMM_F32_MR; i++)
-        dest[p * GEMM_F32_MR + i] = 0.0f;
+    if (ir < mc) {
+      float *dest = packed + ir * kc;
+      size_t rem = mc - ir;
+      for (size_t p = 0; p < kc; p++) {
+        size_t i = 0;
+        for (; i < rem; i++)
+          dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p];
+        for (; i < GEMM_F32_MR; i++)
+          dest[p * GEMM_F32_MR + i] = 0.0f;
+      }
+    }
+  } else {
+    /* Generic path: arbitrary stride */
+    size_t ir = 0;
+    for (; ir + GEMM_F32_MR <= mc; ir += GEMM_F32_MR) {
+      float *dest = packed + ir * kc;
+      for (size_t p = 0; p < kc; p++) {
+        for (size_t i = 0; i < GEMM_F32_MR; i++)
+          dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p * csa];
+      }
+    }
+    if (ir < mc) {
+      float *dest = packed + ir * kc;
+      size_t rem = mc - ir;
+      for (size_t p = 0; p < kc; p++) {
+        size_t i = 0;
+        for (; i < rem; i++)
+          dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p * csa];
+        for (; i < GEMM_F32_MR; i++)
+          dest[p * GEMM_F32_MR + i] = 0.0f;
+      }
     }
   }
 }
@@ -147,6 +254,15 @@ static inline void gemm_pack_b_f64(const double *b, double *packed, size_t kc,
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb + jr;
       size_t j = 0;
+      /* SIMD fast path for common remainder sizes */
+      if (rem >= 4) {
+        vst1q_f64(dest + p * GEMM_F64_NR, vld1q_f64(src));
+        vst1q_f64(dest + p * GEMM_F64_NR + 2, vld1q_f64(src + 2));
+        j = 4;
+      } else if (rem >= 2) {
+        vst1q_f64(dest + p * GEMM_F64_NR, vld1q_f64(src));
+        j = 2;
+      }
       for (; j < rem; j++)
         dest[p * GEMM_F64_NR + j] = src[j];
       for (; j < GEMM_F64_NR; j++)
@@ -180,23 +296,83 @@ static inline void _gemm_pack_b_strip_f64(const double *b, double *dest,
 
 static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
                                    size_t kc, intptr_t rsa, intptr_t csa) {
-  size_t ir = 0;
-  for (; ir + GEMM_F64_MR <= mc; ir += GEMM_F64_MR) {
-    double *dest = packed + ir * kc;
-    for (size_t p = 0; p < kc; p++) {
-      for (size_t i = 0; i < GEMM_F64_MR; i++)
-        dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p * csa];
+  if (csa == 1) {
+    /* Fast path: row-major A — transpose 2 K-cols at a time (2-lane vectors) */
+    size_t ir = 0;
+    for (; ir + GEMM_F64_MR <= mc; ir += GEMM_F64_MR) {
+      double *dest = packed + ir * kc;
+      const double *r0 = a + (ir + 0) * rsa;
+      const double *r1 = a + (ir + 1) * rsa;
+      const double *r2 = a + (ir + 2) * rsa;
+      const double *r3 = a + (ir + 3) * rsa;
+      const double *r4 = a + (ir + 4) * rsa;
+      const double *r5 = a + (ir + 5) * rsa;
+      size_t p = 0;
+      /* Process 2 K-columns at a time: transpose 2x2 blocks */
+      for (; p + 2 <= kc; p += 2) {
+        float64x2_t row0 = vld1q_f64(r0 + p); /* [r0[p], r0[p+1]] */
+        float64x2_t row1 = vld1q_f64(r1 + p); /* [r1[p], r1[p+1]] */
+        float64x2_t row2 = vld1q_f64(r2 + p);
+        float64x2_t row3 = vld1q_f64(r3 + p);
+        float64x2_t row4 = vld1q_f64(r4 + p);
+        float64x2_t row5 = vld1q_f64(r5 + p);
+        /* col_p   = [r0[p], r1[p]] */
+        /* col_p1  = [r0[p+1], r1[p+1]] */
+        float64x2_t col_p_01 = vtrn1q_f64(row0, row1);
+        float64x2_t col_p1_01 = vtrn2q_f64(row0, row1);
+        float64x2_t col_p_23 = vtrn1q_f64(row2, row3);
+        float64x2_t col_p1_23 = vtrn2q_f64(row2, row3);
+        float64x2_t col_p_45 = vtrn1q_f64(row4, row5);
+        float64x2_t col_p1_45 = vtrn2q_f64(row4, row5);
+        /* Store 6 doubles per K-column */
+        vst1q_f64(dest + (p + 0) * GEMM_F64_MR + 0, col_p_01);
+        vst1q_f64(dest + (p + 0) * GEMM_F64_MR + 2, col_p_23);
+        vst1q_f64(dest + (p + 0) * GEMM_F64_MR + 4, col_p_45);
+        vst1q_f64(dest + (p + 1) * GEMM_F64_MR + 0, col_p1_01);
+        vst1q_f64(dest + (p + 1) * GEMM_F64_MR + 2, col_p1_23);
+        vst1q_f64(dest + (p + 1) * GEMM_F64_MR + 4, col_p1_45);
+      }
+      /* Scalar cleanup for remaining K column */
+      for (; p < kc; p++) {
+        dest[p * GEMM_F64_MR + 0] = r0[p];
+        dest[p * GEMM_F64_MR + 1] = r1[p];
+        dest[p * GEMM_F64_MR + 2] = r2[p];
+        dest[p * GEMM_F64_MR + 3] = r3[p];
+        dest[p * GEMM_F64_MR + 4] = r4[p];
+        dest[p * GEMM_F64_MR + 5] = r5[p];
+      }
     }
-  }
-  if (ir < mc) {
-    double *dest = packed + ir * kc;
-    size_t rem = mc - ir;
-    for (size_t p = 0; p < kc; p++) {
-      size_t i = 0;
-      for (; i < rem; i++)
-        dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p * csa];
-      for (; i < GEMM_F64_MR; i++)
-        dest[p * GEMM_F64_MR + i] = 0.0;
+    if (ir < mc) {
+      double *dest = packed + ir * kc;
+      size_t rem = mc - ir;
+      for (size_t p = 0; p < kc; p++) {
+        size_t i = 0;
+        for (; i < rem; i++)
+          dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p];
+        for (; i < GEMM_F64_MR; i++)
+          dest[p * GEMM_F64_MR + i] = 0.0;
+      }
+    }
+  } else {
+    /* Generic path: arbitrary stride */
+    size_t ir = 0;
+    for (; ir + GEMM_F64_MR <= mc; ir += GEMM_F64_MR) {
+      double *dest = packed + ir * kc;
+      for (size_t p = 0; p < kc; p++) {
+        for (size_t i = 0; i < GEMM_F64_MR; i++)
+          dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p * csa];
+      }
+    }
+    if (ir < mc) {
+      double *dest = packed + ir * kc;
+      size_t rem = mc - ir;
+      for (size_t p = 0; p < kc; p++) {
+        size_t i = 0;
+        for (; i < rem; i++)
+          dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p * csa];
+        for (; i < GEMM_F64_MR; i++)
+          dest[p * GEMM_F64_MR + i] = 0.0;
+      }
     }
   }
 }
@@ -207,13 +383,11 @@ static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
    ═══════════════════════════════════════════════════════════════════════════
  */
 
-/* One K-iteration: load 12 B values (3 regs), 8 A values (2 regs),
- * 24 FMA instructions (8 rows x 3 B-vector columns). */
+/* One K-iteration: uses pre-loaded b0/b1/b2 from outer scope, loads A,
+ * does 24 FMA, then loads NEXT B into b0/b1/b2 (BLIS-style pipelining).
+ * bp must point to CURRENT iter; next B is loaded from bp+rsb. */
 #define GEMM_F32_K_ITER(ap, bp)            \
   do {                                     \
-    float32x4_t b0 = vld1q_f32(bp);        \
-    float32x4_t b1 = vld1q_f32((bp) + 4);  \
-    float32x4_t b2 = vld1q_f32((bp) + 8);  \
     float32x4_t a0 = vld1q_f32(ap);        \
     float32x4_t a1 = vld1q_f32((ap) + 4);  \
     c00 = vfmaq_laneq_f32(c00, b0, a0, 0); \
@@ -240,6 +414,9 @@ static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
     c70 = vfmaq_laneq_f32(c70, b0, a1, 3); \
     c71 = vfmaq_laneq_f32(c71, b1, a1, 3); \
     c72 = vfmaq_laneq_f32(c72, b2, a1, 3); \
+    b0 = vld1q_f32((bp) + rsb);            \
+    b1 = vld1q_f32((bp) + rsb + 4);        \
+    b2 = vld1q_f32((bp) + rsb + 8);        \
   } while (0)
 
 static inline void gemm_ukernel_f32_8x12(const float *a, const float *b,
@@ -316,6 +493,11 @@ static inline void gemm_ukernel_f32_8x12(const float *a, const float *b,
   size_t k_iter = kc / 8;
   size_t k_left = kc % 8;
 
+  /* Pre-load first B tile (BLIS-style pipelining) */
+  float32x4_t b0 = vld1q_f32(bp);
+  float32x4_t b1 = vld1q_f32(bp + 4);
+  float32x4_t b2 = vld1q_f32(bp + 8);
+
   for (size_t ki = 0; ki < k_iter; ki++) {
     GEMM_F32_K_ITER(ap, bp);
     ap += csa;
@@ -350,6 +532,16 @@ static inline void gemm_ukernel_f32_8x12(const float *a, const float *b,
     ap += csa;
     bp += rsb;
   }
+
+  /* C prefetch refresh before store */
+  __builtin_prefetch(c, 1, 3);
+  __builtin_prefetch(c + rso, 1, 3);
+  __builtin_prefetch(c + 2 * rso, 1, 3);
+  __builtin_prefetch(c + 3 * rso, 1, 3);
+  __builtin_prefetch(c + 4 * rso, 1, 3);
+  __builtin_prefetch(c + 5 * rso, 1, 3);
+  __builtin_prefetch(c + 6 * rso, 1, 3);
+  __builtin_prefetch(c + 7 * rso, 1, 3);
 
   vst1q_f32(c, c00);
   vst1q_f32(c + 4, c01);
@@ -535,12 +727,10 @@ static inline void gemm_f32_neon(const float *a, const float *b, float *out,
    ═══════════════════════════════════════════════════════════════════════════
  */
 
+/* Uses pre-loaded b0/b1/b2/b3 from outer scope, loads A,
+ * does 24 FMA, then loads NEXT B (BLIS-style pipelining). */
 #define GEMM_F64_K_ITER(ap, bp)            \
   do {                                     \
-    float64x2_t b0 = vld1q_f64(bp);        \
-    float64x2_t b1 = vld1q_f64((bp) + 2);  \
-    float64x2_t b2 = vld1q_f64((bp) + 4);  \
-    float64x2_t b3 = vld1q_f64((bp) + 6);  \
     float64x2_t a0 = vld1q_f64(ap);        \
     float64x2_t a1 = vld1q_f64((ap) + 2);  \
     float64x2_t a2 = vld1q_f64((ap) + 4);  \
@@ -568,6 +758,10 @@ static inline void gemm_f32_neon(const float *a, const float *b, float *out,
     c51 = vfmaq_laneq_f64(c51, b1, a2, 1); \
     c52 = vfmaq_laneq_f64(c52, b2, a2, 1); \
     c53 = vfmaq_laneq_f64(c53, b3, a2, 1); \
+    b0 = vld1q_f64((bp) + rsb);            \
+    b1 = vld1q_f64((bp) + rsb + 2);        \
+    b2 = vld1q_f64((bp) + rsb + 4);        \
+    b3 = vld1q_f64((bp) + rsb + 6);        \
   } while (0)
 
 static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
@@ -641,21 +835,13 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
   size_t k_iter = kc / 8;
   size_t k_left = kc % 8;
 
+  /* Pre-load first B tile (BLIS-style pipelining) */
+  float64x2_t b0 = vld1q_f64(bp);
+  float64x2_t b1 = vld1q_f64(bp + 2);
+  float64x2_t b2 = vld1q_f64(bp + 4);
+  float64x2_t b3 = vld1q_f64(bp + 6);
+
   for (size_t ki = 0; ki < k_iter; ki++) {
-    GEMM_F64_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
-    GEMM_F64_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
-    __builtin_prefetch(ap + 48, 0, 3);
-    GEMM_F64_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
-    GEMM_F64_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
-    __builtin_prefetch(bp + 64, 0, 3);
     GEMM_F64_K_ITER(ap, bp);
     ap += csa;
     bp += rsb;
@@ -669,12 +855,34 @@ static inline void gemm_ukernel_f64_6x8(const double *a, const double *b,
     GEMM_F64_K_ITER(ap, bp);
     ap += csa;
     bp += rsb;
+    __builtin_prefetch(bp + 128, 0, 3);
+    GEMM_F64_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    GEMM_F64_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    __builtin_prefetch(ap + 192, 0, 3);
+    GEMM_F64_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
+    GEMM_F64_K_ITER(ap, bp);
+    ap += csa;
+    bp += rsb;
   }
   for (size_t ki = 0; ki < k_left; ki++) {
     GEMM_F64_K_ITER(ap, bp);
     ap += csa;
     bp += rsb;
   }
+
+  /* C prefetch refresh before store */
+  __builtin_prefetch(c, 1, 3);
+  __builtin_prefetch(c + rso, 1, 3);
+  __builtin_prefetch(c + 2 * rso, 1, 3);
+  __builtin_prefetch(c + 3 * rso, 1, 3);
+  __builtin_prefetch(c + 4 * rso, 1, 3);
+  __builtin_prefetch(c + 5 * rso, 1, 3);
 
   vst1q_f64(c, c00);
   vst1q_f64(c + 2, c01);

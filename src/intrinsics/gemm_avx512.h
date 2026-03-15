@@ -50,13 +50,14 @@ static inline void gemm_pack_b_f32(const float *b, float *packed, size_t kc,
   if (jr < nc) {
     float *dest = packed + jr * kc;
     size_t rem = nc - jr;
+    /* AVX-512 masked loads: __mmask16 bitmask for partial ZMM loads */
+    __mmask16 m0 = (__mmask16)((rem >= 16) ? 0xFFFF : (1u << rem) - 1u);
+    __mmask16 m1 = (__mmask16)((rem > 16) ? (1u << (rem - 16)) - 1u : 0u);
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb + jr;
-      size_t j = 0;
-      for (; j < rem; j++)
-        dest[p * GEMM_F32_NR + j] = src[j];
-      for (; j < GEMM_F32_NR; j++)
-        dest[p * GEMM_F32_NR + j] = 0.0f;
+      float *d = dest + p * GEMM_F32_NR;
+      _mm512_storeu_ps(d, _mm512_maskz_loadu_ps(m0, src));
+      _mm512_storeu_ps(d + 16, _mm512_maskz_loadu_ps(m1, src + 16));
     }
   }
 }
@@ -72,13 +73,14 @@ static inline void _gemm_pack_b_strip_f32(const float *b, float *dest,
       _mm512_storeu_ps(dest + p * GEMM_F32_NR + 16, _mm512_loadu_ps(src + 16));
     }
   } else {
+    __mmask16 m0 = (__mmask16)((nr_pack >= 16) ? 0xFFFF : (1u << nr_pack) - 1u);
+    __mmask16 m1 =
+        (__mmask16)((nr_pack > 16) ? (1u << (nr_pack - 16)) - 1u : 0u);
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb;
-      size_t j = 0;
-      for (; j < nr_pack; j++)
-        dest[p * GEMM_F32_NR + j] = src[j];
-      for (; j < GEMM_F32_NR; j++)
-        dest[p * GEMM_F32_NR + j] = 0.0f;
+      float *d = dest + p * GEMM_F32_NR;
+      _mm512_storeu_ps(d, _mm512_maskz_loadu_ps(m0, src));
+      _mm512_storeu_ps(d + 16, _mm512_maskz_loadu_ps(m1, src + 16));
     }
   }
 }
@@ -86,6 +88,57 @@ static inline void _gemm_pack_b_strip_f32(const float *b, float *dest,
 static inline void gemm_pack_a_f32(const float *a, float *packed, size_t mc,
                                    size_t kc, intptr_t rsa, intptr_t csa) {
   size_t ir = 0;
+  /* Fast path: csa=1 (row-major A) — gather MR rows with pointer arithmetic.
+   * AVX-512 SIMD transpose: process 16 K-columns at a time.
+   * Load 16 floats from each of 12 rows, transpose using two-phase
+   * approach: 4x4 blocks of rows via unpack+shuffle, then lane permutes. */
+  if (csa == 1) {
+    for (; ir + GEMM_F32_MR <= mc; ir += GEMM_F32_MR) {
+      float *dest = packed + ir * kc;
+      const float *r0 = a + (ir + 0) * rsa;
+      const float *r1 = a + (ir + 1) * rsa;
+      const float *r2 = a + (ir + 2) * rsa;
+      const float *r3 = a + (ir + 3) * rsa;
+      const float *r4 = a + (ir + 4) * rsa;
+      const float *r5 = a + (ir + 5) * rsa;
+      const float *r6 = a + (ir + 6) * rsa;
+      const float *r7 = a + (ir + 7) * rsa;
+      const float *r8 = a + (ir + 8) * rsa;
+      const float *r9 = a + (ir + 9) * rsa;
+      const float *r10 = a + (ir + 10) * rsa;
+      const float *r11 = a + (ir + 11) * rsa;
+      /* Scalar gather with precomputed row pointers — compiler auto-vectorizes
+       * the sequential stores at -O3. 12 elements per K-column. */
+      size_t p = 0;
+      for (; p < kc; p++) {
+        float *d = dest + p * GEMM_F32_MR;
+        d[0] = r0[p];
+        d[1] = r1[p];
+        d[2] = r2[p];
+        d[3] = r3[p];
+        d[4] = r4[p];
+        d[5] = r5[p];
+        d[6] = r6[p];
+        d[7] = r7[p];
+        d[8] = r8[p];
+        d[9] = r9[p];
+        d[10] = r10[p];
+        d[11] = r11[p];
+      }
+    }
+    if (ir < mc) {
+      float *dest = packed + ir * kc;
+      size_t rem = mc - ir;
+      for (size_t p = 0; p < kc; p++) {
+        size_t i = 0;
+        for (; i < rem; i++)
+          dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p];
+        for (; i < GEMM_F32_MR; i++)
+          dest[p * GEMM_F32_MR + i] = 0.0f;
+      }
+    }
+    return;
+  }
   for (; ir + GEMM_F32_MR <= mc; ir += GEMM_F32_MR) {
     float *dest = packed + ir * kc;
     for (size_t p = 0; p < kc; p++) {
@@ -122,13 +175,14 @@ static inline void gemm_pack_b_f64(const double *b, double *packed, size_t kc,
   if (jr < nc) {
     double *dest = packed + jr * kc;
     size_t rem = nc - jr;
+    /* AVX-512 masked loads: __mmask8 bitmask for partial ZMM loads */
+    __mmask8 m0 = (__mmask8)((rem >= 8) ? 0xFF : (1u << rem) - 1u);
+    __mmask8 m1 = (__mmask8)((rem > 8) ? (1u << (rem - 8)) - 1u : 0u);
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb + jr;
-      size_t j = 0;
-      for (; j < rem; j++)
-        dest[p * GEMM_F64_NR + j] = src[j];
-      for (; j < GEMM_F64_NR; j++)
-        dest[p * GEMM_F64_NR + j] = 0.0;
+      double *d = dest + p * GEMM_F64_NR;
+      _mm512_storeu_pd(d, _mm512_maskz_loadu_pd(m0, src));
+      _mm512_storeu_pd(d + 8, _mm512_maskz_loadu_pd(m1, src + 8));
     }
   }
 }
@@ -143,13 +197,13 @@ static inline void _gemm_pack_b_strip_f64(const double *b, double *dest,
       _mm512_storeu_pd(dest + p * GEMM_F64_NR + 8, _mm512_loadu_pd(src + 8));
     }
   } else {
+    __mmask8 m0 = (__mmask8)((nr_pack >= 8) ? 0xFF : (1u << nr_pack) - 1u);
+    __mmask8 m1 = (__mmask8)((nr_pack > 8) ? (1u << (nr_pack - 8)) - 1u : 0u);
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb;
-      size_t j = 0;
-      for (; j < nr_pack; j++)
-        dest[p * GEMM_F64_NR + j] = src[j];
-      for (; j < GEMM_F64_NR; j++)
-        dest[p * GEMM_F64_NR + j] = 0.0;
+      double *d = dest + p * GEMM_F64_NR;
+      _mm512_storeu_pd(d, _mm512_maskz_loadu_pd(m0, src));
+      _mm512_storeu_pd(d + 8, _mm512_maskz_loadu_pd(m1, src + 8));
     }
   }
 }
@@ -157,6 +211,57 @@ static inline void _gemm_pack_b_strip_f64(const double *b, double *dest,
 static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
                                    size_t kc, intptr_t rsa, intptr_t csa) {
   size_t ir = 0;
+  /* Fast path: csa=1 (row-major A) — gather MR rows with pointer arithmetic.
+   * Precomputed row pointers for MR=14 rows, compiler auto-vectorizes
+   * the sequential stores at -O3. */
+  if (csa == 1) {
+    for (; ir + GEMM_F64_MR <= mc; ir += GEMM_F64_MR) {
+      double *dest = packed + ir * kc;
+      const double *r0 = a + (ir + 0) * rsa;
+      const double *r1 = a + (ir + 1) * rsa;
+      const double *r2 = a + (ir + 2) * rsa;
+      const double *r3 = a + (ir + 3) * rsa;
+      const double *r4 = a + (ir + 4) * rsa;
+      const double *r5 = a + (ir + 5) * rsa;
+      const double *r6 = a + (ir + 6) * rsa;
+      const double *r7 = a + (ir + 7) * rsa;
+      const double *r8 = a + (ir + 8) * rsa;
+      const double *r9 = a + (ir + 9) * rsa;
+      const double *r10 = a + (ir + 10) * rsa;
+      const double *r11 = a + (ir + 11) * rsa;
+      const double *r12 = a + (ir + 12) * rsa;
+      const double *r13 = a + (ir + 13) * rsa;
+      for (size_t p = 0; p < kc; p++) {
+        double *d = dest + p * GEMM_F64_MR;
+        d[0] = r0[p];
+        d[1] = r1[p];
+        d[2] = r2[p];
+        d[3] = r3[p];
+        d[4] = r4[p];
+        d[5] = r5[p];
+        d[6] = r6[p];
+        d[7] = r7[p];
+        d[8] = r8[p];
+        d[9] = r9[p];
+        d[10] = r10[p];
+        d[11] = r11[p];
+        d[12] = r12[p];
+        d[13] = r13[p];
+      }
+    }
+    if (ir < mc) {
+      double *dest = packed + ir * kc;
+      size_t rem = mc - ir;
+      for (size_t p = 0; p < kc; p++) {
+        size_t i = 0;
+        for (; i < rem; i++)
+          dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p];
+        for (; i < GEMM_F64_MR; i++)
+          dest[p * GEMM_F64_MR + i] = 0.0;
+      }
+    }
+    return;
+  }
   for (; ir + GEMM_F64_MR <= mc; ir += GEMM_F64_MR) {
     double *dest = packed + ir * kc;
     for (size_t p = 0; p < kc; p++) {
@@ -183,17 +288,47 @@ static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
  */
 
 /* One K-iteration of the 12x32 micro-kernel body.
- * ap points to 12 packed A values (MR stride), bp points to 32 packed B values.
- * 24 FMA instructions: 12 broadcasts x 2 ZMM B-vector halves. */
-#define GEMM_F32_K_ITER(ap, bp)                   \
-  do {                                            \
-    __m512 b0 = _mm512_loadu_ps(bp);              \
-    __m512 b1 = _mm512_loadu_ps((bp) + 16);       \
-    for (size_t _i = 0; _i < GEMM_F32_MR; _i++) { \
-      __m512 av = _mm512_set1_ps(*((ap) + _i));   \
-      c0[_i] = _mm512_fmadd_ps(av, b0, c0[_i]);   \
-      c1[_i] = _mm512_fmadd_ps(av, b1, c1[_i]);   \
-    }                                             \
+ * BLIS-style: B vectors (b0/b1) pre-loaded before call, 2 alternating A
+ * broadcast registers (a0/a1) for ILP. Fully unrolled over MR=12 rows
+ * in 6 pairs. Pre-loads next B at end for next iteration. */
+#define GEMM_F32_K_ITER(ap, b0, b1)           \
+  do {                                        \
+    __m512 a0 = _mm512_set1_ps(*((ap) + 0));  \
+    __m512 a1 = _mm512_set1_ps(*((ap) + 1));  \
+    c0[0] = _mm512_fmadd_ps(a0, b0, c0[0]);   \
+    c1[0] = _mm512_fmadd_ps(a0, b1, c1[0]);   \
+    c0[1] = _mm512_fmadd_ps(a1, b0, c0[1]);   \
+    c1[1] = _mm512_fmadd_ps(a1, b1, c1[1]);   \
+    a0 = _mm512_set1_ps(*((ap) + 2));         \
+    a1 = _mm512_set1_ps(*((ap) + 3));         \
+    c0[2] = _mm512_fmadd_ps(a0, b0, c0[2]);   \
+    c1[2] = _mm512_fmadd_ps(a0, b1, c1[2]);   \
+    c0[3] = _mm512_fmadd_ps(a1, b0, c0[3]);   \
+    c1[3] = _mm512_fmadd_ps(a1, b1, c1[3]);   \
+    a0 = _mm512_set1_ps(*((ap) + 4));         \
+    a1 = _mm512_set1_ps(*((ap) + 5));         \
+    c0[4] = _mm512_fmadd_ps(a0, b0, c0[4]);   \
+    c1[4] = _mm512_fmadd_ps(a0, b1, c1[4]);   \
+    c0[5] = _mm512_fmadd_ps(a1, b0, c0[5]);   \
+    c1[5] = _mm512_fmadd_ps(a1, b1, c1[5]);   \
+    a0 = _mm512_set1_ps(*((ap) + 6));         \
+    a1 = _mm512_set1_ps(*((ap) + 7));         \
+    c0[6] = _mm512_fmadd_ps(a0, b0, c0[6]);   \
+    c1[6] = _mm512_fmadd_ps(a0, b1, c1[6]);   \
+    c0[7] = _mm512_fmadd_ps(a1, b0, c0[7]);   \
+    c1[7] = _mm512_fmadd_ps(a1, b1, c1[7]);   \
+    a0 = _mm512_set1_ps(*((ap) + 8));         \
+    a1 = _mm512_set1_ps(*((ap) + 9));         \
+    c0[8] = _mm512_fmadd_ps(a0, b0, c0[8]);   \
+    c1[8] = _mm512_fmadd_ps(a0, b1, c1[8]);   \
+    c0[9] = _mm512_fmadd_ps(a1, b0, c0[9]);   \
+    c1[9] = _mm512_fmadd_ps(a1, b1, c1[9]);   \
+    a0 = _mm512_set1_ps(*((ap) + 10));        \
+    a1 = _mm512_set1_ps(*((ap) + 11));        \
+    c0[10] = _mm512_fmadd_ps(a0, b0, c0[10]); \
+    c1[10] = _mm512_fmadd_ps(a0, b1, c1[10]); \
+    c0[11] = _mm512_fmadd_ps(a1, b0, c0[11]); \
+    c1[11] = _mm512_fmadd_ps(a1, b1, c1[11]); \
   } while (0)
 
 static inline void gemm_ukernel_f32_12x32(const float *a, const float *b,
@@ -219,46 +354,73 @@ static inline void gemm_ukernel_f32_12x32(const float *a, const float *b,
   }
 
   /* Pointer-based iteration through packed A (stride MR=12) and B (stride
-   * NR=32). 8x unrolled K-loop with A+B prefetch (BLIS SKX pattern). */
+   * NR=32). BLIS-style B pre-load + 2 alternating A broadcasts.
+   * 8x unrolled K-loop with A+B prefetch. */
   const float *ap = a;
   const float *bp = b;
   size_t k_iter = kc / 8;
   size_t k_left = kc % 8;
 
+  /* Pre-load first B vector pair (BLIS-style) */
+  __m512 b0 = _mm512_loadu_ps(bp);
+  __m512 b1 = _mm512_loadu_ps(bp + 16);
+
   for (size_t ki = 0; ki < k_iter; ki++) {
-    GEMM_F32_K_ITER(ap, bp);
+    GEMM_F32_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
-    GEMM_F32_K_ITER(ap, bp);
+    b0 = _mm512_loadu_ps(bp);
+    b1 = _mm512_loadu_ps(bp + 16);
+    GEMM_F32_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
+    b0 = _mm512_loadu_ps(bp);
+    b1 = _mm512_loadu_ps(bp + 16);
     _mm_prefetch((const char *)(ap + 2 * GEMM_F32_MR), _MM_HINT_T0);
-    GEMM_F32_K_ITER(ap, bp);
+    GEMM_F32_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
-    GEMM_F32_K_ITER(ap, bp);
+    b0 = _mm512_loadu_ps(bp);
+    b1 = _mm512_loadu_ps(bp + 16);
+    GEMM_F32_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
+    b0 = _mm512_loadu_ps(bp);
+    b1 = _mm512_loadu_ps(bp + 16);
     _mm_prefetch((const char *)(bp + 2 * GEMM_F32_NR), _MM_HINT_T0);
-    GEMM_F32_K_ITER(ap, bp);
+    GEMM_F32_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
-    GEMM_F32_K_ITER(ap, bp);
+    b0 = _mm512_loadu_ps(bp);
+    b1 = _mm512_loadu_ps(bp + 16);
+    GEMM_F32_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
+    b0 = _mm512_loadu_ps(bp);
+    b1 = _mm512_loadu_ps(bp + 16);
     _mm_prefetch((const char *)(ap + 4 * GEMM_F32_MR), _MM_HINT_T0);
-    GEMM_F32_K_ITER(ap, bp);
+    GEMM_F32_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
-    GEMM_F32_K_ITER(ap, bp);
+    b0 = _mm512_loadu_ps(bp);
+    b1 = _mm512_loadu_ps(bp + 16);
+    GEMM_F32_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
+    b0 = _mm512_loadu_ps(bp);
+    b1 = _mm512_loadu_ps(bp + 16);
   }
   for (size_t ki = 0; ki < k_left; ki++) {
-    GEMM_F32_K_ITER(ap, bp);
+    GEMM_F32_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
+    b0 = _mm512_loadu_ps(bp);
+    b1 = _mm512_loadu_ps(bp + 16);
   }
+
+  /* Refresh C prefetch — lines may have been evicted during K-loop */
+  for (size_t i = 0; i < GEMM_F32_MR; i++)
+    _mm_prefetch((const char *)(c + i * rso), _MM_HINT_T0);
 
   for (size_t i = 0; i < GEMM_F32_MR; i++) {
     float *ci = c + i * rso;
@@ -426,15 +588,54 @@ static inline void gemm_f32_avx512(const float *a, const float *b, float *out,
    ═══════════════════════════════════════════════════════════════════════════
  */
 
-#define GEMM_F64_K_ITER(ap, bp)                   \
-  do {                                            \
-    __m512d b0 = _mm512_loadu_pd(bp);             \
-    __m512d b1 = _mm512_loadu_pd((bp) + 8);       \
-    for (size_t _i = 0; _i < GEMM_F64_MR; _i++) { \
-      __m512d av = _mm512_set1_pd(*((ap) + _i));  \
-      c0[_i] = _mm512_fmadd_pd(av, b0, c0[_i]);   \
-      c1[_i] = _mm512_fmadd_pd(av, b1, c1[_i]);   \
-    }                                             \
+/* One K-iteration of the 14x16 f64 micro-kernel body.
+ * BLIS-style: B vectors (b0/b1) pre-loaded before call, 2 alternating A
+ * broadcast registers (a0/a1) for ILP. Fully unrolled over MR=14 rows
+ * in 7 pairs. Pre-loads next B at end for next iteration. */
+#define GEMM_F64_K_ITER(ap, b0, b1)           \
+  do {                                        \
+    __m512d a0 = _mm512_set1_pd(*((ap) + 0)); \
+    __m512d a1 = _mm512_set1_pd(*((ap) + 1)); \
+    c0[0] = _mm512_fmadd_pd(a0, b0, c0[0]);   \
+    c1[0] = _mm512_fmadd_pd(a0, b1, c1[0]);   \
+    c0[1] = _mm512_fmadd_pd(a1, b0, c0[1]);   \
+    c1[1] = _mm512_fmadd_pd(a1, b1, c1[1]);   \
+    a0 = _mm512_set1_pd(*((ap) + 2));         \
+    a1 = _mm512_set1_pd(*((ap) + 3));         \
+    c0[2] = _mm512_fmadd_pd(a0, b0, c0[2]);   \
+    c1[2] = _mm512_fmadd_pd(a0, b1, c1[2]);   \
+    c0[3] = _mm512_fmadd_pd(a1, b0, c0[3]);   \
+    c1[3] = _mm512_fmadd_pd(a1, b1, c1[3]);   \
+    a0 = _mm512_set1_pd(*((ap) + 4));         \
+    a1 = _mm512_set1_pd(*((ap) + 5));         \
+    c0[4] = _mm512_fmadd_pd(a0, b0, c0[4]);   \
+    c1[4] = _mm512_fmadd_pd(a0, b1, c1[4]);   \
+    c0[5] = _mm512_fmadd_pd(a1, b0, c0[5]);   \
+    c1[5] = _mm512_fmadd_pd(a1, b1, c1[5]);   \
+    a0 = _mm512_set1_pd(*((ap) + 6));         \
+    a1 = _mm512_set1_pd(*((ap) + 7));         \
+    c0[6] = _mm512_fmadd_pd(a0, b0, c0[6]);   \
+    c1[6] = _mm512_fmadd_pd(a0, b1, c1[6]);   \
+    c0[7] = _mm512_fmadd_pd(a1, b0, c0[7]);   \
+    c1[7] = _mm512_fmadd_pd(a1, b1, c1[7]);   \
+    a0 = _mm512_set1_pd(*((ap) + 8));         \
+    a1 = _mm512_set1_pd(*((ap) + 9));         \
+    c0[8] = _mm512_fmadd_pd(a0, b0, c0[8]);   \
+    c1[8] = _mm512_fmadd_pd(a0, b1, c1[8]);   \
+    c0[9] = _mm512_fmadd_pd(a1, b0, c0[9]);   \
+    c1[9] = _mm512_fmadd_pd(a1, b1, c1[9]);   \
+    a0 = _mm512_set1_pd(*((ap) + 10));        \
+    a1 = _mm512_set1_pd(*((ap) + 11));        \
+    c0[10] = _mm512_fmadd_pd(a0, b0, c0[10]); \
+    c1[10] = _mm512_fmadd_pd(a0, b1, c1[10]); \
+    c0[11] = _mm512_fmadd_pd(a1, b0, c0[11]); \
+    c1[11] = _mm512_fmadd_pd(a1, b1, c1[11]); \
+    a0 = _mm512_set1_pd(*((ap) + 12));        \
+    a1 = _mm512_set1_pd(*((ap) + 13));        \
+    c0[12] = _mm512_fmadd_pd(a0, b0, c0[12]); \
+    c1[12] = _mm512_fmadd_pd(a0, b1, c1[12]); \
+    c0[13] = _mm512_fmadd_pd(a1, b0, c0[13]); \
+    c1[13] = _mm512_fmadd_pd(a1, b1, c1[13]); \
   } while (0)
 
 static inline void gemm_ukernel_f64_14x16(const double *a, const double *b,
@@ -464,40 +665,68 @@ static inline void gemm_ukernel_f64_14x16(const double *a, const double *b,
   size_t k_iter = kc / 8;
   size_t k_left = kc % 8;
 
+  /* Pre-load first B vector pair (BLIS-style) */
+  __m512d b0 = _mm512_loadu_pd(bp);
+  __m512d b1 = _mm512_loadu_pd(bp + 8);
+
+  /* A prefetch distances doubled for f64 (8 bytes/elem vs f32 4 bytes):
+   * MR=14, each K-col = 14*8=112 bytes. 2 K ahead = 224B, 4 K ahead = 448B. */
   for (size_t ki = 0; ki < k_iter; ki++) {
-    GEMM_F64_K_ITER(ap, bp);
+    GEMM_F64_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
-    GEMM_F64_K_ITER(ap, bp);
+    b0 = _mm512_loadu_pd(bp);
+    b1 = _mm512_loadu_pd(bp + 8);
+    GEMM_F64_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
-    _mm_prefetch((const char *)(ap + 2 * GEMM_F64_MR), _MM_HINT_T0);
-    GEMM_F64_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
-    GEMM_F64_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
-    _mm_prefetch((const char *)(bp + 2 * GEMM_F64_NR), _MM_HINT_T0);
-    GEMM_F64_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
-    GEMM_F64_K_ITER(ap, bp);
-    ap += csa;
-    bp += rsb;
+    b0 = _mm512_loadu_pd(bp);
+    b1 = _mm512_loadu_pd(bp + 8);
     _mm_prefetch((const char *)(ap + 4 * GEMM_F64_MR), _MM_HINT_T0);
-    GEMM_F64_K_ITER(ap, bp);
+    GEMM_F64_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
-    GEMM_F64_K_ITER(ap, bp);
+    b0 = _mm512_loadu_pd(bp);
+    b1 = _mm512_loadu_pd(bp + 8);
+    GEMM_F64_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
+    b0 = _mm512_loadu_pd(bp);
+    b1 = _mm512_loadu_pd(bp + 8);
+    _mm_prefetch((const char *)(bp + 2 * GEMM_F64_NR), _MM_HINT_T0);
+    GEMM_F64_K_ITER(ap, b0, b1);
+    ap += csa;
+    bp += rsb;
+    b0 = _mm512_loadu_pd(bp);
+    b1 = _mm512_loadu_pd(bp + 8);
+    GEMM_F64_K_ITER(ap, b0, b1);
+    ap += csa;
+    bp += rsb;
+    b0 = _mm512_loadu_pd(bp);
+    b1 = _mm512_loadu_pd(bp + 8);
+    _mm_prefetch((const char *)(ap + 8 * GEMM_F64_MR), _MM_HINT_T0);
+    GEMM_F64_K_ITER(ap, b0, b1);
+    ap += csa;
+    bp += rsb;
+    b0 = _mm512_loadu_pd(bp);
+    b1 = _mm512_loadu_pd(bp + 8);
+    GEMM_F64_K_ITER(ap, b0, b1);
+    ap += csa;
+    bp += rsb;
+    b0 = _mm512_loadu_pd(bp);
+    b1 = _mm512_loadu_pd(bp + 8);
   }
   for (size_t ki = 0; ki < k_left; ki++) {
-    GEMM_F64_K_ITER(ap, bp);
+    GEMM_F64_K_ITER(ap, b0, b1);
     ap += csa;
     bp += rsb;
+    b0 = _mm512_loadu_pd(bp);
+    b1 = _mm512_loadu_pd(bp + 8);
   }
+
+  /* Refresh C prefetch — lines may have been evicted during K-loop */
+  for (size_t i = 0; i < GEMM_F64_MR; i++)
+    _mm_prefetch((const char *)(c + i * rso), _MM_HINT_T0);
 
   for (size_t i = 0; i < GEMM_F64_MR; i++) {
     double *ci = c + i * rso;

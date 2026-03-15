@@ -48,7 +48,7 @@
 #define GEMM_I8_MR 6
 #define GEMM_I8_MC 72
 
-#define GEMM_OMP_THRESHOLD (1 << 23)
+#define GEMM_OMP_THRESHOLD (1 << 20)
 
 #define GEMM_F32_NC 4080
 #define GEMM_F64_NC 2048
@@ -75,13 +75,15 @@ static inline void gemm_pack_b_f32_sve(const float *b, float *packed, size_t kc,
   if (jr < nc) {
     float *dest = packed + jr * kc;
     size_t rem = nc - jr;
+    /* Predicated load of rem elements; zero-fill the rest */
+    svbool_t pg_rem = svwhilelt_b32((uint32_t)0, (uint32_t)rem);
+    svbool_t pg_rest = svwhilelt_b32((uint32_t)rem, (uint32_t)nr);
+    svfloat32_t vzero = svdup_f32(0.0f);
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb + jr;
-      size_t j = 0;
-      for (; j < rem; j++)
-        dest[p * nr + j] = src[j];
-      for (; j < nr; j++)
-        dest[p * nr + j] = 0.0f;
+      svfloat32_t v = svld1_f32(pg_rem, src);
+      svst1_f32(pg_rem, dest + p * nr, v);
+      svst1_f32(pg_rest, dest + p * nr + rem, vzero);
     }
   }
 }
@@ -111,23 +113,60 @@ static inline void _gemm_pack_b_strip_f32_sve(const float *b, float *dest,
 
 static inline void gemm_pack_a_f32_sve(const float *a, float *packed, size_t mc,
                                        size_t kc, intptr_t rsa, intptr_t csa) {
-  size_t ir = 0;
-  for (; ir + GEMM_F32_MR <= mc; ir += GEMM_F32_MR) {
-    float *dest = packed + ir * kc;
-    for (size_t p = 0; p < kc; p++) {
-      for (size_t i = 0; i < GEMM_F32_MR; i++)
-        dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p * csa];
+  if (csa == 1) {
+    /* Fast path: row-major A — use row pointers, scalar per K-column */
+    size_t ir = 0;
+    for (; ir + GEMM_F32_MR <= mc; ir += GEMM_F32_MR) {
+      float *dest = packed + ir * kc;
+      const float *r0 = a + (ir + 0) * rsa;
+      const float *r1 = a + (ir + 1) * rsa;
+      const float *r2 = a + (ir + 2) * rsa;
+      const float *r3 = a + (ir + 3) * rsa;
+      const float *r4 = a + (ir + 4) * rsa;
+      const float *r5 = a + (ir + 5) * rsa;
+      const float *r6 = a + (ir + 6) * rsa;
+      const float *r7 = a + (ir + 7) * rsa;
+      for (size_t p = 0; p < kc; p++) {
+        dest[p * GEMM_F32_MR + 0] = r0[p];
+        dest[p * GEMM_F32_MR + 1] = r1[p];
+        dest[p * GEMM_F32_MR + 2] = r2[p];
+        dest[p * GEMM_F32_MR + 3] = r3[p];
+        dest[p * GEMM_F32_MR + 4] = r4[p];
+        dest[p * GEMM_F32_MR + 5] = r5[p];
+        dest[p * GEMM_F32_MR + 6] = r6[p];
+        dest[p * GEMM_F32_MR + 7] = r7[p];
+      }
     }
-  }
-  if (ir < mc) {
-    float *dest = packed + ir * kc;
-    size_t rem = mc - ir;
-    for (size_t p = 0; p < kc; p++) {
-      size_t i = 0;
-      for (; i < rem; i++)
-        dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p * csa];
-      for (; i < GEMM_F32_MR; i++)
-        dest[p * GEMM_F32_MR + i] = 0.0f;
+    if (ir < mc) {
+      float *dest = packed + ir * kc;
+      size_t rem = mc - ir;
+      for (size_t p = 0; p < kc; p++) {
+        size_t i = 0;
+        for (; i < rem; i++)
+          dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p];
+        for (; i < GEMM_F32_MR; i++)
+          dest[p * GEMM_F32_MR + i] = 0.0f;
+      }
+    }
+  } else {
+    size_t ir = 0;
+    for (; ir + GEMM_F32_MR <= mc; ir += GEMM_F32_MR) {
+      float *dest = packed + ir * kc;
+      for (size_t p = 0; p < kc; p++) {
+        for (size_t i = 0; i < GEMM_F32_MR; i++)
+          dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p * csa];
+      }
+    }
+    if (ir < mc) {
+      float *dest = packed + ir * kc;
+      size_t rem = mc - ir;
+      for (size_t p = 0; p < kc; p++) {
+        size_t i = 0;
+        for (; i < rem; i++)
+          dest[p * GEMM_F32_MR + i] = a[(ir + i) * rsa + p * csa];
+        for (; i < GEMM_F32_MR; i++)
+          dest[p * GEMM_F32_MR + i] = 0.0f;
+      }
     }
   }
 }
@@ -151,13 +190,15 @@ static inline void gemm_pack_b_f64_sve(const double *b, double *packed,
   if (jr < nc) {
     double *dest = packed + jr * kc;
     size_t rem = nc - jr;
+    /* Predicated load of rem elements; zero-fill the rest */
+    svbool_t pg_rem = svwhilelt_b64((uint64_t)0, (uint64_t)rem);
+    svbool_t pg_rest = svwhilelt_b64((uint64_t)rem, (uint64_t)nr);
+    svfloat64_t vzero = svdup_f64(0.0);
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb + jr;
-      size_t j = 0;
-      for (; j < rem; j++)
-        dest[p * nr + j] = src[j];
-      for (; j < nr; j++)
-        dest[p * nr + j] = 0.0;
+      svfloat64_t v = svld1_f64(pg_rem, src);
+      svst1_f64(pg_rem, dest + p * nr, v);
+      svst1_f64(pg_rest, dest + p * nr + rem, vzero);
     }
   }
 }
@@ -188,23 +229,56 @@ static inline void _gemm_pack_b_strip_f64_sve(const double *b, double *dest,
 static inline void gemm_pack_a_f64_sve(const double *a, double *packed,
                                        size_t mc, size_t kc, intptr_t rsa,
                                        intptr_t csa) {
-  size_t ir = 0;
-  for (; ir + GEMM_F64_MR <= mc; ir += GEMM_F64_MR) {
-    double *dest = packed + ir * kc;
-    for (size_t p = 0; p < kc; p++) {
-      for (size_t i = 0; i < GEMM_F64_MR; i++)
-        dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p * csa];
+  if (csa == 1) {
+    /* Fast path: row-major A — use row pointers, scalar per K-column */
+    size_t ir = 0;
+    for (; ir + GEMM_F64_MR <= mc; ir += GEMM_F64_MR) {
+      double *dest = packed + ir * kc;
+      const double *r0 = a + (ir + 0) * rsa;
+      const double *r1 = a + (ir + 1) * rsa;
+      const double *r2 = a + (ir + 2) * rsa;
+      const double *r3 = a + (ir + 3) * rsa;
+      const double *r4 = a + (ir + 4) * rsa;
+      const double *r5 = a + (ir + 5) * rsa;
+      for (size_t p = 0; p < kc; p++) {
+        dest[p * GEMM_F64_MR + 0] = r0[p];
+        dest[p * GEMM_F64_MR + 1] = r1[p];
+        dest[p * GEMM_F64_MR + 2] = r2[p];
+        dest[p * GEMM_F64_MR + 3] = r3[p];
+        dest[p * GEMM_F64_MR + 4] = r4[p];
+        dest[p * GEMM_F64_MR + 5] = r5[p];
+      }
     }
-  }
-  if (ir < mc) {
-    double *dest = packed + ir * kc;
-    size_t rem = mc - ir;
-    for (size_t p = 0; p < kc; p++) {
-      size_t i = 0;
-      for (; i < rem; i++)
-        dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p * csa];
-      for (; i < GEMM_F64_MR; i++)
-        dest[p * GEMM_F64_MR + i] = 0.0;
+    if (ir < mc) {
+      double *dest = packed + ir * kc;
+      size_t rem = mc - ir;
+      for (size_t p = 0; p < kc; p++) {
+        size_t i = 0;
+        for (; i < rem; i++)
+          dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p];
+        for (; i < GEMM_F64_MR; i++)
+          dest[p * GEMM_F64_MR + i] = 0.0;
+      }
+    }
+  } else {
+    size_t ir = 0;
+    for (; ir + GEMM_F64_MR <= mc; ir += GEMM_F64_MR) {
+      double *dest = packed + ir * kc;
+      for (size_t p = 0; p < kc; p++) {
+        for (size_t i = 0; i < GEMM_F64_MR; i++)
+          dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p * csa];
+      }
+    }
+    if (ir < mc) {
+      double *dest = packed + ir * kc;
+      size_t rem = mc - ir;
+      for (size_t p = 0; p < kc; p++) {
+        size_t i = 0;
+        for (; i < rem; i++)
+          dest[p * GEMM_F64_MR + i] = a[(ir + i) * rsa + p * csa];
+        for (; i < GEMM_F64_MR; i++)
+          dest[p * GEMM_F64_MR + i] = 0.0;
+      }
     }
   }
 }
@@ -216,35 +290,37 @@ static inline void gemm_pack_a_f64_sve(const double *a, double *packed,
    ═══════════════════════════════════════════════════════════════════════════
  */
 
-#define GEMM_F32_SVE_K_ITER(ap, bp, vl, ptrue)      \
-  do {                                              \
-    svfloat32_t b0 = svld1_f32(ptrue, (bp));        \
-    svfloat32_t b1 = svld1_f32(ptrue, (bp) + (vl)); \
-    svfloat32_t av;                                 \
-    av = svdup_f32((ap)[0]);                        \
-    c00 = svmla_f32_x(ptrue, c00, av, b0);          \
-    c01 = svmla_f32_x(ptrue, c01, av, b1);          \
-    av = svdup_f32((ap)[1]);                        \
-    c10 = svmla_f32_x(ptrue, c10, av, b0);          \
-    c11 = svmla_f32_x(ptrue, c11, av, b1);          \
-    av = svdup_f32((ap)[2]);                        \
-    c20 = svmla_f32_x(ptrue, c20, av, b0);          \
-    c21 = svmla_f32_x(ptrue, c21, av, b1);          \
-    av = svdup_f32((ap)[3]);                        \
-    c30 = svmla_f32_x(ptrue, c30, av, b0);          \
-    c31 = svmla_f32_x(ptrue, c31, av, b1);          \
-    av = svdup_f32((ap)[4]);                        \
-    c40 = svmla_f32_x(ptrue, c40, av, b0);          \
-    c41 = svmla_f32_x(ptrue, c41, av, b1);          \
-    av = svdup_f32((ap)[5]);                        \
-    c50 = svmla_f32_x(ptrue, c50, av, b0);          \
-    c51 = svmla_f32_x(ptrue, c51, av, b1);          \
-    av = svdup_f32((ap)[6]);                        \
-    c60 = svmla_f32_x(ptrue, c60, av, b0);          \
-    c61 = svmla_f32_x(ptrue, c61, av, b1);          \
-    av = svdup_f32((ap)[7]);                        \
-    c70 = svmla_f32_x(ptrue, c70, av, b0);          \
-    c71 = svmla_f32_x(ptrue, c71, av, b1);          \
+/* Uses pre-loaded b0/b1 from outer scope; 2 alternating A broadcast regs
+ * (av0/av1) to break dependency chains; loads NEXT B at end (BLIS pipeline). */
+#define GEMM_F32_SVE_K_ITER(ap, bp, vl, ptrue) \
+  do {                                         \
+    svfloat32_t av0, av1;                      \
+    av0 = svdup_f32((ap)[0]);                  \
+    c00 = svmla_f32_x(ptrue, c00, av0, b0);    \
+    c01 = svmla_f32_x(ptrue, c01, av0, b1);    \
+    av1 = svdup_f32((ap)[1]);                  \
+    c10 = svmla_f32_x(ptrue, c10, av1, b0);    \
+    c11 = svmla_f32_x(ptrue, c11, av1, b1);    \
+    av0 = svdup_f32((ap)[2]);                  \
+    c20 = svmla_f32_x(ptrue, c20, av0, b0);    \
+    c21 = svmla_f32_x(ptrue, c21, av0, b1);    \
+    av1 = svdup_f32((ap)[3]);                  \
+    c30 = svmla_f32_x(ptrue, c30, av1, b0);    \
+    c31 = svmla_f32_x(ptrue, c31, av1, b1);    \
+    av0 = svdup_f32((ap)[4]);                  \
+    c40 = svmla_f32_x(ptrue, c40, av0, b0);    \
+    c41 = svmla_f32_x(ptrue, c41, av0, b1);    \
+    av1 = svdup_f32((ap)[5]);                  \
+    c50 = svmla_f32_x(ptrue, c50, av1, b0);    \
+    c51 = svmla_f32_x(ptrue, c51, av1, b1);    \
+    av0 = svdup_f32((ap)[6]);                  \
+    c60 = svmla_f32_x(ptrue, c60, av0, b0);    \
+    c61 = svmla_f32_x(ptrue, c61, av0, b1);    \
+    av1 = svdup_f32((ap)[7]);                  \
+    c70 = svmla_f32_x(ptrue, c70, av1, b0);    \
+    c71 = svmla_f32_x(ptrue, c71, av1, b1);    \
+    b0 = svld1_f32(ptrue, (bp) + rsb);         \
+    b1 = svld1_f32(ptrue, (bp) + rsb + (vl));  \
   } while (0)
 
 static inline void gemm_ukernel_f32_sve(const float *a, const float *b,
@@ -308,6 +384,10 @@ static inline void gemm_ukernel_f32_sve(const float *a, const float *b,
   size_t k_iter = kc / 8;
   size_t k_left = kc % 8;
 
+  /* Pre-load first B tile (BLIS-style pipelining) */
+  svfloat32_t b0 = svld1_f32(ptrue, bp);
+  svfloat32_t b1 = svld1_f32(ptrue, bp + vl);
+
   for (size_t ki = 0; ki < k_iter; ki++) {
     GEMM_F32_SVE_K_ITER(ap, bp, vl, ptrue);
     ap += csa;
@@ -342,6 +422,16 @@ static inline void gemm_ukernel_f32_sve(const float *a, const float *b,
     ap += csa;
     bp += rsb;
   }
+
+  /* C prefetch refresh before store */
+  __builtin_prefetch(c, 1, 3);
+  __builtin_prefetch(c + rso, 1, 3);
+  __builtin_prefetch(c + 2 * rso, 1, 3);
+  __builtin_prefetch(c + 3 * rso, 1, 3);
+  __builtin_prefetch(c + 4 * rso, 1, 3);
+  __builtin_prefetch(c + 5 * rso, 1, 3);
+  __builtin_prefetch(c + 6 * rso, 1, 3);
+  __builtin_prefetch(c + 7 * rso, 1, 3);
 
   svst1_f32(ptrue, c, c00);
   svst1_f32(ptrue, c + vl, c01);
@@ -527,29 +617,31 @@ static inline void gemm_f32_sve(const float *a, const float *b, float *out,
    ═══════════════════════════════════════════════════════════════════════════
  */
 
-#define GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue)      \
-  do {                                              \
-    svfloat64_t b0 = svld1_f64(ptrue, (bp));        \
-    svfloat64_t b1 = svld1_f64(ptrue, (bp) + (vl)); \
-    svfloat64_t av;                                 \
-    av = svdup_f64((ap)[0]);                        \
-    c00 = svmla_f64_x(ptrue, c00, av, b0);          \
-    c01 = svmla_f64_x(ptrue, c01, av, b1);          \
-    av = svdup_f64((ap)[1]);                        \
-    c10 = svmla_f64_x(ptrue, c10, av, b0);          \
-    c11 = svmla_f64_x(ptrue, c11, av, b1);          \
-    av = svdup_f64((ap)[2]);                        \
-    c20 = svmla_f64_x(ptrue, c20, av, b0);          \
-    c21 = svmla_f64_x(ptrue, c21, av, b1);          \
-    av = svdup_f64((ap)[3]);                        \
-    c30 = svmla_f64_x(ptrue, c30, av, b0);          \
-    c31 = svmla_f64_x(ptrue, c31, av, b1);          \
-    av = svdup_f64((ap)[4]);                        \
-    c40 = svmla_f64_x(ptrue, c40, av, b0);          \
-    c41 = svmla_f64_x(ptrue, c41, av, b1);          \
-    av = svdup_f64((ap)[5]);                        \
-    c50 = svmla_f64_x(ptrue, c50, av, b0);          \
-    c51 = svmla_f64_x(ptrue, c51, av, b1);          \
+/* Uses pre-loaded b0/b1 from outer scope; 2 alternating A broadcast regs
+ * (av0/av1) to break dependency chains; loads NEXT B at end (BLIS pipeline). */
+#define GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue) \
+  do {                                         \
+    svfloat64_t av0, av1;                      \
+    av0 = svdup_f64((ap)[0]);                  \
+    c00 = svmla_f64_x(ptrue, c00, av0, b0);    \
+    c01 = svmla_f64_x(ptrue, c01, av0, b1);    \
+    av1 = svdup_f64((ap)[1]);                  \
+    c10 = svmla_f64_x(ptrue, c10, av1, b0);    \
+    c11 = svmla_f64_x(ptrue, c11, av1, b1);    \
+    av0 = svdup_f64((ap)[2]);                  \
+    c20 = svmla_f64_x(ptrue, c20, av0, b0);    \
+    c21 = svmla_f64_x(ptrue, c21, av0, b1);    \
+    av1 = svdup_f64((ap)[3]);                  \
+    c30 = svmla_f64_x(ptrue, c30, av1, b0);    \
+    c31 = svmla_f64_x(ptrue, c31, av1, b1);    \
+    av0 = svdup_f64((ap)[4]);                  \
+    c40 = svmla_f64_x(ptrue, c40, av0, b0);    \
+    c41 = svmla_f64_x(ptrue, c41, av0, b1);    \
+    av1 = svdup_f64((ap)[5]);                  \
+    c50 = svmla_f64_x(ptrue, c50, av1, b0);    \
+    c51 = svmla_f64_x(ptrue, c51, av1, b1);    \
+    b0 = svld1_f64(ptrue, (bp) + rsb);         \
+    b1 = svld1_f64(ptrue, (bp) + rsb + (vl));  \
   } while (0)
 
 static inline void gemm_ukernel_f64_sve(const double *a, const double *b,
@@ -601,21 +693,11 @@ static inline void gemm_ukernel_f64_sve(const double *a, const double *b,
   size_t k_iter = kc / 8;
   size_t k_left = kc % 8;
 
+  /* Pre-load first B tile (BLIS-style pipelining) */
+  svfloat64_t b0 = svld1_f64(ptrue, bp);
+  svfloat64_t b1 = svld1_f64(ptrue, bp + vl);
+
   for (size_t ki = 0; ki < k_iter; ki++) {
-    GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
-    ap += csa;
-    bp += rsb;
-    GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
-    ap += csa;
-    bp += rsb;
-    __builtin_prefetch(ap + 48, 0, 3);
-    GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
-    ap += csa;
-    bp += rsb;
-    GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
-    ap += csa;
-    bp += rsb;
-    __builtin_prefetch(bp + 64, 0, 3);
     GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
     ap += csa;
     bp += rsb;
@@ -629,12 +711,34 @@ static inline void gemm_ukernel_f64_sve(const double *a, const double *b,
     GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
     ap += csa;
     bp += rsb;
+    __builtin_prefetch(bp + 128, 0, 3);
+    GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
+    ap += csa;
+    bp += rsb;
+    GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
+    ap += csa;
+    bp += rsb;
+    __builtin_prefetch(ap + 192, 0, 3);
+    GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
+    ap += csa;
+    bp += rsb;
+    GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
+    ap += csa;
+    bp += rsb;
   }
   for (size_t ki = 0; ki < k_left; ki++) {
     GEMM_F64_SVE_K_ITER(ap, bp, vl, ptrue);
     ap += csa;
     bp += rsb;
   }
+
+  /* C prefetch refresh before store */
+  __builtin_prefetch(c, 1, 3);
+  __builtin_prefetch(c + rso, 1, 3);
+  __builtin_prefetch(c + 2 * rso, 1, 3);
+  __builtin_prefetch(c + 3 * rso, 1, 3);
+  __builtin_prefetch(c + 4 * rso, 1, 3);
+  __builtin_prefetch(c + 5 * rso, 1, 3);
 
   svst1_f64(ptrue, c, c00);
   svst1_f64(ptrue, c + vl, c01);
