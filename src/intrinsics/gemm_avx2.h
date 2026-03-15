@@ -156,14 +156,81 @@ static inline void gemm_pack_a_f32(const float *a, float *packed, size_t mc,
       const float *r3 = a + (ir + 3) * rsa;
       const float *r4 = a + (ir + 4) * rsa;
       const float *r5 = a + (ir + 5) * rsa;
-      for (size_t p = 0; p < kc; p++) {
-        dest[0] = r0[p];
-        dest[1] = r1[p];
-        dest[2] = r2[p];
-        dest[3] = r3[p];
-        dest[4] = r4[p];
-        dest[5] = r5[p];
-        dest += GEMM_F32_MR;
+      /* BLIS-style SIMD transpose: process 8 K-columns at a time.
+         Load 8 floats from each of 6 rows, transpose rows 0-3 (4×8)
+         and rows 4-5 (2×8), store 8 packed columns of 6 floats. */
+      size_t p = 0;
+      for (; p + 8 <= kc; p += 8) {
+        /* Load 8 floats from each row */
+        __m256 v0 = _mm256_loadu_ps(r0 + p);
+        __m256 v1 = _mm256_loadu_ps(r1 + p);
+        __m256 v2 = _mm256_loadu_ps(r2 + p);
+        __m256 v3 = _mm256_loadu_ps(r3 + p);
+        __m256 v4 = _mm256_loadu_ps(r4 + p);
+        __m256 v5 = _mm256_loadu_ps(r5 + p);
+        /* Transpose rows 0-3: produces columns 0,1,4,5 (lo) then 2,3,6,7 (hi)
+         */
+        __m256 lo01 = _mm256_unpacklo_ps(v0, v1);
+        __m256 lo23 = _mm256_unpacklo_ps(v2, v3);
+        __m256 s0 = _mm256_shuffle_ps(lo23, lo01, 0x4E);
+        __m256 col04_03 = _mm256_blend_ps(lo01, s0, 0xCC);
+        __m256 col15_03 = _mm256_blend_ps(lo23, s0, 0x33);
+        __m128 c0 = _mm256_castps256_ps128(col04_03);   /* col 0, rows 0-3 */
+        __m128 c4 = _mm256_extractf128_ps(col04_03, 1); /* col 4, rows 0-3 */
+        __m128 c1 = _mm256_castps256_ps128(col15_03);   /* col 1, rows 0-3 */
+        __m128 c5 = _mm256_extractf128_ps(col15_03, 1); /* col 5, rows 0-3 */
+        __m256 hi01 = _mm256_unpackhi_ps(v0, v1);
+        __m256 hi23 = _mm256_unpackhi_ps(v2, v3);
+        __m256 s1 = _mm256_shuffle_ps(hi23, hi01, 0x4E);
+        __m256 col26_03 = _mm256_blend_ps(hi01, s1, 0xCC);
+        __m256 col37_03 = _mm256_blend_ps(hi23, s1, 0x33);
+        __m128 c2 = _mm256_castps256_ps128(col26_03);   /* col 2, rows 0-3 */
+        __m128 c6 = _mm256_extractf128_ps(col26_03, 1); /* col 6, rows 0-3 */
+        __m128 c3 = _mm256_castps256_ps128(col37_03);   /* col 3, rows 0-3 */
+        __m128 c7 = _mm256_extractf128_ps(col37_03, 1); /* col 7, rows 0-3 */
+        /* Transpose rows 4-5: 2×8 partial transpose */
+        __m256 u_lo = _mm256_unpacklo_ps(v4, v5);
+        __m256 u_hi = _mm256_unpackhi_ps(v4, v5);
+        __m128d u_lo_0 = _mm_castps_pd(_mm256_castps256_ps128(u_lo));
+        __m128d u_lo_4 = _mm_castps_pd(_mm256_extractf128_ps(u_lo, 1));
+        __m128d u_hi_0 = _mm_castps_pd(_mm256_castps256_ps128(u_hi));
+        __m128d u_hi_4 = _mm_castps_pd(_mm256_extractf128_ps(u_hi, 1));
+        /* Store 8 packed columns of 6 floats (24 bytes each) */
+        float *d = dest + p * GEMM_F32_MR;
+        /* Column 0 */
+        _mm_storeu_ps(d + 0 * 6, c0);
+        _mm_storel_pd((double *)(d + 0 * 6 + 4), u_lo_0);
+        /* Column 1 */
+        _mm_storeu_ps(d + 1 * 6, c1);
+        _mm_storeh_pd((double *)(d + 1 * 6 + 4), u_lo_0);
+        /* Column 2 */
+        _mm_storeu_ps(d + 2 * 6, c2);
+        _mm_storel_pd((double *)(d + 2 * 6 + 4), u_hi_0);
+        /* Column 3 */
+        _mm_storeu_ps(d + 3 * 6, c3);
+        _mm_storeh_pd((double *)(d + 3 * 6 + 4), u_hi_0);
+        /* Column 4 */
+        _mm_storeu_ps(d + 4 * 6, c4);
+        _mm_storel_pd((double *)(d + 4 * 6 + 4), u_lo_4);
+        /* Column 5 */
+        _mm_storeu_ps(d + 5 * 6, c5);
+        _mm_storeh_pd((double *)(d + 5 * 6 + 4), u_lo_4);
+        /* Column 6 */
+        _mm_storeu_ps(d + 6 * 6, c6);
+        _mm_storel_pd((double *)(d + 6 * 6 + 4), u_hi_4);
+        /* Column 7 */
+        _mm_storeu_ps(d + 7 * 6, c7);
+        _mm_storeh_pd((double *)(d + 7 * 6 + 4), u_hi_4);
+      }
+      /* Scalar cleanup for kc % 8 remainder */
+      for (; p < kc; p++) {
+        float *d = dest + p * GEMM_F32_MR;
+        d[0] = r0[p];
+        d[1] = r1[p];
+        d[2] = r2[p];
+        d[3] = r3[p];
+        d[4] = r4[p];
+        d[5] = r5[p];
       }
     }
     if (ir < mc) {
@@ -278,14 +345,52 @@ static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
       const double *r3 = a + (ir + 3) * rsa;
       const double *r4 = a + (ir + 4) * rsa;
       const double *r5 = a + (ir + 5) * rsa;
-      for (size_t p = 0; p < kc; p++) {
-        dest[0] = r0[p];
-        dest[1] = r1[p];
-        dest[2] = r2[p];
-        dest[3] = r3[p];
-        dest[4] = r4[p];
-        dest[5] = r5[p];
-        dest += GEMM_F64_MR;
+      /* BLIS-style SIMD transpose: process 4 K-columns at a time.
+         Load 4 doubles from each of 6 rows, transpose rows 0-3 (4×4)
+         and rows 4-5 (2×4), store 4 packed columns of 6 doubles. */
+      size_t p = 0;
+      for (; p + 4 <= kc; p += 4) {
+        /* Load 4 doubles from each row */
+        __m256d v0 = _mm256_loadu_pd(r0 + p);
+        __m256d v1 = _mm256_loadu_pd(r1 + p);
+        __m256d v2 = _mm256_loadu_pd(r2 + p);
+        __m256d v3 = _mm256_loadu_pd(r3 + p);
+        __m256d v4 = _mm256_loadu_pd(r4 + p);
+        __m256d v5 = _mm256_loadu_pd(r5 + p);
+        /* Transpose rows 0-3: 4×4 double transpose */
+        __m256d t0 = _mm256_unpacklo_pd(v0, v1); /* [r0_0,r1_0, r0_2,r1_2] */
+        __m256d t1 = _mm256_unpackhi_pd(v0, v1); /* [r0_1,r1_1, r0_3,r1_3] */
+        __m256d t2 = _mm256_unpacklo_pd(v2, v3); /* [r2_0,r3_0, r2_2,r3_2] */
+        __m256d t3 = _mm256_unpackhi_pd(v2, v3); /* [r2_1,r3_1, r2_3,r3_3] */
+        __m256d c0 = _mm256_insertf128_pd(t0, _mm256_castpd256_pd128(t2), 1);
+        __m256d c1 = _mm256_insertf128_pd(t1, _mm256_castpd256_pd128(t3), 1);
+        __m256d c2 = _mm256_permute2f128_pd(t0, t2, 0x31);
+        __m256d c3 = _mm256_permute2f128_pd(t1, t3, 0x31);
+        /* Transpose rows 4-5: 2×4 partial transpose */
+        __m256d u0 = _mm256_unpacklo_pd(v4, v5);   /* [r4_0,r5_0, r4_2,r5_2] */
+        __m256d u1 = _mm256_unpackhi_pd(v4, v5);   /* [r4_1,r5_1, r4_3,r5_3] */
+        __m128d u2 = _mm256_extractf128_pd(u0, 1); /* [r4_2,r5_2] */
+        __m128d u3 = _mm256_extractf128_pd(u1, 1); /* [r4_3,r5_3] */
+        /* Store 4 packed columns of 6 doubles (48 bytes each) */
+        double *d = dest + p * GEMM_F64_MR;
+        _mm256_storeu_pd(d + 0 * 6, c0);
+        _mm_storeu_pd(d + 0 * 6 + 4, _mm256_castpd256_pd128(u0));
+        _mm256_storeu_pd(d + 1 * 6, c1);
+        _mm_storeu_pd(d + 1 * 6 + 4, _mm256_castpd256_pd128(u1));
+        _mm256_storeu_pd(d + 2 * 6, c2);
+        _mm_storeu_pd(d + 2 * 6 + 4, u2);
+        _mm256_storeu_pd(d + 3 * 6, c3);
+        _mm_storeu_pd(d + 3 * 6 + 4, u3);
+      }
+      /* Scalar cleanup for kc % 4 remainder */
+      for (; p < kc; p++) {
+        double *d = dest + p * GEMM_F64_MR;
+        d[0] = r0[p];
+        d[1] = r1[p];
+        d[2] = r2[p];
+        d[3] = r3[p];
+        d[4] = r4[p];
+        d[5] = r5[p];
       }
     }
     if (ir < mc) {

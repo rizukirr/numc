@@ -1535,3 +1535,55 @@ Result (3 benchmark runs, system under significant load — high variance):
   The fix is theoretically correct (matching prefetch distance to data stride)
   and previously measured at -6 to -10% improvement (Optimization #8).
   Keeping the fix applied; will re-benchmark when system is quieter.
+
+================================================================================
+Optimization #14: BLIS-Style SIMD Transpose A-Packing (f32 + f64)
+================================================================================
+
+Problem:
+  A-packing converts row-major source A into column-panel format (MR×KC). The
+  previous implementation used scalar loads for each element of each row, then
+  stored to the pack buffer. With MR=6 and KC up to 512, this is a lot of scalar
+  memory traffic. BLIS Haswell kernels use SIMD transpose-and-pack: load multiple
+  K columns at once from each row, transpose in-register, and store as contiguous
+  MR-strided panels. This reduces load instructions and enables full-width SIMD
+  stores.
+
+Solution:
+  Replaced scalar A-packing loops with SIMD transpose packing in gemm_avx2.h:
+
+  f64 (gemm_pack_a_f64): 4× K-unroll.
+    - Load 4 doubles from each of 6 rows (4 × _mm256_loadu_pd per row, 24 total).
+    - Transpose rows 0-3 using _mm256_unpacklo/hi_pd + _mm256_permute2f128_pd
+      to get 4 column vectors, each containing {row0[k], row1[k], row2[k], row3[k]}.
+    - Transpose rows 4-5 using _mm256_unpacklo/hi_pd + _mm256_extractf128_pd
+      to get 4 pairs of {row4[k], row5[k]}.
+    - Store each column as 4 doubles (rows 0-3) + 2 doubles (rows 4-5) = MR=6.
+    - Scalar cleanup for kc % 4 remainder columns.
+
+  f32 (gemm_pack_a_f32): 8× K-unroll.
+    - Load 8 floats from each of 6 rows (6 × _mm256_loadu_ps).
+    - Transpose rows 0-3 using _mm256_unpacklo/hi_ps + _mm256_shuffle_ps(0x4E) +
+      _mm256_blend_ps(0xCC/0x33) to get 8 column vectors for rows 0-3.
+    - Transpose rows 4-5 using _mm256_unpacklo/hi_ps + 128-bit extract +
+      _mm_castps_pd + _mm_storel/h_pd for paired stores.
+    - Store each column as 4 floats (rows 0-3) + 2 floats (rows 4-5) = MR=6.
+    - Scalar cleanup for kc % 8 remainder columns.
+
+  Edge cases (ir < mc, i.e., partial MR panels) still use scalar packing.
+
+Result (same-session A/B comparison: git stash → baseline × 5 runs, restore × 5 runs):
+
+  Best-of-5 numc absolute times (us):
+                   f32 baseline    f32 SIMD    f32 Δ       f64 baseline    f64 SIMD    f64 Δ
+    128×128:       18.77           17.23       -8.2%       32.86           32.34       -1.6%
+    256×256:       78.99           72.29       -8.5%       140.49          129.44      -7.9%
+    512×512:       498.54          464.56      -6.8%       1334.54         1255.18     -5.9%
+    1024×1024:     5038.37         4647.18     -7.8%       11144.29        9709.58     -12.9%
+
+  Assessment: Consistent improvement across all sizes, both dtypes. f32 gains
+  6-9%, f64 gains 2-13%. The larger f64 gain at 1024×1024 (-12.9%) makes sense:
+  larger matrices spend proportionally more time in packing, and f64 A-packing
+  was the most scalar-heavy (48 bytes per MR row per K-iter vs 24 for f32).
+  The small f64 128×128 gain (-1.6%) is expected since packing is a smaller
+  fraction of total time at small sizes. Tests: 45/45.
