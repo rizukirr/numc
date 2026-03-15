@@ -1728,3 +1728,75 @@ Conclusion:
   The benchmark infrastructure is now much more reliable. min-time removes the
   noise that was making our results look worse than they are. The GFLOPS column
   provides an absolute metric independent of numpy's performance on a given run.
+
+═══════════════════════════════════════════════════════════════════════════════
+Experiment #18: Dedicated .S Assembly Micro-Kernels (AVX2 f32 6x16 + f64 6x8)
+═══════════════════════════════════════════════════════════════════════════════
+
+Problem:
+  Inline ASM micro-kernels use GCC extended asm with 10+ operands and compiler-
+  managed register allocation. This limits control over instruction encoding
+  (disp32 vs disp8 offsets), per-iter pointer advance patterns, and K-loop
+  unroll strategy. BLIS achieves tighter code via dedicated .S files with:
+  - Pointer bias trick (+128 on B/A) for 1-byte disp8 encoding
+  - 4x K-unroll with offset-based access and single pointer advance per group
+  - Full control over instruction scheduling and register assignment
+
+Solution:
+  Created two dedicated .S assembly files for SysV x86-64 ABI:
+  - src/intrinsics/gemm_ukernel_f32_6x16_avx2.S (286 lines)
+  - src/intrinsics/gemm_ukernel_f64_6x8_avx2.S (290 lines)
+
+  Key techniques:
+  - Simplified calling convention: (a, b, c, kc, rso, first) — 6 params vs 9
+    in inline ASM. C row pointers computed internally via lea chains.
+  - BLIS-style pointer bias: f32 biases B by +128; f64 biases both A and B
+    by +128. All memory operands within a 4-iter unroll use signed-byte
+    displacements (-128 to +127), saving ~2-3 bytes per instruction.
+  - 4x K-unroll with NO per-iter pointer advance. A and B pointers advanced
+    once at end of each 4-iter group (A += 4*MR*sizeof, B += 4*NR*sizeof).
+  - BLIS-style B pre-load: ymm12/ymm13 loaded at end of each K-iter, ready
+    for next iteration. Pre-loaded before loop entry.
+  - Software prefetch: 2x A prefetch per 4-unroll (at K-iter 0 and 2),
+    1x B prefetch per 4-unroll (at K-iter 3). f64 uses wider A prefetch
+    distances (640/1280 bytes) due to larger element size.
+  - C prefetch before compute + refresh before store.
+  - Remainder loop (kc % 4) with single-iteration B pre-load pattern.
+  - Guard: #if defined(__x86_64__) || defined(_M_X64) for x86_64-only.
+
+  Integration:
+  - CMakeLists.txt: LANGUAGES C → LANGUAGES C ASM
+  - src/CMakeLists.txt: .S files added conditionally on x86_64
+  - gemm_avx2.h: extern declarations + NUMC_HAVE_ASM_UKERNEL macro.
+    Full-tile path (mr==MR && nr==NR) calls .S kernel; edge-tile fallback
+    still uses inline ASM. Both OMP and non-OMP paths updated.
+  - MSVC excluded via !defined(_MSC_VER) — falls back to intrinsics.
+
+  Register map (both kernels):
+    ymm0-11 = 12 accumulators (6 rows x 2 NR-halves)
+    ymm12-13 = B pre-load vectors
+    ymm14-15 = A broadcast scratch (alternating)
+    rbx, r10-r13, rbp = C row pointers (callee-saved, pushed/popped)
+
+Result:
+  Tests: 45/45 pass (correctness verified including matmul tests).
+
+  A/B benchmark (noisy system, best-of-3-rounds min-time):
+  | Size | dtype | Baseline (us) | .S kernel (us) | Change  |
+  |------|-------|---------------|----------------|---------|
+  |  512 | f32   | 545           | 509            | +6.6%   |
+  |  512 | f64   | 1341          | 1297           | +3.3%   |
+  | 1024 | f32   | 5236          | 5326           | -1.7%   |
+  | 1024 | f64   | 11040         | 10943          | +0.9%   |
+
+  Performance is within noise (~±5%). The .S kernels are functionally
+  equivalent to the inline ASM. The pointer bias trick's theoretical benefit
+  (tighter encoding → better µop cache density) is 1-3% and not reliably
+  measurable under system load. Benefit may be more visible on a quiet system
+  or at very large K (where the K-loop dominates and encoding density matters
+  most).
+
+  Primary value: cleaner architecture for future optimization. The .S files
+  provide full control over instruction scheduling, easier to profile with
+  perf stat/perf record, and serve as the foundation for further tuning
+  (deferred C prefetch, different K-unroll depths, scheduling experiments).

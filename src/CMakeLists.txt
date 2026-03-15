@@ -1,4 +1,4 @@
-add_library(numc
+set(NUMC_CORE_SOURCES
     array_core.c
     array_print.c
     alloc.c
@@ -19,6 +19,16 @@ add_library(numc
     random/random.c
     error.c
 )
+
+# Dedicated .S assembly micro-kernels for x86_64 AVX2 packed GEMM
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    list(APPEND NUMC_CORE_SOURCES
+        intrinsics/gemm_ukernel_f32_6x16_avx2.S
+        intrinsics/gemm_ukernel_f64_6x8_avx2.S
+    )
+endif()
+
+add_library(numc ${NUMC_CORE_SOURCES})
 
 add_library(numc::numc ALIAS numc)
 

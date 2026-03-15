@@ -59,6 +59,19 @@
 #define GEMM_F32_NC 4080
 #define GEMM_F64_NC 4080
 
+/* ─── Dedicated .S assembly micro-kernels (x86_64 only, SysV ABI) ─── */
+#if (defined(__x86_64__) || defined(_M_X64)) && !defined(_MSC_VER)
+extern void numc_gemm_ukernel_f32_6x16_avx2(const float *a, const float *b,
+                                            float *c, uint64_t kc, int64_t rso,
+                                            int first);
+extern void numc_gemm_ukernel_f64_6x8_avx2(const double *a, const double *b,
+                                           double *c, uint64_t kc, int64_t rso,
+                                           int first);
+#define NUMC_HAVE_ASM_UKERNEL 1
+#else
+#define NUMC_HAVE_ASM_UKERNEL 0
+#endif
+
 static inline __m256i _gemm_mask_i32_lanes(size_t lanes) {
   static const int32_t mask_tbl[9][8] = {
       {0, 0, 0, 0, 0, 0, 0, 0},         {-1, 0, 0, 0, 0, 0, 0, 0},
@@ -823,9 +836,16 @@ static inline void gemm_f32_avx2(const float *a, const float *b, float *out,
           for (size_t ir = 0; ir < mc; ir += GEMM_F32_MR) {
             size_t mr_cur = GEMM_MIN(GEMM_F32_MR, mc - ir);
             if (mr_cur == GEMM_F32_MR && nr_cur == GEMM_F32_NR) {
+#if NUMC_HAVE_ASM_UKERNEL
+              numc_gemm_ukernel_f32_6x16_avx2(
+                  packed_a + ir * kc, packed_b + jr * kc,
+                  out + (ic + ir) * rso + (jc + jr), (uint64_t)kc, (int64_t)rso,
+                  first);
+#else
               gemm_ukernel_f32_6x16(packed_a + ir * kc, packed_b + jr * kc,
                                     out + (ic + ir) * rso + (jc + jr), kc, 1,
                                     GEMM_F32_MR, GEMM_F32_NR, rso, first);
+#endif
             } else {
               NUMC_ALIGNAS(32) float tmp[GEMM_F32_MR * GEMM_F32_NR];
               gemm_ukernel_f32_6x16(packed_a + ir * kc, packed_b + jr * kc, tmp,
@@ -872,9 +892,16 @@ static inline void gemm_f32_avx2(const float *a, const float *b, float *out,
           for (size_t ir = 0; ir < mc; ir += GEMM_F32_MR) {
             size_t mr_cur = GEMM_MIN(GEMM_F32_MR, mc - ir);
             if (mr_cur == GEMM_F32_MR && nr_cur == GEMM_F32_NR) {
+#if NUMC_HAVE_ASM_UKERNEL
+              numc_gemm_ukernel_f32_6x16_avx2(
+                  packed_a + ir * kc, packed_b + jr * kc,
+                  out + (ic + ir) * rso + (jc + jr), (uint64_t)kc, (int64_t)rso,
+                  first);
+#else
               gemm_ukernel_f32_6x16(packed_a + ir * kc, packed_b + jr * kc,
                                     out + (ic + ir) * rso + (jc + jr), kc, 1,
                                     GEMM_F32_MR, GEMM_F32_NR, rso, first);
+#endif
             } else {
               NUMC_ALIGNAS(32) float tmp[GEMM_F32_MR * GEMM_F32_NR];
               gemm_ukernel_f32_6x16(packed_a + ir * kc, packed_b + jr * kc, tmp,
@@ -1290,9 +1317,16 @@ static inline void gemm_f64_avx2(const double *a, const double *b, double *out,
           for (size_t ir = 0; ir < mc; ir += GEMM_F64_MR) {
             size_t mr_cur = GEMM_MIN(GEMM_F64_MR, mc - ir);
             if (mr_cur == GEMM_F64_MR && nr_cur == GEMM_F64_NR) {
+#if NUMC_HAVE_ASM_UKERNEL
+              numc_gemm_ukernel_f64_6x8_avx2(packed_a + ir * kc,
+                                             packed_b + jr * kc,
+                                             out + (ic + ir) * rso + (jc + jr),
+                                             (uint64_t)kc, (int64_t)rso, first);
+#else
               gemm_ukernel_f64_6x8(packed_a + ir * kc, packed_b + jr * kc,
                                    out + (ic + ir) * rso + (jc + jr), kc, 1,
                                    GEMM_F64_MR, GEMM_F64_NR, rso, first);
+#endif
             } else {
               NUMC_ALIGNAS(32) double tmp[GEMM_F64_MR * GEMM_F64_NR];
               gemm_ukernel_f64_6x8(packed_a + ir * kc, packed_b + jr * kc, tmp,
@@ -1339,9 +1373,16 @@ static inline void gemm_f64_avx2(const double *a, const double *b, double *out,
           for (size_t ir = 0; ir < mc; ir += GEMM_F64_MR) {
             size_t mr_cur = GEMM_MIN(GEMM_F64_MR, mc - ir);
             if (mr_cur == GEMM_F64_MR && nr_cur == GEMM_F64_NR) {
+#if NUMC_HAVE_ASM_UKERNEL
+              numc_gemm_ukernel_f64_6x8_avx2(packed_a + ir * kc,
+                                             packed_b + jr * kc,
+                                             out + (ic + ir) * rso + (jc + jr),
+                                             (uint64_t)kc, (int64_t)rso, first);
+#else
               gemm_ukernel_f64_6x8(packed_a + ir * kc, packed_b + jr * kc,
                                    out + (ic + ir) * rso + (jc + jr), kc, 1,
                                    GEMM_F64_MR, GEMM_F64_NR, rso, first);
+#endif
             } else {
               NUMC_ALIGNAS(32) double tmp[GEMM_F64_MR * GEMM_F64_NR];
               gemm_ukernel_f64_6x8(packed_a + ir * kc, packed_b + jr * kc, tmp,
