@@ -26,24 +26,44 @@ Results are saved to `bench/graph/output/`.
 Once you have run the benchmarks, you can view the results directly in this README (if your Markdown viewer supports local images).
 
 ### 1. Performance Overview
-A high-level summary of performance across all categories. Bars represent the **Median Speedup**, while error bars show the **Min/Max** range for operations within that category.
+A high-level summary of performance across all categories using the **Geometric Mean Speedup** (most representative for ratios).
+- **Colored Bars:** Overall speedup across all data types (int, uint, float).
+- **Gray Bars:** Speedup specifically for **Floating Point** (float32/float64) operations.
+- **Error Bars:** Show the **Min/Max** speedup range for operations within that category.
 
 ![Overview](output/overview.png)
 
 ### 2. Category Deep-Dives
 Each category provides a side-by-side comparison of absolute execution time (left) and the relative speedup factor (right).
 
-#### Binary Operations (add, sub, mul, div, etc.)
+#### Binary Operations (add, sub, mul, div, mod, etc.)
 ![Binary Combined](output/binary_combined.png)
+
+#### Ternary Operations (fma, etc.)
+![Ternary Combined](output/ternary_combined.png)
 
 #### Matrix Multiplication (GEMM)
 ![Matmul Combined](output/matmul_combined.png)
 
-#### Reductions (sum, mean, max, etc.)
+#### Reductions (sum, mean, max, dot, etc.)
 ![Reduction Combined](output/reduction_combined.png)
 
-#### Unary Operations (log, exp, sqrt, etc.)
+#### Unary Operations (exp, log, sqrt, etc.)
 ![Unary Combined](output/unary_combined.png)
+
+#### Inplace Operations (unary and scalar)
+![Unary Inplace Combined](output/unary_inplace_combined.png)
+![Scalar Inplace Combined](output/scalar_inplace_combined.png)
+
+#### Scalar Operations (array op scalar)
+![Scalar Combined](output/scalar_combined.png)
+
+#### Comparisons (array vs array and array vs scalar)
+![Comparison Combined](output/comparison_combined.png)
+![Comparison Scalar Combined](output/comparison_scalar_combined.png)
+
+#### Random Number Generation
+![Random Combined](output/random_combined.png)
 
 ---
 

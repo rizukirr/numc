@@ -204,38 +204,61 @@ def plot_dtype_heatmap(merged, category, operation, title, filename):
 
 
 def plot_overview(merged):
-    """High-level summary: Median Speedup per category."""
-    summary = merged.groupby("category")["speedup"].agg(["median", "max", "min"]).sort_values("median", ascending=True)
+    """High-level summary: Geometric Mean speedup per category."""
+    import math
 
-    fig, ax = plt.subplots(figsize=(10, max(5, len(summary) * 0.6)))
-    fig.suptitle("numc Performance Overview: Median Speedup by Category", fontsize=15, fontweight="bold", y=0.98)
+    def geo_mean(x):
+        return math.exp(np.log(x[x > 0]).mean())
+
+    # Calculate overall stats per category
+    summary = merged.groupby("category")["speedup"].agg([geo_mean, "max", "min"])
+    
+    # Calculate float-only stats for a more "fair" comparison
+    float_sub = merged[merged["dtype"].isin(["float32", "float64"])]
+    float_summary = float_sub.groupby("category")["speedup"].agg(geo_mean)
+    
+    # Sort by overall geo_mean
+    summary = summary.sort_values("geo_mean", ascending=True)
+    float_summary = float_summary.reindex(summary.index)
+
+    fig, ax = plt.subplots(figsize=(10, max(5, len(summary) * 0.7)))
+    fig.suptitle("numc Performance Overview: Geometric Mean Speedup", fontsize=15, fontweight="bold", y=0.98)
 
     y = np.arange(len(summary))
-    medians = summary["median"].values
+    height = 0.4
     
-    colors = [C_SPEEDUP if s >= 1 else C_SLOWDOWN for s in medians]
-    bars = ax.barh(y, medians, color=colors, zorder=3, alpha=0.8)
+    means = summary["geo_mean"].values
+    float_means = float_summary.values
     
-    # Error bars showing range (min to max)
-    ax.errorbar(medians, y, xerr=[medians - summary["min"], summary["max"] - medians], 
+    # Plot main bars (Overall)
+    colors = [C_SPEEDUP if s >= 1 else C_SLOWDOWN for s in means]
+    bars = ax.barh(y + height/2, means, height, color=colors, zorder=3, alpha=0.8, label="Overall (All DTypes)")
+    
+    # Plot secondary bars (Float-only)
+    ax.barh(y - height/2, float_means, height, color="#94a3b8", zorder=3, alpha=0.6, label="Floating Point (fp32/64)")
+    
+    # Error bars for overall range
+    ax.errorbar(means, y + height/2, xerr=[means - summary["min"], summary["max"] - means], 
                 fmt='none', ecolor='#9ca3af', elinewidth=1, capsize=3, zorder=2)
 
     ax.set_yticks(y)
     ax.set_yticklabels([c.replace("_", " ").title() for c in summary.index], fontsize=10, fontweight="bold")
     ax.axvline(x=1.0, color="#1f2937", linewidth=2, linestyle="-", zorder=4, alpha=0.7)
-    ax.set_xlabel("Median Speedup (Higher is Faster)", fontsize=11, fontweight="bold")
+    ax.set_xlabel("Speedup Factor (Higher is Faster)", fontsize=11, fontweight="bold")
+    ax.legend(loc="lower right", fontsize=9, frameon=True, facecolor=BG)
 
-    for bar, val in zip(bars, medians):
-        ax.text(bar.get_width() + 0.1, bar.get_y() + bar.get_height()/2,
+    # Text labels for overall speedup
+    for i, val in enumerate(means):
+        ax.text(max(val, summary["max"].iloc[i]) + 0.1, i + height/2,
                 f"{val:.2f}x", va="center", fontsize=9, fontweight="bold",
                 color=C_SPEEDUP if val >= 1 else C_SLOWDOWN)
 
-    # Add annotation about the error bars
-    ax.text(0.95, 0.05, "Error bars show Min/Max speedup in category", 
-            transform=ax.transAxes, ha='right', fontsize=8, color='#6b7280')
+    # Note about the metrics
+    ax.text(0.95, 0.02, "Geometric mean is used to aggregate speedup ratios.\nError bars show Min/Max speedup in category.", 
+            transform=ax.transAxes, ha='right', fontsize=8, color='#6b7280', style='italic')
 
     setup_ax(ax)
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.tight_layout(rect=[0, 0.05, 1, 0.95])
     save(fig, "overview.png")
 
 
