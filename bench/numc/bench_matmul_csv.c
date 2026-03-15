@@ -89,11 +89,11 @@ int main(void) {
   printf(
       "library,category,operation,dtype,size,shape,time_us,throughput_mops\n");
 
-  bench_matmul(64, 64, 64, 50, 200);
-  bench_matmul(128, 128, 128, 50, 50);
-  bench_matmul(256, 256, 256, 50, 20);
-  bench_matmul(512, 512, 512, 50, 10);
-  bench_matmul(1024, 1024, 1024, 10, 3);
+  bench_matmul(64, 64, 64, 200, 2000);
+  bench_matmul(128, 128, 128, 100, 500);
+  bench_matmul(256, 256, 256, 50, 100);
+  bench_matmul(512, 512, 512, 20, 20);
+  bench_matmul(1024, 1024, 1024, 5, 10);
 
   return 0;
 }

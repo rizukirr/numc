@@ -8,6 +8,9 @@
 
 #define GEMMSUP_MIN(a, b) ((a) < (b) ? (a) : (b))
 
+/* OMP gate for gemmsup: parallelize from ~128^3 and up. */
+#define GEMMSUP_OMP_THRESHOLD (1ULL << 20)
+
 /* Threshold: M*K*N below which we use unpacked kernels.
  * Packing overhead dominates for matrices <= ~128x128. */
 #define GEMMSUP_FLOPS_THRESHOLD (128UL * 128UL * 128UL)
@@ -122,7 +125,8 @@ static inline void gemmsup_f32_avx2(const float *a, const float *b, float *out,
                                     intptr_t csa, intptr_t rsb, intptr_t rso) {
   const size_t MR = 6, NR = 16;
   size_t n_ir = (M + MR - 1) / MR;
-#pragma omp parallel for schedule(static) if (M * K * N > (1 << 20))
+#pragma omp parallel for schedule(static) if ((uint64_t)M * K * N > \
+                                                  GEMMSUP_OMP_THRESHOLD)
   for (size_t ir = 0; ir < n_ir; ir++) {
     size_t i = ir * MR;
     size_t mr = GEMMSUP_MIN(MR, M - i);
@@ -245,7 +249,8 @@ static inline void gemmsup_f64_avx2(const double *a, const double *b,
                                     intptr_t rso) {
   const size_t MR = 6, NR = 8;
   size_t n_ir = (M + MR - 1) / MR;
-#pragma omp parallel for schedule(static) if (M * K * N > (1 << 20))
+#pragma omp parallel for schedule(static) if ((uint64_t)M * K * N > \
+                                                  GEMMSUP_OMP_THRESHOLD)
   for (size_t ir = 0; ir < n_ir; ir++) {
     size_t i = ir * MR;
     size_t mr = GEMMSUP_MIN(MR, M - i);

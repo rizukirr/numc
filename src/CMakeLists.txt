@@ -19,6 +19,7 @@ add_library(numc
     random/random.c
     error.c
 )
+
 add_library(numc::numc ALIAS numc)
 
 target_include_directories(numc

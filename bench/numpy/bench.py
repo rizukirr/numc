@@ -308,43 +308,47 @@ def bench_reduce_axis(name, axis, rows, cols):
 
 def bench_matmul(M, K, N, warmup, iters):
     dtypes = [
+        ("float32", np.float32), ("float64", np.float64),
         ("int8", np.int8), ("int16", np.int16),
         ("int32", np.int32), ("int64", np.int64),
         ("uint8", np.uint8), ("uint16", np.uint16),
         ("uint32", np.uint32), ("uint64", np.uint64),
-        ("float32", np.float32), ("float64", np.float64),
     ]
 
     for dname, dt in dtypes:
         if dt in (np.float32, np.float64):
             v = dt(1.0)
+            w, it = warmup, iters
         else:
             v = dt(2)
+            # NumPy integer matmul has no BLAS — use minimal iters
+            w = min(warmup, 2)
+            it = min(iters, 3)
         a = np.full((M, K), v, dtype=dt)
         b = np.full((K, N), v, dtype=dt)
 
         # NumPy matmul doesn't support int8/uint8 etc natively via @
         # Use np.matmul which works for all types
         try:
-            for _ in range(warmup):
+            for _ in range(w):
                 np.matmul(a, b)
 
             t0 = time.perf_counter()
-            for _ in range(iters):
+            for _ in range(it):
                 np.matmul(a, b)
             t1 = time.perf_counter()
-            us = (t1 - t0) / iters * 1e6
+            us = (t1 - t0) / it * 1e6
         except TypeError:
             # Some dtypes may not be supported, use float64 cast
             af = a.astype(np.float64)
             bf = b.astype(np.float64)
-            for _ in range(warmup):
+            for _ in range(w):
                 np.matmul(af, bf)
             t0 = time.perf_counter()
-            for _ in range(iters):
+            for _ in range(it):
                 np.matmul(af, bf)
             t1 = time.perf_counter()
-            us = (t1 - t0) / iters * 1e6
+            us = (t1 - t0) / it * 1e6
 
         total = M * N
         csv("matmul", "matmul", dname, total,
@@ -402,11 +406,11 @@ def main():
 
     # Optional --matmul flag for matmul-only benchmark
     if "--matmul" in sys.argv:
-        bench_matmul(64, 64, 64, 50, 200)
-        bench_matmul(128, 128, 128, 50, 50)
-        bench_matmul(256, 256, 256, 50, 20)
-        bench_matmul(512, 512, 512, 10, 5)
-        bench_matmul(1024, 1024, 1024, 5, 3)
+        bench_matmul(64, 64, 64, 200, 2000)
+        bench_matmul(128, 128, 128, 100, 500)
+        bench_matmul(256, 256, 256, 50, 100)
+        bench_matmul(512, 512, 512, 20, 20)
+        bench_matmul(1024, 1024, 1024, 5, 10)
         return
 
     # Binary element-wise
@@ -473,11 +477,11 @@ def main():
         bench_reduce_axis(op, 1, 1000, 1000)
 
     # Matmul — various sizes
-    bench_matmul(64, 64, 64, 50, 200)
-    bench_matmul(128, 128, 128, 50, 50)
-    bench_matmul(256, 256, 256, 50, 20)
-    bench_matmul(512, 512, 512, 10, 5)
-    bench_matmul(1024, 1024, 1024, 5, 3)
+    bench_matmul(64, 64, 64, 200, 2000)
+    bench_matmul(128, 128, 128, 100, 500)
+    bench_matmul(256, 256, 256, 50, 100)
+    bench_matmul(512, 512, 512, 20, 20)
+    bench_matmul(1024, 1024, 1024, 5, 10)
 
     # Dot product
     bench_dot(SIZE)

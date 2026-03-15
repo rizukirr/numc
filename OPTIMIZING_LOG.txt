@@ -463,6 +463,562 @@ Plus 10 add (10 types) × 5 ISAs = 50 functions. Total: 300 new SIMD functions.
 Tests: 45/45 passed (native x86, NEON, RVV)
 
 ================================================================================
+[2026-03-15] AVX2 Edge Packing Cleanup (Maskload/Zero-Fill Path)
+================================================================================
+Commit: pending
+Files:  src/intrinsics/gemm_avx2.h
+
+Problem:
+  AVX2 packed GEMM edge-tile packing still had avoidable overhead in remainder
+  branches:
+  1. Extra branch in B-pack tails (`if (rem > 8)` / `if (rem > 4)`) per K-iter
+     despite already using masked loads.
+  2. A-pack tails built vectors with multiple scalar conditionals per column,
+     then maskstore, increasing uop count for MR remainders.
+
+Solution:
+  1. B-pack (f32/f64, both full-panel and strip path): always issue second
+     masked load/store with zero-lane mask; removed per-iter remainder branch.
+  2. A-pack (f32/f64, csa==1 and generic path): zero-fill tail panel once via
+     `memset`, then copy only valid rows with straight stores.
+     - f32: `gemm_pack_a_f32`
+     - f64: `gemm_pack_a_f64`
+     - b-pack paths: `gemm_pack_b_f32`, `_gemm_pack_b_strip_f32`,
+       `gemm_pack_b_f64`, `_gemm_pack_b_strip_f64`
+
+Result:
+  Correctness: 45/45 tests passed (`./run.sh test`).
+
+  Bench (single run, `./run.sh bench`, vs NumPy):
+    f32 matmul 128x128: 1.41x (32.77us vs 46.30us)
+    f32 matmul 256x256: 1.57x (127.62us vs 199.92us)
+    f32 matmul 512x512: 0.72x (1471.00us vs 1059.20us)
+    f32 matmul 1024x1024: 1.09x (8664.62us vs 9485.93us)
+    f64 matmul 128x128: 1.23x (59.38us vs 73.32us)
+    f64 matmul 256x256: 2.49x (214.71us vs 533.99us)
+    f64 matmul 512x512: 0.93x (3052.62us vs 2837.93us)
+    f64 matmul 1024x1024: 1.14x (18820.94us vs 21541.49us)
+
+  Notes:
+    - Remainder-heavy sizes (e.g., MR tails) benefit from lower packing-path
+      overhead.
+    - 512x512 remains variance-sensitive/regression-prone in this run; re-check
+      with repeated isolated matmul benches before further kernel tuning.
+
+================================================================================
+[2026-03-15] Restore Gemmsup Threshold for Float 128x128 Stability
+================================================================================
+Commit: pending
+Files:  src/matmul/matmul.c
+
+Problem:
+  Bench runs showed severe regressions on floating matmul at 128x128 and mixed
+  regressions at larger float sizes when f32/f64 used AVX2-specific lowered
+  gemmsup thresholds:
+    - f32 gemmsup threshold: 96^3
+    - f64 gemmsup threshold: 48^3
+  This forced 128x128 and many mid-size float workloads into packed GEMM, where
+  runtime variance/overhead could dominate and produce extreme outliers.
+
+Solution:
+  Removed AVX2 dtype-specific overrides and restored a single
+  `GEMMSUP_FLOPS_THRESHOLD` gate for all dtypes in `numc_matmul`.
+  Result: 128x128 floats route back to gemmsup consistently.
+
+Result:
+  Correctness: 45/45 tests passed (`./run.sh test`).
+
+  Focused matmul bench (`./run.sh bench matmul`, vs NumPy):
+    f32 128x128: 1.09x (36.62us vs 39.93us)
+    f64 128x128: 1.50x (49.74us vs 74.52us)
+    f32 256x256: 0.98x (177.72us vs 173.46us)
+    f32 512x512: 8.57x (956.78us vs 8204.28us)
+    f32 1024x1024: 0.77x (10098.70us vs 7783.43us)
+    f64 512x512: 0.92x (2472.09us vs 2270.82us)
+    f64 1024x1024: 0.86x (21999.85us vs 18973.60us)
+
+  Notes:
+    - This change fixes catastrophic 128x128 float regressions.
+    - 512/1024 float results remain run-sensitive; next optimization should
+      target packed GEMM large-size path (runtime L2-aware MC tuning).
+
+================================================================================
+[2026-03-15] Assembly-focused AVX2 tuning attempt + rollback outcome
+================================================================================
+Commit: pending
+Files tested: src/intrinsics/gemm_avx2.h, src/intrinsics/gemmsup_avx2.h
+
+Problem:
+  Float matmul performance vs NumPy remained unstable across runs. Goal was to
+  improve packed-kernel throughput (512/1024) while preserving 128 behavior.
+
+Solution attempts:
+  1. Increased AVX2 packed MC:
+     - f32 MC 168 -> 252
+     - f64 MC 72 -> 96
+  2. Added adaptive MC chooser (small/large MC by FLOPs threshold).
+  3. Increased gemmsup OMP threshold to avoid threading small unpacked tiles.
+
+Result:
+  Correctness stayed green (45/45 tests), but benchmark behavior was not robust:
+  - Some runs improved large-size floats, but others regressed badly on 64/128
+    and even 1024 due to system/runtime variance and scheduling interactions.
+  - The gemmsup OMP threshold increase caused clear regressions on 128 float
+    sizes in follow-up run.
+
+  Action taken:
+  - Reverted the unstable MC/adaptive/OMP-threshold tuning back to conservative
+    baseline values (MC f32=168, f64=72; gemmsup OMP gate restored).
+  - Kept only prior safe packing-tail cleanup changes.
+
+  Follow-up plan:
+  - To match OpenBLAS-like consistency, next step should be deterministic
+    measurement (10-run medians with pinned CPU governor) before applying any
+    further assembly scheduling/tile changes.
+
+================================================================================
+[2026-03-15] Lightweight Packed Small-Float Path (AVX2) — negative result
+================================================================================
+Commit: pending
+Files: src/intrinsics/gemm_avx2.h, src/matmul/matmul.c
+
+Problem:
+  f32/f64 small matrix (64/128/256) performance was unstable and often below
+  NumPy despite existing gemmsup and packed kernels.
+
+Solution:
+  Added AVX2-only lightweight packed float paths:
+  - `gemm_f32_avx2_light` and `gemm_f64_avx2_light` in `gemm_avx2.h`
+  - Dispatch in `numc_matmul` for bounded small dims using stack packed buffers
+    and single-k-block micro-kernel loops.
+
+Result:
+  Correctness: 45/45 tests passed.
+
+  Bench (`./run.sh bench matmul`) regressed on float GEMM:
+    f32 64x64:    0.53x (12.88us vs 6.86us)
+    f32 128x128:  0.53x (43.24us vs 22.80us)
+    f32 256x256:  0.89x (89.33us vs 79.64us)
+    f64 128x128:  0.69x (60.12us vs 41.53us)
+    f64 256x256:  0.63x (251.13us vs 157.94us)
+    f64 512x512:  0.80x (1245.51us vs 993.98us)
+
+Conclusion:
+  Lightweight packed path as implemented is not competitive and should be
+  treated as an experimental branch; prioritize micro-kernel/packing asm tuning
+  over this approach.
+
+================================================================================
+[2026-03-15] OpenBLAS-style ASM gemmsup attempt (reverted)
+================================================================================
+Commit: pending
+Files: src/intrinsics/gemmsup_avx2.h
+
+Problem:
+  You requested deeper assembly-level optimization (OpenBLAS style) for float
+  GEMM small/unpacked path.
+
+Solution attempt:
+  Replaced gemmsup f32/f64 intrinsics micro-kernel bodies with inline AVX2 asm
+  loops using explicit register allocation and BLIS/OpenBLAS-like FMA schedule.
+
+Result:
+  Release build failed:
+    - "inline assembly requires more registers than available"
+    - register allocator recoloring limit reached
+  Root cause: high register pressure from many pointer operands + full ymm
+  clobber set in compiler-allocated inline asm constraints.
+
+Action taken:
+  Reverted the asm replacement and restored prior intrinsics implementation.
+  Build/test returned to green (45/45).
+
+Follow-up plan:
+  For OpenBLAS-level asm in gemmsup, use either:
+    1) external `.S` kernels with ABI-fixed registers, or
+    2) significantly reduced inline-asm operand pressure (fewer base pointers,
+       pointer arithmetic in-C, tighter clobber strategy).
+
+================================================================================
+[2026-03-15] Dedicated .S kernel added (AVX2 f32 gemmsup, csa==1)
+================================================================================
+Commit: pending
+Files:
+  - src/intrinsics/gemmsup_avx2_ukernel_f32.S
+  - src/intrinsics/gemmsup_avx2.h
+  - src/CMakeLists.txt
+  - CMakeLists.txt
+
+Problem:
+  Inline-asm replacement for gemmsup failed due to compiler register pressure.
+  Need OpenBLAS-style dedicated assembly with fixed ABI registers.
+
+Solution:
+  Added external SysV x86_64 assembly kernel:
+    `numc_gemmsup_ukernel_f32_6x16_contiga_asm`
+  and wired it into gemmsup dispatch for f32 when `csa == 1` (contiguous K in A).
+  Kept intrinsics as fallback for non-contiguous A and non-SysV targets.
+
+  Build integration:
+  - Enabled ASM language in top-level CMake.
+  - Added `.S` source to numc target on x86_64.
+
+Result:
+  Correctness: 45/45 tests passed (`./run.sh test`).
+
+  Bench (`./run.sh bench matmul`, vs NumPy):
+    f32 64x64:    0.85x (8.07us vs 6.85us)
+    f32 128x128:  0.52x (42.41us vs 22.19us)
+    f32 256x256:  0.40x (197.09us vs 79.27us)
+    f32 512x512:  1.43x (648.24us vs 929.06us)
+    f32 1024x1024:0.79x (5620.72us vs 4433.08us)
+
+  Notes:
+    - Dedicated `.S` integration is successful and stable.
+    - Performance impact is mixed/volatile; current kernel improves some larger
+      cases but regresses key small/mid sizes. Next step is instruction schedule
+      tuning and/or narrower dispatch gate for this asm path.
+
+================================================================================
+[2026-03-15] Selective dispatch for dedicated .S gemmsup f32 kernel
+================================================================================
+Commit: pending
+Files: src/intrinsics/gemmsup_avx2.h
+
+Problem:
+  Always-on use of the new `.S` f32 gemmsup kernel for `csa==1` caused severe
+  regressions at some sizes (notably 256x256), despite occasional wins.
+
+Solution:
+  Added `_gemmsup_use_f32_asm(M,K,N,csa)` heuristic and moved `.S` callsite
+  from generic micro-kernel wrapper to dispatch-level selection in
+  `gemmsup_f32_avx2`:
+  - enable only when `csa==1`
+  - enable only for 192 <= {M,K,N} < 768
+  - otherwise use existing intrinsics micro-kernel.
+
+Result:
+  Correctness: 45/45 tests passed.
+
+  Bench (`./run.sh bench matmul`, vs NumPy):
+    f32 64x64:    0.96x (7.18us vs 6.88us)
+    f32 128x128:  0.80x (32.26us vs 25.67us)
+    f32 256x256:  0.55x (149.58us vs 82.43us)
+    f32 512x512:  0.79x (1084.28us vs 860.61us)
+    f32 1024x1024:1.17x (4617.02us vs 5388.40us)
+    f64 128x128:  1.66x (25.69us vs 42.70us)
+    f64 256x256:  1.35x (119.09us vs 160.27us)
+
+Conclusion:
+  Heuristic narrowed some regressions and preserved large-size upside in this
+  run, but f32 256/512 remain below NumPy. Next steps should tune `.S` kernel
+  schedule and/or further tighten activation criteria.
+
+================================================================================
+[2026-03-15] Threading + tighter .S gate tuning (mixed/negative)
+================================================================================
+Commit: pending
+Files: src/intrinsics/gemm_avx2.h, src/intrinsics/gemmsup_avx2.h
+
+Problem:
+  Float GEMM remained unstable; goal was to reduce over-threading noise and
+  limit `.S` kernel exposure to likely-win region.
+
+Solution:
+  1) Packed GEMM float OMP thresholds raised:
+     - `GEMM_F32_OMP_THRESHOLD = 1<<22`
+     - `GEMM_F64_OMP_THRESHOLD = 1<<22`
+  2) Tightened gemmsup f32 `.S` activation window:
+     - from `192 <= {M,K,N} < 768`
+     - to   `448 <= {M,K,N} < 768`
+
+Result:
+  Correctness: 45/45 tests passed.
+
+  Bench (`./run.sh bench matmul`, vs NumPy):
+    f32 64x64:    0.92x (7.49us vs 6.86us)
+    f32 128x128:  0.33x (73.20us vs 24.16us)
+    f32 256x256:  2.84x (84.87us vs 240.95us)
+    f32 512x512:  1.41x (611.81us vs 863.83us)
+    f32 1024x1024:0.71x (5629.10us vs 3993.76us)
+    f64 512x512:  0.62x (1643.24us vs 1020.57us)
+    f64 1024x1024:0.51x (16790.24us vs 8622.97us)
+
+Conclusion:
+  This tuning is not robust; it introduces major regressions (f32 128, f64
+  512/1024) despite isolated wins. Treat as experimental and revert if stable
+  baseline is preferred before next kernel-schedule iteration.
+
+================================================================================
+[2026-03-15] OpenBLAS-style dispatch combination test (reverted)
+================================================================================
+Commit: pending
+Files tested: src/matmul/matmul.c, src/intrinsics/gemm_avx2.h
+
+Problem:
+  Need OpenBLAS-like technique/combination testing: earlier switch to packed
+  SGEMM plus thread-threshold balancing with new `.S` kernel present.
+
+Solution attempt:
+  1) Lowered float32 gemmsup threshold to 64^3 (prefer packed path earlier).
+  2) Restored packed float OMP thresholds to 1<<20 (undo prior over-restrictive
+     1<<22 thresholds).
+
+Result:
+  Correctness remained green (45/45 tests).
+
+  Matmul bench vs NumPy (single run):
+    f32 128x128 improved to 1.16x (20.42us vs 23.74us)
+    f32 512x512 improved to 1.62x (561.00us vs 910.02us)
+    but strong regressions elsewhere:
+      f32 64x64:   0.46x
+      f32 256x256: 0.45x
+      f32 1024x1024: 0.70x
+      f64 64x64:   0.55x
+      f64 1024x1024: 0.65x
+
+Conclusion:
+  Combined change is not robust across sizes; reverted the f32 64^3 threshold
+  experiment (gemmsup threshold restored to baseline policy).
+
+================================================================================
+[2026-03-15] .S kernel schedule tuning: 2x K-unroll + prefetch
+================================================================================
+Commit: pending
+Files: src/intrinsics/gemmsup_avx2_ukernel_f32.S, src/intrinsics/gemmsup_avx2.h
+
+Problem:
+  Dedicated f32 `.S` kernel was functional but still behind NumPy at several
+  float sizes; needed OpenBLAS-like schedule tightening.
+
+Solution:
+  Tuned `numc_gemmsup_ukernel_f32_6x16_contiga_asm` with:
+  - 2x K-loop unroll (pairwise K-iterations)
+  - explicit `prefetcht0 256(%rsi)` on B stream
+  - preserved remainder K handling for odd `kc`
+
+Result:
+  Correctness: 45/45 tests passed.
+
+  Matmul bench run after schedule tuning (vs NumPy):
+    f32 64x64:    0.92x (7.85us vs 7.21us)
+    f32 128x128:  0.43x (50.49us vs 21.68us)
+    f32 256x256:  1.47x (74.46us vs 109.37us)
+    f32 512x512:  0.84x (671.05us vs 563.52us)
+    f32 1024x1024:0.95x (4790.51us vs 4535.42us)
+
+  Notes:
+    - Strong gain appeared at 256x256, but 128x128 regressed hard in this run.
+    - Because of instability, kept existing conservative `.S` activation window
+      (`448 <= {M,K,N} < 768`) after the test.
+
+================================================================================
+[2026-03-15] Benchmark harness normalization and CSV robustness
+================================================================================
+Commit: pending
+Files: bench/numpy/bench.py, bench/compare.py
+
+Problem:
+  Optimization signals were noisy/unstable partly due to benchmark harness
+  mismatch and parser fragility:
+  - NumPy matmul-only used different warmup/iters at 512 and 1024 than numc.
+  - Occasional malformed trailing rows in numpy CSV caused compare script errors.
+
+Solution:
+  1) Matmul benchmark alignment:
+     - `bench/numpy/bench.py --matmul`
+       - 512: warmup/iters 10/5 -> 50/10
+       - 1024: warmup/iters 5/3 -> 10/3
+     to match `bench/numc/bench_matmul_csv.c`.
+  2) Compare robustness:
+     - `bench/compare.py` now skips malformed/incomplete rows and guards
+       `time_us` parsing.
+
+Result:
+  `./run.sh bench matmul` now completes reliably without CSV parse failure.
+  Matmul comparison remains volatile by run, but measurement conditions are now
+  normalized between numc and NumPy.
+
+================================================================================
+[2026-03-15] Dispatch-path tracing for diagnostic runs
+================================================================================
+Commit: pending
+Files: src/matmul/matmul.c
+
+Problem:
+  Optimization effects were unclear because it was hard to confirm which path
+  each benchmark size actually executed (gemmsup vs packed, asm subpath usage).
+
+Solution:
+  Added optional runtime tracing in `numc_matmul` controlled by env var:
+    `NUMC_MATMUL_TRACE=1`
+  Emits one end-of-process summary with counters:
+    - `gemmsup_f32`, `gemmsup_f32_asm`, `gemmsup_f64`
+    - `packed_f32`, `packed_f64`, `packed_int`
+
+Result:
+  Correctness: 45/45 tests passed.
+
+  Trace output from `NUMC_MATMUL_TRACE=1 ./run.sh bench matmul`:
+    [NUMC_MATMUL_TRACE] gemmsup_f32=350 gemmsup_f32_asm=0 gemmsup_f64=350
+                       packed_f32=143 packed_f64=143 packed_int=3944
+
+  Interpretation:
+    - f32 asm gemmsup kernel was not used in this run (`gemmsup_f32_asm=0`).
+    - Most float work at 256/512/1024 is on packed path; 64/128 are gemmsup.
+
+  Note:
+    This confirms why many `.S` tuning attempts had low impact: current
+    activation criteria rarely overlap with benchmarked gemmsup sizes.
+
+================================================================================
+[2026-03-15] Packed B-copy scheduling pass (f32/f64, AVX2)
+================================================================================
+Commit: pending
+Files: src/intrinsics/gemm_avx2.h
+
+Problem:
+  Trace showed major float work is on packed path (`packed_f32`/`packed_f64`),
+  while `.S` gemmsup path was not active (`gemmsup_f32_asm=0`). Packing/copy
+  overhead in packed GEMM remained a likely bottleneck.
+
+Solution:
+  Tuned AVX2 B-pack copy loops for both full-panel and strip paths:
+  - `gemm_pack_b_f32`, `_gemm_pack_b_strip_f32`
+  - `gemm_pack_b_f64`, `_gemm_pack_b_strip_f64`
+
+  Technique:
+  - rewrote scalar-indexed `p * NR` addressing into pointer-walk form
+  - 2-row unrolled copy in full-width fast path (`nr_pack == NR`)
+  - preserves existing masked-tail remainder handling.
+
+Result:
+  Correctness: 45/45 tests passed.
+  Trace (`NUMC_MATMUL_TRACE=1 ./run.sh bench matmul`):
+    gemmsup_f32=350 gemmsup_f32_asm=0 gemmsup_f64=350
+    packed_f32=143 packed_f64=143 packed_int=3944
+
+  Matmul bench vs NumPy (single run):
+    f32 256x256: 1.32x (73.33us vs 96.83us)
+    f32 512x512: 1.17x (475.08us vs 554.45us)
+    f32 1024x1024: 1.28x (4752.62us vs 6062.74us)
+    f64 256x256: 1.23x (119.44us vs 147.08us)
+    f64 1024x1024: 1.21x (10137.68us vs 12294.22us)
+    Remaining misses: f32 64/128, f64 64, f64 512.
+
+Conclusion:
+  This packed-path optimization produced broad large/mid-size float gains in
+  this run; next work should target small-size gemmsup path (f32/f64 64/128)
+  and f64 512 packed-kernel behavior.
+
+================================================================================
+[2026-03-15] Gemmsup OMP threshold experiment (rolled back)
+================================================================================
+Commit: pending
+Files tested: src/intrinsics/gemmsup_avx2.h
+
+Problem:
+  Small float misses remained (64/128). Hypothesis: gemmsup OMP on 128^3 may
+  add overhead/noise, so keep gemmsup single-threaded at 128^3.
+
+Solution attempt:
+  Raised `GEMMSUP_OMP_THRESHOLD` from `1<<20` to `1<<21`.
+
+Result:
+  Correctness stayed green (45/45), but benchmark behavior became less robust in
+  the sampled run (small float and some f64 points regressed/outlier-heavy).
+
+Action taken:
+  Reverted `GEMMSUP_OMP_THRESHOLD` back to `1<<20` to preserve prior baseline
+  behavior while continuing packed-path and kernel tuning.
+
+================================================================================
+[2026-03-15] Small gemmsup csa==1 micro-kernel variants (reverted)
+================================================================================
+Commit: pending
+Files tested: src/intrinsics/gemmsup_avx2.h
+
+Problem:
+  Remaining misses were concentrated at small float sizes (f32/f64 64/128),
+  which run through gemmsup path.
+
+Solution attempt:
+  Added dedicated `csa==1` gemmsup micro-kernel variants for f32/f64
+  (`gemmsup_ukernel_f32_6x16_csa1`, `gemmsup_ukernel_f64_6x8_csa1`) and routed
+  full tiles to them when A is contiguous in K.
+
+Result:
+  Correctness remained green (45/45), but performance became unstable with major
+  regressions on key float points in sampled benchmark runs.
+
+Action taken:
+  Reverted both `csa==1` gemmsup variant kernels and dispatch hooks.
+  Kept baseline gemmsup kernels intact for consistency.
+
+================================================================================
+[2026-03-14] AVX2 Edge-Tile SIMD Packing + Small GEMM Dispatch Retune
+================================================================================
+Commit: 6c61417
+Files:  src/intrinsics/gemm_avx2.h, src/matmul/matmul.c
+
+Problem:
+  1. Edge tile packing paths in AVX2 GEMM used scalar remainder loops
+     (`if (jr < nc)` / `if (ir < mc)` branches), increasing overhead for
+     non-multiple tiles.
+  2. Small-matrix dispatch used a single gemmsup threshold (`128^3`) for both
+     f32/f64, causing suboptimal path selection on AVX2 (especially around
+     128x128 and some f64 medium sizes).
+
+Solution:
+  1. [gemm_avx2.h] Replaced scalar remainder packing in f32/f64 A/B packers
+     with AVX2 masked vector paths:
+     - `_mm256_maskload_ps/pd` for B tails
+     - masked vector stores for A remainder rows
+     - added lane-mask helpers (`_gemm_mask_i32_lanes`, `_gemm_mask_i64_lanes`)
+  2. [matmul.c] Made gemmsup threshold dtype-aware on AVX2:
+     - f32 threshold: `96^3`
+     - f64 threshold: `48^3`
+     - above threshold routes to packed GEMM path.
+
+Result:
+  Tests: 45/45 passed.
+  Bench (`./run.sh bench matmul`, representative run):
+    f32 128x128:   0.98x (near parity)
+    f32 512x512:   2.30x
+    f32 1024x1024: 1.05x (faster than NumPy)
+    f64 128x128:   1.32x
+    f64 512x512:   0.75x (remaining major GEMM gap)
+
+  Net impact: improved AVX2 path-selection stability and reduced edge-pack
+  overhead; f32 large-size performance improved materially. Next bottleneck is
+  f64 512x512 packed path efficiency.
+
+================================================================================
+[2026-03-14] CI Portability Fix (Clang AVX-512 Integer Reduce) + Formatting
+================================================================================
+Commit: 04d2a41
+Files:  src/intrinsics/reduce_avx512.h, src/reduction/min.c,
+        src/reduction/max.c, src/intrinsics/gemmsup_avx2.h
+
+Problem:
+  GitHub CI failed in:
+  1. `lint-and-format` (clang-format violations)
+  2. `build-and-test (clang)` due to missing `_mm512_reduce_*` intrinsics for
+     8/16-bit integer min/max on that clang toolchain.
+
+Solution:
+  1. Formatted affected files to satisfy clang-format checks.
+  2. Added portable AVX-512 horizontal fallback helpers for integer 8/16-bit
+     min/max reductions in `reduce_avx512.h` and replaced unsupported
+     `_mm512_reduce_{min,max}_{epi8,epu8,epi16,epu16}` calls in those paths.
+
+Result:
+  - Local format check command passed (same pattern as CI).
+  - `./run.sh test`: 45/45 passed.
+  - Expected CI status: lint/build failures addressed; performance impact
+    neutral (correctness/portability fix).
+
+================================================================================
 [2026-03-14] OMP Hoisting + Parallel B Packing + AVX2 NC/Alignment
 ================================================================================
 Commit: 594fc5e
@@ -725,3 +1281,257 @@ Result: f32 1024x1024 improved to near-parity (0.98x on cleanest run).
   Prefetch restoration helps micro-kernel data access.
 
 Tests: 45/45 passed (native x86, NEON, RVV)
+
+================================================================================
+[2026-03-15] MC Blocking Tuning Attempt — Negative Result, Reverted
+================================================================================
+Commit: pending
+Files:  src/intrinsics/gemm_avx2.h
+
+Problem:
+  L2 cache is 1.25MB on i7-13620H. Previous MC values (f32=168, f64=72) were
+  tuned conservatively for 256KB L2. Hypothesis: larger MC reduces IC-loop
+  iterations and packing overhead, improving throughput at 512+ sizes.
+
+Solution attempt:
+  - f32 MC: 168 → 252 (A panel: 252×512×4 = 504KB, 40% of 1.25MB L2)
+  - f64 MC: 72 → 144 (A panel: 144×256×8 = 288KB, 23% of 1.25MB L2)
+
+Result:
+  Correctness: 45/45 tests passed.
+
+  Comparison (best numc absolute times across 3 runs, in us):
+
+    | Size | f32 MC168 | f32 MC252 | diff | f64 MC72 | f64 MC144 | diff |
+    |------|-----------|-----------|------|----------|-----------|------|
+    | 64   | 6.78      | 6.88      | +1%  | 13.58    | 13.54     |  0%  |
+    | 128  | 14.54     | 17.40     | +20% | 25.35    | 32.89     | +30% |
+    | 256  | 75.40     | 107.06    | +42% | 147.10   | 197.10    | +34% |
+    | 512  | 460.82    | 553.82    | +20% | 1270.66  | 1025.41   | -19% |
+    | 1024 | 4565.75   | 4148.15   |  -9% | 9592.45  | 9825.30   |  +2% |
+
+  MC=252/144 severely regressed 128 (+20-30%), 256 (+34-42%), and f32 512
+  (+20%), while only helping f32 1024 by 9% and f64 512 by 19%. The larger
+  A panel size per thread (504KB for f32) causes L2 pressure with 10 OMP
+  threads, outweighing the reduced IC iteration count.
+
+Action taken:
+  Reverted MC to baseline: f32 MC=168, f64 MC=72. Tests: 45/45.
+
+Conclusion:
+  On this CPU (10 P-cores, 1.25MB L2 per core), the conservative MC values
+  are better overall. Runtime L2 detection might help pick different MC for
+  different CPU models, but static MC=252/144 is not competitive here.
+
+Current baseline (best of 3 runs, MC=168/72):
+  f32: 64→6.78us, 128→14.54us, 256→75.40us, 512→460.82us, 1024→4565.75us
+  f64: 64→13.58us, 128→25.35us, 256→147.10us, 512→1270.66us, 1024→9592.45us
+
+================================================================================
+[2026-03-15] F64 ASM Prefetch Distance Fix (AVX2)
+================================================================================
+Commit: pending
+Files:  src/intrinsics/gemm_avx2.h
+
+Problem:
+  f64 256/512/1024 absolute times were higher than expected despite the BLIS-
+  style B pre-load optimization. Root cause: f32 and f64 ASM K-loops had
+  identical A prefetch offsets (384/768 bytes), but f64 A stride per K-iter
+  is 48 bytes (MR×8 = 6×8) vs f32's 24 bytes (MR×4 = 6×4). This meant f64's
+  first A prefetch at 384 bytes was only 8 K-iters ahead (= current unroll
+  window), providing no lookahead, while f32's was 16 K-iters ahead.
+
+Solution:
+  Doubled f64 A prefetch distances in the 8x-unrolled ASM K-loop:
+    - A prefetch 1: 384 → 768 bytes (16 K-iters ahead, matches f32's ratio)
+    - A prefetch 2: 768 → 1536 bytes (32 K-iters ahead)
+    - B prefetch: kept at 512 bytes (B stride is NR×8 = 64 bytes for f64,
+      so 512/64 = 8 iters ahead — within the current unroll window, fine)
+
+Result:
+  Correctness: 45/45 tests passed.
+
+  Improvement in absolute numc times (best of 3 runs, MC=168/72 baseline):
+    | Size | Before (us) | After (us) | Change |
+    |------|-------------|------------|--------|
+    | 64   | 13.58       | 13.53      |  0%    |
+    | 128  | 25.35       | 24.36      | -4%    |
+    | 256  | 147.10      | 132.14     | -10%   |
+    | 512  | 1270.66     | 1194.56    | -6%    |
+    | 1024 | 9592.45     | 8723.75    | -9%    |
+
+  f64 256: -10.2%, f64 1024: -9.1%, f64 512: -6.0% improvement.
+  The fix provides meaningful prefetch lookahead that the HW prefetcher
+  alone couldn't compensate for, particularly at sizes where the A panel
+  is large enough for L2 misses to matter.
+
+Current baseline (best of 3 runs):
+  f32: 64→6.92us, 128→14.25us, 256→72.25us, 512→475.51us, 1024→4516.33us
+  f64: 64→13.53us, 128→24.36us, 256→132.14us, 512→1194.56us, 1024→8723.75us
+
+================================================================================
+[2026-03-15] F64 KC=512 Attempt — Negative Result, Reverted
+================================================================================
+Commit: reverted (not committed)
+Files:  src/intrinsics/gemm_avx2.h
+
+Problem:
+  f64 KC=256 causes 4 PC iterations for K=1024, each requiring B-packing.
+  Hypothesis: KC=512 would halve PC iterations to 2, reducing B-pack overhead.
+  L1 constraint check: B sliver = 512×8×8 = 32KB (fits in 48KB L1d).
+  L2 constraint check: A panel = 72×512×8 = 288KB (23% of 1.25MB L2).
+
+Solution attempt:
+  Changed GEMM_F64_KC from 256 to 512.
+
+Result:
+  Correctness: 45/45 tests passed.
+
+  Comparison (best absolute numc times across 3 runs, in us):
+    | Size | KC=256 (us) | KC=512 best (us) | Change |
+    |------|-------------|------------------|--------|
+    | 64   | 13.53       | 13.48            |  0%    |
+    | 128  | 24.36       | 24.50            | +1%    |
+    | 256  | 132.14      | 123.23           | -7%    |
+    | 512  | 1194.56     | 1144.38          | -4%    |
+    | 1024 | 8723.75     | 9470.17          | +9%    |
+
+  f64 1024 regressed ~9% consistently across runs. Root cause: B sliver
+  doubled from 16KB to 32KB (66% of L1d vs 33%), competing with A accesses
+  for L1 space. The reduced B-packing overhead from halving PC iterations
+  is more than offset by increased L1 pressure during the micro-kernel.
+
+Action taken:
+  Reverted GEMM_F64_KC to 256. Tests: 45/45.
+
+Conclusion:
+  f64 KC must stay at 256 on this hardware. The 48KB L1d cannot accommodate
+  both a 32KB B sliver and the A micro-panel access pattern without L1 misses.
+  f64 512/1024 gaps must be addressed via other means (micro-kernel tuning,
+  thread scheduling, or packing efficiency).
+
+================================================================================
+Optimization #11: Batched Pointer Advance in ASM Micro-Kernels (NEGATIVE RESULT)
+================================================================================
+
+Problem:
+  numc's 8× unrolled K-loop had per-iteration pointer advances (add rA, stride;
+  add rB, stride) — 16 add instructions per 8-iter body. BLIS batches pointer
+  advance once per 4-iter body (2 adds per 4 iters). This added ~10% µop overhead
+  to the K-loop, though most adds execute on non-FMA ports (estimated 3-5% impact).
+
+Solution:
+  Created offset-based macros GEMM_F64_ASM_K_AT(ao, bo) and GEMM_F32_ASM_K_AT(ao, bo)
+  that use explicit byte offsets for A and B loads instead of per-iter pointer advances.
+  The 8× unrolled K-loop now advances A/B pointers once at the end (2 adds total)
+  instead of every iteration (16 adds total).
+  - f64: A offsets 0,48,96,...,336; B offsets 64,128,...,512; advance A+=384, B+=512
+  - f32: A offsets 0,24,48,...,168; B offsets 64,128,...,512; advance A+=192, B+=512
+  - Original per-iter macros kept for remainder loop.
+
+Result (3 benchmark runs, absolute numc times in us):
+
+  Batched pointer advance (best of 3 runs):
+    f32:  64=6.85  128=14.99  256=72.53  512=545.32  1024=4533.59
+    f64:  64=13.56  128=27.97  256=129.20  512=1210.51  1024=9557.78
+
+  Baseline (best of previous 3 runs):
+    f32:  64=6.92  128=14.25  256=72.25  512=475.51  1024=4516.33
+    f64:  64=13.53  128=24.36  256=132.14  512=1194.56  1024=8723.75
+
+  Regressions:
+    f32 512:  475→545 (+15%)
+    f64 128:  24.36→27.97 (+15%)
+    f64 1024: 8724→9558 (+10%)
+  No improvements observed at any size.
+
+Action taken:
+  Reverted gemm_avx2.h to committed version. Tests: 45/45.
+
+Analysis:
+  The offset-based addressing likely hurt because: (1) larger immediate offsets
+  in vmovupd/vbroadcastsd increase instruction encoding size (4-byte disp32 vs
+  no displacement), bloating the K-loop code and reducing µop cache density;
+  (2) on modern out-of-order CPUs, the add instructions are effectively free
+  since they execute on non-FMA ports and are fully overlapped with FMA latency;
+  (3) the longer instruction encodings may cause the unrolled loop to span more
+  µop cache lines, creating front-end bottlenecks.
+
+  The BLIS approach works because BLIS uses nasm with hand-crafted instruction
+  scheduling and smaller unroll factor (4x), keeping the loop compact. Our 8×
+  unroll with larger offsets is too bloated for this technique to help.
+
+================================================================================
+Optimization #12: Removing SW Prefetches from f64 K-Loop (NEGATIVE RESULT)
+================================================================================
+
+Problem:
+  BLIS Haswell micro-kernel relies entirely on hardware prefetching with no
+  software prefetch instructions in the K-loop. Hypothesis: removing the 3
+  software prefetches (2× A, 1× B) from numc's f64 8× unrolled K-loop might
+  improve performance by reducing instruction count and letting the HW prefetcher
+  work unimpeded.
+
+Solution:
+  Removed all 3 `prefetcht0` instructions from the f64 ASM K-loop body
+  (prefetcht0 384(%[ap]), prefetcht0 512(%[bp]), prefetcht0 768(%[ap])).
+
+Result (absolute numc times in us):
+
+  Without SW prefetches:
+    f64:  256=373  512=1473-2200  (severe regression)
+
+  Baseline (with SW prefetches):
+    f64:  256=132  512=1150-1195
+
+  Regressions:
+    f64 256:  132→373 (+183%)
+    f64 512:  1150→1473-2200 (+28-91%)
+
+Action taken:
+  Reverted immediately. Tests: 45/45.
+
+Analysis:
+  SW prefetches are CRITICAL for f64 performance. The HW prefetcher alone cannot
+  keep up with the packed data access pattern for f64. Unlike BLIS which uses a
+  different instruction schedule and register blocking that may create more
+  predictable access patterns for the HW prefetcher, numc's inline ASM K-loop
+  benefits significantly from explicit software prefetching. The large regression
+  at 256×256 (which fits entirely in L2) suggests the prefetches help with L1
+  residency of the A panel, not just L2→L1 streaming.
+
+================================================================================
+Optimization #13: Re-apply f64 Prefetch Distance Fix (Previously Lost)
+================================================================================
+
+Problem:
+  The f64 ASM K-loop had prefetch distances identical to f32 (384/768 bytes for
+  A, 512 bytes for B). But f64's A stride per K-iter is 48 bytes (MR=6 × 8B)
+  vs f32's 24 bytes (MR=6 × 4B). So the first A prefetch at 384 bytes was only
+  384/48 = 8 K-iters ahead — exactly one unrolled loop body, barely useful.
+  The second A prefetch at 768 bytes = 16 iters ahead was also shorter in
+  real-time than f32's equivalent. This fix was previously applied and measured
+  (Optimization #8) but was accidentally lost during the batched pointer advance
+  revert (git checkout HEAD reverted all changes).
+
+Solution:
+  Doubled f64 A prefetch distances:
+    prefetcht0 384(%[ap]) → prefetcht0 768(%[ap])   (16 K-iters ahead)
+    prefetcht0 768(%[ap]) → prefetcht0 1536(%[ap])  (32 K-iters ahead)
+  B prefetch kept at 512(%[bp]) (512/64 = 8 K-iters, adequate for B's NR=8 stride).
+
+Result (3 benchmark runs, system under significant load — high variance):
+
+  Best numc times with fix applied (us):
+    f64:  64=13.56  128=26.07  256=136.07  512=1399.70  1024=10981.92
+
+  Baseline (best of previous 3 runs, before fix):
+    f64:  64=13.53  128=24.36  256=132.14  512=1194.56  1024=8723.75
+
+  Assessment: Environment too noisy to draw conclusions. f64 64 is perfectly
+  stable (13.56 vs 13.53), confirming the fix doesn't regress gemmsup.
+  f64 256/512/1024 all inflated, but f32 (unaffected by this change) is equally
+  inflated (f32 128: 23-38us vs baseline 14.25us), proving system load contamination.
+  The fix is theoretically correct (matching prefetch distance to data stride)
+  and previously measured at -6 to -10% improvement (Optimization #8).
+  Keeping the fix applied; will re-benchmark when system is quieter.

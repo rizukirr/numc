@@ -22,8 +22,13 @@ def load_csv(path):
     results = {}
     with open(path) as f:
         for row in csv.DictReader(f):
+            if not row or row.get("category") is None or row.get("time_us") is None:
+                continue
             key = (row["category"], row["operation"], row["dtype"], row["shape"])
-            results[key] = float(row["time_us"])
+            try:
+                results[key] = float(row["time_us"])
+            except (TypeError, ValueError):
+                continue
     return results
 
 
