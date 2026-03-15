@@ -169,69 +169,68 @@ static inline void gemm_pack_a_f32(const float *a, float *packed, size_t mc,
       const float *r3 = a + (ir + 3) * rsa;
       const float *r4 = a + (ir + 4) * rsa;
       const float *r5 = a + (ir + 5) * rsa;
-      /* BLIS-style SIMD transpose: process 8 K-columns at a time.
-         Load 8 floats from each of 6 rows, transpose rows 0-3 (4×8)
-         and rows 4-5 (2×8), store 8 packed columns of 6 floats. */
+      /* SIMD transpose: process 8 K-columns at a time.
+         Load 8 floats from each of 6 rows, transpose rows 0-3 (4×4 per
+         128-bit lane) and rows 4-5 (2×4 per lane), store 8 packed columns
+         of 6 floats (MR=6, 24 bytes each). */
       size_t p = 0;
       for (; p + 8 <= kc; p += 8) {
-        /* Load 8 floats from each row */
         __m256 v0 = _mm256_loadu_ps(r0 + p);
         __m256 v1 = _mm256_loadu_ps(r1 + p);
         __m256 v2 = _mm256_loadu_ps(r2 + p);
         __m256 v3 = _mm256_loadu_ps(r3 + p);
         __m256 v4 = _mm256_loadu_ps(r4 + p);
         __m256 v5 = _mm256_loadu_ps(r5 + p);
-        /* Transpose rows 0-3: produces columns 0,1,4,5 (lo) then 2,3,6,7 (hi)
-         */
-        __m256 lo01 = _mm256_unpacklo_ps(v0, v1);
-        __m256 lo23 = _mm256_unpacklo_ps(v2, v3);
-        __m256 s0 = _mm256_shuffle_ps(lo23, lo01, 0x4E);
-        __m256 col04_03 = _mm256_blend_ps(lo01, s0, 0xCC);
-        __m256 col15_03 = _mm256_blend_ps(lo23, s0, 0x33);
-        __m128 c0 = _mm256_castps256_ps128(col04_03);   /* col 0, rows 0-3 */
-        __m128 c4 = _mm256_extractf128_ps(col04_03, 1); /* col 4, rows 0-3 */
-        __m128 c1 = _mm256_castps256_ps128(col15_03);   /* col 1, rows 0-3 */
-        __m128 c5 = _mm256_extractf128_ps(col15_03, 1); /* col 5, rows 0-3 */
-        __m256 hi01 = _mm256_unpackhi_ps(v0, v1);
-        __m256 hi23 = _mm256_unpackhi_ps(v2, v3);
-        __m256 s1 = _mm256_shuffle_ps(hi23, hi01, 0x4E);
-        __m256 col26_03 = _mm256_blend_ps(hi01, s1, 0xCC);
-        __m256 col37_03 = _mm256_blend_ps(hi23, s1, 0x33);
-        __m128 c2 = _mm256_castps256_ps128(col26_03);   /* col 2, rows 0-3 */
-        __m128 c6 = _mm256_extractf128_ps(col26_03, 1); /* col 6, rows 0-3 */
-        __m128 c3 = _mm256_castps256_ps128(col37_03);   /* col 3, rows 0-3 */
-        __m128 c7 = _mm256_extractf128_ps(col37_03, 1); /* col 7, rows 0-3 */
-        /* Transpose rows 4-5: 2×8 partial transpose */
+        /* Standard 4×4 AVX2 in-lane transpose for rows 0-3.
+         * t0[lo] = [r0[0],r1[0],r0[1],r1[1]], t0[hi] = [r0[4],r1[4],...]
+         * t2[lo] = [r2[0],r3[0],r2[1],r3[1]], etc. */
+        __m256 t0 = _mm256_unpacklo_ps(v0, v1);
+        __m256 t1 = _mm256_unpackhi_ps(v0, v1);
+        __m256 t2 = _mm256_unpacklo_ps(v2, v3);
+        __m256 t3 = _mm256_unpackhi_ps(v2, v3);
+        /* col k: [r0[k],r1[k],r2[k],r3[k]] via shuffle_ps */
+        __m128 t0lo = _mm256_castps256_ps128(t0),
+               t0hi = _mm256_extractf128_ps(t0, 1);
+        __m128 t1lo = _mm256_castps256_ps128(t1),
+               t1hi = _mm256_extractf128_ps(t1, 1);
+        __m128 t2lo = _mm256_castps256_ps128(t2),
+               t2hi = _mm256_extractf128_ps(t2, 1);
+        __m128 t3lo = _mm256_castps256_ps128(t3),
+               t3hi = _mm256_extractf128_ps(t3, 1);
+        /* shuffle_ps(a,b,0x44)=[a[0],a[1],b[0],b[1]],
+         * 0xEE=[a[2],a[3],b[2],b[3]] */
+        __m128 c0 = _mm_shuffle_ps(t0lo, t2lo, 0x44); /* col 0, rows 0-3 */
+        __m128 c1 = _mm_shuffle_ps(t0lo, t2lo, 0xEE); /* col 1, rows 0-3 */
+        __m128 c2 = _mm_shuffle_ps(t1lo, t3lo, 0x44); /* col 2, rows 0-3 */
+        __m128 c3 = _mm_shuffle_ps(t1lo, t3lo, 0xEE); /* col 3, rows 0-3 */
+        __m128 c4 = _mm_shuffle_ps(t0hi, t2hi, 0x44); /* col 4, rows 0-3 */
+        __m128 c5 = _mm_shuffle_ps(t0hi, t2hi, 0xEE); /* col 5, rows 0-3 */
+        __m128 c6 = _mm_shuffle_ps(t1hi, t3hi, 0x44); /* col 6, rows 0-3 */
+        __m128 c7 = _mm_shuffle_ps(t1hi, t3hi, 0xEE); /* col 7, rows 0-3 */
+        /* Transpose rows 4-5: 2×8 partial — unpack gives pairs [r4[k],r5[k]] */
         __m256 u_lo = _mm256_unpacklo_ps(v4, v5);
         __m256 u_hi = _mm256_unpackhi_ps(v4, v5);
         __m128d u_lo_0 = _mm_castps_pd(_mm256_castps256_ps128(u_lo));
         __m128d u_lo_4 = _mm_castps_pd(_mm256_extractf128_ps(u_lo, 1));
         __m128d u_hi_0 = _mm_castps_pd(_mm256_castps256_ps128(u_hi));
         __m128d u_hi_4 = _mm_castps_pd(_mm256_extractf128_ps(u_hi, 1));
-        /* Store 8 packed columns of 6 floats (24 bytes each) */
+        /* Store 8 packed columns of 6 floats (24 bytes each).
+         * Layout: [r0,r1,r2,r3] (4 floats) + [r4,r5] (lo/hi of u_*_*) */
         float *d = dest + p * GEMM_F32_MR;
-        /* Column 0 */
         _mm_storeu_ps(d + 0 * 6, c0);
         _mm_storel_pd((double *)(d + 0 * 6 + 4), u_lo_0);
-        /* Column 1 */
         _mm_storeu_ps(d + 1 * 6, c1);
         _mm_storeh_pd((double *)(d + 1 * 6 + 4), u_lo_0);
-        /* Column 2 */
         _mm_storeu_ps(d + 2 * 6, c2);
         _mm_storel_pd((double *)(d + 2 * 6 + 4), u_hi_0);
-        /* Column 3 */
         _mm_storeu_ps(d + 3 * 6, c3);
         _mm_storeh_pd((double *)(d + 3 * 6 + 4), u_hi_0);
-        /* Column 4 */
         _mm_storeu_ps(d + 4 * 6, c4);
         _mm_storel_pd((double *)(d + 4 * 6 + 4), u_lo_4);
-        /* Column 5 */
         _mm_storeu_ps(d + 5 * 6, c5);
         _mm_storeh_pd((double *)(d + 5 * 6 + 4), u_lo_4);
-        /* Column 6 */
         _mm_storeu_ps(d + 6 * 6, c6);
         _mm_storel_pd((double *)(d + 6 * 6 + 4), u_hi_4);
-        /* Column 7 */
         _mm_storeu_ps(d + 7 * 6, c7);
         _mm_storeh_pd((double *)(d + 7 * 6 + 4), u_hi_4);
       }
