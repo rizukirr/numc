@@ -1,139 +1,100 @@
 # Benchmarks
 
-This directory contains the benchmark suite for comparing numc against NumPy.
-Both libraries are tested with identical operations, data types, array sizes,
-and iteration counts to ensure a fair comparison.
-
-## Directory Structure
-
-```
-bench/
-  numc/
-    bench.c              # C benchmark — all numc operations (CSV output)
-    results.csv          # Generated output from bench.c
-  numpy/
-    bench.py             # Python benchmark — mirrors bench.c exactly
-    results.csv          # Generated output from bench.py
-    requirements.txt     # Python dependencies (numpy)
-  graph/
-    plot.py              # Generates comparison charts from both CSVs
-    requirements.txt     # Python dependencies (pandas, matplotlib, numpy)
-    output/              # Generated PNG charts
-  bench_*.c              # Standalone benchmarks (elemwise, matmul, dot, etc.)
-  numpy_bench_*.py       # Standalone NumPy counterparts
-```
+Performance is a core pillar of `numc`. This directory contains a comprehensive
+benchmark suite designed to compare `numc` against NumPy under identical
+conditions.
 
 ## Quick Start
 
-### Run all benchmarks and generate graphs
+### 1. Build numc in Release Mode
+Benchmarks must be run on optimized binaries to be meaningful.
 
 ```bash
-# 1. Build and run both numc and numpy benchmarks
-./run.sh bench
+./run.sh release
+```
 
-# 2. Generate comparison charts
-bench/graph/.venv/bin/python3 bench/graph/plot.py
+### 2. Run All Benchmarks
+This command runs both the `numc` and `numpy` benchmark suites, compares the
+results, and generates visualization charts.
+
+```bash
+./run.sh bench
 ```
 
 Charts are saved as PNG files in `bench/graph/output/`.
 
-### Run benchmarks separately
+---
 
-```bash
-# numc only (requires a release build)
-./run.sh release
-./build/bin/bench_numc_csv > bench/numc/results.csv
+## How to Interpret the Results
 
-# numpy only
-python3 bench/numpy/bench.py > bench/numpy/results.csv
-```
+We use three primary metrics to evaluate performance:
 
-### Standalone benchmarks
+### 1. time_us (Lower is Better)
+The average wall-clock time for a single execution of the operation, measured
+in microseconds. We use a **Warmup-then-Timed** approach:
+- **Warmup:** 20 iterations to prime the instruction cache and branch predictor.
+- **Timed:** 200 iterations to calculate a stable average.
 
-Individual benchmarks are useful for profiling or testing a single category:
+### 2. throughput_mops (Higher is Better)
+**Millions of Operations Per Second.** This normalizes performance across
+different array sizes.
+- Formula: `(Total Elements) / (time_us)`
+- Useful for comparing efficiency across different data types or hardware.
 
-```bash
-./build/bin/bench_elemwise
-./build/bin/bench_matmul
-./build/bin/bench_dot
-./build/bin/bench_reduction
-./build/bin/bench_scalar
-./build/bin/bench_unary
-./build/bin/bench_pow
-./build/bin/bench_fma
-./build/bin/bench_random
-```
+### 3. Speedup (Higher is Faster for numc)
+The relative performance factor compared to NumPy.
+- Formula: `numpy_time / numc_time`
+- **> 1.0x:** `numc` is faster than NumPy.
+- **< 1.0x:** NumPy is faster than `numc`.
 
-## Setting Up Python Environments
+---
 
-The numpy benchmark and graph scripts require Python with specific packages.
+## Benchmarking Checklist for Reproducibility
 
-```bash
-# For numpy benchmarks
-python3 -m venv bench/numpy/.venv
-bench/numpy/.venv/bin/pip install -r bench/numpy/requirements.txt
+To get consistent and high-fidelity results, follow these guidelines:
 
-# For graph generation
-python3 -m venv bench/graph/.venv
-bench/graph/.venv/bin/pip install -r bench/graph/requirements.txt
-```
+1.  **Set CPU Governor to Performance:** On Linux, modern CPUs throttle
+    frequencies aggressively.
+    ```bash
+    sudo cpupower frequency-set -g performance
+    ```
+2.  **Close Background Applications:** Heavy IDEs, browsers, or other background
+    tasks can cause context-switching noise.
+3.  **Use the Same Machine:** Never compare `numc` results from one machine to
+    NumPy results from another.
+4.  **Check OpenMP Bindings:** `run.sh` sets `OMP_PROC_BIND=close` and
+    `OMP_PLACES=cores` by default to minimize thread migration.
+
+---
 
 ## CSV Format
 
-Both `bench/numc/results.csv` and `bench/numpy/results.csv` share the same schema:
+The benchmark results are stored in `bench/numc/results.csv` and
+`bench/numpy/results.csv` with the following schema:
 
-```
-library,category,operation,dtype,size,shape,time_us,throughput_mops
-```
+| Column           | Description                                                |
+| ---------------- | ---------------------------------------------------------- |
+| `library`        | `numc` or `numpy`                                          |
+| `category`       | Operation group (binary, unary, reduction, matmul, etc.)   |
+| `operation`      | Specific function name (add, sub, log, sum)                |
+| `dtype`          | Data type (float32, int64, etc.)                           |
+| `size`           | Total number of elements processed                         |
+| `shape`          | String representation of geometry, e.g. `(1024, 1024)`      |
+| `time_us`        | Average execution time in microseconds                     |
+| `throughput_mops`| Calculated throughput (Millions of Ops/sec)                |
 
-| Column         | Description                                         |
-|----------------|-----------------------------------------------------|
-| library        | `numc` or `numpy`                                   |
-| category       | Operation group (binary, unary, scalar, reduction, matmul, etc.) |
-| operation      | Specific operation (add, sub, mul, div, log, exp, sum, etc.)     |
-| dtype          | Data type (int8, uint8, int16, ..., float32, float64)            |
-| size           | Total number of elements                             |
-| shape          | Array shape as a string, e.g. `(1000000)` or `(512x512)@(512x512)` |
-| time_us        | Average time per iteration in microseconds           |
-| throughput_mops| Throughput in millions of operations per second       |
+---
 
-## Reading the Results
+## Directory Structure
 
-**time_us** — Lower is better. This is the average wall-clock time for one
-operation, measured after a warmup phase (20 iterations by default) over 200
-timed iterations.
+-   `numc/`: C-based benchmark implementations and results.
+-   `numpy/`: Python-based NumPy counterparts and results.
+-   `graph/`: Visualization logic and generated comparison charts.
+-   `compare.py`: CLI tool for quick text-based comparison of CSV files.
 
-**throughput_mops** — Higher is better. Computed as `size / time_us`. This
-normalizes across different array sizes and makes it easier to compare
-operations that run on different element counts.
+## Adding New Benchmarks
 
-**speedup** — Shown in the generated charts. Computed as
-`numpy_time / numc_time`. Values above 1.0 mean numc is faster; below 1.0
-means numpy is faster.
-
-## Benchmark Configuration
-
-Both the C and Python benchmarks use the same defaults:
-
-| Parameter | Value     | Purpose                              |
-|-----------|-----------|--------------------------------------|
-| WARMUP    | 20        | Iterations before timing starts      |
-| ITERS     | 200       | Timed iterations (average reported)  |
-| SIZE      | 1,000,000 | Default array size for element-wise  |
-
-Matmul benchmarks use separate configs (smaller sizes, fewer iterations)
-because matrix multiplication is significantly more expensive per call.
-
-## Notes for Contributors
-
-- Always run both numc and numpy benchmarks on the same machine in the same
-  session. Do not compare results across different machines or runs with
-  different system load.
-- Close other CPU-intensive programs before benchmarking.
-- The CSV files are gitignored. Results are machine-specific and should not
-  be committed.
-- When adding a new operation to numc, add the corresponding benchmark to
-  both `bench/numc/bench.c` and `bench/numpy/bench.py` to keep them in sync.
-- The `plot.py` script automatically picks up new categories from the CSV
-  files, so new operations will appear in charts without modifying the
-  plotting code (as long as they use existing category names).
+When adding a new feature to `numc`, ensure it is benchmarked:
+1.  Add the operation to `bench/numc/bench.c`.
+2.  Add the equivalent NumPy call to `bench/numpy/bench.py`.
+3.  Run `./run.sh bench` to verify the performance delta.

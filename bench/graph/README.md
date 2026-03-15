@@ -1,130 +1,80 @@
-# Benchmark Results
+# Benchmark Visualization
 
-Automated performance comparison of numc against NumPy across all supported
-operations, data types, and array configurations.
+This directory handles the generation of performance comparison charts between `numc` and NumPy. The visualizations are designed to provide both high-level overviews and deep-dives into specific operation categories.
 
-## Test Environment
+## Usage
 
-| Component    | Specification                                    |
-|--------------|--------------------------------------------------|
-| CPU          | 13th Gen Intel Core i7-13620H (10C/16T, 4.9 GHz)|
-| Architecture | x86_64 (AVX2, FMA)                               |
-| OS           | Linux 6.12.74-1-lts (Arch)                        |
-| Compiler     | Clang 21.1.8 + OpenMP                             |
-| NumPy        | 2.4.2 (OpenBLAS backend)                          |
-| Array Size   | 1,000,000 elements (contiguous)                   |
-| Iterations   | 200 timed / 20 warmup                             |
+Visualizations are generated as part of the standard benchmark suite:
 
-## Overview
+```bash
+./run.sh bench
+```
 
-Median speedup across all operations and data types, grouped by category.
-Values above 1.0 indicate numc is faster than NumPy.
+Alternatively, you can run the generator manually:
+
+```bash
+source bench/graph/.venv/bin/activate
+python3 bench/graph/plot.py
+```
+
+Results are saved to `bench/graph/output/`.
+
+---
+
+## Benchmark Gallery
+
+Once you have run the benchmarks, you can view the results directly in this README (if your Markdown viewer supports local images).
+
+### 1. Performance Overview
+A high-level summary of performance across all categories. Bars represent the **Median Speedup**, while error bars show the **Min/Max** range for operations within that category.
 
 ![Overview](output/overview.png)
 
-## Element-wise Operations
+### 2. Category Deep-Dives
+Each category provides a side-by-side comparison of absolute execution time (left) and the relative speedup factor (right).
 
-### Binary (add, sub, mul, div, pow, maximum, minimum)
+#### Binary Operations (add, sub, mul, div, etc.)
+![Binary Combined](output/binary_combined.png)
 
-![Binary Speedup](output/binary_speedup.png)
+#### Matrix Multiplication (GEMM)
+![Matmul Combined](output/matmul_combined.png)
 
-![Binary Time](output/binary_time.png)
+#### Reductions (sum, mean, max, etc.)
+![Reduction Combined](output/reduction_combined.png)
 
-### Binary Add Across Data Types
+#### Unary Operations (log, exp, sqrt, etc.)
+![Unary Combined](output/unary_combined.png)
 
-Speedup for binary `add` across all 10 supported data types (int8 through
-float64), demonstrating performance characteristics at different element widths.
+---
 
-![Binary Add Dtypes](output/binary_add_dtypes.png)
+### 3. Data Type Scalability
+This chart demonstrates how `numc` performance scales across bit-widths (e.g., comparing 8-bit integers to 64-bit floats).
 
-### Ternary (fma, where)
+![DType Heatmap](output/binary_add_dtypes_heatmap.png)
 
-![Ternary Speedup](output/ternary_speedup.png)
+---
 
-![Ternary Time](output/ternary_time.png)
-
-## Scalar Operations
-
-### Scalar (a + scalar, a * scalar, ...)
-
-![Scalar Speedup](output/scalar_speedup.png)
-
-![Scalar Time](output/scalar_time.png)
-
-### Scalar Inplace (a += scalar, a *= scalar, ...)
-
-![Scalar Inplace Speedup](output/scalar_inplace_speedup.png)
-
-![Scalar Inplace Time](output/scalar_inplace_time.png)
-
-## Unary Operations
-
-### Unary (log, exp, sqrt, abs, neg, clip)
-
-![Unary Speedup](output/unary_speedup.png)
-
-![Unary Time](output/unary_time.png)
-
-### Unary Inplace
-
-![Unary Inplace Speedup](output/unary_inplace_speedup.png)
-
-![Unary Inplace Time](output/unary_inplace_time.png)
-
-## Comparison Operations
-
-### Array vs Array (eq, gt, lt, ge, le)
-
-![Comparison Speedup](output/comparison_speedup.png)
-
-![Comparison Time](output/comparison_time.png)
-
-### Array vs Scalar
-
-![Comparison Scalar Speedup](output/comparison_scalar_speedup.png)
-
-![Comparison Scalar Time](output/comparison_scalar_time.png)
-
-## Reductions
-
-Full reduction (1M elements to scalar) for sum, mean, max, min, argmax,
-argmin on float32.
-
-![Reduction Full](output/reduction_full.png)
-
-## Matrix Multiplication
-
-Square matrix multiplication at 64x64, 128x128, 256x256, and 512x512
-(float32). NumPy delegates to optimized BLAS (OpenBLAS/MKL); numc uses
-a vendored BLIS backend.
-
-![Matmul](output/matmul.png)
-
-## Random Number Generation
-
-![Random Speedup](output/random_speedup.png)
-
-![Random Time](output/random_time.png)
-
-## All Operations (float32)
-
-Complete speedup chart for every benchmarked operation at float32 precision.
+### 4. Detailed Operation List
+A comprehensive breakdown of speedups for every single benchmarked operation.
 
 ![All Ops Speedup](output/all_ops_speedup.png)
 
-## Reproducing These Results
+---
 
-```bash
-# Build release and run both benchmark suites
-./run.sh bench
+## Technical Features
 
-# Generate charts
-bench/graph/.venv/bin/python3 bench/graph/plot.py
-```
+### System Metadata
+The plotting script automatically probes your system to include a "Hardware Footer" on every chart. This ensures results are context-aware:
+- **CPU:** Precise model name (via `lscpu`).
+- **OS:** Kernel version and distribution.
+- **Arch:** System architecture (x86_64, AArch64, etc.).
 
-Charts are written to `bench/graph/output/`. See the
-[bench README](../README.md) for detailed instructions on environment setup,
-CSV format, and interpretation guidelines.
+### Automatic Scaling
+Charts use an intelligent Y-axis:
+- **Linear Scale:** Used for most comparisons to maintain visual intuition.
+- **Log Scale:** Automatically engaged when the performance delta between `numc` and NumPy exceeds 10x, preventing small bars from disappearing.
 
-Results are hardware-dependent. Always run both numc and NumPy benchmarks on
-the same machine in the same session for valid comparisons.
+### Professional Palette
+- **Blue (#2563eb):** Represents `numc`.
+- **Red (#dc2626):** Represents NumPy.
+- **Green/Dark-Red:** Used in speedup charts to immediately distinguish between performance gains and regressions.

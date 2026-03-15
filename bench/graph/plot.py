@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-bench/graph/plot.py — Generate comparison graphs from numc vs numpy CSV benchmarks.
+bench/graph/plot.py — Generate informative comparison graphs from numc vs numpy CSV benchmarks.
 
 Reads bench/numc/results.csv and bench/numpy/results.csv, produces PNG charts
 in bench/graph/output/.
@@ -11,6 +11,8 @@ Usage:
 
 import os
 import sys
+import platform
+import subprocess
 import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
@@ -27,10 +29,35 @@ OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
 
 # ── Colors ────────────────────────────────────────────────────────────
 
-C_NUMC = "#2563eb"
-C_NUMPY = "#dc2626"
-C_SPEEDUP = "#16a34a"
-BG = "#fafafa"
+C_NUMC = "#2563eb"    # Blue
+C_NUMPY = "#dc2626"   # Red
+C_SPEEDUP = "#16a34a" # Green (Fast)
+C_SLOWDOWN = "#991b1b" # Dark Red (Slow)
+BG = "#ffffff"        # Clean White
+GRID = "#e5e7eb"      # Light Gray
+
+# ── System Info ───────────────────────────────────────────────────────
+
+def get_system_info():
+    info = {
+        "OS": f"{platform.system()} {platform.release()}",
+        "CPU": platform.processor(),
+        "Architecture": platform.machine(),
+    }
+    if platform.system() == "Linux":
+        try:
+            # Try lscpu for detailed model name
+            cpu_info = subprocess.check_output("lscpu", shell=True).decode()
+            for line in cpu_info.split("\n"):
+                if "Model name:" in line:
+                    info["CPU"] = line.split("Model name:")[1].strip()
+                    break
+        except Exception:
+            pass
+    return info
+
+SYS_INFO = get_system_info()
+SYS_STR = f"CPU: {SYS_INFO['CPU']} | OS: {SYS_INFO['OS']} | Arch: {SYS_INFO['Architecture']}"
 
 # ── Load data ─────────────────────────────────────────────────────────
 
@@ -65,241 +92,221 @@ def merge(numc, numpy, keys=None):
 def save(fig, name):
     os.makedirs(OUT_DIR, exist_ok=True)
     path = os.path.join(OUT_DIR, name)
+    # Add system info as footer
+    fig.text(0.5, 0.01, SYS_STR, ha='center', fontsize=8, color='#6b7280', style='italic')
     fig.savefig(path, dpi=150, bbox_inches="tight", facecolor=BG)
     plt.close(fig)
     print(f"  saved {path}")
+
+
+def setup_ax(ax):
+    ax.set_facecolor(BG)
+    ax.grid(True, axis="both", color=GRID, linestyle="-", linewidth=0.5, alpha=0.5, zorder=0)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color('#9ca3af')
+    ax.spines['bottom'].set_color('#9ca3af')
+    ax.tick_params(colors='#4b5563', labelsize=8)
 
 
 def grouped_bar(ax, labels, numc_vals, numpy_vals, ylabel="Time (us)"):
     """Side-by-side bar chart with log scale when range exceeds 10x."""
     x = np.arange(len(labels))
     w = 0.35
-    ax.bar(x - w/2, numc_vals, w, label="numc", color=C_NUMC, zorder=3)
-    ax.bar(x + w/2, numpy_vals, w, label="numpy", color=C_NUMPY, zorder=3)
+    ax.bar(x - w/2, numc_vals, w, label="numc", color=C_NUMC, zorder=3, alpha=0.9)
+    ax.bar(x + w/2, numpy_vals, w, label="numpy", color=C_NUMPY, zorder=3, alpha=0.9)
     ax.set_xticks(x)
-    ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=8)
-    ax.set_ylabel(ylabel, fontsize=9)
-    ax.legend(fontsize=8)
-    ax.grid(axis="y", alpha=0.3, zorder=0)
-    ax.set_facecolor(BG)
+    ax.set_xticklabels(labels, rotation=45, ha="right")
+    ax.set_ylabel(ylabel, fontsize=9, fontweight="bold")
+    ax.legend(fontsize=8, frameon=False)
+    
     all_vals = np.concatenate([numc_vals, numpy_vals])
-    if all_vals.max() / max(all_vals[all_vals > 0].min(), 1e-9) > 10:
+    if len(all_vals) > 0 and all_vals.max() / max(all_vals[all_vals > 0].min(), 1e-9) > 10:
         ax.set_yscale("log")
-        ax.set_ylabel(ylabel + " (log scale)", fontsize=9)
+        ax.set_ylabel(ylabel + " (log scale)", fontsize=9, fontweight="bold")
+    setup_ax(ax)
 
 
 def speedup_bar(ax, labels, speedups):
     """Horizontal bar chart of speedup factors."""
     y = np.arange(len(labels))
-    colors = [C_SPEEDUP if s >= 1 else C_NUMPY for s in speedups]
-    bars = ax.barh(y, speedups, color=colors, zorder=3)
+    colors = [C_SPEEDUP if s >= 1 else C_SLOWDOWN for s in speedups]
+    bars = ax.barh(y, speedups, color=colors, zorder=3, alpha=0.8)
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=8)
-    ax.axvline(x=1.0, color="black", linewidth=0.8, linestyle="--", zorder=4)
-    ax.set_xlabel("Speedup (numc / numpy)", fontsize=9)
-    ax.grid(axis="x", alpha=0.3, zorder=0)
-    ax.set_facecolor(BG)
+    ax.set_yticklabels(labels)
+    ax.axvline(x=1.0, color="#1f2937", linewidth=1.5, linestyle="-", zorder=4, alpha=0.6)
+    ax.set_xlabel("Speedup (Higher is Faster)", fontsize=9, fontweight="bold")
+    
+    # Text labels for speedup
     for bar, val in zip(bars, speedups):
         ax.text(bar.get_width() + 0.05, bar.get_y() + bar.get_height()/2,
-                f"{val:.2f}x", va="center", fontsize=7, fontweight="bold")
+                f"{val:.2f}x", va="center", fontsize=7, fontweight="bold",
+                color=C_SPEEDUP if val >= 1 else C_SLOWDOWN)
+    setup_ax(ax)
 
 
 # ── Chart generators ──────────────────────────────────────────────────
 
-def plot_category_speedup(merged, category, title, filename):
-    """Speedup chart for one category, float32 dtype only."""
+def plot_category_combined(merged, category, title, filename):
+    """Combined chart: Time (left) and Speedup (right) for one category."""
     sub = merged[(merged["category"] == category) & (merged["dtype"] == "float32")]
     if sub.empty:
         sub = merged[merged["category"] == category]
-        if sub.empty:
-            return
-        # Pick first dtype available per operation
+        if sub.empty: return
         sub = sub.drop_duplicates(subset=["operation"], keep="first")
 
-    sub = sub.sort_values("speedup", ascending=True)
-    fig, ax = plt.subplots(figsize=(8, max(3, len(sub) * 0.4)))
-    fig.suptitle(title, fontsize=12, fontweight="bold", y=1.02)
-    speedup_bar(ax, sub["operation"].values, sub["speedup"].values)
-    save(fig, filename)
+    sub_speedup = sub.sort_values("speedup", ascending=True)
+    sub_time = sub.sort_values("operation")
 
+    fig, (ax_time, ax_speed) = plt.subplots(1, 2, figsize=(14, max(5, len(sub) * 0.4)))
+    fig.suptitle(f"{title} (float32)", fontsize=14, fontweight="bold", y=0.98)
 
-def plot_category_time(merged, category, title, filename):
-    """Time comparison bars for one category, float32."""
-    sub = merged[(merged["category"] == category) & (merged["dtype"] == "float32")]
-    if sub.empty:
-        sub = merged[merged["category"] == category]
-        if sub.empty:
-            return
-        sub = sub.drop_duplicates(subset=["operation"], keep="first")
+    # Time Comparison
+    grouped_bar(ax_time, sub_time["operation"].values,
+                sub_time["time_us_numc"].values, sub_time["time_us_numpy"].values)
+    ax_time.set_title("Average Execution Time", fontsize=11, pad=10)
 
-    sub = sub.sort_values("operation")
-    fig, ax = plt.subplots(figsize=(max(6, len(sub) * 0.8), 5))
-    fig.suptitle(title, fontsize=12, fontweight="bold")
-    grouped_bar(ax, sub["operation"].values,
-                sub["time_us_numc"].values, sub["time_us_numpy"].values)
+    # Speedup
+    speedup_bar(ax_speed, sub_speedup["operation"].values, sub_speedup["speedup"].values)
+    ax_speed.set_title("numc Speedup Factor", fontsize=11, pad=10)
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     save(fig, filename)
 
 
 def plot_dtype_heatmap(merged, category, operation, title, filename):
-    """Speedup across all dtypes for a single operation."""
+    """Heatmap of speedup across all dtypes for a single operation."""
     sub = merged[(merged["category"] == category) & (merged["operation"] == operation)]
-    if sub.empty:
-        return
+    if sub.empty: return
 
     sub = sub.sort_values("dtype")
-    fig, ax = plt.subplots(figsize=(8, max(3, len(sub) * 0.4)))
-    fig.suptitle(title, fontsize=12, fontweight="bold", y=1.02)
-    speedup_bar(ax, sub["dtype"].values, sub["speedup"].values)
+    labels = sub["dtype"].values
+    speedups = sub["speedup"].values
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    fig.suptitle(title, fontsize=13, fontweight="bold")
+
+    y = np.arange(len(labels))
+    colors = [C_SPEEDUP if s >= 1 else C_SLOWDOWN for s in speedups]
+    bars = ax.bar(y, speedups, color=colors, zorder=3, alpha=0.8)
+    ax.set_xticks(y)
+    ax.set_xticklabels(labels, rotation=0)
+    ax.axhline(y=1.0, color="#1f2937", linewidth=1, linestyle="--", zorder=4)
+    ax.set_ylabel("Speedup", fontsize=10, fontweight="bold")
+
+    for bar, val in zip(bars, speedups):
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.05,
+                f"{val:.2f}x", ha="center", va="bottom", fontsize=8, fontweight="bold")
+
+    setup_ax(ax)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     save(fig, filename)
 
 
-def plot_matmul(merged):
-    """Matmul comparison across shapes, float32 only."""
-    sub = merged[(merged["category"] == "matmul") & (merged["dtype"] == "float32")]
-    if sub.empty:
-        return
-
-    sub = sub.sort_values("size")
-    labels = sub["shape"].values
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-    fig.suptitle("Matrix Multiplication: numc vs numpy", fontsize=12, fontweight="bold")
-
-    grouped_bar(ax1, labels, sub["time_us_numc"].values, sub["time_us_numpy"].values)
-    ax1.set_title("Time (us)", fontsize=10)
-
-    speedup_bar(ax2, labels, sub["speedup"].values)
-    ax2.set_title("Speedup", fontsize=10)
-
-    fig.tight_layout()
-    save(fig, "matmul.png")
-
-
-def plot_reduction_full(merged):
-    """Full reductions (sum, mean, max, min, argmax, argmin) across dtypes."""
-    ops = ["sum", "mean", "max", "min", "argmax", "argmin"]
-    sub = merged[(merged["category"] == "reduction") & (merged["operation"].isin(ops))]
-    if sub.empty:
-        return
-
-    # float32 summary
-    f32 = sub[sub["dtype"] == "float32"].sort_values("operation")
-    if f32.empty:
-        return
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-    fig.suptitle("Reductions (full, float32): numc vs numpy", fontsize=12, fontweight="bold")
-
-    grouped_bar(ax1, f32["operation"].values,
-                f32["time_us_numc"].values, f32["time_us_numpy"].values)
-    ax1.set_title("Time (us)", fontsize=10)
-
-    speedup_bar(ax2, f32["operation"].values, f32["speedup"].values)
-    ax2.set_title("Speedup", fontsize=10)
-
-    fig.tight_layout()
-    save(fig, "reduction_full.png")
-
-
 def plot_overview(merged):
-    """One big summary: average speedup per category."""
-    summary = merged.groupby("category")["speedup"].median().sort_values(ascending=True)
+    """High-level summary: Median Speedup per category."""
+    summary = merged.groupby("category")["speedup"].agg(["median", "max", "min"]).sort_values("median", ascending=True)
 
-    fig, ax = plt.subplots(figsize=(9, max(4, len(summary) * 0.5)))
-    fig.suptitle("numc vs numpy: Median Speedup by Category", fontsize=13, fontweight="bold", y=1.02)
+    fig, ax = plt.subplots(figsize=(10, max(5, len(summary) * 0.6)))
+    fig.suptitle("numc Performance Overview: Median Speedup by Category", fontsize=15, fontweight="bold", y=0.98)
 
     y = np.arange(len(summary))
-    colors = [C_SPEEDUP if s >= 1 else C_NUMPY for s in summary.values]
-    bars = ax.barh(y, summary.values, color=colors, zorder=3)
+    medians = summary["median"].values
+    
+    colors = [C_SPEEDUP if s >= 1 else C_SLOWDOWN for s in medians]
+    bars = ax.barh(y, medians, color=colors, zorder=3, alpha=0.8)
+    
+    # Error bars showing range (min to max)
+    ax.errorbar(medians, y, xerr=[medians - summary["min"], summary["max"] - medians], 
+                fmt='none', ecolor='#9ca3af', elinewidth=1, capsize=3, zorder=2)
+
     ax.set_yticks(y)
-    ax.set_yticklabels(summary.index, fontsize=9)
-    ax.axvline(x=1.0, color="black", linewidth=0.8, linestyle="--", zorder=4)
-    ax.set_xlabel("Median Speedup (higher = numc faster)", fontsize=10)
-    ax.grid(axis="x", alpha=0.3, zorder=0)
-    ax.set_facecolor(BG)
+    ax.set_yticklabels([c.replace("_", " ").title() for c in summary.index], fontsize=10, fontweight="bold")
+    ax.axvline(x=1.0, color="#1f2937", linewidth=2, linestyle="-", zorder=4, alpha=0.7)
+    ax.set_xlabel("Median Speedup (Higher is Faster)", fontsize=11, fontweight="bold")
 
-    for bar, val in zip(bars, summary.values):
-        ax.text(bar.get_width() + 0.03, bar.get_y() + bar.get_height()/2,
-                f"{val:.2f}x", va="center", fontsize=8, fontweight="bold")
+    for bar, val in zip(bars, medians):
+        ax.text(bar.get_width() + 0.1, bar.get_y() + bar.get_height()/2,
+                f"{val:.2f}x", va="center", fontsize=9, fontweight="bold",
+                color=C_SPEEDUP if val >= 1 else C_SLOWDOWN)
 
+    # Add annotation about the error bars
+    ax.text(0.95, 0.05, "Error bars show Min/Max speedup in category", 
+            transform=ax.transAxes, ha='right', fontsize=8, color='#6b7280')
+
+    setup_ax(ax)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     save(fig, "overview.png")
 
 
-def plot_dtype_comparison(merged):
-    """Binary add speedup across all dtypes."""
-    plot_dtype_heatmap(merged, "binary", "add",
-                       "Binary Add: Speedup by dtype", "binary_add_dtypes.png")
-
-
-def plot_all_ops_speedup(merged):
-    """Big chart: speedup for every float32 operation."""
+def plot_all_ops_detailed(merged):
+    """Large detailed chart for all float32 operations."""
     sub = merged[merged["dtype"] == "float32"].copy()
     if sub.empty:
         sub = merged.drop_duplicates(subset=["category", "operation"], keep="first")
 
-    sub["label"] = sub["category"] + "/" + sub["operation"]
+    sub["label"] = sub["category"].str.replace("_", " ").str.title() + " / " + sub["operation"]
     sub = sub.sort_values("speedup", ascending=True)
 
-    fig, ax = plt.subplots(figsize=(10, max(8, len(sub) * 0.25)))
-    fig.suptitle("All Operations (float32): numc vs numpy Speedup",
-                 fontsize=13, fontweight="bold", y=1.01)
+    fig, ax = plt.subplots(figsize=(12, max(10, len(sub) * 0.25)))
+    fig.suptitle("Detailed Operation Speedup (float32)", fontsize=15, fontweight="bold", y=0.99)
+    
     speedup_bar(ax, sub["label"].values, sub["speedup"].values)
+    
+    plt.tight_layout(rect=[0, 0.03, 1, 0.98])
     save(fig, "all_ops_speedup.png")
 
 
 # ── Main ──────────────────────────────────────────────────────────────
 
 def main():
-    # Optional --filter flag (e.g., --filter matmul)
     cat_filter = None
     if "--filter" in sys.argv:
         idx = sys.argv.index("--filter")
         if idx + 1 < len(sys.argv):
             cat_filter = sys.argv[idx + 1]
 
-    print("Loading benchmark CSVs...")
+    print("Loading benchmark results...")
     numc, numpy = load()
     merged = merge(numc, numpy)
-    print(f"Merged: {len(merged)} rows\n")
+    print(f"Loaded {len(merged)} shared data points.")
 
-    print("Generating graphs:")
+    print("\nGenerating Informative Charts:")
 
-    if cat_filter == "matmul":
-        plot_matmul(merged)
-        print(f"\nDone! Matmul chart saved to {OUT_DIR}/")
-        return
+    if cat_filter:
+        print(f"  Filtering for category: {cat_filter}")
+        plot_category_combined(merged, cat_filter, f"{cat_filter.title()} Performance", f"{cat_filter}_combined.png")
+        if cat_filter == "binary":
+            plot_dtype_heatmap(merged, "binary", "add", "Binary Add Speedup across Data Types", "binary_add_dtypes_heatmap.png")
+    else:
+        # 1. Overview
+        plot_overview(merged)
 
-    # Overview
-    plot_overview(merged)
+        # 2. Combined Category Plots
+        categories = [
+            ("binary", "Binary Operations"),
+            ("ternary", "Ternary Operations"),
+            ("scalar", "Scalar Operations"),
+            ("scalar_inplace", "Inplace Scalar Operations"),
+            ("unary", "Unary Operations"),
+            ("unary_inplace", "Inplace Unary Operations"),
+            ("comparison", "Comparison Operations"),
+            ("comparison_scalar", "Scalar Comparison"),
+            ("random", "Random Number Generation"),
+            ("reduction", "Reduction Operations"),
+            ("matmul", "Matrix Multiplication"),
+        ]
+        
+        for cat, title in categories:
+            plot_category_combined(merged, cat, title, f"{cat}_combined.png")
 
-    # Per-category speedup charts
-    categories = [
-        ("binary", "Binary Element-wise: Speedup (float32)", "binary_speedup.png"),
-        ("ternary", "Ternary Ops: Speedup (float32)", "ternary_speedup.png"),
-        ("scalar", "Scalar Ops: Speedup (float32)", "scalar_speedup.png"),
-        ("scalar_inplace", "Scalar Inplace: Speedup (float32)", "scalar_inplace_speedup.png"),
-        ("unary", "Unary Ops: Speedup (float32)", "unary_speedup.png"),
-        ("unary_inplace", "Unary Inplace: Speedup (float32)", "unary_inplace_speedup.png"),
-        ("comparison", "Comparison Ops: Speedup (float32)", "comparison_speedup.png"),
-        ("comparison_scalar", "Comparison Scalar: Speedup (float32)", "comparison_scalar_speedup.png"),
-        ("random", "Random Generation: Speedup (float32)", "random_speedup.png"),
-    ]
-    for cat, title, fname in categories:
-        plot_category_speedup(merged, cat, title, fname)
+        # 3. Special DType Heatmap
+        plot_dtype_heatmap(merged, "binary", "add", "Performance Scalability: Binary Add by Data Type", "binary_add_dtypes_heatmap.png")
 
-    # Per-category time comparison
-    for cat, title, fname in categories:
-        time_fname = fname.replace("_speedup.png", "_time.png")
-        time_title = title.replace("Speedup", "Time Comparison")
-        plot_category_time(merged, cat, time_title, time_fname)
+        # 4. Detailed Ops
+        plot_all_ops_detailed(merged)
 
-    # Specific charts
-    plot_reduction_full(merged)
-    plot_matmul(merged)
-    plot_dtype_comparison(merged)
-    plot_all_ops_speedup(merged)
-
-    print(f"\nDone! Charts saved to {OUT_DIR}/")
+    print(f"\nSuccess! Visualizations are available in: {OUT_DIR}/")
 
 
 if __name__ == "__main__":
