@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <float.h>
 
 /* ── Config ────────────────────────────────────────────────────────── */
 
@@ -634,6 +635,10 @@ static void bench_matmul(size_t M, size_t K, size_t N, int warmup, int iters) {
 #pragma omp parallel
   { (void)0; }
 #endif
+
+  /* Deterministic seed for reproducible random data */
+  numc_manual_seed(42);
+
   NumcDType dtypes[] = {
       NUMC_DTYPE_FLOAT32, NUMC_DTYPE_FLOAT64, NUMC_DTYPE_INT8,
       NUMC_DTYPE_INT16,   NUMC_DTYPE_INT32,   NUMC_DTYPE_INT64,
@@ -645,21 +650,18 @@ static void bench_matmul(size_t M, size_t K, size_t N, int warmup, int iters) {
     NumcDType dt = dtypes[d];
     NumcCtx *ctx = numc_ctx_create();
     size_t sha[] = {M, K}, shb[] = {K, N}, sho[] = {M, N};
-    char val[8] = {0};
-    switch (dt) {
-    case NUMC_DTYPE_FLOAT32:
-      *(float *)val = 1.0f;
-      break;
-    case NUMC_DTYPE_FLOAT64:
-      *(double *)val = 1.0;
-      break;
-    default:
-      *(int32_t *)val = 2;
-      break;
-    }
 
-    NumcArray *a = numc_array_fill(ctx, sha, 2, dt, val);
-    NumcArray *b = numc_array_fill(ctx, shb, 2, dt, val);
+    /* Use random data for float types to avoid special-case optimizations */
+    NumcArray *a, *b;
+    if (dt == NUMC_DTYPE_FLOAT32 || dt == NUMC_DTYPE_FLOAT64) {
+      a = numc_array_rand(ctx, sha, 2, dt);
+      b = numc_array_rand(ctx, shb, 2, dt);
+    } else {
+      char val[8] = {0};
+      *(int32_t *)val = 2;
+      a = numc_array_fill(ctx, sha, 2, dt, val);
+      b = numc_array_fill(ctx, shb, 2, dt, val);
+    }
     NumcArray *out = numc_array_zeros(ctx, sho, 2, dt);
     if (!a || !b || !out) {
       numc_ctx_free(ctx);
@@ -668,15 +670,21 @@ static void bench_matmul(size_t M, size_t K, size_t N, int warmup, int iters) {
 
     for (int i = 0; i < warmup; i++)
       numc_matmul(a, b, out);
-    double t0 = time_us();
-    for (int i = 0; i < iters; i++)
+
+    /* Per-iteration timing: report minimum (most stable) */
+    double min_us = DBL_MAX;
+    for (int i = 0; i < iters; i++) {
+      double t0 = time_us();
       numc_matmul(a, b, out);
-    double us = (time_us() - t0) / iters;
+      double elapsed = time_us() - t0;
+      if (elapsed < min_us)
+        min_us = elapsed;
+    }
 
     size_t total = M * N;
     char shape_str[64];
     snprintf(shape_str, sizeof(shape_str), "(%zux%zu)@(%zux%zu)", M, K, K, N);
-    csv("matmul", "matmul", dtype_name(dt), total, shape_str, us);
+    csv("matmul", "matmul", dtype_name(dt), total, shape_str, min_us);
     numc_ctx_free(ctx);
   }
 }
@@ -826,12 +834,12 @@ int main(void) {
   bench_reduce_axis("argmin", numc_argmin_axis, 0, 1000, 1000, 1);
   bench_reduce_axis("argmin", numc_argmin_axis, 1, 1000, 1000, 1);
 
-  /* Matmul — various sizes */
-  bench_matmul(64, 64, 64, 50, 200);
-  bench_matmul(128, 128, 128, 50, 50);
-  bench_matmul(256, 256, 256, 50, 20);
-  bench_matmul(512, 512, 512, 50, 10);
-  bench_matmul(1024, 1024, 1024, 10, 3);
+  /* Matmul — various sizes (aligned with bench_matmul_csv.c) */
+  bench_matmul(64, 64, 64, 200, 2000);
+  bench_matmul(128, 128, 128, 100, 500);
+  bench_matmul(256, 256, 256, 50, 100);
+  bench_matmul(512, 512, 512, 20, 50);
+  bench_matmul(1024, 1024, 1024, 10, 20);
 
   /* Dot product */
   bench_dot(SIZE);

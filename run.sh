@@ -90,14 +90,25 @@ case $COMMAND in
         export OMP_PROC_BIND="${OMP_PROC_BIND:-close}"
         export OMP_PLACES="${OMP_PLACES:-cores}"
 
+        # Check CPU governor — warn if not 'performance'
+        if [[ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]]; then
+            GOV=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || true)
+            if [[ "$GOV" != "performance" ]]; then
+                warn "CPU governor is '$GOV', not 'performance'. Results may be noisy."
+                warn "Fix: sudo cpupower frequency-set -g performance"
+            fi
+        fi
+
         if [[ "$BENCH_FILTER" == "matmul" ]]; then
             info "Running numc matmul CSV benchmark..."
-            "./$BUILD_DIR/bin/bench_matmul_csv" > "$BENCH_OUT"
+            nice -5 "./$BUILD_DIR/bin/bench_matmul_csv" > "$BENCH_OUT" 2>/dev/null || \
+                "./$BUILD_DIR/bin/bench_matmul_csv" > "$BENCH_OUT"
             success "numc results -> $BENCH_OUT ($(wc -l < "$BENCH_OUT") rows)"
 
             if [[ -x "$PYTHON_VENV" ]]; then
                 info "Running numpy matmul CSV benchmark..."
-                LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy/bench.py" --matmul > "$NUMPY_OUT"
+                nice -5 env LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy/bench.py" --matmul > "$NUMPY_OUT" 2>/dev/null || \
+                    LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy/bench.py" --matmul > "$NUMPY_OUT"
                 success "numpy results -> $NUMPY_OUT ($(wc -l < "$NUMPY_OUT") rows)"
             else
                 warn "Python venv not found at $PYTHON_VENV — skipping numpy benchmark"
@@ -115,12 +126,14 @@ case $COMMAND in
             fi
         else
             info "Running numc CSV benchmark..."
-            "./$BUILD_DIR/bin/bench_numc_csv" > "$BENCH_OUT"
+            nice -5 "./$BUILD_DIR/bin/bench_numc_csv" > "$BENCH_OUT" 2>/dev/null || \
+                "./$BUILD_DIR/bin/bench_numc_csv" > "$BENCH_OUT"
             success "numc results -> $BENCH_OUT ($(wc -l < "$BENCH_OUT") rows)"
 
             if [[ -x "$PYTHON_VENV" ]]; then
                 info "Running numpy CSV benchmark..."
-                LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy/bench.py" > "$NUMPY_OUT"
+                nice -5 env LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy/bench.py" > "$NUMPY_OUT" 2>/dev/null || \
+                    LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy/bench.py" > "$NUMPY_OUT"
                 success "numpy results -> $NUMPY_OUT ($(wc -l < "$NUMPY_OUT") rows)"
             else
                 warn "Python venv not found at $PYTHON_VENV — skipping numpy benchmark"

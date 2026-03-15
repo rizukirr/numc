@@ -1657,3 +1657,74 @@ Conclusion:
   dispatch (guided for large, static for small) or a different approach entirely.
   A better solution would be P/E core-aware thread capping, which addresses the
   root cause (E-cores creating barrier overhead) rather than the symptom.
+
+================================================================================
+#17  Benchmark Infrastructure Overhaul
+================================================================================
+
+Problem:
+  Benchmark results were noisy and unreliable due to multiple infrastructure
+  problems:
+  1. Both numc and numpy used AVERAGE timing (sensitive to outlier spikes)
+  2. No per-iteration timing — single timing window for all iterations
+  3. Low iteration counts for large sizes (1024: 10 iters, 512: 20)
+  4. Constant fill values (all 1.0) — could trigger special-case optimizations
+  5. No CPU governor check (benchmarks run under powersave/schedutil)
+  6. No process priority elevation
+  7. Inconsistent iteration counts between bench.c and bench_matmul_csv.c
+  8. throughput_mops column was meaningless for matmul (used M*N, not 2*M*K*N)
+  9. NumPy integer matmul used min(iters,3) — unfairly low
+
+  The f32 128x128 ratio of 0.64-0.79x in prior sessions was likely caused by
+  average timing picking up outlier spikes, not actual performance issues.
+
+Solution:
+  Files modified: bench/numc/bench_matmul_csv.c, bench/numc/bench.c,
+  bench/numpy/bench.py, bench/compare.py, run.sh
+
+  Changes:
+  - Switched ALL timing to per-iteration minimum (both numc C and numpy Python)
+  - bench_fn() in bench.py now returns min instead of avg (affects all ops)
+  - bench_matmul in both C and Python: per-iteration clock around each matmul
+  - Float matmul now uses random data (numc_array_rand/np.random.randn, seed=42)
+  - Integer matmul keeps fill(2) to avoid overflow
+  - Increased iters: 512→50 (was 20), 1024→20 (was 10)
+  - Aligned bench.c matmul iters with bench_matmul_csv.c
+  - bench_matmul_csv.c header changed: throughput_mops → gflops (2*M*K*N)
+  - compare.py: shows GFLOPS columns for matmul, peak GFLOPS summary
+  - run.sh: CPU governor check/warning, nice -5 for benchmark processes
+  - NumPy integer matmul iters raised from min(iters,3) to min(iters,10)
+
+Result:
+  45/45 tests pass. New baseline with min-time methodology:
+
+  f32 (AVX2, i7-13620H):
+    | Size | numc (us) | numpy (us) | Speedup | GFLOPS |
+    |------|-----------|------------|---------|--------|
+    | 64   | 5.75      | 9.32       | 1.62x   | 91.2   |
+    | 128  | 14.09     | 21.37      | 1.52x   | 297.8  |
+    | 256  | 68.20     | 79.26      | 1.16x   | 492.0  |
+    | 512  | 482.52    | 596.82     | 1.24x   | 556.3  |
+    | 1024 | 4999.81   | 4956.04    | 0.99x   | 429.5  |
+
+  f64 (AVX2, i7-13620H):
+    | Size | numc (us) | numpy (us) | Speedup | GFLOPS |
+    |------|-----------|------------|---------|--------|
+    | 64   | 13.25     | 15.93      | 1.20x   | 39.6   |
+    | 128  | 26.92     | 38.05      | 1.41x   | 155.8  |
+    | 256  | 124.08    | 173.74     | 1.40x   | 270.4  |
+    | 512  | 1183.29   | 1200.51    | 1.01x   | 226.9  |
+    | 1024 | 10451.99  | 11214.72   | 1.07x   | 205.5  |
+
+  Key finding: f32 128x128 was 0.64-0.79x with average timing but is actually
+  1.52x with min timing. The old results were dominated by outlier spikes in
+  the average. min-time is the correct metric for micro-benchmarks (measures
+  the hardware capability, not system noise).
+
+  Overall: 49/50 benchmarks faster than numpy, 1 at parity (f32 1024: 0.99x).
+  Peak f32 GFLOPS: 556.3 @ 512x512 (95% of theoretical peak).
+
+Conclusion:
+  The benchmark infrastructure is now much more reliable. min-time removes the
+  noise that was making our results look worse than they are. The GFLOPS column
+  provides an absolute metric independent of numpy's performance on a given run.

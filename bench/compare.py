@@ -74,27 +74,55 @@ def main():
         t_numc = numc[key]
         t_numpy = numpy[key]
         speedup = t_numpy / t_numc if t_numc > 0 else float("inf")
-        rows.append((cat, op, dtype, shape, t_numc, t_numpy, speedup))
+
+        # Compute GFLOPS for matmul rows: parse shape "(MxK)@(KxN)"
+        gflops_numc = None
+        gflops_numpy = None
+        if cat == "matmul":
+            try:
+                # shape format: "(MxK)@(KxN)"
+                parts = shape.replace("(", "").replace(")", "").split("@")
+                mk = parts[0].split("x")
+                kn = parts[1].split("x")
+                M, K, N = int(mk[0]), int(mk[1]), int(kn[1])
+                flops = 2.0 * M * K * N
+                gflops_numc = flops / t_numc / 1e3  # us->s=1e6, /1e9=G => /1e3
+                gflops_numpy = flops / t_numpy / 1e3
+            except (IndexError, ValueError):
+                pass
+
+        rows.append((cat, op, dtype, shape, t_numc, t_numpy, speedup, gflops_numc, gflops_numpy))
         if speedup < 1.0:
-            slower.append((cat, op, dtype, shape, t_numc, t_numpy, speedup))
+            slower.append((cat, op, dtype, shape, t_numc, t_numpy, speedup, gflops_numc, gflops_numpy))
+
+    # Check if any matmul rows exist (for GFLOPS columns)
+    has_matmul = any(r[0] == "matmul" for r in rows)
 
     # Print full table
-    hdr = f"{'Category':<12} {'Operation':<24} {'Dtype':<7} {'Shape':<16} {'numc(us)':>10} {'numpy(us)':>10} {'Speedup':>10}"
+    if has_matmul and cat_filter == "matmul":
+        hdr = f"{'Category':<12} {'Operation':<24} {'Dtype':<7} {'Shape':<16} {'numc(us)':>10} {'numpy(us)':>10} {'Speedup':>10} {'numc GF':>9} {'numpy GF':>9}"
+    else:
+        hdr = f"{'Category':<12} {'Operation':<24} {'Dtype':<7} {'Shape':<16} {'numc(us)':>10} {'numpy(us)':>10} {'Speedup':>10}"
     sep = "-" * len(hdr)
     print(f"\n{BOLD}numc vs NumPy Benchmark Comparison{RESET}")
-    print(f"{DIM}{len(rows)} benchmarks matched{RESET}\n")
+    print(f"{DIM}{len(rows)} benchmarks matched | timing: minimum (per-iteration){RESET}\n")
     print(hdr)
     print(sep)
 
     prev_cat = None
-    for cat, op, dtype, shape, t_numc, t_numpy, speedup in rows:
+    for cat, op, dtype, shape, t_numc, t_numpy, speedup, gf_numc, gf_numpy in rows:
         if prev_cat and cat != prev_cat:
             print(sep)
         prev_cat = cat
         sp_str = colorize_speedup(speedup)
-        print(
-            f"{cat:<12} {op:<24} {dtype:<7} {shape:<16} {t_numc:>10.2f} {t_numpy:>10.2f} {sp_str}"
-        )
+        if has_matmul and cat_filter == "matmul" and gf_numc is not None:
+            print(
+                f"{cat:<12} {op:<24} {dtype:<7} {shape:<16} {t_numc:>10.2f} {t_numpy:>10.2f} {sp_str} {gf_numc:>9.1f} {gf_numpy:>9.1f}"
+            )
+        else:
+            print(
+                f"{cat:<12} {op:<24} {dtype:<7} {shape:<16} {t_numc:>10.2f} {t_numpy:>10.2f} {sp_str}"
+            )
 
     # Summary
     import math
@@ -115,17 +143,39 @@ def main():
     print(f"  {RED}Slower:    {n_slower}{RESET}  (<0.95x)")
     print(f"  Geo mean:  {colorize_speedup(geo_mean)}")
 
+    # Peak GFLOPS summary for matmul
+    matmul_rows = [r for r in rows if r[0] == "matmul" and r[7] is not None]
+    if matmul_rows:
+        # Group by dtype for peak reporting
+        by_dtype = {}
+        for r in matmul_rows:
+            dtype = r[2]
+            if dtype not in by_dtype or r[7] > by_dtype[dtype][7]:
+                by_dtype[dtype] = r
+        print(f"\n{BOLD}Peak GFLOPS (numc){RESET}")
+        for dtype in sorted(by_dtype.keys()):
+            r = by_dtype[dtype]
+            print(f"  {dtype:<8}  {r[7]:>7.1f} GF  @ {r[3]}")
+
     # Slower-than-numpy table
     if slower:
         slower.sort(key=lambda r: r[6])
         print(f"\n{BOLD}{RED}Operations slower than NumPy ({len(slower)}):{RESET}\n")
-        print(f"{'Category':<12} {'Operation':<24} {'Dtype':<7} {'Shape':<16} {'numc(us)':>10} {'numpy(us)':>10} {'Speedup':>10}")
+        if has_matmul and cat_filter == "matmul":
+            print(f"{'Category':<12} {'Operation':<24} {'Dtype':<7} {'Shape':<16} {'numc(us)':>10} {'numpy(us)':>10} {'Speedup':>10} {'numc GF':>9} {'numpy GF':>9}")
+        else:
+            print(f"{'Category':<12} {'Operation':<24} {'Dtype':<7} {'Shape':<16} {'numc(us)':>10} {'numpy(us)':>10} {'Speedup':>10}")
         print(sep)
-        for cat, op, dtype, shape, t_numc, t_numpy, speedup in slower:
+        for cat, op, dtype, shape, t_numc, t_numpy, speedup, gf_numc, gf_numpy in slower:
             sp_str = colorize_speedup(speedup)
-            print(
-                f"{cat:<12} {op:<24} {dtype:<7} {shape:<16} {t_numc:>10.2f} {t_numpy:>10.2f} {sp_str}"
-            )
+            if has_matmul and cat_filter == "matmul" and gf_numc is not None:
+                print(
+                    f"{cat:<12} {op:<24} {dtype:<7} {shape:<16} {t_numc:>10.2f} {t_numpy:>10.2f} {sp_str} {gf_numc:>9.1f} {gf_numpy:>9.1f}"
+                )
+            else:
+                print(
+                    f"{cat:<12} {op:<24} {dtype:<7} {shape:<16} {t_numc:>10.2f} {t_numpy:>10.2f} {sp_str}"
+                )
 
 
 if __name__ == "__main__":

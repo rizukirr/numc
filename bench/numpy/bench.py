@@ -63,14 +63,17 @@ def csv(cat, op, dt, size, shape, us):
 
 
 def bench_fn(fn, iters=ITERS):
-    """Time a zero-arg callable, return avg microseconds."""
+    """Time a zero-arg callable, return minimum microseconds (most stable)."""
     for _ in range(WARMUP):
         fn()
-    t0 = time.perf_counter()
+    min_us = float('inf')
     for _ in range(iters):
+        t0 = time.perf_counter()
         fn()
-    t1 = time.perf_counter()
-    return (t1 - t0) / iters * 1e6
+        elapsed = (time.perf_counter() - t0) * 1e6
+        if elapsed < min_us:
+            min_us = elapsed
+    return min_us
 
 
 # ── Binary element-wise ──────────────────────────────────────────────
@@ -307,6 +310,9 @@ def bench_reduce_axis(name, axis, rows, cols):
 # ── Matmul ────────────────────────────────────────────────────────────
 
 def bench_matmul(M, K, N, warmup, iters):
+    """Matmul benchmark: per-iteration timing, reports minimum (most stable)."""
+    np.random.seed(42)  # Deterministic random data
+
     dtypes = [
         ("float32", np.float32), ("float64", np.float64),
         ("int8", np.int8), ("int16", np.int16),
@@ -317,15 +323,18 @@ def bench_matmul(M, K, N, warmup, iters):
 
     for dname, dt in dtypes:
         if dt in (np.float32, np.float64):
-            v = dt(1.0)
+            # Random data for float types (avoids special-case optimizations)
+            a = np.random.randn(M, K).astype(dt)
+            b = np.random.randn(K, N).astype(dt)
             w, it = warmup, iters
         else:
+            # Integer types: use fill with 2 (random integers can overflow)
             v = dt(2)
-            # NumPy integer matmul has no BLAS — use minimal iters
-            w = min(warmup, 2)
-            it = min(iters, 3)
-        a = np.full((M, K), v, dtype=dt)
-        b = np.full((K, N), v, dtype=dt)
+            a = np.full((M, K), v, dtype=dt)
+            b = np.full((K, N), v, dtype=dt)
+            # NumPy integer matmul has no BLAS — use reduced iters
+            w = min(warmup, 5)
+            it = min(iters, 10)
 
         # NumPy matmul doesn't support int8/uint8 etc natively via @
         # Use np.matmul which works for all types
@@ -333,26 +342,34 @@ def bench_matmul(M, K, N, warmup, iters):
             for _ in range(w):
                 np.matmul(a, b)
 
-            t0 = time.perf_counter()
+            # Per-iteration timing: report minimum
+            min_us = float('inf')
             for _ in range(it):
+                t0 = time.perf_counter()
                 np.matmul(a, b)
-            t1 = time.perf_counter()
-            us = (t1 - t0) / it * 1e6
+                elapsed = (time.perf_counter() - t0) * 1e6
+                if elapsed < min_us:
+                    min_us = elapsed
         except TypeError:
             # Some dtypes may not be supported, use float64 cast
             af = a.astype(np.float64)
             bf = b.astype(np.float64)
             for _ in range(w):
                 np.matmul(af, bf)
-            t0 = time.perf_counter()
+            min_us = float('inf')
             for _ in range(it):
+                t0 = time.perf_counter()
                 np.matmul(af, bf)
-            t1 = time.perf_counter()
-            us = (t1 - t0) / it * 1e6
+                elapsed = (time.perf_counter() - t0) * 1e6
+                if elapsed < min_us:
+                    min_us = elapsed
 
         total = M * N
+        # GFLOPS = 2*M*K*N / time_us / 1e3
+        flops = 2.0 * M * K * N
+        gflops = flops / min_us / 1e3
         csv("matmul", "matmul", dname, total,
-            f"({M}x{K})@({K}x{N})", us)
+            f"({M}x{K})@({K}x{N})", min_us)
 
 
 # ── Dot product ───────────────────────────────────────────────────────
@@ -409,8 +426,8 @@ def main():
         bench_matmul(64, 64, 64, 200, 2000)
         bench_matmul(128, 128, 128, 100, 500)
         bench_matmul(256, 256, 256, 50, 100)
-        bench_matmul(512, 512, 512, 20, 20)
-        bench_matmul(1024, 1024, 1024, 5, 10)
+        bench_matmul(512, 512, 512, 20, 50)
+        bench_matmul(1024, 1024, 1024, 10, 20)
         return
 
     # Binary element-wise
@@ -480,8 +497,8 @@ def main():
     bench_matmul(64, 64, 64, 200, 2000)
     bench_matmul(128, 128, 128, 100, 500)
     bench_matmul(256, 256, 256, 50, 100)
-    bench_matmul(512, 512, 512, 20, 20)
-    bench_matmul(1024, 1024, 1024, 5, 10)
+    bench_matmul(512, 512, 512, 20, 50)
+    bench_matmul(1024, 1024, 1024, 10, 20)
 
     # Dot product
     bench_dot(SIZE)
