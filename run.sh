@@ -56,9 +56,13 @@ run_demos() {
 # --- Main Logic ---
 COMMAND=$1
 # For commands with non-compiler subcommands, don't use $2 as compiler
+# Valid bench filters: category names from CSV output
+BENCH_FILTERS="matmul|binary|comparison|comparison_scalar|scalar|unary|reduction|linalg|random|ternary"
 case "$1:$2" in
-    bench:matmul) COMPILER="${CC:-clang}" ;;
-    *)            COMPILER="${2:-${CC:-clang}}" ;;
+    bench:matmul|bench:binary|bench:comparison|bench:comparison_scalar| \
+    bench:scalar|bench:unary|bench:reduction|bench:linalg|bench:random|bench:ternary)
+        COMPILER="${CC:-clang}" ;;
+    *)  COMPILER="${2:-${CC:-clang}}" ;;
 esac
 CC=$COMPILER
 
@@ -100,6 +104,7 @@ case $COMMAND in
         fi
 
         if [[ "$BENCH_FILTER" == "matmul" ]]; then
+            # Matmul has its own dedicated binary
             info "Running numc matmul CSV benchmark..."
             nice -5 "./$BUILD_DIR/bin/bench_matmul_csv" > "$BENCH_OUT" 2>/dev/null || \
                 "./$BUILD_DIR/bin/bench_matmul_csv" > "$BENCH_OUT"
@@ -113,18 +118,8 @@ case $COMMAND in
             else
                 warn "Python venv not found at $PYTHON_VENV — skipping numpy benchmark"
             fi
-
-            if [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
-                python3 bench/compare.py --filter matmul
-            fi
-
-            GRAPH_VENV="bench/graph/.venv/bin/python3"
-            if [[ -x "$GRAPH_VENV" ]] && [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
-                info "Generating matmul chart..."
-                "$GRAPH_VENV" bench/graph/plot.py --filter matmul
-                success "Chart saved to bench/graph/output/matmul.png"
-            fi
         else
+            # Run all benchmarks (full suite or will be filtered at compare stage)
             info "Running numc CSV benchmark..."
             nice -5 "./$BUILD_DIR/bin/bench_numc_csv" > "$BENCH_OUT" 2>/dev/null || \
                 "./$BUILD_DIR/bin/bench_numc_csv" > "$BENCH_OUT"
@@ -138,19 +133,25 @@ case $COMMAND in
             else
                 warn "Python venv not found at $PYTHON_VENV — skipping numpy benchmark"
             fi
+        fi
 
-            if [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
-                python3 bench/compare.py
-            fi
+        # Compare & plot (with optional category filter)
+        COMPARE_ARGS=""
+        if [[ -n "$BENCH_FILTER" ]]; then
+            COMPARE_ARGS="--filter $BENCH_FILTER"
+        fi
 
-            GRAPH_VENV="bench/graph/.venv/bin/python3"
-            if [[ -x "$GRAPH_VENV" ]] && [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
-                info "Generating comparison charts..."
-                "$GRAPH_VENV" bench/graph/plot.py
-                success "Charts saved to bench/graph/output/"
-            else
-                warn "Graph venv not found or CSV files missing — skipping chart generation"
-            fi
+        if [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
+            python3 bench/compare.py $COMPARE_ARGS
+        fi
+
+        GRAPH_VENV="bench/graph/.venv/bin/python3"
+        if [[ -x "$GRAPH_VENV" ]] && [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
+            info "Generating charts..."
+            "$GRAPH_VENV" bench/graph/plot.py $COMPARE_ARGS
+            success "Charts saved to bench/graph/output/"
+        else
+            warn "Graph venv not found or CSV files missing — skipping chart generation"
         fi
         ;;
 
@@ -308,35 +309,51 @@ case $COMMAND in
     ;;
 
 "help"|*)
-    echo -e "${YELLOW}Usage:${NC} $0 {command} [compiler|subcommand]"
     echo ""
-    echo -e "${BLUE}Native Commands:${NC}"
-    echo "  check [cc]     Run CI simulation (format, tidy, test+ASan)"
-    echo "  debug [cc]     Build Debug + ASan and run demos"
-    echo "  release [cc]   Build Release and run demos"
-    echo "  test [cc]      Build Debug + ASan and run ctest"
-    echo "  bench [cc]     Build Release and run CSV benchmarks (all ops)"
-    echo "  bench matmul   Build Release and run matmul-only benchmarks"
-    echo "  cross-arm      Cross-build for AArch64 and run via QEMU"
-    echo "  clean          Remove all build directories"
-    echo "  rebuild [cc]   Fresh debug build"
-    echo "  avx512 [test|bench|clean]  Build x86_64 AVX-512, run via QEMU"
+    echo -e "${YELLOW}numc${NC} — high-performance N-dimensional array library"
     echo ""
-    echo -e "${BLUE}Cross-compile Targets (QEMU):${NC}"
-    echo "  neon [test|bench|clean]   AArch64 NEON (armv8-a baseline)"
-    echo "  sve  [test|bench|clean]   AArch64 SVE  (armv8-a+sve)"
-    echo "  sve2 [test|bench|clean]   AArch64 SVE2 (armv9-a)"
-    echo "  rvv  [test|bench|clean]   RISC-V RVV   (rv64gcv)"
+    echo -e "Usage: ${GREEN}$0${NC} <command> [option]"
     echo ""
-    echo -e "${BLUE}Examples:${NC}"
-    echo "  $0 check            # Run CI simulation"
-    echo "  $0 release          # Build with default (clang)"
-    echo "  $0 release gcc      # Build with gcc"
-    echo "  CC=gcc $0 release   # Also works via env var"
-    echo "  $0 neon             # Cross-compile for NEON"
-    echo "  $0 neon test        # Cross-compile + run tests via QEMU"
-    echo "  $0 sve2 bench       # Cross-compile + run benchmarks via QEMU"
-    echo "  $0 rvv clean        # Remove RISC-V build directory"
-    echo "  $0 avx512 test      # Build AVX-512 and run tests via qemu-x86_64"
+    echo -e "${BLUE}Build & Run${NC}"
+    echo "  debug   [cc]       Debug build (ASan enabled) + run demos"
+    echo "  release [cc]       Release build + run demos"
+    echo "  test    [cc]       Debug build (ASan enabled) + run ctest (45 tests)"
+    echo "  check   [cc]       CI simulation: format + tidy + test+ASan"
+    echo "  rebuild [cc]       Clean + fresh debug build"
+    echo "  clean              Remove all build directories"
+    echo ""
+    echo -e "${BLUE}Benchmarks${NC}"
+    echo "  bench              Run all benchmarks vs NumPy"
+    echo "  bench <category>   Run benchmarks for a specific category:"
+    echo ""
+    echo -e "    ${GREEN}binary${NC}               add, sub, mul, div, max, min, pow"
+    echo -e "    ${GREEN}scalar${NC}               add_scalar, sub_scalar, mul_scalar, div_scalar"
+    echo -e "    ${GREEN}unary${NC}                neg, abs, log, exp, sqrt, clip"
+    echo -e "    ${GREEN}comparison${NC}           eq, gt, lt, ge, le  (array vs array)"
+    echo -e "    ${GREEN}comparison_scalar${NC}    eq, gt, lt, ge, le  (array vs scalar)"
+    echo -e "    ${GREEN}ternary${NC}              fma, where"
+    echo -e "    ${GREEN}reduction${NC}            sum, mean, max, min, argmax, argmin"
+    echo -e "    ${GREEN}matmul${NC}               matrix multiplication (dedicated binary)"
+    echo -e "    ${GREEN}linalg${NC}               dot product"
+    echo -e "    ${GREEN}random${NC}               rand, randn"
+    echo ""
+    echo -e "${BLUE}Cross-compile Targets (QEMU)${NC}"
+    echo "  neon  [test|bench|clean]    AArch64 NEON  (armv8-a)"
+    echo "  sve   [test|bench|clean]    AArch64 SVE   (armv8-a+sve)"
+    echo "  sve2  [test|bench|clean]    AArch64 SVE2  (armv9-a)"
+    echo "  rvv   [test|bench|clean]    RISC-V  RVV   (rv64gcv)"
+    echo "  avx512 [test|bench|clean]   x86_64  AVX-512 (via qemu-x86_64)"
+    echo "  cross-arm                   AArch64 cross-build + QEMU matmul bench"
+    echo ""
+    echo -e "${BLUE}Examples${NC}"
+    echo "  $0 test                  Run tests with default compiler (clang)"
+    echo "  $0 test gcc              Run tests with gcc"
+    echo "  $0 bench                 Benchmark all ops vs NumPy"
+    echo "  $0 bench comparison      Benchmark only comparison ops"
+    echo "  $0 bench matmul          Benchmark only matmul"
+    echo "  $0 neon test             Cross-compile NEON + run tests via QEMU"
+    echo "  $0 avx512 bench          Build AVX-512 + benchmark via QEMU"
+    echo "  CC=gcc $0 release        Set compiler via env var"
+    echo ""
     ;;
 esac
