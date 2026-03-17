@@ -398,7 +398,7 @@ static void bench_comparison(const char *name, BinaryOp op, size_t size) {
 
     NumcArray *a = numc_array_fill(ctx, shape, 1, dt, val);
     NumcArray *b = numc_array_fill(ctx, shape, 1, dt, val);
-    NumcArray *out = numc_array_zeros(ctx, shape, 1, dt);
+    NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_UINT8);
     if (!a || !b || !out) {
       numc_ctx_free(ctx);
       continue;
@@ -430,7 +430,7 @@ static void bench_comparison_scalar(const char *name, ScalarOp op,
     fill_value(dt, val);
 
     NumcArray *a = numc_array_fill(ctx, shape, 1, dt, val);
-    NumcArray *out = numc_array_zeros(ctx, shape, 1, dt);
+    NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_UINT8);
     if (!a || !out) {
       numc_ctx_free(ctx);
       continue;

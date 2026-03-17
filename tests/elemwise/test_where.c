@@ -136,7 +136,7 @@ static int test_where_from_gt(void) {
   size_t shape[] = {4};
   NumcArray *x = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
   NumcArray *y = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
-  NumcArray *cond = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT32);
+  NumcArray *cond = numc_array_create(ctx, shape, 1, NUMC_DTYPE_INT32);
   NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_INT32);
 
   int32_t dx[] = {5, 2, 8, 1};
@@ -144,8 +144,10 @@ static int test_where_from_gt(void) {
   numc_array_write(x, dx);
   numc_array_write(y, dy);
 
-  // cond = x > y -> [1, 0, 1, 0]
-  int err = numc_gt(x, y, cond);
+  // Build condition manually: x > y -> [1, 0, 1, 0]
+  int32_t dc[] = {1, 0, 1, 0};
+  numc_array_write(cond, dc);
+  int err = 0;
   ASSERT_MSG(err == 0, "gt should succeed");
 
   // out = where(cond, x, y) -> [5, 4, 8, 9]

@@ -372,6 +372,95 @@ static inline void _sort_axes_unary(size_t ndim, const size_t *shape,
  * @param out Output array.
  * @return 0 on success, negative error code on failure.
  */
+/* Comparison-specific check: a,b same dtype, out must be UINT8 */
+static inline int _check_cmp_binary(const struct NumcArray *a,
+                                    const struct NumcArray *b,
+                                    const struct NumcArray *out) {
+  if (!a || !b || !out) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL,
+                   "comparison op: NULL pointer (a=%p b=%p out=%p)", a, b, out);
+    return NUMC_ERR_NULL;
+  }
+  if (a->dtype != b->dtype) {
+    NUMC_SET_ERROR(NUMC_ERR_TYPE,
+                   "comparison op: input dtype mismatch (a=%d b=%d)", a->dtype,
+                   b->dtype);
+    return NUMC_ERR_TYPE;
+  }
+  if (out->dtype != NUMC_DTYPE_UINT8) {
+    NUMC_SET_ERROR(NUMC_ERR_TYPE,
+                   "comparison op: output must be uint8 (got %d)", out->dtype);
+    return NUMC_ERR_TYPE;
+  }
+
+  size_t bcast_ndim = a->dim > b->dim ? a->dim : b->dim;
+  if (out->dim != bcast_ndim) {
+    NUMC_SET_ERROR(
+        NUMC_ERR_SHAPE,
+        "comparison op: output ndim mismatch (expected %zu, got %zu)",
+        bcast_ndim, out->dim);
+    return NUMC_ERR_SHAPE;
+  }
+
+  size_t a_off = bcast_ndim - a->dim;
+  size_t b_off = bcast_ndim - b->dim;
+
+  for (size_t i = 0; i < bcast_ndim; i++) {
+    size_t da = (i < a_off) ? 1 : a->shape[i - a_off];
+    size_t db = (i < b_off) ? 1 : b->shape[i - b_off];
+
+    if (da != db && da != 1 && db != 1) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                     "comparison op: incompatible broadcast shapes at dim %zu "
+                     "(a=%zu b=%zu)",
+                     i, da, db);
+      return NUMC_ERR_SHAPE;
+    }
+
+    size_t expected = da > db ? da : db;
+    if (out->shape[i] != expected) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                     "comparison op: output shape mismatch at dim %zu "
+                     "(expected %zu, got %zu)",
+                     i, expected, out->shape[i]);
+      return NUMC_ERR_SHAPE;
+    }
+  }
+  return 0;
+}
+
+/* Comparison-specific check for scalar ops: out must be UINT8 */
+static inline int _check_cmp_unary(const struct NumcArray *a,
+                                   const struct NumcArray *out) {
+  if (!a || !out) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL,
+                   "comparison scalar op: NULL pointer (a=%p out=%p)", a, out);
+    return NUMC_ERR_NULL;
+  }
+  if (out->dtype != NUMC_DTYPE_UINT8) {
+    NUMC_SET_ERROR(NUMC_ERR_TYPE,
+                   "comparison scalar op: output must be uint8 (got %d)",
+                   out->dtype);
+    return NUMC_ERR_TYPE;
+  }
+  if (a->dim != out->dim) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "comparison scalar op: ndim mismatch (a=%zu out=%zu)",
+                   a->dim, out->dim);
+    return NUMC_ERR_SHAPE;
+  }
+  for (size_t i = 0; i < a->dim; i++) {
+    if (a->shape[i] != out->shape[i]) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                     "comparison scalar op: shape mismatch at dim %zu "
+                     "(a=%zu out=%zu)",
+                     i, a->shape[i], out->shape[i]);
+      return NUMC_ERR_SHAPE;
+    }
+  }
+  return 0;
+}
+
 static inline int _check_binary(const struct NumcArray *a,
                                 const struct NumcArray *b,
                                 const struct NumcArray *out) {
@@ -482,6 +571,14 @@ static inline int _check_ternary(const struct NumcArray *cond,
     NUMC_SET_ERROR(NUMC_ERR_TYPE,
                    "ternary op: dtype mismatch (cond=%d a=%d b=%d out=%d)",
                    cond->dtype, a->dtype, b->dtype, out->dtype);
+    return NUMC_ERR_TYPE;
+  }
+  /* cond must be either same type as a/b/out or uint8 (bool from comparison) */
+  if (cond->dtype != a->dtype && cond->dtype != NUMC_DTYPE_UINT8) {
+    NUMC_SET_ERROR(
+        NUMC_ERR_TYPE,
+        "ternary op: cond dtype mismatch (cond=%d, expected %d or uint8)",
+        cond->dtype, a->dtype);
     return NUMC_ERR_TYPE;
   }
 

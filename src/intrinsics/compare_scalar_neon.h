@@ -1,9 +1,10 @@
 /**
  * @file compare_scalar_neon.h
- * @brief NEON scalar comparison kernels for all 10 types.
+ * @brief NEON scalar comparison kernels — uint8 output (0/1).
  *
- * NEON has native comparisons for all signed, unsigned, and float types.
- * Compare result (all-1s/all-0s) is AND-ed with 1 (or vbsl-ed for float).
+ * All comparison functions output uint8_t* (NumPy-compatible bool).
+ * NEON comparison result (all-1s/all-0s) is narrowed to uint8 and AND-ed
+ * with 1 before storing.
  */
 #ifndef NUMC_COMPARE_SCALAR_NEON_H
 #define NUMC_COMPARE_SCALAR_NEON_H
@@ -12,217 +13,287 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ── Signed integer macro ───────────────────────────────────────── */
+/* ── 8-bit signed: output is already byte-width ─────────────────── */
 
-#define STAMP_CMPSC_SINT_NEON(SFX, CT, W, VPV)                             \
-  static inline void _cmpsc_eq_##SFX##_neon(const void *restrict ap,       \
-                                            const void *restrict sp,       \
-                                            void *restrict op, size_t n) { \
-    const CT *a = (const CT *)ap;                                          \
-    const CT s = *(const CT *)sp;                                          \
-    CT *out = (CT *)op;                                                    \
-    uint##W##x##VPV##_t one = vdupq_n_u##W(1);                             \
-    int##W##x##VPV##_t vs = vdupq_n_s##W(s);                               \
-    size_t i = 0;                                                          \
-    for (; i + (VPV) <= n; i += (VPV)) {                                   \
-      int##W##x##VPV##_t va = vld1q_s##W(a + i);                           \
-      uint##W##x##VPV##_t r = vandq_u##W(vceqq_s##W(va, vs), one);         \
-      vst1q_u##W((uint##W##_t *)(out + i), r);                             \
-    }                                                                      \
-    for (; i < n; i++)                                                     \
-      out[i] = (CT)(a[i] == s);                                            \
-  }                                                                        \
-  static inline void _cmpsc_gt_##SFX##_neon(const void *restrict ap,       \
-                                            const void *restrict sp,       \
-                                            void *restrict op, size_t n) { \
-    const CT *a = (const CT *)ap;                                          \
-    const CT s = *(const CT *)sp;                                          \
-    CT *out = (CT *)op;                                                    \
-    uint##W##x##VPV##_t one = vdupq_n_u##W(1);                             \
-    int##W##x##VPV##_t vs = vdupq_n_s##W(s);                               \
-    size_t i = 0;                                                          \
-    for (; i + (VPV) <= n; i += (VPV)) {                                   \
-      int##W##x##VPV##_t va = vld1q_s##W(a + i);                           \
-      uint##W##x##VPV##_t r = vandq_u##W(vcgtq_s##W(va, vs), one);         \
-      vst1q_u##W((uint##W##_t *)(out + i), r);                             \
-    }                                                                      \
-    for (; i < n; i++)                                                     \
-      out[i] = (CT)(a[i] > s);                                             \
-  }                                                                        \
-  static inline void _cmpsc_lt_##SFX##_neon(const void *restrict ap,       \
-                                            const void *restrict sp,       \
-                                            void *restrict op, size_t n) { \
-    const CT *a = (const CT *)ap;                                          \
-    const CT s = *(const CT *)sp;                                          \
-    CT *out = (CT *)op;                                                    \
-    uint##W##x##VPV##_t one = vdupq_n_u##W(1);                             \
-    int##W##x##VPV##_t vs = vdupq_n_s##W(s);                               \
-    size_t i = 0;                                                          \
-    for (; i + (VPV) <= n; i += (VPV)) {                                   \
-      int##W##x##VPV##_t va = vld1q_s##W(a + i);                           \
-      uint##W##x##VPV##_t r = vandq_u##W(vcltq_s##W(va, vs), one);         \
-      vst1q_u##W((uint##W##_t *)(out + i), r);                             \
-    }                                                                      \
-    for (; i < n; i++)                                                     \
-      out[i] = (CT)(a[i] < s);                                             \
-  }                                                                        \
-  static inline void _cmpsc_ge_##SFX##_neon(const void *restrict ap,       \
-                                            const void *restrict sp,       \
-                                            void *restrict op, size_t n) { \
-    const CT *a = (const CT *)ap;                                          \
-    const CT s = *(const CT *)sp;                                          \
-    CT *out = (CT *)op;                                                    \
-    uint##W##x##VPV##_t one = vdupq_n_u##W(1);                             \
-    int##W##x##VPV##_t vs = vdupq_n_s##W(s);                               \
-    size_t i = 0;                                                          \
-    for (; i + (VPV) <= n; i += (VPV)) {                                   \
-      int##W##x##VPV##_t va = vld1q_s##W(a + i);                           \
-      uint##W##x##VPV##_t r = vandq_u##W(vcgeq_s##W(va, vs), one);         \
-      vst1q_u##W((uint##W##_t *)(out + i), r);                             \
-    }                                                                      \
-    for (; i < n; i++)                                                     \
-      out[i] = (CT)(a[i] >= s);                                            \
-  }                                                                        \
-  static inline void _cmpsc_le_##SFX##_neon(const void *restrict ap,       \
-                                            const void *restrict sp,       \
-                                            void *restrict op, size_t n) { \
-    const CT *a = (const CT *)ap;                                          \
-    const CT s = *(const CT *)sp;                                          \
-    CT *out = (CT *)op;                                                    \
-    uint##W##x##VPV##_t one = vdupq_n_u##W(1);                             \
-    int##W##x##VPV##_t vs = vdupq_n_s##W(s);                               \
-    size_t i = 0;                                                          \
-    for (; i + (VPV) <= n; i += (VPV)) {                                   \
-      int##W##x##VPV##_t va = vld1q_s##W(a + i);                           \
-      uint##W##x##VPV##_t r = vandq_u##W(vcleq_s##W(va, vs), one);         \
-      vst1q_u##W((uint##W##_t *)(out + i), r);                             \
-    }                                                                      \
-    for (; i < n; i++)                                                     \
-      out[i] = (CT)(a[i] <= s);                                            \
-  }
-
-STAMP_CMPSC_SINT_NEON(i8, int8_t, 8, 16)
-STAMP_CMPSC_SINT_NEON(i16, int16_t, 16, 8)
-STAMP_CMPSC_SINT_NEON(i32, int32_t, 32, 4)
-STAMP_CMPSC_SINT_NEON(i64, int64_t, 64, 2)
-#undef STAMP_CMPSC_SINT_NEON
-
-/* ── Unsigned integer macro ─────────────────────────────────────── */
-
-#define STAMP_CMPSC_UINT_NEON(SFX, CT, W, VPV)                             \
-  static inline void _cmpsc_eq_##SFX##_neon(const void *restrict ap,       \
-                                            const void *restrict sp,       \
-                                            void *restrict op, size_t n) { \
-    const CT *a = (const CT *)ap;                                          \
-    const CT s = *(const CT *)sp;                                          \
-    CT *out = (CT *)op;                                                    \
-    uint##W##x##VPV##_t one = vdupq_n_u##W(1);                             \
-    uint##W##x##VPV##_t vs = vdupq_n_u##W(s);                              \
-    size_t i = 0;                                                          \
-    for (; i + (VPV) <= n; i += (VPV)) {                                   \
-      uint##W##x##VPV##_t va = vld1q_u##W(a + i);                          \
-      uint##W##x##VPV##_t r = vandq_u##W(vceqq_u##W(va, vs), one);         \
-      vst1q_u##W(out + i, r);                                              \
-    }                                                                      \
-    for (; i < n; i++)                                                     \
-      out[i] = (CT)(a[i] == s);                                            \
-  }                                                                        \
-  static inline void _cmpsc_gt_##SFX##_neon(const void *restrict ap,       \
-                                            const void *restrict sp,       \
-                                            void *restrict op, size_t n) { \
-    const CT *a = (const CT *)ap;                                          \
-    const CT s = *(const CT *)sp;                                          \
-    CT *out = (CT *)op;                                                    \
-    uint##W##x##VPV##_t one = vdupq_n_u##W(1);                             \
-    uint##W##x##VPV##_t vs = vdupq_n_u##W(s);                              \
-    size_t i = 0;                                                          \
-    for (; i + (VPV) <= n; i += (VPV)) {                                   \
-      uint##W##x##VPV##_t va = vld1q_u##W(a + i);                          \
-      uint##W##x##VPV##_t r = vandq_u##W(vcgtq_u##W(va, vs), one);         \
-      vst1q_u##W(out + i, r);                                              \
-    }                                                                      \
-    for (; i < n; i++)                                                     \
-      out[i] = (CT)(a[i] > s);                                             \
-  }                                                                        \
-  static inline void _cmpsc_lt_##SFX##_neon(const void *restrict ap,       \
-                                            const void *restrict sp,       \
-                                            void *restrict op, size_t n) { \
-    const CT *a = (const CT *)ap;                                          \
-    const CT s = *(const CT *)sp;                                          \
-    CT *out = (CT *)op;                                                    \
-    uint##W##x##VPV##_t one = vdupq_n_u##W(1);                             \
-    uint##W##x##VPV##_t vs = vdupq_n_u##W(s);                              \
-    size_t i = 0;                                                          \
-    for (; i + (VPV) <= n; i += (VPV)) {                                   \
-      uint##W##x##VPV##_t va = vld1q_u##W(a + i);                          \
-      uint##W##x##VPV##_t r = vandq_u##W(vcltq_u##W(va, vs), one);         \
-      vst1q_u##W(out + i, r);                                              \
-    }                                                                      \
-    for (; i < n; i++)                                                     \
-      out[i] = (CT)(a[i] < s);                                             \
-  }                                                                        \
-  static inline void _cmpsc_ge_##SFX##_neon(const void *restrict ap,       \
-                                            const void *restrict sp,       \
-                                            void *restrict op, size_t n) { \
-    const CT *a = (const CT *)ap;                                          \
-    const CT s = *(const CT *)sp;                                          \
-    CT *out = (CT *)op;                                                    \
-    uint##W##x##VPV##_t one = vdupq_n_u##W(1);                             \
-    uint##W##x##VPV##_t vs = vdupq_n_u##W(s);                              \
-    size_t i = 0;                                                          \
-    for (; i + (VPV) <= n; i += (VPV)) {                                   \
-      uint##W##x##VPV##_t va = vld1q_u##W(a + i);                          \
-      uint##W##x##VPV##_t r = vandq_u##W(vcgeq_u##W(va, vs), one);         \
-      vst1q_u##W(out + i, r);                                              \
-    }                                                                      \
-    for (; i < n; i++)                                                     \
-      out[i] = (CT)(a[i] >= s);                                            \
-  }                                                                        \
-  static inline void _cmpsc_le_##SFX##_neon(const void *restrict ap,       \
-                                            const void *restrict sp,       \
-                                            void *restrict op, size_t n) { \
-    const CT *a = (const CT *)ap;                                          \
-    const CT s = *(const CT *)sp;                                          \
-    CT *out = (CT *)op;                                                    \
-    uint##W##x##VPV##_t one = vdupq_n_u##W(1);                             \
-    uint##W##x##VPV##_t vs = vdupq_n_u##W(s);                              \
-    size_t i = 0;                                                          \
-    for (; i + (VPV) <= n; i += (VPV)) {                                   \
-      uint##W##x##VPV##_t va = vld1q_u##W(a + i);                          \
-      uint##W##x##VPV##_t r = vandq_u##W(vcleq_u##W(va, vs), one);         \
-      vst1q_u##W(out + i, r);                                              \
-    }                                                                      \
-    for (; i < n; i++)                                                     \
-      out[i] = (CT)(a[i] <= s);                                            \
-  }
-
-STAMP_CMPSC_UINT_NEON(u8, uint8_t, 8, 16)
-STAMP_CMPSC_UINT_NEON(u16, uint16_t, 16, 8)
-STAMP_CMPSC_UINT_NEON(u32, uint32_t, 32, 4)
-STAMP_CMPSC_UINT_NEON(u64, uint64_t, 64, 2)
-#undef STAMP_CMPSC_UINT_NEON
-
-/* ── Float: f32 (4 per vector) ──────────────────────────────────── */
-
-#define CMPSC_F32_NEON(NAME, CMP)                                            \
-  static inline void _cmpsc_##NAME##_f32_neon(const void *restrict ap,       \
+#define STAMP_CMPSC_I8_NEON(FNAME, CMP, SCALAR_OP)                           \
+  static inline void _cmpsc_##FNAME##_i8_neon(const void *restrict ap,       \
                                               const void *restrict sp,       \
                                               void *restrict op, size_t n) { \
-    const float *a = (const float *)ap;                                      \
-    const float s = *(const float *)sp;                                      \
-    float *out = (float *)op;                                                \
-    float32x4_t vs = vdupq_n_f32(s);                                         \
-    float32x4_t one = vdupq_n_f32(1.0f);                                     \
-    float32x4_t zero = vdupq_n_f32(0.0f);                                    \
+    const int8_t *a = (const int8_t *)ap;                                    \
+    const int8_t s = *(const int8_t *)sp;                                    \
+    uint8_t *out = (uint8_t *)op;                                            \
+    uint8x16_t one = vdupq_n_u8(1);                                          \
+    int8x16_t vs = vdupq_n_s8(s);                                            \
     size_t i = 0;                                                            \
-    for (; i + 4 <= n; i += 4) {                                             \
-      float32x4_t va = vld1q_f32(a + i);                                     \
-      uint32x4_t mask = CMP(va, vs);                                         \
-      vst1q_f32(out + i, vbslq_f32(mask, one, zero));                        \
+    for (; i + 16 <= n; i += 16) {                                           \
+      int8x16_t va = vld1q_s8(a + i);                                        \
+      uint8x16_t r = vandq_u8(CMP(va, vs), one);                             \
+      vst1q_u8(out + i, r);                                                  \
     }                                                                        \
     for (; i < n; i++)                                                       \
-      out[i] = (float)(NAME##_scalar_f32(a[i], s));                          \
+      out[i] = (uint8_t)(SCALAR_OP);                                         \
   }
+
+STAMP_CMPSC_I8_NEON(eq, vceqq_s8, a[i] == s)
+STAMP_CMPSC_I8_NEON(gt, vcgtq_s8, a[i] > s)
+STAMP_CMPSC_I8_NEON(lt, vcltq_s8, a[i] < s)
+STAMP_CMPSC_I8_NEON(ge, vcgeq_s8, a[i] >= s)
+STAMP_CMPSC_I8_NEON(le, vcleq_s8, a[i] <= s)
+#undef STAMP_CMPSC_I8_NEON
+
+/* ── 16-bit signed: narrow 16→8 ─────────────────────────────────── */
+
+#define STAMP_CMPSC_I16_NEON(FNAME, CMP, SCALAR_OP)                           \
+  static inline void _cmpsc_##FNAME##_i16_neon(const void *restrict ap,       \
+                                               const void *restrict sp,       \
+                                               void *restrict op, size_t n) { \
+    const int16_t *a = (const int16_t *)ap;                                   \
+    const int16_t s = *(const int16_t *)sp;                                   \
+    uint8_t *out = (uint8_t *)op;                                             \
+    uint8x16_t one = vdupq_n_u8(1);                                           \
+    int16x8_t vs = vdupq_n_s16(s);                                            \
+    size_t i = 0;                                                             \
+    for (; i + 16 <= n; i += 16) {                                            \
+      uint16x8_t c0 = CMP(vld1q_s16(a + i), vs);                              \
+      uint16x8_t c1 = CMP(vld1q_s16(a + i + 8), vs);                          \
+      uint8x8_t n0 = vmovn_u16(c0);                                           \
+      uint8x8_t n1 = vmovn_u16(c1);                                           \
+      uint8x16_t r = vandq_u8(vcombine_u8(n0, n1), one);                      \
+      vst1q_u8(out + i, r);                                                   \
+    }                                                                         \
+    for (; i + 8 <= n; i += 8) {                                              \
+      uint16x8_t c0 = CMP(vld1q_s16(a + i), vs);                              \
+      uint8x8_t n0 = vmovn_u16(c0);                                           \
+      uint8x8_t r = vand_u8(n0, vdup_n_u8(1));                                \
+      vst1_u8(out + i, r);                                                    \
+    }                                                                         \
+    for (; i < n; i++)                                                        \
+      out[i] = (uint8_t)(SCALAR_OP);                                          \
+  }
+
+STAMP_CMPSC_I16_NEON(eq, vceqq_s16, a[i] == s)
+STAMP_CMPSC_I16_NEON(gt, vcgtq_s16, a[i] > s)
+STAMP_CMPSC_I16_NEON(lt, vcltq_s16, a[i] < s)
+STAMP_CMPSC_I16_NEON(ge, vcgeq_s16, a[i] >= s)
+STAMP_CMPSC_I16_NEON(le, vcleq_s16, a[i] <= s)
+#undef STAMP_CMPSC_I16_NEON
+
+/* ── 32-bit signed: narrow 32→16→8 ──────────────────────────────── */
+
+#define STAMP_CMPSC_I32_NEON(FNAME, CMP, SCALAR_OP)                           \
+  static inline void _cmpsc_##FNAME##_i32_neon(const void *restrict ap,       \
+                                               const void *restrict sp,       \
+                                               void *restrict op, size_t n) { \
+    const int32_t *a = (const int32_t *)ap;                                   \
+    const int32_t s = *(const int32_t *)sp;                                   \
+    uint8_t *out = (uint8_t *)op;                                             \
+    uint8x16_t one = vdupq_n_u8(1);                                           \
+    int32x4_t vs = vdupq_n_s32(s);                                            \
+    size_t i = 0;                                                             \
+    for (; i + 16 <= n; i += 16) {                                            \
+      uint32x4_t c0 = CMP(vld1q_s32(a + i), vs);                              \
+      uint32x4_t c1 = CMP(vld1q_s32(a + i + 4), vs);                          \
+      uint32x4_t c2 = CMP(vld1q_s32(a + i + 8), vs);                          \
+      uint32x4_t c3 = CMP(vld1q_s32(a + i + 12), vs);                         \
+      uint16x4_t h0 = vmovn_u32(c0);                                          \
+      uint16x4_t h1 = vmovn_u32(c1);                                          \
+      uint16x4_t h2 = vmovn_u32(c2);                                          \
+      uint16x4_t h3 = vmovn_u32(c3);                                          \
+      uint8x8_t b0 = vmovn_u16(vcombine_u16(h0, h1));                         \
+      uint8x8_t b1 = vmovn_u16(vcombine_u16(h2, h3));                         \
+      uint8x16_t r = vandq_u8(vcombine_u8(b0, b1), one);                      \
+      vst1q_u8(out + i, r);                                                   \
+    }                                                                         \
+    for (; i + 4 <= n; i += 4) {                                              \
+      uint32x4_t c0 = CMP(vld1q_s32(a + i), vs);                              \
+      uint16x4_t h0 = vmovn_u32(c0);                                          \
+      uint8x8_t b0 = vmovn_u16(vcombine_u16(h0, vdup_n_u16(0)));              \
+      uint8x8_t r = vand_u8(b0, vdup_n_u8(1));                                \
+      out[i] = vget_lane_u8(r, 0);                                            \
+      out[i + 1] = vget_lane_u8(r, 1);                                        \
+      out[i + 2] = vget_lane_u8(r, 2);                                        \
+      out[i + 3] = vget_lane_u8(r, 3);                                        \
+    }                                                                         \
+    for (; i < n; i++)                                                        \
+      out[i] = (uint8_t)(SCALAR_OP);                                          \
+  }
+
+STAMP_CMPSC_I32_NEON(eq, vceqq_s32, a[i] == s)
+STAMP_CMPSC_I32_NEON(gt, vcgtq_s32, a[i] > s)
+STAMP_CMPSC_I32_NEON(lt, vcltq_s32, a[i] < s)
+STAMP_CMPSC_I32_NEON(ge, vcgeq_s32, a[i] >= s)
+STAMP_CMPSC_I32_NEON(le, vcleq_s32, a[i] <= s)
+#undef STAMP_CMPSC_I32_NEON
+
+/* ── 64-bit signed: scalar extract (2 per vector) ───────────────── */
+
+#define STAMP_CMPSC_I64_NEON(FNAME, CMP, SCALAR_OP)                           \
+  static inline void _cmpsc_##FNAME##_i64_neon(const void *restrict ap,       \
+                                               const void *restrict sp,       \
+                                               void *restrict op, size_t n) { \
+    const int64_t *a = (const int64_t *)ap;                                   \
+    const int64_t s = *(const int64_t *)sp;                                   \
+    uint8_t *out = (uint8_t *)op;                                             \
+    int64x2_t vs = vdupq_n_s64(s);                                            \
+    size_t i = 0;                                                             \
+    for (; i + 2 <= n; i += 2) {                                              \
+      int64x2_t va = vld1q_s64(a + i);                                        \
+      uint64x2_t c = CMP(va, vs);                                             \
+      out[i] = (uint8_t)(vgetq_lane_u64(c, 0) & 1u);                          \
+      out[i + 1] = (uint8_t)(vgetq_lane_u64(c, 1) & 1u);                      \
+    }                                                                         \
+    for (; i < n; i++)                                                        \
+      out[i] = (uint8_t)(SCALAR_OP);                                          \
+  }
+
+STAMP_CMPSC_I64_NEON(eq, vceqq_s64, a[i] == s)
+STAMP_CMPSC_I64_NEON(gt, vcgtq_s64, a[i] > s)
+STAMP_CMPSC_I64_NEON(lt, vcltq_s64, a[i] < s)
+STAMP_CMPSC_I64_NEON(ge, vcgeq_s64, a[i] >= s)
+STAMP_CMPSC_I64_NEON(le, vcleq_s64, a[i] <= s)
+#undef STAMP_CMPSC_I64_NEON
+
+/* ── 8-bit unsigned: output is already byte-width ───────────────── */
+
+#define STAMP_CMPSC_U8_NEON(FNAME, CMP, SCALAR_OP)                           \
+  static inline void _cmpsc_##FNAME##_u8_neon(const void *restrict ap,       \
+                                              const void *restrict sp,       \
+                                              void *restrict op, size_t n) { \
+    const uint8_t *a = (const uint8_t *)ap;                                  \
+    const uint8_t s = *(const uint8_t *)sp;                                  \
+    uint8_t *out = (uint8_t *)op;                                            \
+    uint8x16_t one = vdupq_n_u8(1);                                          \
+    uint8x16_t vs = vdupq_n_u8(s);                                           \
+    size_t i = 0;                                                            \
+    for (; i + 16 <= n; i += 16) {                                           \
+      uint8x16_t va = vld1q_u8(a + i);                                       \
+      uint8x16_t r = vandq_u8(CMP(va, vs), one);                             \
+      vst1q_u8(out + i, r);                                                  \
+    }                                                                        \
+    for (; i < n; i++)                                                       \
+      out[i] = (uint8_t)(SCALAR_OP);                                         \
+  }
+
+STAMP_CMPSC_U8_NEON(eq, vceqq_u8, a[i] == s)
+STAMP_CMPSC_U8_NEON(gt, vcgtq_u8, a[i] > s)
+STAMP_CMPSC_U8_NEON(lt, vcltq_u8, a[i] < s)
+STAMP_CMPSC_U8_NEON(ge, vcgeq_u8, a[i] >= s)
+STAMP_CMPSC_U8_NEON(le, vcleq_u8, a[i] <= s)
+#undef STAMP_CMPSC_U8_NEON
+
+/* ── 16-bit unsigned: narrow 16→8 ───────────────────────────────── */
+
+#define STAMP_CMPSC_U16_NEON(FNAME, CMP, SCALAR_OP)                           \
+  static inline void _cmpsc_##FNAME##_u16_neon(const void *restrict ap,       \
+                                               const void *restrict sp,       \
+                                               void *restrict op, size_t n) { \
+    const uint16_t *a = (const uint16_t *)ap;                                 \
+    const uint16_t s = *(const uint16_t *)sp;                                 \
+    uint8_t *out = (uint8_t *)op;                                             \
+    uint8x16_t one = vdupq_n_u8(1);                                           \
+    uint16x8_t vs = vdupq_n_u16(s);                                           \
+    size_t i = 0;                                                             \
+    for (; i + 16 <= n; i += 16) {                                            \
+      uint16x8_t c0 = CMP(vld1q_u16(a + i), vs);                              \
+      uint16x8_t c1 = CMP(vld1q_u16(a + i + 8), vs);                          \
+      uint8x8_t n0 = vmovn_u16(c0);                                           \
+      uint8x8_t n1 = vmovn_u16(c1);                                           \
+      uint8x16_t r = vandq_u8(vcombine_u8(n0, n1), one);                      \
+      vst1q_u8(out + i, r);                                                   \
+    }                                                                         \
+    for (; i + 8 <= n; i += 8) {                                              \
+      uint16x8_t c0 = CMP(vld1q_u16(a + i), vs);                              \
+      uint8x8_t n0 = vmovn_u16(c0);                                           \
+      uint8x8_t r = vand_u8(n0, vdup_n_u8(1));                                \
+      vst1_u8(out + i, r);                                                    \
+    }                                                                         \
+    for (; i < n; i++)                                                        \
+      out[i] = (uint8_t)(SCALAR_OP);                                          \
+  }
+
+STAMP_CMPSC_U16_NEON(eq, vceqq_u16, a[i] == s)
+STAMP_CMPSC_U16_NEON(gt, vcgtq_u16, a[i] > s)
+STAMP_CMPSC_U16_NEON(lt, vcltq_u16, a[i] < s)
+STAMP_CMPSC_U16_NEON(ge, vcgeq_u16, a[i] >= s)
+STAMP_CMPSC_U16_NEON(le, vcleq_u16, a[i] <= s)
+#undef STAMP_CMPSC_U16_NEON
+
+/* ── 32-bit unsigned: narrow 32→16→8 ────────────────────────────── */
+
+#define STAMP_CMPSC_U32_NEON(FNAME, CMP, SCALAR_OP)                           \
+  static inline void _cmpsc_##FNAME##_u32_neon(const void *restrict ap,       \
+                                               const void *restrict sp,       \
+                                               void *restrict op, size_t n) { \
+    const uint32_t *a = (const uint32_t *)ap;                                 \
+    const uint32_t s = *(const uint32_t *)sp;                                 \
+    uint8_t *out = (uint8_t *)op;                                             \
+    uint8x16_t one = vdupq_n_u8(1);                                           \
+    uint32x4_t vs = vdupq_n_u32(s);                                           \
+    size_t i = 0;                                                             \
+    for (; i + 16 <= n; i += 16) {                                            \
+      uint32x4_t c0 = CMP(vld1q_u32(a + i), vs);                              \
+      uint32x4_t c1 = CMP(vld1q_u32(a + i + 4), vs);                          \
+      uint32x4_t c2 = CMP(vld1q_u32(a + i + 8), vs);                          \
+      uint32x4_t c3 = CMP(vld1q_u32(a + i + 12), vs);                         \
+      uint16x4_t h0 = vmovn_u32(c0);                                          \
+      uint16x4_t h1 = vmovn_u32(c1);                                          \
+      uint16x4_t h2 = vmovn_u32(c2);                                          \
+      uint16x4_t h3 = vmovn_u32(c3);                                          \
+      uint8x8_t b0 = vmovn_u16(vcombine_u16(h0, h1));                         \
+      uint8x8_t b1 = vmovn_u16(vcombine_u16(h2, h3));                         \
+      uint8x16_t r = vandq_u8(vcombine_u8(b0, b1), one);                      \
+      vst1q_u8(out + i, r);                                                   \
+    }                                                                         \
+    for (; i + 4 <= n; i += 4) {                                              \
+      uint32x4_t c0 = CMP(vld1q_u32(a + i), vs);                              \
+      uint16x4_t h0 = vmovn_u32(c0);                                          \
+      uint8x8_t b0 = vmovn_u16(vcombine_u16(h0, vdup_n_u16(0)));              \
+      uint8x8_t r = vand_u8(b0, vdup_n_u8(1));                                \
+      out[i] = vget_lane_u8(r, 0);                                            \
+      out[i + 1] = vget_lane_u8(r, 1);                                        \
+      out[i + 2] = vget_lane_u8(r, 2);                                        \
+      out[i + 3] = vget_lane_u8(r, 3);                                        \
+    }                                                                         \
+    for (; i < n; i++)                                                        \
+      out[i] = (uint8_t)(SCALAR_OP);                                          \
+  }
+
+STAMP_CMPSC_U32_NEON(eq, vceqq_u32, a[i] == s)
+STAMP_CMPSC_U32_NEON(gt, vcgtq_u32, a[i] > s)
+STAMP_CMPSC_U32_NEON(lt, vcltq_u32, a[i] < s)
+STAMP_CMPSC_U32_NEON(ge, vcgeq_u32, a[i] >= s)
+STAMP_CMPSC_U32_NEON(le, vcleq_u32, a[i] <= s)
+#undef STAMP_CMPSC_U32_NEON
+
+/* ── 64-bit unsigned: scalar extract (2 per vector) ─────────────── */
+
+#define STAMP_CMPSC_U64_NEON(FNAME, CMP, SCALAR_OP)                           \
+  static inline void _cmpsc_##FNAME##_u64_neon(const void *restrict ap,       \
+                                               const void *restrict sp,       \
+                                               void *restrict op, size_t n) { \
+    const uint64_t *a = (const uint64_t *)ap;                                 \
+    const uint64_t s = *(const uint64_t *)sp;                                 \
+    uint8_t *out = (uint8_t *)op;                                             \
+    uint64x2_t vs = vdupq_n_u64(s);                                           \
+    size_t i = 0;                                                             \
+    for (; i + 2 <= n; i += 2) {                                              \
+      uint64x2_t va = vld1q_u64(a + i);                                       \
+      uint64x2_t c = CMP(va, vs);                                             \
+      out[i] = (uint8_t)(vgetq_lane_u64(c, 0) & 1u);                          \
+      out[i + 1] = (uint8_t)(vgetq_lane_u64(c, 1) & 1u);                      \
+    }                                                                         \
+    for (; i < n; i++)                                                        \
+      out[i] = (uint8_t)(SCALAR_OP);                                          \
+  }
+
+STAMP_CMPSC_U64_NEON(eq, vceqq_u64, a[i] == s)
+STAMP_CMPSC_U64_NEON(gt, vcgtq_u64, a[i] > s)
+STAMP_CMPSC_U64_NEON(lt, vcltq_u64, a[i] < s)
+STAMP_CMPSC_U64_NEON(ge, vcgeq_u64, a[i] >= s)
+STAMP_CMPSC_U64_NEON(le, vcleq_u64, a[i] <= s)
+#undef STAMP_CMPSC_U64_NEON
+
+/* ── Float: f32 (4 per vector) ──────────────────────────────────── */
 
 /* Scalar helpers for tail loop */
 static inline int eq_scalar_f32(float a, float b) {
@@ -241,6 +312,44 @@ static inline int le_scalar_f32(float a, float b) {
   return a <= b;
 }
 
+#define CMPSC_F32_NEON(FNAME, CMP)                                            \
+  static inline void _cmpsc_##FNAME##_f32_neon(const void *restrict ap,       \
+                                               const void *restrict sp,       \
+                                               void *restrict op, size_t n) { \
+    const float *a = (const float *)ap;                                       \
+    const float s = *(const float *)sp;                                       \
+    uint8_t *out = (uint8_t *)op;                                             \
+    float32x4_t vs = vdupq_n_f32(s);                                          \
+    uint8x16_t one = vdupq_n_u8(1);                                           \
+    size_t i = 0;                                                             \
+    for (; i + 16 <= n; i += 16) {                                            \
+      uint32x4_t c0 = CMP(vld1q_f32(a + i), vs);                              \
+      uint32x4_t c1 = CMP(vld1q_f32(a + i + 4), vs);                          \
+      uint32x4_t c2 = CMP(vld1q_f32(a + i + 8), vs);                          \
+      uint32x4_t c3 = CMP(vld1q_f32(a + i + 12), vs);                         \
+      uint16x4_t h0 = vmovn_u32(c0);                                          \
+      uint16x4_t h1 = vmovn_u32(c1);                                          \
+      uint16x4_t h2 = vmovn_u32(c2);                                          \
+      uint16x4_t h3 = vmovn_u32(c3);                                          \
+      uint8x8_t b0 = vmovn_u16(vcombine_u16(h0, h1));                         \
+      uint8x8_t b1 = vmovn_u16(vcombine_u16(h2, h3));                         \
+      uint8x16_t r = vandq_u8(vcombine_u8(b0, b1), one);                      \
+      vst1q_u8(out + i, r);                                                   \
+    }                                                                         \
+    for (; i + 4 <= n; i += 4) {                                              \
+      uint32x4_t c0 = CMP(vld1q_f32(a + i), vs);                              \
+      uint16x4_t h0 = vmovn_u32(c0);                                          \
+      uint8x8_t b0 = vmovn_u16(vcombine_u16(h0, vdup_n_u16(0)));              \
+      uint8x8_t r = vand_u8(b0, vdup_n_u8(1));                                \
+      out[i] = vget_lane_u8(r, 0);                                            \
+      out[i + 1] = vget_lane_u8(r, 1);                                        \
+      out[i + 2] = vget_lane_u8(r, 2);                                        \
+      out[i + 3] = vget_lane_u8(r, 3);                                        \
+    }                                                                         \
+    for (; i < n; i++)                                                        \
+      out[i] = (uint8_t)(FNAME##_scalar_f32(a[i], s));                        \
+  }
+
 CMPSC_F32_NEON(eq, vceqq_f32)
 CMPSC_F32_NEON(gt, vcgtq_f32)
 CMPSC_F32_NEON(lt, vcltq_f32)
@@ -249,26 +358,6 @@ CMPSC_F32_NEON(le, vcleq_f32)
 #undef CMPSC_F32_NEON
 
 /* ── Float: f64 (2 per vector) ──────────────────────────────────── */
-
-#define CMPSC_F64_NEON(NAME, CMP)                                            \
-  static inline void _cmpsc_##NAME##_f64_neon(const void *restrict ap,       \
-                                              const void *restrict sp,       \
-                                              void *restrict op, size_t n) { \
-    const double *a = (const double *)ap;                                    \
-    const double s = *(const double *)sp;                                    \
-    double *out = (double *)op;                                              \
-    float64x2_t vs = vdupq_n_f64(s);                                         \
-    float64x2_t one = vdupq_n_f64(1.0);                                      \
-    float64x2_t zero = vdupq_n_f64(0.0);                                     \
-    size_t i = 0;                                                            \
-    for (; i + 2 <= n; i += 2) {                                             \
-      float64x2_t va = vld1q_f64(a + i);                                     \
-      uint64x2_t mask = CMP(va, vs);                                         \
-      vst1q_f64(out + i, vbslq_f64(mask, one, zero));                        \
-    }                                                                        \
-    for (; i < n; i++)                                                       \
-      out[i] = (double)(NAME##_scalar_f64(a[i], s));                         \
-  }
 
 static inline int eq_scalar_f64(double a, double b) {
   return a == b;
@@ -285,6 +374,25 @@ static inline int ge_scalar_f64(double a, double b) {
 static inline int le_scalar_f64(double a, double b) {
   return a <= b;
 }
+
+#define CMPSC_F64_NEON(FNAME, CMP)                                            \
+  static inline void _cmpsc_##FNAME##_f64_neon(const void *restrict ap,       \
+                                               const void *restrict sp,       \
+                                               void *restrict op, size_t n) { \
+    const double *a = (const double *)ap;                                     \
+    const double s = *(const double *)sp;                                     \
+    uint8_t *out = (uint8_t *)op;                                             \
+    float64x2_t vs = vdupq_n_f64(s);                                          \
+    size_t i = 0;                                                             \
+    for (; i + 2 <= n; i += 2) {                                              \
+      float64x2_t va = vld1q_f64(a + i);                                      \
+      uint64x2_t c = CMP(va, vs);                                             \
+      out[i] = (uint8_t)(vgetq_lane_u64(c, 0) & 1u);                          \
+      out[i + 1] = (uint8_t)(vgetq_lane_u64(c, 1) & 1u);                      \
+    }                                                                         \
+    for (; i < n; i++)                                                        \
+      out[i] = (uint8_t)(FNAME##_scalar_f64(a[i], s));                        \
+  }
 
 CMPSC_F64_NEON(eq, vceqq_f64)
 CMPSC_F64_NEON(gt, vcgtq_f64)
