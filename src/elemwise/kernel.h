@@ -232,7 +232,7 @@ static inline int _log2_u64(uint64_t n) {
       C_TYPE *restrict po = (C_TYPE *)__builtin_assume_aligned(out, 32);       \
       if (sizeof(C_TYPE) <= 2) {                                               \
         NUMC_OMP_FOR(                                                          \
-            n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                \
+            n, 3 * sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {            \
               C_TYPE divisor = pb[i];                                          \
               po[i] = (divisor == 0)                                           \
                           ? 0                                                  \
@@ -240,7 +240,7 @@ static inline int _log2_u64(uint64_t n) {
             });                                                                \
       } else if (sizeof(C_TYPE) == 4) {                                        \
         NUMC_OMP_FOR(                                                          \
-            n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                \
+            n, 3 * sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {            \
               C_TYPE divisor = pb[i];                                          \
               po[i] = (divisor == 0)                                           \
                           ? 0                                                  \
@@ -248,7 +248,7 @@ static inline int _log2_u64(uint64_t n) {
             });                                                                \
       } else {                                                                 \
         NUMC_OMP_FOR(                                                          \
-            n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {                \
+            n, 3 * sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {            \
               C_TYPE divisor = pb[i];                                          \
               po[i] = (divisor == 0) ? 0 : pa[i] / divisor;                    \
             });                                                                \
