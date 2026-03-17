@@ -378,8 +378,8 @@ DEFINE_BINARY_SIMD(minimum, minimum_fast_table, minimum_table)
         FastBinKern kern = FAST_TABLE[a->dtype];                             \
         size_t n = a->size;                                                  \
         size_t in_es = a->elem_size;                                         \
-        size_t in_total = n * in_es;                                         \
-        int nt = (int)(in_total / NUMC_OMP_BYTES_PER_THREAD);                \
+        size_t io_total = n * (2 * in_es + 1);                               \
+        int nt = (int)(io_total / NUMC_OMP_BYTES_PER_THREAD);                \
         if (nt >= 2) {                                                       \
           size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;                  \
           NUMC_PRAGMA(                                                      \
@@ -486,8 +486,8 @@ CMPSC_TABLE(le);
       CmpScKern kern = NAME##_sc_table[a->dtype];                  \
       size_t n = a->size;                                          \
       size_t in_es = a->elem_size;                                 \
-      size_t in_total = n * in_es;                                 \
-      int nt = (int)(in_total / NUMC_OMP_BYTES_PER_THREAD);        \
+      size_t io_total = n * (2 * in_es + 1);                       \
+      int nt = (int)(io_total / NUMC_OMP_BYTES_PER_THREAD);        \
       if (nt >= 2) {                                               \
         size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;          \
         NUMC_PRAGMA(                                                   \
