@@ -58,4 +58,21 @@ static inline int _check_matmul(const struct NumcArray *a,
   return 0;
 }
 
+typedef enum {
+  NUMC_STORAGE_ROW, /* strides[1] == elem_size (C-contiguous rows) */
+  NUMC_STORAGE_COL, /* strides[0] == elem_size (Fortran-contiguous) */
+  NUMC_STORAGE_GEN, /* general strided */
+} NumcStorageOrder;
+
+/**
+ * @brief Detect storage order of a 2D array.
+ */
+static inline NumcStorageOrder _detect_storage(const struct NumcArray *a) {
+  if (a->strides[1] == a->elem_size)
+    return NUMC_STORAGE_ROW;
+  if (a->strides[0] == a->elem_size)
+    return NUMC_STORAGE_COL;
+  return NUMC_STORAGE_GEN;
+}
+
 #endif
