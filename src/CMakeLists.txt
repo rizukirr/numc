@@ -25,6 +25,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
     list(APPEND NUMC_CORE_SOURCES
         intrinsics/gemm_ukernel_f32_6x16_avx2.S
         intrinsics/gemm_ukernel_f64_6x8_avx2.S
+        intrinsics/gemm_ukernel_i32_6x16_avx2.S
     )
 endif()
 
