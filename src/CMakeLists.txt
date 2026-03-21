@@ -29,6 +29,8 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
         intrinsics/gemm_ukernel_u32_6x16_avx2.S
         intrinsics/gemm_ukernel_i16_6x32_avx2.S
         intrinsics/gemm_ukernel_u16_6x32_avx2.S
+        intrinsics/gemm_ukernel_i8_6x16_avx2.S
+        intrinsics/gemm_ukernel_u8_6x16_avx2.S
     )
 endif()
 

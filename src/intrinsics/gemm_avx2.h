@@ -83,6 +83,12 @@ extern void numc_gemm_ukernel_i16_6x32_avx2(const int16_t *a, const int16_t *b,
 extern void numc_gemm_ukernel_u16_6x32_avx2(const uint16_t *a, const uint16_t *b,
                                               uint16_t *c, uint64_t kc,
                                               int64_t rso, int first);
+extern void numc_gemm_ukernel_i8_6x16_avx2(const int8_t *a, const int8_t *b,
+                                             int8_t *c, uint64_t kc,
+                                             int64_t rso, int first);
+extern void numc_gemm_ukernel_u8_6x16_avx2(const uint8_t *a, const uint8_t *b,
+                                             uint8_t *c, uint64_t kc,
+                                             int64_t rso, int first);
 #define NUMC_HAVE_ASM_UKERNEL 1
 #else
 #define NUMC_HAVE_ASM_UKERNEL 0
@@ -2649,9 +2655,16 @@ static inline void gemm_i8_avx2(const int8_t *a, const int8_t *b, int8_t *out,
           for (size_t ir = 0; ir < mc; ir += GEMM_I8_MR) {
             size_t mr_cur = GEMM_MIN(GEMM_I8_MR, mc - ir);
             if (mr_cur == GEMM_I8_MR && nr_cur == GEMM_I8_NR) {
+#if NUMC_HAVE_ASM_UKERNEL
+              numc_gemm_ukernel_i8_6x16_avx2(
+                  packed_a + ir * kc, packed_b + jr * kc,
+                  out + (ic + ir) * rso + (jc + jr), (uint64_t)kc, (int64_t)rso,
+                  first);
+#else
               gemm_ukernel_i8_6x16(packed_a + ir * kc, packed_b + jr * kc,
                                    out + (ic + ir) * rso + (jc + jr), kc, rso,
                                    first);
+#endif
             } else {
               NUMC_ALIGNAS(32) int8_t tmp[GEMM_I8_MR * GEMM_I8_NR];
               gemm_ukernel_i8_6x16(packed_a + ir * kc, packed_b + jr * kc, tmp,
@@ -2698,9 +2711,16 @@ static inline void gemm_i8_avx2(const int8_t *a, const int8_t *b, int8_t *out,
           for (size_t ir = 0; ir < mc; ir += GEMM_I8_MR) {
             size_t mr_cur = GEMM_MIN(GEMM_I8_MR, mc - ir);
             if (mr_cur == GEMM_I8_MR && nr_cur == GEMM_I8_NR) {
+#if NUMC_HAVE_ASM_UKERNEL
+              numc_gemm_ukernel_i8_6x16_avx2(
+                  packed_a + ir * kc, packed_b + jr * kc,
+                  out + (ic + ir) * rso + (jc + jr), (uint64_t)kc, (int64_t)rso,
+                  first);
+#else
               gemm_ukernel_i8_6x16(packed_a + ir * kc, packed_b + jr * kc,
                                    out + (ic + ir) * rso + (jc + jr), kc, rso,
                                    first);
+#endif
             } else {
               NUMC_ALIGNAS(32) int8_t tmp[GEMM_I8_MR * GEMM_I8_NR];
               gemm_ukernel_i8_6x16(packed_a + ir * kc, packed_b + jr * kc, tmp,
@@ -2870,9 +2890,16 @@ static inline void gemm_u8_avx2(const uint8_t *a, const uint8_t *b,
           for (size_t ir = 0; ir < mc; ir += GEMM_I8_MR) {
             size_t mr_cur = GEMM_MIN(GEMM_I8_MR, mc - ir);
             if (mr_cur == GEMM_I8_MR && nr_cur == GEMM_I8_NR) {
+#if NUMC_HAVE_ASM_UKERNEL
+              numc_gemm_ukernel_u8_6x16_avx2(
+                  packed_a + ir * kc, packed_b + jr * kc,
+                  out + (ic + ir) * rso + (jc + jr), (uint64_t)kc, (int64_t)rso,
+                  first);
+#else
               gemm_ukernel_u8_6x16(packed_a + ir * kc, packed_b + jr * kc,
                                    out + (ic + ir) * rso + (jc + jr), kc, rso,
                                    first);
+#endif
             } else {
               NUMC_ALIGNAS(32) uint8_t tmp[GEMM_I8_MR * GEMM_I8_NR];
               gemm_ukernel_u8_6x16(packed_a + ir * kc, packed_b + jr * kc, tmp,
@@ -2919,9 +2946,16 @@ static inline void gemm_u8_avx2(const uint8_t *a, const uint8_t *b,
           for (size_t ir = 0; ir < mc; ir += GEMM_I8_MR) {
             size_t mr_cur = GEMM_MIN(GEMM_I8_MR, mc - ir);
             if (mr_cur == GEMM_I8_MR && nr_cur == GEMM_I8_NR) {
+#if NUMC_HAVE_ASM_UKERNEL
+              numc_gemm_ukernel_u8_6x16_avx2(
+                  packed_a + ir * kc, packed_b + jr * kc,
+                  out + (ic + ir) * rso + (jc + jr), (uint64_t)kc, (int64_t)rso,
+                  first);
+#else
               gemm_ukernel_u8_6x16(packed_a + ir * kc, packed_b + jr * kc,
                                    out + (ic + ir) * rso + (jc + jr), kc, rso,
                                    first);
+#endif
             } else {
               NUMC_ALIGNAS(32) uint8_t tmp[GEMM_I8_MR * GEMM_I8_NR];
               gemm_ukernel_u8_6x16(packed_a + ir * kc, packed_b + jr * kc, tmp,
