@@ -300,6 +300,76 @@ static int test_matmul_packed_256_f64(void) {
   return 0;
 }
 
+/* ── Int32 ────────────────────────────────────────────────────── */
+
+static int test_matmul_i32_identity(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t sh[] = {N, N};
+  NumcArray *a = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT32);
+  NumcArray *b = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT32);
+  NumcArray *c = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT32);
+  int32_t *da = (int32_t *)numc_array_data(a);
+  int32_t *db = (int32_t *)numc_array_data(b);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    da[i] = (int32_t)((i % 10) + 1);
+  for (size_t i = 0; i < N; i++)
+    db[i * N + i] = 1;
+  int err = numc_matmul(a, b, c);
+  ASSERT_MSG_CTX(err == 0, "matmul i32 identity should succeed", ctx);
+  int32_t *rc = (int32_t *)numc_array_data(c);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    ASSERT_MSG_CTX(rc[i] == da[i], "matmul i32 A*I should equal A", ctx);
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_matmul_gemm_vs_naive_i32(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t sh[] = {N, N};
+  NumcArray *a = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT32);
+  NumcArray *b = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT32);
+  NumcArray *c_gemm = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT32);
+  NumcArray *c_naive = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT32);
+  int32_t *da = (int32_t *)numc_array_data(a);
+  int32_t *db = (int32_t *)numc_array_data(b);
+  for (size_t i = 0; i < (size_t)N * N; i++) {
+    da[i] = (int32_t)((i % 7) + 1);
+    db[i] = (int32_t)((i % 5) + 1);
+  }
+  int err1 = numc_matmul(a, b, c_gemm);
+  int err2 = numc_matmul_naive(a, b, c_naive);
+  ASSERT_MSG_CTX(err1 == 0 && err2 == 0, "both matmul paths should succeed", ctx);
+  int32_t *rg = (int32_t *)numc_array_data(c_gemm);
+  int32_t *rn = (int32_t *)numc_array_data(c_naive);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    ASSERT_MSG_CTX(rg[i] == rn[i], "GEMM and naive i32 results should match", ctx);
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+/* ── UInt32 ───────────────────────────────────────────────────── */
+
+static int test_matmul_u32_identity(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t sh[] = {N, N};
+  NumcArray *a = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_UINT32);
+  NumcArray *b = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_UINT32);
+  NumcArray *c = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_UINT32);
+  uint32_t *da = (uint32_t *)numc_array_data(a);
+  uint32_t *db = (uint32_t *)numc_array_data(b);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    da[i] = (uint32_t)((i % 10) + 1);
+  for (size_t i = 0; i < N; i++)
+    db[i * N + i] = 1;
+  int err = numc_matmul(a, b, c);
+  ASSERT_MSG_CTX(err == 0, "matmul u32 identity should succeed", ctx);
+  uint32_t *rc = (uint32_t *)numc_array_data(c);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    ASSERT_MSG_CTX(rc[i] == da[i], "matmul u32 A*I should equal A", ctx);
+  numc_ctx_free(ctx);
+  return 0;
+}
+
 /* ── main ───────────────────────────────────────────────────────── */
 
 int main(void) {
@@ -322,6 +392,13 @@ int main(void) {
   printf("\nPacked GEMM 256x256 cross-validation:\n");
   RUN_TEST(test_matmul_packed_256_f32);
   RUN_TEST(test_matmul_packed_256_f64);
+
+  printf("\nInt32:\n");
+  RUN_TEST(test_matmul_i32_identity);
+  RUN_TEST(test_matmul_gemm_vs_naive_i32);
+
+  printf("\nUInt32:\n");
+  RUN_TEST(test_matmul_u32_identity);
 
   printf("\n=== Results: %d passed, %d failed ===\n", passes, fails);
   return fails > 0 ? 1 : 0;
