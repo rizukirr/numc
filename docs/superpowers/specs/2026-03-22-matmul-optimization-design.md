@@ -69,7 +69,9 @@ Add unpacked small-matrix GEMM kernels for all 8 integer dtypes. Currently only 
 | i32/u32 | 6x16 | `vpmulld` + `vpaddd` | same type |
 | i16/u16 | 6x32 | `vpmullw` + `vpaddw` | same type |
 | i64/u64 | 6x8 | widening mul (4 insns) | same type |
-| i8/u8 | 6x64 | `vpmaddubsw` + `vpmaddwd` | promoted i32/u32 |
+| i8/u8 | 6x16 | `_mm256_cvtepi8_epi32` + `vpmulld` | promoted i32/u32 |
+
+**i8/u8 accumulation strategy:** Use sign/zero-extension to i32 (`_mm256_cvtepi8_epi32` for i8, `_mm256_cvtepu8_epi32` for u8) followed by `vpmulld` + `vpaddd`. This avoids `vpmaddubsw` overflow: that instruction treats one operand as unsigned and one as signed, and its i16 intermediate overflows for adversarial inputs even at K=1 (max pairwise sum: 2 × 255 × 127 = 64770 > 32767). The i32-promotion approach matches the existing naive kernel's semantics. NR=16 gives 6×2=12 i32 accumulators + 2 B + 2 A = 16 YMM registers.
 
 **i64/u64 widening multiply (no `vpmullq` on AVX2):**
 
@@ -84,9 +86,11 @@ result = lo + (hi1 << 32) + (hi2 << 32)
 
 **i8/u8 accumulation:** `vpmaddubsw` (u8xi8 -> i16 pairs with pairwise hadd) then `vpmaddwd` (i16 pairs -> i32 sums). Accumulate in i32, truncate on store with `vpackssdw` + `vpacksswb` (signed) or `vpackusdw` + `vpackuswb` (unsigned).
 
+**Dispatch modification:** The current `matmul.c` only applies per-dtype GEMMSUP thresholds for f32 and f64 (all others fall through to the generic `GEMMSUP_FLOPS_THRESHOLD`). This must be extended to per-dtype threshold branching for all 10 types, using a threshold table indexed by `NumcDType`.
+
 **Files modified:**
 
-- `src/matmul/matmul.c` — dispatch logic, storage detection, packing variants
+- `src/matmul/matmul.c` — dispatch logic, storage detection, packing variants, per-dtype thresholds
 - `src/matmul/dispatch.h` — `_detect_storage()` helper
 - `src/intrinsics/gemmsup_avx2.h` — 8 new integer GEMMSUP kernels
 
@@ -106,8 +110,8 @@ Add 8 new hand-tuned `.S` assembly micro-kernels (f32 and f64 already exist).
 | u16 | 6x32 | 12 (6x2) | 2 | 2 | 4x |
 | i64 | 6x8 | 12 (6x2) | 2 | 2 | 2x (mul is 4 insns) |
 | u64 | 6x8 | 12 (6x2) | 2 | 2 | 2x (mul is 4 insns) |
-| i8 | 6x64 | 12 (6x2, i32 acc) | 2 | 2 | 2x (maddubs+maddwd) |
-| u8 | 6x64 | 12 (6x2, u32 acc) | 2 | 2 | 2x (maddubs+maddwd) |
+| i8 | 6x16 | 12 (6x2, i32 acc) | 2 | 2 | 2x (cvt+mullo) |
+| u8 | 6x16 | 12 (6x2, u32 acc) | 2 | 2 | 2x (cvt+mullo) |
 
 ### Common ASM Patterns
 
@@ -121,7 +125,7 @@ Add 8 new hand-tuned `.S` assembly micro-kernels (f32 and f64 already exist).
 
 ### Dtype-Specific Notes
 
-- **i8/u8:** Store path truncates i32 accumulators to i8/u8 with `vpackssdw` + `vpacksswb` (signed) or `vpackusdw` + `vpackuswb` (unsigned).
+- **i8/u8:** Accumulate in i32 via sign/zero-extension + `vpmulld`. Store path truncates i32 accumulators to i8/u8 with `vpackssdw` + `vpacksswb` (signed) or `vpackusdw` + `vpackuswb` (unsigned). Note: `vpack*` operates per 128-bit lane, so a cross-lane `vpermq` is needed after packing for correct element order.
 - **i16/u16:** NR=32 means 2 YMM loads cover 32 elements x 2 bytes = 64 bytes = 1 cache line.
 - **i64/u64:** K-unroll reduced to 2x because each K-step is ~16 instructions (widening multiply sequence).
 
@@ -134,11 +138,26 @@ src/intrinsics/gemm_ukernel_i16_6x32_avx2.S
 src/intrinsics/gemm_ukernel_u16_6x32_avx2.S
 src/intrinsics/gemm_ukernel_i64_6x8_avx2.S
 src/intrinsics/gemm_ukernel_u64_6x8_avx2.S
-src/intrinsics/gemm_ukernel_i8_6x64_avx2.S
-src/intrinsics/gemm_ukernel_u8_6x64_avx2.S
+src/intrinsics/gemm_ukernel_i8_6x16_avx2.S
+src/intrinsics/gemm_ukernel_u8_6x16_avx2.S
 ```
 
 **CMake:** Add to `NUMC_CORE_SOURCES` under existing `x86_64|AMD64` guard in `src/CMakeLists.txt`.
+
+### Edge-Kernel Strategy
+
+When M % MR != 0 or N % NR != 0, remainder tiles need special handling. Strategy:
+- **M remainder:** The existing approach of using a temporary MR×NR buffer with the full micro-kernel, then copying valid rows to C, is retained. ASM kernels always compute full MR×NR tiles.
+- **N remainder:** Same buffer approach. This avoids needing separate ASM edge kernels for every possible remainder, keeping the ASM file count manageable.
+- **Phase 5 (AVX-512):** Can use masked stores (`vmovdqu32` with `kmov` mask) to handle N remainders without a buffer, eliminating the copy overhead.
+
+### Transposed Packing Scope
+
+Storage-aware dispatch (Phase 1) requires transposed packing variants. These are per-dtype with SIMD optimization:
+- `_pack_a_t_{dtype}()` — 10 functions (column-major A → packed MR-panels)
+- `_pack_b_t_{dtype}()` — 10 functions (column-major B → packed NR-panels)
+
+For AVX2, packing uses `vpermd`/`vpunpck*` for in-register transpose. Other ISAs use equivalent shuffles. Total: 20 new packing functions across Phase 1 + Phase 5.
 
 ## Phase 3: Structural GEMM Improvements
 
@@ -159,7 +178,7 @@ micro_kernel_fused(packed_a, B_raw, C, rsb, csb)
 ```
 
 **Decision logic:** Use fused path when:
-- B is contiguous (row-major NN or col-major NT)
+- B has unit column stride (elements within a row are contiguous) — this is the NN case. For NT (col-major B), rows are strided, so fusing would produce column-strided access patterns that defeat cache advantages; use explicit packing instead.
 - `KC * NR * elem_size <= L1_SIZE` (32KB on target hardware)
 - Otherwise fall back to explicit pack + standard micro-kernel
 
@@ -257,13 +276,13 @@ Each port includes: ASM micro-kernels (all 10 dtypes) + integer GEMMSUP + storag
 | dtype | MR x NR | Key advantage |
 |-------|---------|---------------|
 | f32 | 12x32 | 32 ZMM registers, wider FMA |
-| f64 | 14x16 | uses all 32 ZMM registers |
+| f64 | 12x16 | 24 acc + 2 B + 2 A + 2 preload + 2 spare = 32 ZMM |
 | i32/u32 | 12x32 | `vpmulld` 512-bit |
 | i16/u16 | 12x64 | `vpmullw` 512-bit |
-| i64/u64 | 14x16 | `vpmullq` (AVX-512DQ) — single instruction! |
-| i8/u8 | 12x128 | `vpmaddubsw` + `vpmaddwd` 512-bit |
+| i64/u64 | 12x16 | `vpmullq` (AVX-512DQ) — single instruction! |
+| i8/u8 | 12x32 | `_mm512_cvtepi8_epi32` + `vpmulld` 512-bit |
 
-**AVX-512 advantage:** `vpmullq` exists (AVX-512DQ), so i64/u64 are single-instruction vs 4-instruction AVX2 widening. Masked operations (`kmov` + predicated loads/stores) handle edge cases without separate edge kernels.
+**AVX-512 advantage:** `vpmullq` exists (AVX-512DQ), so i64/u64 are single-instruction vs 4-instruction AVX2 widening. Masked operations (`kmov` + predicated loads/stores) handle edge cases without separate edge kernels. f64 uses MR=12 (not 14) to leave headroom for B pre-loading and scratch registers. i8/u8 uses NR=32 with i32 accumulation: 12×(32/16)=24 accumulators + 2 B + 2 A + 4 spare = 32 ZMM.
 
 ### NEON (AArch64) Micro-kernels
 
@@ -277,6 +296,17 @@ Each port includes: ASM micro-kernels (all 10 dtypes) + integer GEMMSUP + storag
 | i8/u8 | 6x16 | `vmull_s8` + `vpadalq` |
 
 Written in GNU assembler. 32 SIMD registers means more room for prefetch and K-unrolling.
+
+**NEON i64 emulation (no `vmulq_s64`):** Use the same widening strategy as AVX2 i64 but with NEON instructions:
+```
+// a * b for 64-bit on NEON:
+lo   = vmull_u32(vmovn_u64(a), vmovn_u64(b))      // lower 32x32->64
+a_hi = vshrn_n_u64(a, 32)
+hi1  = vmull_u32(a_hi, vmovn_u64(b))               // upper_a x lower_b
+b_hi = vshrn_n_u64(b, 32)
+hi2  = vmull_u32(vmovn_u64(a), b_hi)               // lower_a x upper_b
+result = vaddq_u64(lo, vshlq_n_u64(vaddq_u64(hi1, hi2), 32))
+```
 
 ### SVE/SVE2
 
