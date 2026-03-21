@@ -269,6 +269,9 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
     if (a->dtype == NUMC_DTYPE_INT16 || a->dtype == NUMC_DTYPE_UINT16) {
       gemmsup_threshold = (128ULL * 128ULL * 128ULL);
     }
+    if (a->dtype == NUMC_DTYPE_INT64 || a->dtype == NUMC_DTYPE_UINT64) {
+      gemmsup_threshold = (48ULL * 48ULL * 48ULL);
+    }
 #endif
     if (flops <= gemmsup_threshold) {
       size_t elem = numc_dtype_size(a->dtype);
@@ -325,6 +328,13 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
 #if NUMC_HAVE_AVX2
         gemmsup_i16_avx2((const int16_t *)a->data, (const int16_t *)b->data,
                          (int16_t *)out->data, m, k, n, rsa, csa, rsb, rso);
+#endif
+        return 0;
+      }
+      if (a->dtype == NUMC_DTYPE_INT64 || a->dtype == NUMC_DTYPE_UINT64) {
+#if NUMC_HAVE_AVX2
+        gemmsup_i64_avx2((const int64_t *)a->data, (const int64_t *)b->data,
+                         (int64_t *)out->data, m, k, n, rsa, csa, rsb, rso);
 #endif
         return 0;
       }

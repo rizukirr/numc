@@ -533,6 +533,143 @@ static inline void gemmsup_u16_avx2(const uint16_t *a, const uint16_t *b,
                    N, rsa, csa, rsb, rso);
 }
 
+/* =================================================================
+   Int64 unpacked 6x8 micro-kernel
+   Same tile as f64 (MR=6, NR=8).  AVX2 lacks vpmullq, so we use a
+   widening-multiply helper that computes lower 64 bits via three
+   vpmuludq operations.  Works for both signed and unsigned
+   (two's complement truncation).
+   ================================================================= */
+
+/* 64-bit multiply helper (no vpmullq on AVX2).
+ * Computes lower 64 bits of a*b using three vpmuludq operations.
+ * Works for both signed and unsigned (two's complement truncation). */
+static inline __m256i _mm256_mullo_epi64_avx2(__m256i a, __m256i b) {
+  __m256i lo = _mm256_mul_epu32(a, b);
+  __m256i a_hi = _mm256_srli_epi64(a, 32);
+  __m256i b_hi = _mm256_srli_epi64(b, 32);
+  __m256i hi1 = _mm256_mul_epu32(a_hi, b);
+  __m256i hi2 = _mm256_mul_epu32(a, b_hi);
+  __m256i hi_sum = _mm256_add_epi64(hi1, hi2);
+  return _mm256_add_epi64(lo, _mm256_slli_epi64(hi_sum, 32));
+}
+
+static inline void gemmsup_ukernel_i64_6x8(const int64_t *a, const int64_t *b,
+                                            int64_t *c, size_t kc, intptr_t rsa,
+                                            intptr_t csa, intptr_t rsb,
+                                            intptr_t rso) {
+  __m256i c00 = _mm256_setzero_si256(), c01 = _mm256_setzero_si256();
+  __m256i c10 = _mm256_setzero_si256(), c11 = _mm256_setzero_si256();
+  __m256i c20 = _mm256_setzero_si256(), c21 = _mm256_setzero_si256();
+  __m256i c30 = _mm256_setzero_si256(), c31 = _mm256_setzero_si256();
+  __m256i c40 = _mm256_setzero_si256(), c41 = _mm256_setzero_si256();
+  __m256i c50 = _mm256_setzero_si256(), c51 = _mm256_setzero_si256();
+
+#define GEMMSUP_I64_K_BODY(p_off)                                             \
+  do {                                                                         \
+    const int64_t *bp_ = b + (p_off) * rsb;                                    \
+    __m256i b0_ = _mm256_loadu_si256((const __m256i *)bp_);                    \
+    __m256i b1_ = _mm256_loadu_si256((const __m256i *)(bp_ + 4));              \
+    __m256i a0_, a1_;                                                          \
+    a0_ = _mm256_set1_epi64x(a[0 * rsa + (p_off) * csa]);                     \
+    a1_ = _mm256_set1_epi64x(a[1 * rsa + (p_off) * csa]);                     \
+    c00 = _mm256_add_epi64(c00, _mm256_mullo_epi64_avx2(a0_, b0_));           \
+    c01 = _mm256_add_epi64(c01, _mm256_mullo_epi64_avx2(a0_, b1_));           \
+    c10 = _mm256_add_epi64(c10, _mm256_mullo_epi64_avx2(a1_, b0_));           \
+    c11 = _mm256_add_epi64(c11, _mm256_mullo_epi64_avx2(a1_, b1_));           \
+    a0_ = _mm256_set1_epi64x(a[2 * rsa + (p_off) * csa]);                     \
+    a1_ = _mm256_set1_epi64x(a[3 * rsa + (p_off) * csa]);                     \
+    c20 = _mm256_add_epi64(c20, _mm256_mullo_epi64_avx2(a0_, b0_));           \
+    c21 = _mm256_add_epi64(c21, _mm256_mullo_epi64_avx2(a0_, b1_));           \
+    c30 = _mm256_add_epi64(c30, _mm256_mullo_epi64_avx2(a1_, b0_));           \
+    c31 = _mm256_add_epi64(c31, _mm256_mullo_epi64_avx2(a1_, b1_));           \
+    a0_ = _mm256_set1_epi64x(a[4 * rsa + (p_off) * csa]);                     \
+    a1_ = _mm256_set1_epi64x(a[5 * rsa + (p_off) * csa]);                     \
+    c40 = _mm256_add_epi64(c40, _mm256_mullo_epi64_avx2(a0_, b0_));           \
+    c41 = _mm256_add_epi64(c41, _mm256_mullo_epi64_avx2(a0_, b1_));           \
+    c50 = _mm256_add_epi64(c50, _mm256_mullo_epi64_avx2(a1_, b0_));           \
+    c51 = _mm256_add_epi64(c51, _mm256_mullo_epi64_avx2(a1_, b1_));           \
+  } while (0)
+
+  /* 2x K-loop unroll (each K-step is ~7 instructions due to widening mul) */
+  size_t k_iter = kc / 2;
+  size_t k_left = kc % 2;
+  size_t p = 0;
+  for (size_t ki = 0; ki < k_iter; ki++, p += 2) {
+    GEMMSUP_I64_K_BODY(p);
+    GEMMSUP_I64_K_BODY(p + 1);
+  }
+  for (size_t pi = 0; pi < k_left; pi++, p++) {
+    GEMMSUP_I64_K_BODY(p);
+  }
+#undef GEMMSUP_I64_K_BODY
+
+  _mm256_storeu_si256((__m256i *)c, c00);
+  _mm256_storeu_si256((__m256i *)(c + 4), c01);
+  _mm256_storeu_si256((__m256i *)(c + rso), c10);
+  _mm256_storeu_si256((__m256i *)(c + rso + 4), c11);
+  _mm256_storeu_si256((__m256i *)(c + 2 * rso), c20);
+  _mm256_storeu_si256((__m256i *)(c + 2 * rso + 4), c21);
+  _mm256_storeu_si256((__m256i *)(c + 3 * rso), c30);
+  _mm256_storeu_si256((__m256i *)(c + 3 * rso + 4), c31);
+  _mm256_storeu_si256((__m256i *)(c + 4 * rso), c40);
+  _mm256_storeu_si256((__m256i *)(c + 4 * rso + 4), c41);
+  _mm256_storeu_si256((__m256i *)(c + 5 * rso), c50);
+  _mm256_storeu_si256((__m256i *)(c + 5 * rso + 4), c51);
+}
+
+/* Scalar edge kernel for remainder tiles */
+static inline void gemmsup_edge_i64(const int64_t *a, const int64_t *b,
+                                    int64_t *c, size_t mr, size_t nr, size_t kc,
+                                    intptr_t rsa, intptr_t csa, intptr_t rsb,
+                                    intptr_t rso) {
+  for (size_t i = 0; i < mr; i++) {
+    for (size_t j = 0; j < nr; j++)
+      c[i * rso + j] = 0;
+    for (size_t p = 0; p < kc; p++) {
+      int64_t aip = a[i * rsa + p * csa];
+      const int64_t *brow = b + p * rsb;
+      int64_t *crow = c + i * rso;
+      for (size_t j = 0; j < nr; j++)
+        crow[j] += aip * brow[j];
+    }
+  }
+}
+
+/* OMP-parallel over MR-row tiles when compute volume warrants it. */
+static inline void gemmsup_i64_avx2(const int64_t *a, const int64_t *b,
+                                    int64_t *out, size_t M, size_t K, size_t N,
+                                    intptr_t rsa, intptr_t csa, intptr_t rsb,
+                                    intptr_t rso) {
+  const size_t MR = 6, NR = 8;
+  size_t n_ir = (M + MR - 1) / MR;
+#pragma omp parallel for schedule(static) if ((uint64_t)M * K * N > \
+                                                  GEMMSUP_OMP_THRESHOLD)
+  for (size_t ir = 0; ir < n_ir; ir++) {
+    size_t i = ir * MR;
+    size_t mr = GEMMSUP_MIN(MR, M - i);
+    for (size_t j = 0; j < N; j += NR) {
+      size_t nr = GEMMSUP_MIN(NR, N - j);
+      if (mr == MR && nr == NR) {
+        gemmsup_ukernel_i64_6x8(a + i * rsa, b + j, out + i * rso + j, K, rsa,
+                                csa, rsb, rso);
+      } else {
+        gemmsup_edge_i64(a + i * rsa, b + j, out + i * rso + j, mr, nr, K, rsa,
+                         csa, rsb, rso);
+      }
+    }
+  }
+}
+
+/* u64 wrapper: widening mul helper is sign-agnostic for truncated multiply. */
+static inline void gemmsup_u64_avx2(const uint64_t *a, const uint64_t *b,
+                                    uint64_t *out, size_t M, size_t K, size_t N,
+                                    intptr_t rsa, intptr_t csa, intptr_t rsb,
+                                    intptr_t rso) {
+  gemmsup_i64_avx2((const int64_t *)a, (const int64_t *)b, (int64_t *)out, M, K,
+                   N, rsa, csa, rsb, rso);
+}
+
 #undef GEMMSUP_MIN
 
 #endif
