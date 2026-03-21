@@ -147,6 +147,102 @@ GEMM_WRAP(_gemm_f64_rvv, double, gemm_f64_rvv)
 
 #undef GEMM_WRAP
 
+/* ── SIMD gemmsup wrappers ─────────────────────────────────────── */
+
+typedef void (*GemmSupKernel)(const void *a, const void *b, void *out,
+                               size_t M, size_t K, size_t N, intptr_t rsa,
+                               intptr_t csa, intptr_t rsb, intptr_t rso);
+
+#define GEMMSUP_WRAP(name, CT, fn)                                            \
+  static void name(const void *a, const void *b, void *out, size_t M,        \
+                   size_t K, size_t N, intptr_t rsa, intptr_t csa,            \
+                   intptr_t rsb, intptr_t rso) {                              \
+    fn((const CT *)a, (const CT *)b, (CT *)out, M, K, N, rsa, csa, rsb, rso); \
+  }
+
+#if NUMC_HAVE_AVX2
+GEMMSUP_WRAP(_gemmsup_i8,  int8_t,   gemmsup_i8_avx2)
+GEMMSUP_WRAP(_gemmsup_i16, int16_t,  gemmsup_i16_avx2)
+GEMMSUP_WRAP(_gemmsup_i32, int32_t,  gemmsup_i32_avx2)
+GEMMSUP_WRAP(_gemmsup_i64, int64_t,  gemmsup_i64_avx2)
+GEMMSUP_WRAP(_gemmsup_u8,  uint8_t,  gemmsup_u8_avx2)
+GEMMSUP_WRAP(_gemmsup_u16, uint16_t, gemmsup_u16_avx2)
+GEMMSUP_WRAP(_gemmsup_u32, uint32_t, gemmsup_u32_avx2)
+GEMMSUP_WRAP(_gemmsup_u64, uint64_t, gemmsup_u64_avx2)
+GEMMSUP_WRAP(_gemmsup_f32, float,    gemmsup_f32_avx2)
+GEMMSUP_WRAP(_gemmsup_f64, double,   gemmsup_f64_avx2)
+#endif
+
+#if NUMC_HAVE_AVX512
+GEMMSUP_WRAP(_gemmsup_f32_avx512, float,  gemmsup_f32_avx512)
+GEMMSUP_WRAP(_gemmsup_f64_avx512, double, gemmsup_f64_avx512)
+#endif
+
+#if NUMC_HAVE_NEON && !NUMC_HAVE_SVE
+GEMMSUP_WRAP(_gemmsup_f32_neon, float,  gemmsup_f32_neon)
+GEMMSUP_WRAP(_gemmsup_f64_neon, double, gemmsup_f64_neon)
+#endif
+
+#if NUMC_HAVE_SVE
+GEMMSUP_WRAP(_gemmsup_f32_sve, float,  gemmsup_f32_sve)
+GEMMSUP_WRAP(_gemmsup_f64_sve, double, gemmsup_f64_sve)
+#endif
+
+#if NUMC_HAVE_RVV
+GEMMSUP_WRAP(_gemmsup_f32_rvv, float,  gemmsup_f32_rvv)
+GEMMSUP_WRAP(_gemmsup_f64_rvv, double, gemmsup_f64_rvv)
+#endif
+
+#undef GEMMSUP_WRAP
+
+static const GemmSupKernel gemmsup_table[NUMC_DTYPE_COUNT] = {
+#if NUMC_HAVE_AVX2
+    [NUMC_DTYPE_INT8]    = _gemmsup_i8,
+    [NUMC_DTYPE_INT16]   = _gemmsup_i16,
+    [NUMC_DTYPE_INT32]   = _gemmsup_i32,
+    [NUMC_DTYPE_INT64]   = _gemmsup_i64,
+    [NUMC_DTYPE_UINT8]   = _gemmsup_u8,
+    [NUMC_DTYPE_UINT16]  = _gemmsup_u16,
+    [NUMC_DTYPE_UINT32]  = _gemmsup_u32,
+    [NUMC_DTYPE_UINT64]  = _gemmsup_u64,
+    [NUMC_DTYPE_FLOAT32] = _gemmsup_f32,
+    [NUMC_DTYPE_FLOAT64] = _gemmsup_f64,
+#endif
+#if NUMC_HAVE_AVX512
+    [NUMC_DTYPE_FLOAT32] = _gemmsup_f32_avx512,
+    [NUMC_DTYPE_FLOAT64] = _gemmsup_f64_avx512,
+#endif
+#if NUMC_HAVE_NEON && !NUMC_HAVE_SVE
+    [NUMC_DTYPE_FLOAT32] = _gemmsup_f32_neon,
+    [NUMC_DTYPE_FLOAT64] = _gemmsup_f64_neon,
+#endif
+#if NUMC_HAVE_SVE
+    [NUMC_DTYPE_FLOAT32] = _gemmsup_f32_sve,
+    [NUMC_DTYPE_FLOAT64] = _gemmsup_f64_sve,
+#endif
+#if NUMC_HAVE_RVV
+    [NUMC_DTYPE_FLOAT32] = _gemmsup_f32_rvv,
+    [NUMC_DTYPE_FLOAT64] = _gemmsup_f64_rvv,
+#endif
+};
+
+static const uint64_t gemmsup_threshold_table[NUMC_DTYPE_COUNT] = {
+    [NUMC_DTYPE_INT8]    = 192ULL * 192 * 192,
+    [NUMC_DTYPE_INT16]   = 128ULL * 128 * 128,
+    [NUMC_DTYPE_INT32]   = 96ULL * 96 * 96,
+    [NUMC_DTYPE_INT64]   = 48ULL * 48 * 48,
+    [NUMC_DTYPE_UINT8]   = 192ULL * 192 * 192,
+    [NUMC_DTYPE_UINT16]  = 128ULL * 128 * 128,
+    [NUMC_DTYPE_UINT32]  = 96ULL * 96 * 96,
+    [NUMC_DTYPE_UINT64]  = 48ULL * 48 * 48,
+    [NUMC_DTYPE_FLOAT32] = 96ULL * 96 * 96,
+    [NUMC_DTYPE_FLOAT64] = 48ULL * 48 * 48,
+#if NUMC_HAVE_AVX512
+    [NUMC_DTYPE_FLOAT32] = 128ULL * 128 * 128,
+    [NUMC_DTYPE_FLOAT64] = 128ULL * 128 * 128,
+#endif
+};
+
 static const GemmSimdKernel gemm_simd_table[NUMC_DTYPE_COUNT] = {
 #if NUMC_HAVE_AVX2
     [NUMC_DTYPE_INT8] = _gemm_i8_avx2,
@@ -241,123 +337,21 @@ int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   if (err)
     return err;
 
-  /* Small-matrix path: unpacked SIMD GEMM (avoids packing overhead).
-   * AVX2 tuning note:
-   * - f32 gemmsup is beneficial mostly for very small sizes; around 128^3,
-   *   packed GEMM tends to win due to better A/B locality.
-   * - f64 gemmsup remains good up to roughly 128^3 on typical AVX2 CPUs.
-   */
-#if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_NEON || NUMC_HAVE_SVE || \
-    NUMC_HAVE_RVV
+  /* Small-matrix path: unpacked SIMD GEMM (avoids packing overhead) */
   {
     size_t m = a->shape[0], k = a->shape[1], n = b->shape[1];
     uint64_t flops = (uint64_t)m * k * n;
-#if NUMC_HAVE_AVX512
-    uint64_t gemmsup_threshold = GEMMSUP512_FLOPS_THRESHOLD;
-#else
-    uint64_t gemmsup_threshold = GEMMSUP_FLOPS_THRESHOLD;
-#endif
-#if NUMC_HAVE_AVX2 && !NUMC_HAVE_AVX512
-    if (a->dtype == NUMC_DTYPE_FLOAT32) {
-      gemmsup_threshold = (96ULL * 96ULL * 96ULL);
-    } else if (a->dtype == NUMC_DTYPE_FLOAT64) {
-      gemmsup_threshold = (48ULL * 48ULL * 48ULL);
-    }
-    if (a->dtype == NUMC_DTYPE_INT32 || a->dtype == NUMC_DTYPE_UINT32) {
-      gemmsup_threshold = (96ULL * 96ULL * 96ULL);
-    }
-    if (a->dtype == NUMC_DTYPE_INT16 || a->dtype == NUMC_DTYPE_UINT16) {
-      gemmsup_threshold = (128ULL * 128ULL * 128ULL);
-    }
-    if (a->dtype == NUMC_DTYPE_INT64 || a->dtype == NUMC_DTYPE_UINT64) {
-      gemmsup_threshold = (48ULL * 48ULL * 48ULL);
-    }
-    if (a->dtype == NUMC_DTYPE_INT8 || a->dtype == NUMC_DTYPE_UINT8) {
-      gemmsup_threshold = (192ULL * 192ULL * 192ULL);
-    }
-#endif
-    if (flops <= gemmsup_threshold) {
+    GemmSupKernel sup = gemmsup_table[a->dtype];
+    if (sup && flops <= gemmsup_threshold_table[a->dtype]) {
       size_t elem = numc_dtype_size(a->dtype);
       intptr_t rsa = (intptr_t)(a->strides[0] / elem);
       intptr_t csa = (intptr_t)(a->strides[1] / elem);
       intptr_t rsb = (intptr_t)(b->strides[0] / elem);
       intptr_t rso = (intptr_t)(out->strides[0] / elem);
-      if (a->dtype == NUMC_DTYPE_FLOAT32) {
-#if NUMC_HAVE_AVX512
-        gemmsup_f32_avx512((const float *)a->data, (const float *)b->data,
-                           (float *)out->data, m, k, n, rsa, csa, rsb, rso);
-#elif NUMC_HAVE_AVX2
-        gemmsup_f32_avx2((const float *)a->data, (const float *)b->data,
-                         (float *)out->data, m, k, n, rsa, csa, rsb, rso);
-#elif NUMC_HAVE_SVE
-        gemmsup_f32_sve((const float *)a->data, (const float *)b->data,
-                        (float *)out->data, m, k, n, rsa, csa, rsb, rso);
-#elif NUMC_HAVE_NEON
-        gemmsup_f32_neon((const float *)a->data, (const float *)b->data,
-                         (float *)out->data, m, k, n, rsa, csa, rsb, rso);
-#elif NUMC_HAVE_RVV
-        gemmsup_f32_rvv((const float *)a->data, (const float *)b->data,
-                        (float *)out->data, m, k, n, rsa, csa, rsb, rso);
-#endif
-        return 0;
-      }
-      if (a->dtype == NUMC_DTYPE_FLOAT64) {
-#if NUMC_HAVE_AVX512
-        gemmsup_f64_avx512((const double *)a->data, (const double *)b->data,
-                           (double *)out->data, m, k, n, rsa, csa, rsb, rso);
-#elif NUMC_HAVE_AVX2
-        gemmsup_f64_avx2((const double *)a->data, (const double *)b->data,
-                         (double *)out->data, m, k, n, rsa, csa, rsb, rso);
-#elif NUMC_HAVE_SVE
-        gemmsup_f64_sve((const double *)a->data, (const double *)b->data,
-                        (double *)out->data, m, k, n, rsa, csa, rsb, rso);
-#elif NUMC_HAVE_NEON
-        gemmsup_f64_neon((const double *)a->data, (const double *)b->data,
-                         (double *)out->data, m, k, n, rsa, csa, rsb, rso);
-#elif NUMC_HAVE_RVV
-        gemmsup_f64_rvv((const double *)a->data, (const double *)b->data,
-                        (double *)out->data, m, k, n, rsa, csa, rsb, rso);
-#endif
-        return 0;
-      }
-      if (a->dtype == NUMC_DTYPE_INT32 || a->dtype == NUMC_DTYPE_UINT32) {
-#if NUMC_HAVE_AVX2
-        gemmsup_i32_avx2((const int32_t *)a->data, (const int32_t *)b->data,
-                         (int32_t *)out->data, m, k, n, rsa, csa, rsb, rso);
-#endif
-        return 0;
-      }
-      if (a->dtype == NUMC_DTYPE_INT16 || a->dtype == NUMC_DTYPE_UINT16) {
-#if NUMC_HAVE_AVX2
-        gemmsup_i16_avx2((const int16_t *)a->data, (const int16_t *)b->data,
-                         (int16_t *)out->data, m, k, n, rsa, csa, rsb, rso);
-#endif
-        return 0;
-      }
-      if (a->dtype == NUMC_DTYPE_INT64 || a->dtype == NUMC_DTYPE_UINT64) {
-#if NUMC_HAVE_AVX2
-        gemmsup_i64_avx2((const int64_t *)a->data, (const int64_t *)b->data,
-                         (int64_t *)out->data, m, k, n, rsa, csa, rsb, rso);
-#endif
-        return 0;
-      }
-      if (a->dtype == NUMC_DTYPE_INT8) {
-#if NUMC_HAVE_AVX2
-        gemmsup_i8_avx2((const int8_t *)a->data, (const int8_t *)b->data,
-                        (int8_t *)out->data, m, k, n, rsa, csa, rsb, rso);
-#endif
-        return 0;
-      }
-      if (a->dtype == NUMC_DTYPE_UINT8) {
-#if NUMC_HAVE_AVX2
-        gemmsup_u8_avx2((const uint8_t *)a->data, (const uint8_t *)b->data,
-                        (uint8_t *)out->data, m, k, n, rsa, csa, rsb, rso);
-#endif
-        return 0;
-      }
+      sup(a->data, b->data, out->data, m, k, n, rsa, csa, rsb, rso);
+      return 0;
     }
   }
-#endif
 
   /* Primary path: packed SIMD GEMM (all types, all strides) */
   {
