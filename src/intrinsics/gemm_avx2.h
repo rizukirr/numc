@@ -71,6 +71,9 @@ extern void numc_gemm_ukernel_f64_6x8_avx2(const double *a, const double *b,
 extern void numc_gemm_ukernel_i32_6x16_avx2(const int32_t *a, const int32_t *b,
                                              int32_t *c, uint64_t kc,
                                              int64_t rso, int first);
+extern void numc_gemm_ukernel_u32_6x16_avx2(const uint32_t *a, const uint32_t *b,
+                                              uint32_t *c, uint64_t kc,
+                                              int64_t rso, int first);
 #define NUMC_HAVE_ASM_UKERNEL 1
 #else
 #define NUMC_HAVE_ASM_UKERNEL 0
@@ -1834,13 +1837,156 @@ static inline void gemm_i32_avx2(const int32_t *a, const int32_t *b,
   numc_free(packed_b);
 }
 
-/* Uint32: identical bit-level operations as int32 */
+/* Uint32: packed GEMM with dedicated ASM micro-kernel (vpmulld is sign-agnostic) */
 static inline void gemm_u32_avx2(const uint32_t *a, const uint32_t *b,
                                  uint32_t *out, size_t m_dim, size_t k_dim,
                                  size_t n_dim, intptr_t rsa, intptr_t csa,
                                  intptr_t rsb, intptr_t rso) {
-  gemm_i32_avx2((const int32_t *)a, (const int32_t *)b, (int32_t *)out, m_dim,
-                k_dim, n_dim, rsa, csa, rsb, rso);
+  size_t nc_max = GEMM_MIN(GEMM_I32_NC, n_dim);
+  uint32_t *packed_b = (uint32_t *)numc_malloc(
+      32, GEMM_I32_KC * (nc_max + GEMM_I32_NR) * sizeof(uint32_t));
+  if (!packed_b)
+    return;
+
+  for (size_t jc = 0; jc < n_dim; jc += GEMM_I32_NC) {
+    size_t nc = GEMM_MIN(GEMM_I32_NC, n_dim - jc);
+    size_t n_jr = (nc + GEMM_I32_NR - 1) / GEMM_I32_NR;
+
+#ifdef _OPENMP
+#pragma omp parallel if ((uint64_t)m_dim * k_dim * nc > GEMM_OMP_THRESHOLD)
+    {
+      NUMC_ALIGNAS(32) uint32_t packed_a[GEMM_I32_MC * GEMM_I32_KC];
+
+      for (size_t pc = 0; pc < k_dim; pc += GEMM_I32_KC) {
+        size_t kc = GEMM_MIN(GEMM_I32_KC, k_dim - pc);
+        int first = (pc == 0);
+        size_t last_ic = (size_t)-1;
+
+#pragma omp for schedule(static)
+        for (size_t jr_idx = 0; jr_idx < n_jr; jr_idx++) {
+          size_t jj = jr_idx * GEMM_I32_NR;
+          size_t nr_pack = GEMM_MIN(GEMM_I32_NR, nc - jj);
+          _gemm_pack_b_strip_i32((const int32_t *)(b + pc * rsb + (jc + jj)),
+                                 (int32_t *)(packed_b + jj * kc),
+                                 kc, nr_pack, rsb);
+        }
+
+        size_t n_ic = (m_dim + GEMM_I32_MC - 1) / GEMM_I32_MC;
+        size_t n_tasks = n_ic * n_jr;
+
+#pragma omp for schedule(static)
+        for (size_t task = 0; task < n_tasks; task++) {
+          size_t ic = (task / n_jr) * GEMM_I32_MC;
+          size_t jr = (task % n_jr) * GEMM_I32_NR;
+          size_t mc = GEMM_MIN(GEMM_I32_MC, m_dim - ic);
+          size_t nr_cur = GEMM_MIN(GEMM_I32_NR, nc - jr);
+
+          if (ic != last_ic) {
+            gemm_pack_a_i32((const int32_t *)(a + ic * rsa + pc * csa),
+                            (int32_t *)packed_a, mc, kc, rsa, csa);
+            last_ic = ic;
+          }
+
+          for (size_t ir = 0; ir < mc; ir += GEMM_I32_MR) {
+            size_t mr_cur = GEMM_MIN(GEMM_I32_MR, mc - ir);
+            if (mr_cur == GEMM_I32_MR && nr_cur == GEMM_I32_NR) {
+#if NUMC_HAVE_ASM_UKERNEL
+              numc_gemm_ukernel_u32_6x16_avx2(
+                  packed_a + ir * kc, packed_b + jr * kc,
+                  out + (ic + ir) * rso + (jc + jr), (uint64_t)kc, (int64_t)rso,
+                  first);
+#else
+              gemm_ukernel_i32_6x16((const int32_t *)(packed_a + ir * kc),
+                                    (const int32_t *)(packed_b + jr * kc),
+                                    (int32_t *)(out + (ic + ir) * rso + (jc + jr)),
+                                    kc, 1, GEMM_I32_MR, GEMM_I32_NR, rso, first);
+#endif
+            } else {
+              NUMC_ALIGNAS(32) uint32_t tmp[GEMM_I32_MR * GEMM_I32_NR];
+              gemm_ukernel_i32_6x16((const int32_t *)(packed_a + ir * kc),
+                                    (const int32_t *)(packed_b + jr * kc),
+                                    (int32_t *)tmp,
+                                    kc, 1, GEMM_I32_MR, GEMM_I32_NR,
+                                    GEMM_I32_NR, 1);
+              uint32_t *dst = out + (ic + ir) * rso + (jc + jr);
+              if (first) {
+                for (size_t ii = 0; ii < mr_cur; ii++)
+                  for (size_t jj = 0; jj < nr_cur; jj++)
+                    dst[ii * rso + jj] = tmp[ii * GEMM_I32_NR + jj];
+              } else {
+                for (size_t ii = 0; ii < mr_cur; ii++)
+                  for (size_t jj = 0; jj < nr_cur; jj++)
+                    dst[ii * rso + jj] += tmp[ii * GEMM_I32_NR + jj];
+              }
+            }
+          }
+        }
+      }
+    }
+#else
+    {
+      NUMC_ALIGNAS(32) uint32_t packed_a[GEMM_I32_MC * GEMM_I32_KC];
+
+      for (size_t pc = 0; pc < k_dim; pc += GEMM_I32_KC) {
+        size_t kc = GEMM_MIN(GEMM_I32_KC, k_dim - pc);
+        int first = (pc == 0);
+
+        gemm_pack_b_i32((const int32_t *)(b + pc * rsb + jc),
+                        (int32_t *)packed_b, kc, nc, rsb);
+
+        size_t n_ic = (m_dim + GEMM_I32_MC - 1) / GEMM_I32_MC;
+        size_t n_tasks = n_ic * n_jr;
+
+        for (size_t task = 0; task < n_tasks; task++) {
+          size_t ic = (task / n_jr) * GEMM_I32_MC;
+          size_t jr = (task % n_jr) * GEMM_I32_NR;
+          size_t mc = GEMM_MIN(GEMM_I32_MC, m_dim - ic);
+          size_t nr_cur = GEMM_MIN(GEMM_I32_NR, nc - jr);
+
+          if (task % n_jr == 0)
+            gemm_pack_a_i32((const int32_t *)(a + ic * rsa + pc * csa),
+                            (int32_t *)packed_a, mc, kc, rsa, csa);
+
+          for (size_t ir = 0; ir < mc; ir += GEMM_I32_MR) {
+            size_t mr_cur = GEMM_MIN(GEMM_I32_MR, mc - ir);
+            if (mr_cur == GEMM_I32_MR && nr_cur == GEMM_I32_NR) {
+#if NUMC_HAVE_ASM_UKERNEL
+              numc_gemm_ukernel_u32_6x16_avx2(
+                  packed_a + ir * kc, packed_b + jr * kc,
+                  out + (ic + ir) * rso + (jc + jr), (uint64_t)kc, (int64_t)rso,
+                  first);
+#else
+              gemm_ukernel_i32_6x16((const int32_t *)(packed_a + ir * kc),
+                                    (const int32_t *)(packed_b + jr * kc),
+                                    (int32_t *)(out + (ic + ir) * rso + (jc + jr)),
+                                    kc, 1, GEMM_I32_MR, GEMM_I32_NR, rso, first);
+#endif
+            } else {
+              NUMC_ALIGNAS(32) uint32_t tmp[GEMM_I32_MR * GEMM_I32_NR];
+              gemm_ukernel_i32_6x16((const int32_t *)(packed_a + ir * kc),
+                                    (const int32_t *)(packed_b + jr * kc),
+                                    (int32_t *)tmp,
+                                    kc, 1, GEMM_I32_MR, GEMM_I32_NR,
+                                    GEMM_I32_NR, 1);
+              uint32_t *dst = out + (ic + ir) * rso + (jc + jr);
+              if (first) {
+                for (size_t ii = 0; ii < mr_cur; ii++)
+                  for (size_t jj = 0; jj < nr_cur; jj++)
+                    dst[ii * rso + jj] = tmp[ii * GEMM_I32_NR + jj];
+              } else {
+                for (size_t ii = 0; ii < mr_cur; ii++)
+                  for (size_t jj = 0; jj < nr_cur; jj++)
+                    dst[ii * rso + jj] += tmp[ii * GEMM_I32_NR + jj];
+              }
+            }
+          }
+        }
+      }
+    }
+#endif
+  }
+
+  numc_free(packed_b);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
