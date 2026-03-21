@@ -45,7 +45,7 @@ Classify each input as N (normal) or T (transposed), producing 4 combinations: N
 - Add `_detect_storage(array)` returning `NUMC_STORAGE_ROW` or `NUMC_STORAGE_COL` in `dispatch.h`
 - Add `_pack_a_t()` and `_pack_b_t()` variants in `matmul.c` for column-major inputs
 - Micro-kernel interface unchanged (always receives packed data)
-- GEMMSUP gets stride parameters for all 4 variants (not separate functions)
+- GEMMSUP kernels add `csb` (column stride of B) to their signature, enabling direct strided access for NT/TT cases without pre-packing B. C's column stride (`cso`) is not needed since C is always contiguous row-major
 
 **Scope boundary:** C storage is always contiguous row-major, so we skip C-storage variants (unlike BLIS's 8-variant approach).
 
@@ -84,7 +84,7 @@ hi2 = _mm256_mul_epu32(a, b_hi)       // lower_a x upper_b
 result = lo + (hi1 << 32) + (hi2 << 32)
 ```
 
-**i8/u8 accumulation:** `vpmaddubsw` (u8xi8 -> i16 pairs with pairwise hadd) then `vpmaddwd` (i16 pairs -> i32 sums). Accumulate in i32, truncate on store with `vpackssdw` + `vpacksswb` (signed) or `vpackusdw` + `vpackuswb` (unsigned).
+**i8/u8 rejected alternative:** `vpmaddubsw` + `vpmaddwd` was considered but rejected because it treats one operand as unsigned and one as signed, and the i16 intermediate overflows for adversarial inputs even at K=1 (max pairwise sum 2 × 255 × 127 = 64770 > i16 max 32767). The chosen approach (i32-promotion via `cvt` + `vpmulld`) is safer and matches the naive kernel's exact semantics.
 
 **Dispatch modification:** The current `matmul.c` only applies per-dtype GEMMSUP thresholds for f32 and f64 (all others fall through to the generic `GEMMSUP_FLOPS_THRESHOLD`). This must be extended to per-dtype threshold branching for all 10 types, using a threshold table indexed by `NumcDType`.
 
