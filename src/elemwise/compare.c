@@ -82,6 +82,8 @@ static inline void _cmp_binary_op(const NumcArray *a, const NumcArray *b,
                                   NumcArray *out, const NumcCmpKernel *table) {
   NumcCmpKernel kern = table[a->dtype];
   size_t bcast_ndim = a->dim > b->dim ? a->dim : b->dim;
+  if (bcast_ndim == 0)
+    return;
 
   size_t bcast_shape[NUMC_MAX_DIMENSIONS];
   size_t sa[NUMC_MAX_DIMENSIONS], sb[NUMC_MAX_DIMENSIONS],
@@ -330,7 +332,7 @@ FBIN_TABLE(le);
         }                                                                      \
       if (same_shape) {                                                        \
         FastBinKern kern = FAST_TABLE[a->dtype];                               \
-        size_t n = a->size, es = a->elem_size, total = n * 3 * es;              \
+        size_t n = a->size, es = a->elem_size, total = n * 3 * es;             \
         int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);                     \
         if (nt >= 2) {                                                         \
           size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;                    \
@@ -547,10 +549,15 @@ DEFINE_CMP_SCALAR_WITH_SIMD(le, le_table)
     return _scalar_op_inplace(a, scalar, TABLE);                   \
   }
 
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 DEFINE_CMP_SCALAR_GENERIC(eq, eq_cmp_table)
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 DEFINE_CMP_SCALAR_GENERIC(gt, gt_cmp_table)
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 DEFINE_CMP_SCALAR_GENERIC(lt, lt_cmp_table)
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 DEFINE_CMP_SCALAR_GENERIC(ge, ge_cmp_table)
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 DEFINE_CMP_SCALAR_GENERIC(le, le_cmp_table)
 #undef DEFINE_CMP_SCALAR_GENERIC
 

@@ -352,21 +352,25 @@ static NumcArray *_rand_impl(NumcCtx *ctx, const size_t *shape, size_t dim,
 
 /* ── Public API ─────────────────────────────────────────────────────*/
 
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 void numc_manual_seed(uint64_t seed) {
   prng_seed(seed);
 }
 
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 NumcArray *numc_array_rand(NumcCtx *ctx, const size_t *shape, size_t dim,
                            NumcDType dtype) {
   return _rand_impl(ctx, shape, dim, dtype, rand_table);
 }
 
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 NumcArray *numc_array_randn(NumcCtx *ctx, const size_t *shape, size_t dim,
                             NumcDType dtype) {
   return _rand_impl(ctx, shape, dim, dtype, randn_table);
 }
 
 /* He (Kaiming): scale randn by sqrt(2 / fan_in) */
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 NumcArray *numc_array_random_he(NumcCtx *ctx, const size_t *shape, size_t dim,
                                 NumcDType dtype, size_t fan_in) {
   if (fan_in == 0) {
@@ -386,6 +390,7 @@ NumcArray *numc_array_random_he(NumcCtx *ctx, const size_t *shape, size_t dim,
 
 /* Xavier (Glorot): uniform [-limit, limit),
  * limit = sqrt(6 / (fan_in + fan_out)) */
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 NumcArray *numc_array_random_xavier(NumcCtx *ctx, const size_t *shape,
                                     size_t dim, NumcDType dtype, size_t fan_in,
                                     size_t fan_out) {

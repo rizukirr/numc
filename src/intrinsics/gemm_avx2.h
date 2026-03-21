@@ -72,23 +72,25 @@ extern void numc_gemm_ukernel_f64_6x8_avx2(const double *a, const double *b,
                                            double *c, uint64_t kc, int64_t rso,
                                            int first);
 extern void numc_gemm_ukernel_i32_6x16_avx2(const int32_t *a, const int32_t *b,
-                                             int32_t *c, uint64_t kc,
-                                             int64_t rso, int first);
-extern void numc_gemm_ukernel_u32_6x16_avx2(const uint32_t *a, const uint32_t *b,
-                                              uint32_t *c, uint64_t kc,
-                                              int64_t rso, int first);
+                                            int32_t *c, uint64_t kc,
+                                            int64_t rso, int first);
+extern void numc_gemm_ukernel_u32_6x16_avx2(const uint32_t *a,
+                                            const uint32_t *b, uint32_t *c,
+                                            uint64_t kc, int64_t rso,
+                                            int first);
 extern void numc_gemm_ukernel_i16_6x32_avx2(const int16_t *a, const int16_t *b,
-                                              int16_t *c, uint64_t kc,
-                                              int64_t rso, int first);
-extern void numc_gemm_ukernel_u16_6x32_avx2(const uint16_t *a, const uint16_t *b,
-                                              uint16_t *c, uint64_t kc,
-                                              int64_t rso, int first);
+                                            int16_t *c, uint64_t kc,
+                                            int64_t rso, int first);
+extern void numc_gemm_ukernel_u16_6x32_avx2(const uint16_t *a,
+                                            const uint16_t *b, uint16_t *c,
+                                            uint64_t kc, int64_t rso,
+                                            int first);
 extern void numc_gemm_ukernel_i8_6x16_avx2(const int8_t *a, const int8_t *b,
-                                             int8_t *c, uint64_t kc,
-                                             int64_t rso, int first);
+                                           int8_t *c, uint64_t kc, int64_t rso,
+                                           int first);
 extern void numc_gemm_ukernel_u8_6x16_avx2(const uint8_t *a, const uint8_t *b,
-                                             uint8_t *c, uint64_t kc,
-                                             int64_t rso, int first);
+                                           uint8_t *c, uint64_t kc, int64_t rso,
+                                           int first);
 #define NUMC_HAVE_ASM_UKERNEL 1
 #else
 #define NUMC_HAVE_ASM_UKERNEL 0
@@ -1457,8 +1459,7 @@ static inline void gemm_pack_b_i32(const int32_t *b, int32_t *packed, size_t kc,
     for (size_t p = 0; p < kc; p++) {
       const int32_t *src = b + p * rsb + jr;
       int32_t *d = dest + p * GEMM_I32_NR;
-      _mm256_storeu_si256((__m256i *)d,
-                          _mm256_maskload_epi32(src, m0));
+      _mm256_storeu_si256((__m256i *)d, _mm256_maskload_epi32(src, m0));
       if (rem > 8) {
         _mm256_storeu_si256((__m256i *)(d + 8),
                             _mm256_maskload_epi32(src + 8, m1));
@@ -1471,8 +1472,8 @@ static inline void gemm_pack_b_i32(const int32_t *b, int32_t *packed, size_t kc,
 
 /* Pack a single NR-wide B strip for parallel packing. */
 static inline void _gemm_pack_b_strip_i32(const int32_t *b, int32_t *dest,
-                                           size_t kc, size_t nr_pack,
-                                           intptr_t rsb) {
+                                          size_t kc, size_t nr_pack,
+                                          intptr_t rsb) {
   if (nr_pack == GEMM_I32_NR) {
     for (size_t p = 0; p < kc; p++) {
       const int32_t *src = b + p * rsb;
@@ -1488,8 +1489,7 @@ static inline void _gemm_pack_b_strip_i32(const int32_t *b, int32_t *dest,
     for (size_t p = 0; p < kc; p++) {
       const int32_t *src = b + p * rsb;
       int32_t *d = dest + p * GEMM_I32_NR;
-      _mm256_storeu_si256((__m256i *)d,
-                          _mm256_maskload_epi32(src, m0));
+      _mm256_storeu_si256((__m256i *)d, _mm256_maskload_epi32(src, m0));
       if (nr_pack > 8) {
         _mm256_storeu_si256((__m256i *)(d + 8),
                             _mm256_maskload_epi32(src + 8, m1));
@@ -1852,7 +1852,8 @@ static inline void gemm_i32_avx2(const int32_t *a, const int32_t *b,
   numc_free(packed_b);
 }
 
-/* Uint32: packed GEMM with dedicated ASM micro-kernel (vpmulld is sign-agnostic) */
+/* Uint32: packed GEMM with dedicated ASM micro-kernel (vpmulld is
+ * sign-agnostic) */
 static inline void gemm_u32_avx2(const uint32_t *a, const uint32_t *b,
                                  uint32_t *out, size_t m_dim, size_t k_dim,
                                  size_t n_dim, intptr_t rsa, intptr_t csa,
@@ -1882,8 +1883,8 @@ static inline void gemm_u32_avx2(const uint32_t *a, const uint32_t *b,
           size_t jj = jr_idx * GEMM_I32_NR;
           size_t nr_pack = GEMM_MIN(GEMM_I32_NR, nc - jj);
           _gemm_pack_b_strip_i32((const int32_t *)(b + pc * rsb + (jc + jj)),
-                                 (int32_t *)(packed_b + jj * kc),
-                                 kc, nr_pack, rsb);
+                                 (int32_t *)(packed_b + jj * kc), kc, nr_pack,
+                                 rsb);
         }
 
         size_t n_ic = (m_dim + GEMM_I32_MC - 1) / GEMM_I32_MC;
@@ -1911,18 +1912,18 @@ static inline void gemm_u32_avx2(const uint32_t *a, const uint32_t *b,
                   out + (ic + ir) * rso + (jc + jr), (uint64_t)kc, (int64_t)rso,
                   first);
 #else
-              gemm_ukernel_i32_6x16((const int32_t *)(packed_a + ir * kc),
-                                    (const int32_t *)(packed_b + jr * kc),
-                                    (int32_t *)(out + (ic + ir) * rso + (jc + jr)),
-                                    kc, 1, GEMM_I32_MR, GEMM_I32_NR, rso, first);
+              gemm_ukernel_i32_6x16(
+                  (const int32_t *)(packed_a + ir * kc),
+                  (const int32_t *)(packed_b + jr * kc),
+                  (int32_t *)(out + (ic + ir) * rso + (jc + jr)), kc, 1,
+                  GEMM_I32_MR, GEMM_I32_NR, rso, first);
 #endif
             } else {
               NUMC_ALIGNAS(32) uint32_t tmp[GEMM_I32_MR * GEMM_I32_NR];
               gemm_ukernel_i32_6x16((const int32_t *)(packed_a + ir * kc),
                                     (const int32_t *)(packed_b + jr * kc),
-                                    (int32_t *)tmp,
-                                    kc, 1, GEMM_I32_MR, GEMM_I32_NR,
-                                    GEMM_I32_NR, 1);
+                                    (int32_t *)tmp, kc, 1, GEMM_I32_MR,
+                                    GEMM_I32_NR, GEMM_I32_NR, 1);
               uint32_t *dst = out + (ic + ir) * rso + (jc + jr);
               if (first) {
                 for (size_t ii = 0; ii < mr_cur; ii++)
@@ -1971,18 +1972,18 @@ static inline void gemm_u32_avx2(const uint32_t *a, const uint32_t *b,
                   out + (ic + ir) * rso + (jc + jr), (uint64_t)kc, (int64_t)rso,
                   first);
 #else
-              gemm_ukernel_i32_6x16((const int32_t *)(packed_a + ir * kc),
-                                    (const int32_t *)(packed_b + jr * kc),
-                                    (int32_t *)(out + (ic + ir) * rso + (jc + jr)),
-                                    kc, 1, GEMM_I32_MR, GEMM_I32_NR, rso, first);
+              gemm_ukernel_i32_6x16(
+                  (const int32_t *)(packed_a + ir * kc),
+                  (const int32_t *)(packed_b + jr * kc),
+                  (int32_t *)(out + (ic + ir) * rso + (jc + jr)), kc, 1,
+                  GEMM_I32_MR, GEMM_I32_NR, rso, first);
 #endif
             } else {
               NUMC_ALIGNAS(32) uint32_t tmp[GEMM_I32_MR * GEMM_I32_NR];
               gemm_ukernel_i32_6x16((const int32_t *)(packed_a + ir * kc),
                                     (const int32_t *)(packed_b + jr * kc),
-                                    (int32_t *)tmp,
-                                    kc, 1, GEMM_I32_MR, GEMM_I32_NR,
-                                    GEMM_I32_NR, 1);
+                                    (int32_t *)tmp, kc, 1, GEMM_I32_MR,
+                                    GEMM_I32_NR, GEMM_I32_NR, 1);
               uint32_t *dst = out + (ic + ir) * rso + (jc + jr);
               if (first) {
                 for (size_t ii = 0; ii < mr_cur; ii++)
@@ -2128,8 +2129,8 @@ static inline void gemm_pack_b_i16(const int16_t *b, int16_t *packed, size_t kc,
 
 /* Pack a single NR-wide B strip for parallel packing (i16). */
 static inline void _gemm_pack_b_strip_i16(const int16_t *b, int16_t *dest,
-                                           size_t kc, size_t nr_pack,
-                                           intptr_t rsb) {
+                                          size_t kc, size_t nr_pack,
+                                          intptr_t rsb) {
   if (nr_pack == GEMM_I16_NR) {
     for (size_t p = 0; p < kc; p++) {
       const int16_t *src = b + p * rsb;
@@ -2470,7 +2471,7 @@ static inline void gemm_u64_avx2(const uint64_t *a, const uint64_t *b,
 /* ── i8 packing routines ── */
 
 static inline void gemm_pack_b_i8(const int8_t *b, int8_t *packed, size_t kc,
-                                   size_t nc, intptr_t rsb) {
+                                  size_t nc, intptr_t rsb) {
   size_t jr = 0;
   for (; jr + GEMM_I8_NR <= nc; jr += GEMM_I8_NR) {
     int8_t *dest = packed + jr * kc;
@@ -2491,8 +2492,8 @@ static inline void gemm_pack_b_i8(const int8_t *b, int8_t *packed, size_t kc,
 }
 
 static inline void _gemm_pack_b_strip_i8(const int8_t *b, int8_t *dest,
-                                          size_t kc, size_t nr_pack,
-                                          intptr_t rsb) {
+                                         size_t kc, size_t nr_pack,
+                                         intptr_t rsb) {
   if (nr_pack == GEMM_I8_NR) {
     for (size_t p = 0; p < kc; p++) {
       const int8_t *src = b + p * rsb;
@@ -2508,7 +2509,7 @@ static inline void _gemm_pack_b_strip_i8(const int8_t *b, int8_t *dest,
 }
 
 static inline void gemm_pack_a_i8(const int8_t *a, int8_t *packed, size_t mc,
-                                   size_t kc, intptr_t rsa, intptr_t csa) {
+                                  size_t kc, intptr_t rsa, intptr_t csa) {
   size_t ir = 0;
   for (; ir + GEMM_I8_MR <= mc; ir += GEMM_I8_MR) {
     int8_t *dest = packed + ir * kc;
@@ -2533,8 +2534,8 @@ static inline void gemm_pack_a_i8(const int8_t *a, int8_t *packed, size_t mc,
 /* ── i8 6×16 packed micro-kernel ── */
 
 static inline void gemm_ukernel_i8_6x16(const int8_t *a, const int8_t *b,
-                                         int8_t *c, size_t kc, intptr_t rso,
-                                         int first) {
+                                        int8_t *c, size_t kc, intptr_t rso,
+                                        int first) {
   __m256i c00, c01, c10, c11, c20, c21, c30, c31, c40, c41, c50, c51;
   if (first) {
     c00 = c01 = c10 = c11 = c20 = c21 = _mm256_setzero_si256();
@@ -2546,20 +2547,25 @@ static inline void gemm_ukernel_i8_6x16(const int8_t *a, const int8_t *b,
     c10 = _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i const *)(c + rso)));
     c11 = _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i const *)(c + rso + 8)));
     c20 = _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i const *)(c + 2 * rso)));
-    c21 = _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i const *)(c + 2 * rso + 8)));
+    c21 = _mm256_cvtepi8_epi32(
+        _mm_loadl_epi64((__m128i const *)(c + 2 * rso + 8)));
     c30 = _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i const *)(c + 3 * rso)));
-    c31 = _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i const *)(c + 3 * rso + 8)));
+    c31 = _mm256_cvtepi8_epi32(
+        _mm_loadl_epi64((__m128i const *)(c + 3 * rso + 8)));
     c40 = _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i const *)(c + 4 * rso)));
-    c41 = _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i const *)(c + 4 * rso + 8)));
+    c41 = _mm256_cvtepi8_epi32(
+        _mm_loadl_epi64((__m128i const *)(c + 4 * rso + 8)));
     c50 = _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i const *)(c + 5 * rso)));
-    c51 = _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i const *)(c + 5 * rso + 8)));
+    c51 = _mm256_cvtepi8_epi32(
+        _mm_loadl_epi64((__m128i const *)(c + 5 * rso + 8)));
   }
 
   const int8_t *ap = a;
   const int8_t *bp = b;
   for (size_t p = 0; p < kc; p++) {
     __m256i b0 = _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i const *)bp));
-    __m256i b1 = _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i const *)(bp + 8)));
+    __m256i b1 =
+        _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i const *)(bp + 8)));
     __m256i av;
     av = _mm256_set1_epi32((int32_t)ap[0]);
     c00 = _mm256_add_epi32(c00, _mm256_mullo_epi32(av, b0));
@@ -2584,16 +2590,16 @@ static inline void gemm_ukernel_i8_6x16(const int8_t *a, const int8_t *b,
   }
 
   /* Truncate i32 → i8 via signed saturation packing and store NR=16 per row */
-#define GEMM_STORE_I8_ROW_16(acc0, acc1, row)                              \
-  do {                                                                     \
-    __m128i lo0 = _mm256_castsi256_si128(acc0);                            \
-    __m128i hi0 = _mm256_extracti128_si256(acc0, 1);                       \
-    __m128i lo1 = _mm256_castsi256_si128(acc1);                            \
-    __m128i hi1 = _mm256_extracti128_si256(acc1, 1);                       \
-    __m128i p16a = _mm_packs_epi32(lo0, hi0);                              \
-    __m128i p16b = _mm_packs_epi32(lo1, hi1);                              \
-    __m128i p8 = _mm_packs_epi16(p16a, p16b);                              \
-    _mm_storeu_si128((__m128i *)(c + (row) * rso), p8);                    \
+#define GEMM_STORE_I8_ROW_16(acc0, acc1, row)           \
+  do {                                                  \
+    __m128i lo0 = _mm256_castsi256_si128(acc0);         \
+    __m128i hi0 = _mm256_extracti128_si256(acc0, 1);    \
+    __m128i lo1 = _mm256_castsi256_si128(acc1);         \
+    __m128i hi1 = _mm256_extracti128_si256(acc1, 1);    \
+    __m128i p16a = _mm_packs_epi32(lo0, hi0);           \
+    __m128i p16b = _mm_packs_epi32(lo1, hi1);           \
+    __m128i p8 = _mm_packs_epi16(p16a, p16b);           \
+    _mm_storeu_si128((__m128i *)(c + (row) * rso), p8); \
   } while (0)
   GEMM_STORE_I8_ROW_16(c00, c01, 0);
   GEMM_STORE_I8_ROW_16(c10, c11, 1);
@@ -2605,9 +2611,9 @@ static inline void gemm_ukernel_i8_6x16(const int8_t *a, const int8_t *b,
 }
 
 static inline void gemm_i8_avx2(const int8_t *a, const int8_t *b, int8_t *out,
-                                 size_t m_dim, size_t k_dim, size_t n_dim,
-                                 intptr_t rsa, intptr_t csa, intptr_t rsb,
-                                 intptr_t rso) {
+                                size_t m_dim, size_t k_dim, size_t n_dim,
+                                intptr_t rsa, intptr_t csa, intptr_t rsb,
+                                intptr_t rso) {
   size_t nc_max = GEMM_MIN(GEMM_I8_NC, n_dim);
   int8_t *packed_b = (int8_t *)numc_malloc(
       32, GEMM_I8_KC * (nc_max + GEMM_I8_NR) * sizeof(int8_t));
@@ -2647,8 +2653,7 @@ static inline void gemm_i8_avx2(const int8_t *a, const int8_t *b, int8_t *out,
           size_t nr_cur = GEMM_MIN(GEMM_I8_NR, nc - jr);
 
           if (ic != last_ic) {
-            gemm_pack_a_i8(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa,
-                           csa);
+            gemm_pack_a_i8(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa, csa);
             last_ic = ic;
           }
 
@@ -2656,10 +2661,10 @@ static inline void gemm_i8_avx2(const int8_t *a, const int8_t *b, int8_t *out,
             size_t mr_cur = GEMM_MIN(GEMM_I8_MR, mc - ir);
             if (mr_cur == GEMM_I8_MR && nr_cur == GEMM_I8_NR) {
 #if NUMC_HAVE_ASM_UKERNEL
-              numc_gemm_ukernel_i8_6x16_avx2(
-                  packed_a + ir * kc, packed_b + jr * kc,
-                  out + (ic + ir) * rso + (jc + jr), (uint64_t)kc, (int64_t)rso,
-                  first);
+              numc_gemm_ukernel_i8_6x16_avx2(packed_a + ir * kc,
+                                             packed_b + jr * kc,
+                                             out + (ic + ir) * rso + (jc + jr),
+                                             (uint64_t)kc, (int64_t)rso, first);
 #else
               gemm_ukernel_i8_6x16(packed_a + ir * kc, packed_b + jr * kc,
                                    out + (ic + ir) * rso + (jc + jr), kc, rso,
@@ -2677,8 +2682,9 @@ static inline void gemm_i8_avx2(const int8_t *a, const int8_t *b, int8_t *out,
               } else {
                 for (size_t ii = 0; ii < mr_cur; ii++)
                   for (size_t jj = 0; jj < nr_cur; jj++)
-                    dst[ii * rso + jj] = (int8_t)((int32_t)dst[ii * rso + jj] +
-                                                  (int32_t)tmp[ii * GEMM_I8_NR + jj]);
+                    dst[ii * rso + jj] =
+                        (int8_t)((int32_t)dst[ii * rso + jj] +
+                                 (int32_t)tmp[ii * GEMM_I8_NR + jj]);
               }
             }
           }
@@ -2705,17 +2711,16 @@ static inline void gemm_i8_avx2(const int8_t *a, const int8_t *b, int8_t *out,
           size_t nr_cur = GEMM_MIN(GEMM_I8_NR, nc - jr);
 
           if (task % n_jr == 0)
-            gemm_pack_a_i8(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa,
-                           csa);
+            gemm_pack_a_i8(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa, csa);
 
           for (size_t ir = 0; ir < mc; ir += GEMM_I8_MR) {
             size_t mr_cur = GEMM_MIN(GEMM_I8_MR, mc - ir);
             if (mr_cur == GEMM_I8_MR && nr_cur == GEMM_I8_NR) {
 #if NUMC_HAVE_ASM_UKERNEL
-              numc_gemm_ukernel_i8_6x16_avx2(
-                  packed_a + ir * kc, packed_b + jr * kc,
-                  out + (ic + ir) * rso + (jc + jr), (uint64_t)kc, (int64_t)rso,
-                  first);
+              numc_gemm_ukernel_i8_6x16_avx2(packed_a + ir * kc,
+                                             packed_b + jr * kc,
+                                             out + (ic + ir) * rso + (jc + jr),
+                                             (uint64_t)kc, (int64_t)rso, first);
 #else
               gemm_ukernel_i8_6x16(packed_a + ir * kc, packed_b + jr * kc,
                                    out + (ic + ir) * rso + (jc + jr), kc, rso,
@@ -2733,8 +2738,9 @@ static inline void gemm_i8_avx2(const int8_t *a, const int8_t *b, int8_t *out,
               } else {
                 for (size_t ii = 0; ii < mr_cur; ii++)
                   for (size_t jj = 0; jj < nr_cur; jj++)
-                    dst[ii * rso + jj] = (int8_t)((int32_t)dst[ii * rso + jj] +
-                                                  (int32_t)tmp[ii * GEMM_I8_NR + jj]);
+                    dst[ii * rso + jj] =
+                        (int8_t)((int32_t)dst[ii * rso + jj] +
+                                 (int32_t)tmp[ii * GEMM_I8_NR + jj]);
               }
             }
           }
@@ -2747,29 +2753,30 @@ static inline void gemm_i8_avx2(const int8_t *a, const int8_t *b, int8_t *out,
   numc_free(packed_b);
 }
 
-/* ── u8 packing routines (reuse i8 pack for B and A — byte-level identical) ── */
+/* ── u8 packing routines (reuse i8 pack for B and A — byte-level identical) ──
+ */
 
 static inline void gemm_pack_b_u8(const uint8_t *b, uint8_t *packed, size_t kc,
-                                   size_t nc, intptr_t rsb) {
+                                  size_t nc, intptr_t rsb) {
   gemm_pack_b_i8((const int8_t *)b, (int8_t *)packed, kc, nc, rsb);
 }
 
 static inline void _gemm_pack_b_strip_u8(const uint8_t *b, uint8_t *dest,
-                                          size_t kc, size_t nr_pack,
-                                          intptr_t rsb) {
+                                         size_t kc, size_t nr_pack,
+                                         intptr_t rsb) {
   _gemm_pack_b_strip_i8((const int8_t *)b, (int8_t *)dest, kc, nr_pack, rsb);
 }
 
 static inline void gemm_pack_a_u8(const uint8_t *a, uint8_t *packed, size_t mc,
-                                   size_t kc, intptr_t rsa, intptr_t csa) {
+                                  size_t kc, intptr_t rsa, intptr_t csa) {
   gemm_pack_a_i8((const int8_t *)a, (int8_t *)packed, mc, kc, rsa, csa);
 }
 
 /* ── u8 6×16 packed micro-kernel ── */
 
 static inline void gemm_ukernel_u8_6x16(const uint8_t *a, const uint8_t *b,
-                                         uint8_t *c, size_t kc, intptr_t rso,
-                                         int first) {
+                                        uint8_t *c, size_t kc, intptr_t rso,
+                                        int first) {
   __m256i c00, c01, c10, c11, c20, c21, c30, c31, c40, c41, c50, c51;
   if (first) {
     c00 = c01 = c10 = c11 = c20 = c21 = _mm256_setzero_si256();
@@ -2781,20 +2788,25 @@ static inline void gemm_ukernel_u8_6x16(const uint8_t *a, const uint8_t *b,
     c10 = _mm256_cvtepu8_epi32(_mm_loadl_epi64((__m128i const *)(c + rso)));
     c11 = _mm256_cvtepu8_epi32(_mm_loadl_epi64((__m128i const *)(c + rso + 8)));
     c20 = _mm256_cvtepu8_epi32(_mm_loadl_epi64((__m128i const *)(c + 2 * rso)));
-    c21 = _mm256_cvtepu8_epi32(_mm_loadl_epi64((__m128i const *)(c + 2 * rso + 8)));
+    c21 = _mm256_cvtepu8_epi32(
+        _mm_loadl_epi64((__m128i const *)(c + 2 * rso + 8)));
     c30 = _mm256_cvtepu8_epi32(_mm_loadl_epi64((__m128i const *)(c + 3 * rso)));
-    c31 = _mm256_cvtepu8_epi32(_mm_loadl_epi64((__m128i const *)(c + 3 * rso + 8)));
+    c31 = _mm256_cvtepu8_epi32(
+        _mm_loadl_epi64((__m128i const *)(c + 3 * rso + 8)));
     c40 = _mm256_cvtepu8_epi32(_mm_loadl_epi64((__m128i const *)(c + 4 * rso)));
-    c41 = _mm256_cvtepu8_epi32(_mm_loadl_epi64((__m128i const *)(c + 4 * rso + 8)));
+    c41 = _mm256_cvtepu8_epi32(
+        _mm_loadl_epi64((__m128i const *)(c + 4 * rso + 8)));
     c50 = _mm256_cvtepu8_epi32(_mm_loadl_epi64((__m128i const *)(c + 5 * rso)));
-    c51 = _mm256_cvtepu8_epi32(_mm_loadl_epi64((__m128i const *)(c + 5 * rso + 8)));
+    c51 = _mm256_cvtepu8_epi32(
+        _mm_loadl_epi64((__m128i const *)(c + 5 * rso + 8)));
   }
 
   const uint8_t *ap = a;
   const uint8_t *bp = b;
   for (size_t p = 0; p < kc; p++) {
     __m256i b0 = _mm256_cvtepu8_epi32(_mm_loadl_epi64((__m128i const *)bp));
-    __m256i b1 = _mm256_cvtepu8_epi32(_mm_loadl_epi64((__m128i const *)(bp + 8)));
+    __m256i b1 =
+        _mm256_cvtepu8_epi32(_mm_loadl_epi64((__m128i const *)(bp + 8)));
     __m256i av;
     av = _mm256_set1_epi32((int32_t)(uint32_t)ap[0]);
     c00 = _mm256_add_epi32(c00, _mm256_mullo_epi32(av, b0));
@@ -2818,17 +2830,18 @@ static inline void gemm_ukernel_u8_6x16(const uint8_t *a, const uint8_t *b,
     bp += GEMM_I8_NR;
   }
 
-  /* Truncate i32 → u8 via unsigned saturation packing and store NR=16 per row */
-#define GEMM_STORE_U8_ROW_16(acc0, acc1, row)                              \
-  do {                                                                     \
-    __m128i lo0 = _mm256_castsi256_si128(acc0);                            \
-    __m128i hi0 = _mm256_extracti128_si256(acc0, 1);                       \
-    __m128i lo1 = _mm256_castsi256_si128(acc1);                            \
-    __m128i hi1 = _mm256_extracti128_si256(acc1, 1);                       \
-    __m128i p16a = _mm_packus_epi32(lo0, hi0);                             \
-    __m128i p16b = _mm_packus_epi32(lo1, hi1);                             \
-    __m128i p8 = _mm_packus_epi16(p16a, p16b);                             \
-    _mm_storeu_si128((__m128i *)(c + (row) * rso), p8);                    \
+  /* Truncate i32 → u8 via unsigned saturation packing and store NR=16 per row
+   */
+#define GEMM_STORE_U8_ROW_16(acc0, acc1, row)           \
+  do {                                                  \
+    __m128i lo0 = _mm256_castsi256_si128(acc0);         \
+    __m128i hi0 = _mm256_extracti128_si256(acc0, 1);    \
+    __m128i lo1 = _mm256_castsi256_si128(acc1);         \
+    __m128i hi1 = _mm256_extracti128_si256(acc1, 1);    \
+    __m128i p16a = _mm_packus_epi32(lo0, hi0);          \
+    __m128i p16b = _mm_packus_epi32(lo1, hi1);          \
+    __m128i p8 = _mm_packus_epi16(p16a, p16b);          \
+    _mm_storeu_si128((__m128i *)(c + (row) * rso), p8); \
   } while (0)
   GEMM_STORE_U8_ROW_16(c00, c01, 0);
   GEMM_STORE_U8_ROW_16(c10, c11, 1);
@@ -2840,9 +2853,9 @@ static inline void gemm_ukernel_u8_6x16(const uint8_t *a, const uint8_t *b,
 }
 
 static inline void gemm_u8_avx2(const uint8_t *a, const uint8_t *b,
-                                 uint8_t *out, size_t m_dim, size_t k_dim,
-                                 size_t n_dim, intptr_t rsa, intptr_t csa,
-                                 intptr_t rsb, intptr_t rso) {
+                                uint8_t *out, size_t m_dim, size_t k_dim,
+                                size_t n_dim, intptr_t rsa, intptr_t csa,
+                                intptr_t rsb, intptr_t rso) {
   size_t nc_max = GEMM_MIN(GEMM_I8_NC, n_dim);
   uint8_t *packed_b = (uint8_t *)numc_malloc(
       32, GEMM_I8_KC * (nc_max + GEMM_I8_NR) * sizeof(uint8_t));
@@ -2882,8 +2895,7 @@ static inline void gemm_u8_avx2(const uint8_t *a, const uint8_t *b,
           size_t nr_cur = GEMM_MIN(GEMM_I8_NR, nc - jr);
 
           if (ic != last_ic) {
-            gemm_pack_a_u8(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa,
-                           csa);
+            gemm_pack_a_u8(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa, csa);
             last_ic = ic;
           }
 
@@ -2891,10 +2903,10 @@ static inline void gemm_u8_avx2(const uint8_t *a, const uint8_t *b,
             size_t mr_cur = GEMM_MIN(GEMM_I8_MR, mc - ir);
             if (mr_cur == GEMM_I8_MR && nr_cur == GEMM_I8_NR) {
 #if NUMC_HAVE_ASM_UKERNEL
-              numc_gemm_ukernel_u8_6x16_avx2(
-                  packed_a + ir * kc, packed_b + jr * kc,
-                  out + (ic + ir) * rso + (jc + jr), (uint64_t)kc, (int64_t)rso,
-                  first);
+              numc_gemm_ukernel_u8_6x16_avx2(packed_a + ir * kc,
+                                             packed_b + jr * kc,
+                                             out + (ic + ir) * rso + (jc + jr),
+                                             (uint64_t)kc, (int64_t)rso, first);
 #else
               gemm_ukernel_u8_6x16(packed_a + ir * kc, packed_b + jr * kc,
                                    out + (ic + ir) * rso + (jc + jr), kc, rso,
@@ -2912,8 +2924,9 @@ static inline void gemm_u8_avx2(const uint8_t *a, const uint8_t *b,
               } else {
                 for (size_t ii = 0; ii < mr_cur; ii++)
                   for (size_t jj = 0; jj < nr_cur; jj++)
-                    dst[ii * rso + jj] = (uint8_t)((uint32_t)dst[ii * rso + jj] +
-                                                   (uint32_t)tmp[ii * GEMM_I8_NR + jj]);
+                    dst[ii * rso + jj] =
+                        (uint8_t)((uint32_t)dst[ii * rso + jj] +
+                                  (uint32_t)tmp[ii * GEMM_I8_NR + jj]);
               }
             }
           }
@@ -2940,17 +2953,16 @@ static inline void gemm_u8_avx2(const uint8_t *a, const uint8_t *b,
           size_t nr_cur = GEMM_MIN(GEMM_I8_NR, nc - jr);
 
           if (task % n_jr == 0)
-            gemm_pack_a_u8(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa,
-                           csa);
+            gemm_pack_a_u8(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa, csa);
 
           for (size_t ir = 0; ir < mc; ir += GEMM_I8_MR) {
             size_t mr_cur = GEMM_MIN(GEMM_I8_MR, mc - ir);
             if (mr_cur == GEMM_I8_MR && nr_cur == GEMM_I8_NR) {
 #if NUMC_HAVE_ASM_UKERNEL
-              numc_gemm_ukernel_u8_6x16_avx2(
-                  packed_a + ir * kc, packed_b + jr * kc,
-                  out + (ic + ir) * rso + (jc + jr), (uint64_t)kc, (int64_t)rso,
-                  first);
+              numc_gemm_ukernel_u8_6x16_avx2(packed_a + ir * kc,
+                                             packed_b + jr * kc,
+                                             out + (ic + ir) * rso + (jc + jr),
+                                             (uint64_t)kc, (int64_t)rso, first);
 #else
               gemm_ukernel_u8_6x16(packed_a + ir * kc, packed_b + jr * kc,
                                    out + (ic + ir) * rso + (jc + jr), kc, rso,
@@ -2968,8 +2980,9 @@ static inline void gemm_u8_avx2(const uint8_t *a, const uint8_t *b,
               } else {
                 for (size_t ii = 0; ii < mr_cur; ii++)
                   for (size_t jj = 0; jj < nr_cur; jj++)
-                    dst[ii * rso + jj] = (uint8_t)((uint32_t)dst[ii * rso + jj] +
-                                                   (uint32_t)tmp[ii * GEMM_I8_NR + jj]);
+                    dst[ii * rso + jj] =
+                        (uint8_t)((uint32_t)dst[ii * rso + jj] +
+                                  (uint32_t)tmp[ii * GEMM_I8_NR + jj]);
               }
             }
           }

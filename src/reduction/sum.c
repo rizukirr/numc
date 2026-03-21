@@ -44,15 +44,16 @@ static const NumcReductionKernel sum_table[] = {
  * Each d[i] is independent across columns, so the inner loop
  * auto-vectorizes (vpaddd/vaddps for sum). */
 
-#define STAMP_SUM_FUSED(TE, CT)                                          \
-  void _sum_fused_##TE(const char *restrict base, intptr_t row_stride,   \
-                       size_t nrows, char *restrict dst, size_t ncols) { \
-    CT *restrict d = (CT *)dst;                                          \
-    for (size_t r = 0; r < nrows; r++) {                                 \
-      const CT *restrict s = (const CT *)(base + r * row_stride);        \
-      for (size_t i = 0; i < ncols; i++)                                 \
-        d[i] += s[i];                                                    \
-    }                                                                    \
+#define STAMP_SUM_FUSED(TE, CT)                                               \
+  static void _sum_fused_##TE(const char *restrict base, intptr_t row_stride, \
+                              size_t nrows, char *restrict dst,               \
+                              size_t ncols) {                                 \
+    CT *restrict d = (CT *)dst;                                               \
+    for (size_t r = 0; r < nrows; r++) {                                      \
+      const CT *restrict s = (const CT *)(base + r * row_stride);             \
+      for (size_t i = 0; i < ncols; i++)                                      \
+        d[i] += s[i];                                                         \
+    }                                                                         \
   }
 GENERATE_NUMC_TYPES(STAMP_SUM_FUSED)
 #undef STAMP_SUM_FUSED
