@@ -370,6 +370,76 @@ static int test_matmul_u32_identity(void) {
   return 0;
 }
 
+/* ── Int16 ────────────────────────────────────────────────────── */
+
+static int test_matmul_i16_identity(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t sh[] = {N, N};
+  NumcArray *a = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT16);
+  NumcArray *b = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT16);
+  NumcArray *c = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT16);
+  int16_t *da = (int16_t *)numc_array_data(a);
+  int16_t *db = (int16_t *)numc_array_data(b);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    da[i] = (int16_t)((i % 10) + 1);
+  for (size_t i = 0; i < N; i++)
+    db[i * N + i] = 1;
+  int err = numc_matmul(a, b, c);
+  ASSERT_MSG_CTX(err == 0, "matmul i16 identity should succeed", ctx);
+  int16_t *rc = (int16_t *)numc_array_data(c);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    ASSERT_MSG_CTX(rc[i] == da[i], "matmul i16 A*I should equal A", ctx);
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_matmul_gemm_vs_naive_i16(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t sh[] = {N, N};
+  NumcArray *a = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT16);
+  NumcArray *b = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT16);
+  NumcArray *c_gemm = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT16);
+  NumcArray *c_naive = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT16);
+  int16_t *da = (int16_t *)numc_array_data(a);
+  int16_t *db = (int16_t *)numc_array_data(b);
+  for (size_t i = 0; i < (size_t)N * N; i++) {
+    da[i] = (int16_t)((i % 7) + 1);
+    db[i] = (int16_t)((i % 5) + 1);
+  }
+  int err1 = numc_matmul(a, b, c_gemm);
+  int err2 = numc_matmul_naive(a, b, c_naive);
+  ASSERT_MSG_CTX(err1 == 0 && err2 == 0, "both should succeed", ctx);
+  int16_t *rg = (int16_t *)numc_array_data(c_gemm);
+  int16_t *rn = (int16_t *)numc_array_data(c_naive);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    ASSERT_MSG_CTX(rg[i] == rn[i], "GEMM and naive i16 should match", ctx);
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+/* ── UInt16 ───────────────────────────────────────────────────── */
+
+static int test_matmul_u16_identity(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t sh[] = {N, N};
+  NumcArray *a = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_UINT16);
+  NumcArray *b = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_UINT16);
+  NumcArray *c = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_UINT16);
+  uint16_t *da = (uint16_t *)numc_array_data(a);
+  uint16_t *db = (uint16_t *)numc_array_data(b);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    da[i] = (uint16_t)((i % 10) + 1);
+  for (size_t i = 0; i < N; i++)
+    db[i * N + i] = 1;
+  int err = numc_matmul(a, b, c);
+  ASSERT_MSG_CTX(err == 0, "matmul u16 identity should succeed", ctx);
+  uint16_t *rc = (uint16_t *)numc_array_data(c);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    ASSERT_MSG_CTX(rc[i] == da[i], "matmul u16 A*I should equal A", ctx);
+  numc_ctx_free(ctx);
+  return 0;
+}
+
 /* ── main ───────────────────────────────────────────────────────── */
 
 int main(void) {
@@ -399,6 +469,13 @@ int main(void) {
 
   printf("\nUInt32:\n");
   RUN_TEST(test_matmul_u32_identity);
+
+  printf("\nInt16:\n");
+  RUN_TEST(test_matmul_i16_identity);
+  RUN_TEST(test_matmul_gemm_vs_naive_i16);
+
+  printf("\nUInt16:\n");
+  RUN_TEST(test_matmul_u16_identity);
 
   printf("\n=== Results: %d passed, %d failed ===\n", passes, fails);
   return fails > 0 ? 1 : 0;
