@@ -149,47 +149,47 @@ GEMM_WRAP(_gemm_f64_rvv, double, gemm_f64_rvv)
 
 /* ── SIMD gemmsup wrappers ─────────────────────────────────────── */
 
-typedef void (*GemmSupKernel)(const void *a, const void *b, void *out,
-                               size_t M, size_t K, size_t N, intptr_t rsa,
-                               intptr_t csa, intptr_t rsb, intptr_t rso);
+typedef void (*GemmSupKernel)(const void *a, const void *b, void *out, size_t M,
+                              size_t K, size_t N, intptr_t rsa, intptr_t csa,
+                              intptr_t rsb, intptr_t rso);
 
 #define GEMMSUP_WRAP(name, CT, fn)                                            \
-  static void name(const void *a, const void *b, void *out, size_t M,        \
+  static void name(const void *a, const void *b, void *out, size_t M,         \
                    size_t K, size_t N, intptr_t rsa, intptr_t csa,            \
                    intptr_t rsb, intptr_t rso) {                              \
     fn((const CT *)a, (const CT *)b, (CT *)out, M, K, N, rsa, csa, rsb, rso); \
   }
 
 #if NUMC_HAVE_AVX2
-GEMMSUP_WRAP(_gemmsup_i8,  int8_t,   gemmsup_i8_avx2)
-GEMMSUP_WRAP(_gemmsup_i16, int16_t,  gemmsup_i16_avx2)
-GEMMSUP_WRAP(_gemmsup_i32, int32_t,  gemmsup_i32_avx2)
-GEMMSUP_WRAP(_gemmsup_i64, int64_t,  gemmsup_i64_avx2)
-GEMMSUP_WRAP(_gemmsup_u8,  uint8_t,  gemmsup_u8_avx2)
+GEMMSUP_WRAP(_gemmsup_i8, int8_t, gemmsup_i8_avx2)
+GEMMSUP_WRAP(_gemmsup_i16, int16_t, gemmsup_i16_avx2)
+GEMMSUP_WRAP(_gemmsup_i32, int32_t, gemmsup_i32_avx2)
+GEMMSUP_WRAP(_gemmsup_i64, int64_t, gemmsup_i64_avx2)
+GEMMSUP_WRAP(_gemmsup_u8, uint8_t, gemmsup_u8_avx2)
 GEMMSUP_WRAP(_gemmsup_u16, uint16_t, gemmsup_u16_avx2)
 GEMMSUP_WRAP(_gemmsup_u32, uint32_t, gemmsup_u32_avx2)
 GEMMSUP_WRAP(_gemmsup_u64, uint64_t, gemmsup_u64_avx2)
-GEMMSUP_WRAP(_gemmsup_f32, float,    gemmsup_f32_avx2)
-GEMMSUP_WRAP(_gemmsup_f64, double,   gemmsup_f64_avx2)
+GEMMSUP_WRAP(_gemmsup_f32, float, gemmsup_f32_avx2)
+GEMMSUP_WRAP(_gemmsup_f64, double, gemmsup_f64_avx2)
 #endif
 
 #if NUMC_HAVE_AVX512
-GEMMSUP_WRAP(_gemmsup_f32_avx512, float,  gemmsup_f32_avx512)
+GEMMSUP_WRAP(_gemmsup_f32_avx512, float, gemmsup_f32_avx512)
 GEMMSUP_WRAP(_gemmsup_f64_avx512, double, gemmsup_f64_avx512)
 #endif
 
 #if NUMC_HAVE_NEON && !NUMC_HAVE_SVE
-GEMMSUP_WRAP(_gemmsup_f32_neon, float,  gemmsup_f32_neon)
+GEMMSUP_WRAP(_gemmsup_f32_neon, float, gemmsup_f32_neon)
 GEMMSUP_WRAP(_gemmsup_f64_neon, double, gemmsup_f64_neon)
 #endif
 
 #if NUMC_HAVE_SVE
-GEMMSUP_WRAP(_gemmsup_f32_sve, float,  gemmsup_f32_sve)
+GEMMSUP_WRAP(_gemmsup_f32_sve, float, gemmsup_f32_sve)
 GEMMSUP_WRAP(_gemmsup_f64_sve, double, gemmsup_f64_sve)
 #endif
 
 #if NUMC_HAVE_RVV
-GEMMSUP_WRAP(_gemmsup_f32_rvv, float,  gemmsup_f32_rvv)
+GEMMSUP_WRAP(_gemmsup_f32_rvv, float, gemmsup_f32_rvv)
 GEMMSUP_WRAP(_gemmsup_f64_rvv, double, gemmsup_f64_rvv)
 #endif
 
@@ -197,14 +197,14 @@ GEMMSUP_WRAP(_gemmsup_f64_rvv, double, gemmsup_f64_rvv)
 
 static const GemmSupKernel gemmsup_table[NUMC_DTYPE_COUNT] = {
 #if NUMC_HAVE_AVX2
-    [NUMC_DTYPE_INT8]    = _gemmsup_i8,
-    [NUMC_DTYPE_INT16]   = _gemmsup_i16,
-    [NUMC_DTYPE_INT32]   = _gemmsup_i32,
-    [NUMC_DTYPE_INT64]   = _gemmsup_i64,
-    [NUMC_DTYPE_UINT8]   = _gemmsup_u8,
-    [NUMC_DTYPE_UINT16]  = _gemmsup_u16,
-    [NUMC_DTYPE_UINT32]  = _gemmsup_u32,
-    [NUMC_DTYPE_UINT64]  = _gemmsup_u64,
+    [NUMC_DTYPE_INT8] = _gemmsup_i8,
+    [NUMC_DTYPE_INT16] = _gemmsup_i16,
+    [NUMC_DTYPE_INT32] = _gemmsup_i32,
+    [NUMC_DTYPE_INT64] = _gemmsup_i64,
+    [NUMC_DTYPE_UINT8] = _gemmsup_u8,
+    [NUMC_DTYPE_UINT16] = _gemmsup_u16,
+    [NUMC_DTYPE_UINT32] = _gemmsup_u32,
+    [NUMC_DTYPE_UINT64] = _gemmsup_u64,
     [NUMC_DTYPE_FLOAT32] = _gemmsup_f32,
     [NUMC_DTYPE_FLOAT64] = _gemmsup_f64,
 #endif
@@ -227,14 +227,14 @@ static const GemmSupKernel gemmsup_table[NUMC_DTYPE_COUNT] = {
 };
 
 static const uint64_t gemmsup_threshold_table[NUMC_DTYPE_COUNT] = {
-    [NUMC_DTYPE_INT8]    = 192ULL * 192 * 192,
-    [NUMC_DTYPE_INT16]   = 128ULL * 128 * 128,
-    [NUMC_DTYPE_INT32]   = 96ULL * 96 * 96,
-    [NUMC_DTYPE_INT64]   = 48ULL * 48 * 48,
-    [NUMC_DTYPE_UINT8]   = 192ULL * 192 * 192,
-    [NUMC_DTYPE_UINT16]  = 128ULL * 128 * 128,
-    [NUMC_DTYPE_UINT32]  = 96ULL * 96 * 96,
-    [NUMC_DTYPE_UINT64]  = 48ULL * 48 * 48,
+    [NUMC_DTYPE_INT8] = 192ULL * 192 * 192,
+    [NUMC_DTYPE_INT16] = 128ULL * 128 * 128,
+    [NUMC_DTYPE_INT32] = 96ULL * 96 * 96,
+    [NUMC_DTYPE_INT64] = 48ULL * 48 * 48,
+    [NUMC_DTYPE_UINT8] = 192ULL * 192 * 192,
+    [NUMC_DTYPE_UINT16] = 128ULL * 128 * 128,
+    [NUMC_DTYPE_UINT32] = 96ULL * 96 * 96,
+    [NUMC_DTYPE_UINT64] = 48ULL * 48 * 48,
     [NUMC_DTYPE_FLOAT32] = 96ULL * 96 * 96,
     [NUMC_DTYPE_FLOAT64] = 48ULL * 48 * 48,
 #if NUMC_HAVE_AVX512

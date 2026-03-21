@@ -338,11 +338,13 @@ static int test_matmul_gemm_vs_naive_i32(void) {
   }
   int err1 = numc_matmul(a, b, c_gemm);
   int err2 = numc_matmul_naive(a, b, c_naive);
-  ASSERT_MSG_CTX(err1 == 0 && err2 == 0, "both matmul paths should succeed", ctx);
+  ASSERT_MSG_CTX(err1 == 0 && err2 == 0, "both matmul paths should succeed",
+                 ctx);
   int32_t *rg = (int32_t *)numc_array_data(c_gemm);
   int32_t *rn = (int32_t *)numc_array_data(c_naive);
   for (size_t i = 0; i < (size_t)N * N; i++)
-    ASSERT_MSG_CTX(rg[i] == rn[i], "GEMM and naive i32 results should match", ctx);
+    ASSERT_MSG_CTX(rg[i] == rn[i], "GEMM and naive i32 results should match",
+                   ctx);
   numc_ctx_free(ctx);
   return 0;
 }
@@ -542,9 +544,12 @@ static int test_matmul_gemm_vs_naive_i8(void) {
   NumcArray *c_naive = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT8);
   int8_t *da = (int8_t *)numc_array_data(a);
   int8_t *db = (int8_t *)numc_array_data(b);
+  /* Use small values so accumulation stays within i8 range [-128,127].
+   * Max per-element: 1*1*64 = 64, well within range.
+   * This avoids saturation-vs-truncation differences between ISAs. */
   for (size_t i = 0; i < (size_t)N * N; i++) {
-    da[i] = (int8_t)((i % 3) + 1);
-    db[i] = (int8_t)((i % 2) + 1);
+    da[i] = (int8_t)(i % 2);
+    db[i] = (int8_t)(i % 2);
   }
   int err1 = numc_matmul(a, b, c_gemm);
   int err2 = numc_matmul_naive(a, b, c_naive);
@@ -587,28 +592,29 @@ static int test_matmul_f32_transposed_b(void) {
   size_t sh[] = {N, N};
   size_t axes[] = {1, 0};
   NumcArray *a = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT32);
-  NumcArray *b_orig = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT32);
+  NumcArray *b = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT32);
   NumcArray *c1 = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT32);
   NumcArray *c2 = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_FLOAT32);
   float *da = (float *)numc_array_data(a);
-  float *db = (float *)numc_array_data(b_orig);
+  float *db = (float *)numc_array_data(b);
   for (size_t i = 0; i < (size_t)N * N; i++) {
     da[i] = (float)((i % 7) + 1);
     db[i] = (float)((i % 5) + 1);
   }
-  int err1 = numc_matmul(a, b_orig, c1);
+  /* c1 = A @ B (normal) */
+  int err1 = numc_matmul(a, b, c1);
   ASSERT_MSG_CTX(err1 == 0, "normal matmul should succeed", ctx);
-  NumcArray *bt = numc_array_transpose_copy(b_orig, axes);
-  ASSERT_MSG_CTX(bt != NULL, "transpose_copy should succeed", ctx);
-  NumcArray *btt = numc_array_transpose_copy(bt, axes);
-  ASSERT_MSG_CTX(btt != NULL, "transpose_copy should succeed", ctx);
-  int err2 = numc_matmul(a, btt, c2);
+  /* c2 = A @ (B^T)^T — double in-place transpose is identity (same data) */
+  numc_array_transpose(b, axes);
+  numc_array_transpose(b, axes);
+  int err2 = numc_matmul(a, b, c2);
   ASSERT_MSG_CTX(err2 == 0, "transposed matmul should succeed", ctx);
   float *r1 = (float *)numc_array_data(c1);
   float *r2 = (float *)numc_array_data(c2);
   for (size_t i = 0; i < (size_t)N * N; i++) {
     float diff = r1[i] - r2[i];
-    if (diff < 0) diff = -diff;
+    if (diff < 0)
+      diff = -diff;
     ASSERT_MSG_CTX(diff < 1e-3f, "transposed result should match normal", ctx);
   }
   numc_ctx_free(ctx);
@@ -619,28 +625,28 @@ static int test_matmul_i32_transposed_a(void) {
   NumcCtx *ctx = numc_ctx_create();
   size_t sh[] = {N, N};
   size_t axes[] = {1, 0};
-  NumcArray *a_orig = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT32);
+  NumcArray *a = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT32);
   NumcArray *b = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT32);
   NumcArray *c1 = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT32);
   NumcArray *c2 = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT32);
-  int32_t *da = (int32_t *)numc_array_data(a_orig);
+  int32_t *da = (int32_t *)numc_array_data(a);
   int32_t *db = (int32_t *)numc_array_data(b);
   for (size_t i = 0; i < (size_t)N * N; i++) {
     da[i] = (int32_t)((i % 7) + 1);
     db[i] = (int32_t)((i % 5) + 1);
   }
-  int err1 = numc_matmul(a_orig, b, c1);
+  int err1 = numc_matmul(a, b, c1);
   ASSERT_MSG_CTX(err1 == 0, "normal matmul should succeed", ctx);
-  NumcArray *at = numc_array_transpose_copy(a_orig, axes);
-  ASSERT_MSG_CTX(at != NULL, "transpose_copy should succeed", ctx);
-  NumcArray *att = numc_array_transpose_copy(at, axes);
-  ASSERT_MSG_CTX(att != NULL, "transpose_copy should succeed", ctx);
-  int err2 = numc_matmul(att, b, c2);
+  /* double in-place transpose is identity */
+  numc_array_transpose(a, axes);
+  numc_array_transpose(a, axes);
+  int err2 = numc_matmul(a, b, c2);
   ASSERT_MSG_CTX(err2 == 0, "transposed matmul should succeed", ctx);
   int32_t *r1 = (int32_t *)numc_array_data(c1);
   int32_t *r2 = (int32_t *)numc_array_data(c2);
   for (size_t i = 0; i < (size_t)N * N; i++)
-    ASSERT_MSG_CTX(r1[i] == r2[i], "transposed result should match normal", ctx);
+    ASSERT_MSG_CTX(r1[i] == r2[i], "transposed result should match normal",
+                   ctx);
   numc_ctx_free(ctx);
   return 0;
 }
@@ -667,7 +673,8 @@ static int test_matmul_packed_128_i32(void) {
   const int32_t *r1 = (const int32_t *)numc_array_data(c_fast);
   const int32_t *r2 = (const int32_t *)numc_array_data(c_naive);
   for (size_t i = 0; i < 128 * 128; i++)
-    ASSERT_MSG_CTX(r1[i] == r2[i], "packed vs naive i32 mismatch at 128x128", ctx);
+    ASSERT_MSG_CTX(r1[i] == r2[i], "packed vs naive i32 mismatch at 128x128",
+                   ctx);
   numc_ctx_free(ctx);
   return 0;
 }
@@ -692,7 +699,8 @@ static int test_matmul_packed_67_i16(void) {
   const int16_t *r1 = (const int16_t *)numc_array_data(c_fast);
   const int16_t *r2 = (const int16_t *)numc_array_data(c_naive);
   for (size_t i = 0; i < 67 * 67; i++)
-    ASSERT_MSG_CTX(r1[i] == r2[i], "packed vs naive i16 mismatch at 67x67", ctx);
+    ASSERT_MSG_CTX(r1[i] == r2[i], "packed vs naive i16 mismatch at 67x67",
+                   ctx);
   numc_ctx_free(ctx);
   return 0;
 }

@@ -283,30 +283,30 @@ static inline void gemmsup_ukernel_i32_6x16(const int32_t *a, const int32_t *b,
   __m256i c40 = _mm256_setzero_si256(), c41 = _mm256_setzero_si256();
   __m256i c50 = _mm256_setzero_si256(), c51 = _mm256_setzero_si256();
 
-#define GEMMSUP_I32_K_BODY(p_off)                                             \
-  do {                                                                         \
-    const int32_t *bp_ = b + (p_off) * rsb;                                    \
-    __m256i b0_ = _mm256_loadu_si256((const __m256i *)bp_);                    \
-    __m256i b1_ = _mm256_loadu_si256((const __m256i *)(bp_ + 8));              \
-    __m256i a0_, a1_;                                                          \
-    a0_ = _mm256_set1_epi32(a[0 * rsa + (p_off) * csa]);                      \
-    a1_ = _mm256_set1_epi32(a[1 * rsa + (p_off) * csa]);                      \
-    c00 = _mm256_add_epi32(c00, _mm256_mullo_epi32(a0_, b0_));                \
-    c01 = _mm256_add_epi32(c01, _mm256_mullo_epi32(a0_, b1_));                \
-    c10 = _mm256_add_epi32(c10, _mm256_mullo_epi32(a1_, b0_));                \
-    c11 = _mm256_add_epi32(c11, _mm256_mullo_epi32(a1_, b1_));                \
-    a0_ = _mm256_set1_epi32(a[2 * rsa + (p_off) * csa]);                      \
-    a1_ = _mm256_set1_epi32(a[3 * rsa + (p_off) * csa]);                      \
-    c20 = _mm256_add_epi32(c20, _mm256_mullo_epi32(a0_, b0_));                \
-    c21 = _mm256_add_epi32(c21, _mm256_mullo_epi32(a0_, b1_));                \
-    c30 = _mm256_add_epi32(c30, _mm256_mullo_epi32(a1_, b0_));                \
-    c31 = _mm256_add_epi32(c31, _mm256_mullo_epi32(a1_, b1_));                \
-    a0_ = _mm256_set1_epi32(a[4 * rsa + (p_off) * csa]);                      \
-    a1_ = _mm256_set1_epi32(a[5 * rsa + (p_off) * csa]);                      \
-    c40 = _mm256_add_epi32(c40, _mm256_mullo_epi32(a0_, b0_));                \
-    c41 = _mm256_add_epi32(c41, _mm256_mullo_epi32(a0_, b1_));                \
-    c50 = _mm256_add_epi32(c50, _mm256_mullo_epi32(a1_, b0_));                \
-    c51 = _mm256_add_epi32(c51, _mm256_mullo_epi32(a1_, b1_));                \
+#define GEMMSUP_I32_K_BODY(p_off)                                 \
+  do {                                                            \
+    const int32_t *bp_ = b + (p_off) * rsb;                       \
+    __m256i b0_ = _mm256_loadu_si256((const __m256i *)bp_);       \
+    __m256i b1_ = _mm256_loadu_si256((const __m256i *)(bp_ + 8)); \
+    __m256i a0_, a1_;                                             \
+    a0_ = _mm256_set1_epi32(a[0 * rsa + (p_off) * csa]);          \
+    a1_ = _mm256_set1_epi32(a[1 * rsa + (p_off) * csa]);          \
+    c00 = _mm256_add_epi32(c00, _mm256_mullo_epi32(a0_, b0_));    \
+    c01 = _mm256_add_epi32(c01, _mm256_mullo_epi32(a0_, b1_));    \
+    c10 = _mm256_add_epi32(c10, _mm256_mullo_epi32(a1_, b0_));    \
+    c11 = _mm256_add_epi32(c11, _mm256_mullo_epi32(a1_, b1_));    \
+    a0_ = _mm256_set1_epi32(a[2 * rsa + (p_off) * csa]);          \
+    a1_ = _mm256_set1_epi32(a[3 * rsa + (p_off) * csa]);          \
+    c20 = _mm256_add_epi32(c20, _mm256_mullo_epi32(a0_, b0_));    \
+    c21 = _mm256_add_epi32(c21, _mm256_mullo_epi32(a0_, b1_));    \
+    c30 = _mm256_add_epi32(c30, _mm256_mullo_epi32(a1_, b0_));    \
+    c31 = _mm256_add_epi32(c31, _mm256_mullo_epi32(a1_, b1_));    \
+    a0_ = _mm256_set1_epi32(a[4 * rsa + (p_off) * csa]);          \
+    a1_ = _mm256_set1_epi32(a[5 * rsa + (p_off) * csa]);          \
+    c40 = _mm256_add_epi32(c40, _mm256_mullo_epi32(a0_, b0_));    \
+    c41 = _mm256_add_epi32(c41, _mm256_mullo_epi32(a0_, b1_));    \
+    c50 = _mm256_add_epi32(c50, _mm256_mullo_epi32(a1_, b0_));    \
+    c51 = _mm256_add_epi32(c51, _mm256_mullo_epi32(a1_, b1_));    \
   } while (0)
 
   /* 4x K-loop unroll */
@@ -354,9 +354,9 @@ static inline void gemmsup_edge_i32(const int32_t *a, const int32_t *b,
       size_t j = 0;
       for (; j + 8 <= nr; j += 8) {
         __m256i vo = _mm256_loadu_si256((const __m256i *)(crow + j));
-        vo = _mm256_add_epi32(vo, _mm256_mullo_epi32(
-                                      va, _mm256_loadu_si256(
-                                              (const __m256i *)(brow + j))));
+        vo = _mm256_add_epi32(
+            vo, _mm256_mullo_epi32(
+                    va, _mm256_loadu_si256((const __m256i *)(brow + j))));
         _mm256_storeu_si256((__m256i *)(crow + j), vo);
       }
       for (; j < nr; j++)
@@ -417,30 +417,30 @@ static inline void gemmsup_ukernel_i16_6x32(const int16_t *a, const int16_t *b,
   __m256i c40 = _mm256_setzero_si256(), c41 = _mm256_setzero_si256();
   __m256i c50 = _mm256_setzero_si256(), c51 = _mm256_setzero_si256();
 
-#define GEMMSUP_I16_K_BODY(p_off)                                             \
-  do {                                                                         \
-    const int16_t *bp_ = b + (p_off) * rsb;                                    \
-    __m256i b0_ = _mm256_loadu_si256((const __m256i *)bp_);                    \
-    __m256i b1_ = _mm256_loadu_si256((const __m256i *)(bp_ + 16));             \
-    __m256i a0_, a1_;                                                          \
-    a0_ = _mm256_set1_epi16(a[0 * rsa + (p_off) * csa]);                      \
-    a1_ = _mm256_set1_epi16(a[1 * rsa + (p_off) * csa]);                      \
-    c00 = _mm256_add_epi16(c00, _mm256_mullo_epi16(a0_, b0_));                \
-    c01 = _mm256_add_epi16(c01, _mm256_mullo_epi16(a0_, b1_));                \
-    c10 = _mm256_add_epi16(c10, _mm256_mullo_epi16(a1_, b0_));                \
-    c11 = _mm256_add_epi16(c11, _mm256_mullo_epi16(a1_, b1_));                \
-    a0_ = _mm256_set1_epi16(a[2 * rsa + (p_off) * csa]);                      \
-    a1_ = _mm256_set1_epi16(a[3 * rsa + (p_off) * csa]);                      \
-    c20 = _mm256_add_epi16(c20, _mm256_mullo_epi16(a0_, b0_));                \
-    c21 = _mm256_add_epi16(c21, _mm256_mullo_epi16(a0_, b1_));                \
-    c30 = _mm256_add_epi16(c30, _mm256_mullo_epi16(a1_, b0_));                \
-    c31 = _mm256_add_epi16(c31, _mm256_mullo_epi16(a1_, b1_));                \
-    a0_ = _mm256_set1_epi16(a[4 * rsa + (p_off) * csa]);                      \
-    a1_ = _mm256_set1_epi16(a[5 * rsa + (p_off) * csa]);                      \
-    c40 = _mm256_add_epi16(c40, _mm256_mullo_epi16(a0_, b0_));                \
-    c41 = _mm256_add_epi16(c41, _mm256_mullo_epi16(a0_, b1_));                \
-    c50 = _mm256_add_epi16(c50, _mm256_mullo_epi16(a1_, b0_));                \
-    c51 = _mm256_add_epi16(c51, _mm256_mullo_epi16(a1_, b1_));                \
+#define GEMMSUP_I16_K_BODY(p_off)                                  \
+  do {                                                             \
+    const int16_t *bp_ = b + (p_off) * rsb;                        \
+    __m256i b0_ = _mm256_loadu_si256((const __m256i *)bp_);        \
+    __m256i b1_ = _mm256_loadu_si256((const __m256i *)(bp_ + 16)); \
+    __m256i a0_, a1_;                                              \
+    a0_ = _mm256_set1_epi16(a[0 * rsa + (p_off) * csa]);           \
+    a1_ = _mm256_set1_epi16(a[1 * rsa + (p_off) * csa]);           \
+    c00 = _mm256_add_epi16(c00, _mm256_mullo_epi16(a0_, b0_));     \
+    c01 = _mm256_add_epi16(c01, _mm256_mullo_epi16(a0_, b1_));     \
+    c10 = _mm256_add_epi16(c10, _mm256_mullo_epi16(a1_, b0_));     \
+    c11 = _mm256_add_epi16(c11, _mm256_mullo_epi16(a1_, b1_));     \
+    a0_ = _mm256_set1_epi16(a[2 * rsa + (p_off) * csa]);           \
+    a1_ = _mm256_set1_epi16(a[3 * rsa + (p_off) * csa]);           \
+    c20 = _mm256_add_epi16(c20, _mm256_mullo_epi16(a0_, b0_));     \
+    c21 = _mm256_add_epi16(c21, _mm256_mullo_epi16(a0_, b1_));     \
+    c30 = _mm256_add_epi16(c30, _mm256_mullo_epi16(a1_, b0_));     \
+    c31 = _mm256_add_epi16(c31, _mm256_mullo_epi16(a1_, b1_));     \
+    a0_ = _mm256_set1_epi16(a[4 * rsa + (p_off) * csa]);           \
+    a1_ = _mm256_set1_epi16(a[5 * rsa + (p_off) * csa]);           \
+    c40 = _mm256_add_epi16(c40, _mm256_mullo_epi16(a0_, b0_));     \
+    c41 = _mm256_add_epi16(c41, _mm256_mullo_epi16(a0_, b1_));     \
+    c50 = _mm256_add_epi16(c50, _mm256_mullo_epi16(a1_, b0_));     \
+    c51 = _mm256_add_epi16(c51, _mm256_mullo_epi16(a1_, b1_));     \
   } while (0)
 
   /* 4x K-loop unroll */
@@ -488,9 +488,9 @@ static inline void gemmsup_edge_i16(const int16_t *a, const int16_t *b,
       size_t j = 0;
       for (; j + 16 <= nr; j += 16) {
         __m256i vo = _mm256_loadu_si256((const __m256i *)(crow + j));
-        vo = _mm256_add_epi16(vo, _mm256_mullo_epi16(
-                                      va, _mm256_loadu_si256(
-                                              (const __m256i *)(brow + j))));
+        vo = _mm256_add_epi16(
+            vo, _mm256_mullo_epi16(
+                    va, _mm256_loadu_si256((const __m256i *)(brow + j))));
         _mm256_storeu_si256((__m256i *)(crow + j), vo);
       }
       for (; j < nr; j++)
@@ -555,9 +555,9 @@ static inline __m256i _mm256_mullo_epi64_avx2(__m256i a, __m256i b) {
 }
 
 static inline void gemmsup_ukernel_i64_6x8(const int64_t *a, const int64_t *b,
-                                            int64_t *c, size_t kc, intptr_t rsa,
-                                            intptr_t csa, intptr_t rsb,
-                                            intptr_t rso) {
+                                           int64_t *c, size_t kc, intptr_t rsa,
+                                           intptr_t csa, intptr_t rsb,
+                                           intptr_t rso) {
   __m256i c00 = _mm256_setzero_si256(), c01 = _mm256_setzero_si256();
   __m256i c10 = _mm256_setzero_si256(), c11 = _mm256_setzero_si256();
   __m256i c20 = _mm256_setzero_si256(), c21 = _mm256_setzero_si256();
@@ -565,30 +565,30 @@ static inline void gemmsup_ukernel_i64_6x8(const int64_t *a, const int64_t *b,
   __m256i c40 = _mm256_setzero_si256(), c41 = _mm256_setzero_si256();
   __m256i c50 = _mm256_setzero_si256(), c51 = _mm256_setzero_si256();
 
-#define GEMMSUP_I64_K_BODY(p_off)                                             \
-  do {                                                                         \
-    const int64_t *bp_ = b + (p_off) * rsb;                                    \
-    __m256i b0_ = _mm256_loadu_si256((const __m256i *)bp_);                    \
-    __m256i b1_ = _mm256_loadu_si256((const __m256i *)(bp_ + 4));              \
-    __m256i a0_, a1_;                                                          \
-    a0_ = _mm256_set1_epi64x(a[0 * rsa + (p_off) * csa]);                     \
-    a1_ = _mm256_set1_epi64x(a[1 * rsa + (p_off) * csa]);                     \
-    c00 = _mm256_add_epi64(c00, _mm256_mullo_epi64_avx2(a0_, b0_));           \
-    c01 = _mm256_add_epi64(c01, _mm256_mullo_epi64_avx2(a0_, b1_));           \
-    c10 = _mm256_add_epi64(c10, _mm256_mullo_epi64_avx2(a1_, b0_));           \
-    c11 = _mm256_add_epi64(c11, _mm256_mullo_epi64_avx2(a1_, b1_));           \
-    a0_ = _mm256_set1_epi64x(a[2 * rsa + (p_off) * csa]);                     \
-    a1_ = _mm256_set1_epi64x(a[3 * rsa + (p_off) * csa]);                     \
-    c20 = _mm256_add_epi64(c20, _mm256_mullo_epi64_avx2(a0_, b0_));           \
-    c21 = _mm256_add_epi64(c21, _mm256_mullo_epi64_avx2(a0_, b1_));           \
-    c30 = _mm256_add_epi64(c30, _mm256_mullo_epi64_avx2(a1_, b0_));           \
-    c31 = _mm256_add_epi64(c31, _mm256_mullo_epi64_avx2(a1_, b1_));           \
-    a0_ = _mm256_set1_epi64x(a[4 * rsa + (p_off) * csa]);                     \
-    a1_ = _mm256_set1_epi64x(a[5 * rsa + (p_off) * csa]);                     \
-    c40 = _mm256_add_epi64(c40, _mm256_mullo_epi64_avx2(a0_, b0_));           \
-    c41 = _mm256_add_epi64(c41, _mm256_mullo_epi64_avx2(a0_, b1_));           \
-    c50 = _mm256_add_epi64(c50, _mm256_mullo_epi64_avx2(a1_, b0_));           \
-    c51 = _mm256_add_epi64(c51, _mm256_mullo_epi64_avx2(a1_, b1_));           \
+#define GEMMSUP_I64_K_BODY(p_off)                                   \
+  do {                                                              \
+    const int64_t *bp_ = b + (p_off) * rsb;                         \
+    __m256i b0_ = _mm256_loadu_si256((const __m256i *)bp_);         \
+    __m256i b1_ = _mm256_loadu_si256((const __m256i *)(bp_ + 4));   \
+    __m256i a0_, a1_;                                               \
+    a0_ = _mm256_set1_epi64x(a[0 * rsa + (p_off) * csa]);           \
+    a1_ = _mm256_set1_epi64x(a[1 * rsa + (p_off) * csa]);           \
+    c00 = _mm256_add_epi64(c00, _mm256_mullo_epi64_avx2(a0_, b0_)); \
+    c01 = _mm256_add_epi64(c01, _mm256_mullo_epi64_avx2(a0_, b1_)); \
+    c10 = _mm256_add_epi64(c10, _mm256_mullo_epi64_avx2(a1_, b0_)); \
+    c11 = _mm256_add_epi64(c11, _mm256_mullo_epi64_avx2(a1_, b1_)); \
+    a0_ = _mm256_set1_epi64x(a[2 * rsa + (p_off) * csa]);           \
+    a1_ = _mm256_set1_epi64x(a[3 * rsa + (p_off) * csa]);           \
+    c20 = _mm256_add_epi64(c20, _mm256_mullo_epi64_avx2(a0_, b0_)); \
+    c21 = _mm256_add_epi64(c21, _mm256_mullo_epi64_avx2(a0_, b1_)); \
+    c30 = _mm256_add_epi64(c30, _mm256_mullo_epi64_avx2(a1_, b0_)); \
+    c31 = _mm256_add_epi64(c31, _mm256_mullo_epi64_avx2(a1_, b1_)); \
+    a0_ = _mm256_set1_epi64x(a[4 * rsa + (p_off) * csa]);           \
+    a1_ = _mm256_set1_epi64x(a[5 * rsa + (p_off) * csa]);           \
+    c40 = _mm256_add_epi64(c40, _mm256_mullo_epi64_avx2(a0_, b0_)); \
+    c41 = _mm256_add_epi64(c41, _mm256_mullo_epi64_avx2(a0_, b1_)); \
+    c50 = _mm256_add_epi64(c50, _mm256_mullo_epi64_avx2(a1_, b0_)); \
+    c51 = _mm256_add_epi64(c51, _mm256_mullo_epi64_avx2(a1_, b1_)); \
   } while (0)
 
   /* 2x K-loop unroll (each K-step is ~7 instructions due to widening mul) */
@@ -683,9 +683,9 @@ static inline __m256i _gemmsup_load_i8_to_i32(const int8_t *ptr) {
 }
 
 static inline void gemmsup_ukernel_i8_6x16(const int8_t *a, const int8_t *b,
-                                            int8_t *c, size_t kc, intptr_t rsa,
-                                            intptr_t csa, intptr_t rsb,
-                                            intptr_t rso) {
+                                           int8_t *c, size_t kc, intptr_t rsa,
+                                           intptr_t csa, intptr_t rsb,
+                                           intptr_t rso) {
   __m256i c00 = _mm256_setzero_si256(), c01 = _mm256_setzero_si256();
   __m256i c10 = _mm256_setzero_si256(), c11 = _mm256_setzero_si256();
   __m256i c20 = _mm256_setzero_si256(), c21 = _mm256_setzero_si256();
@@ -693,30 +693,30 @@ static inline void gemmsup_ukernel_i8_6x16(const int8_t *a, const int8_t *b,
   __m256i c40 = _mm256_setzero_si256(), c41 = _mm256_setzero_si256();
   __m256i c50 = _mm256_setzero_si256(), c51 = _mm256_setzero_si256();
 
-#define GEMMSUP_I8_K_BODY(p_off)                                               \
-  do {                                                                          \
-    const int8_t *bp_ = b + (p_off) * rsb;                                     \
-    __m256i b0_ = _gemmsup_load_i8_to_i32(bp_);                                \
-    __m256i b1_ = _gemmsup_load_i8_to_i32(bp_ + 8);                            \
-    __m256i a0_, a1_;                                                           \
-    a0_ = _mm256_set1_epi32((int32_t)a[0 * rsa + (p_off) * csa]);              \
-    a1_ = _mm256_set1_epi32((int32_t)a[1 * rsa + (p_off) * csa]);              \
-    c00 = _mm256_add_epi32(c00, _mm256_mullo_epi32(a0_, b0_));                 \
-    c01 = _mm256_add_epi32(c01, _mm256_mullo_epi32(a0_, b1_));                 \
-    c10 = _mm256_add_epi32(c10, _mm256_mullo_epi32(a1_, b0_));                 \
-    c11 = _mm256_add_epi32(c11, _mm256_mullo_epi32(a1_, b1_));                 \
-    a0_ = _mm256_set1_epi32((int32_t)a[2 * rsa + (p_off) * csa]);              \
-    a1_ = _mm256_set1_epi32((int32_t)a[3 * rsa + (p_off) * csa]);              \
-    c20 = _mm256_add_epi32(c20, _mm256_mullo_epi32(a0_, b0_));                 \
-    c21 = _mm256_add_epi32(c21, _mm256_mullo_epi32(a0_, b1_));                 \
-    c30 = _mm256_add_epi32(c30, _mm256_mullo_epi32(a1_, b0_));                 \
-    c31 = _mm256_add_epi32(c31, _mm256_mullo_epi32(a1_, b1_));                 \
-    a0_ = _mm256_set1_epi32((int32_t)a[4 * rsa + (p_off) * csa]);              \
-    a1_ = _mm256_set1_epi32((int32_t)a[5 * rsa + (p_off) * csa]);              \
-    c40 = _mm256_add_epi32(c40, _mm256_mullo_epi32(a0_, b0_));                 \
-    c41 = _mm256_add_epi32(c41, _mm256_mullo_epi32(a0_, b1_));                 \
-    c50 = _mm256_add_epi32(c50, _mm256_mullo_epi32(a1_, b0_));                 \
-    c51 = _mm256_add_epi32(c51, _mm256_mullo_epi32(a1_, b1_));                 \
+#define GEMMSUP_I8_K_BODY(p_off)                                  \
+  do {                                                            \
+    const int8_t *bp_ = b + (p_off) * rsb;                        \
+    __m256i b0_ = _gemmsup_load_i8_to_i32(bp_);                   \
+    __m256i b1_ = _gemmsup_load_i8_to_i32(bp_ + 8);               \
+    __m256i a0_, a1_;                                             \
+    a0_ = _mm256_set1_epi32((int32_t)a[0 * rsa + (p_off) * csa]); \
+    a1_ = _mm256_set1_epi32((int32_t)a[1 * rsa + (p_off) * csa]); \
+    c00 = _mm256_add_epi32(c00, _mm256_mullo_epi32(a0_, b0_));    \
+    c01 = _mm256_add_epi32(c01, _mm256_mullo_epi32(a0_, b1_));    \
+    c10 = _mm256_add_epi32(c10, _mm256_mullo_epi32(a1_, b0_));    \
+    c11 = _mm256_add_epi32(c11, _mm256_mullo_epi32(a1_, b1_));    \
+    a0_ = _mm256_set1_epi32((int32_t)a[2 * rsa + (p_off) * csa]); \
+    a1_ = _mm256_set1_epi32((int32_t)a[3 * rsa + (p_off) * csa]); \
+    c20 = _mm256_add_epi32(c20, _mm256_mullo_epi32(a0_, b0_));    \
+    c21 = _mm256_add_epi32(c21, _mm256_mullo_epi32(a0_, b1_));    \
+    c30 = _mm256_add_epi32(c30, _mm256_mullo_epi32(a1_, b0_));    \
+    c31 = _mm256_add_epi32(c31, _mm256_mullo_epi32(a1_, b1_));    \
+    a0_ = _mm256_set1_epi32((int32_t)a[4 * rsa + (p_off) * csa]); \
+    a1_ = _mm256_set1_epi32((int32_t)a[5 * rsa + (p_off) * csa]); \
+    c40 = _mm256_add_epi32(c40, _mm256_mullo_epi32(a0_, b0_));    \
+    c41 = _mm256_add_epi32(c41, _mm256_mullo_epi32(a0_, b1_));    \
+    c50 = _mm256_add_epi32(c50, _mm256_mullo_epi32(a1_, b0_));    \
+    c51 = _mm256_add_epi32(c51, _mm256_mullo_epi32(a1_, b1_));    \
   } while (0)
 
   /* 4x K-loop unroll */
@@ -736,12 +736,12 @@ static inline void gemmsup_ukernel_i8_6x16(const int8_t *a, const int8_t *b,
 
   /* Store i32 accumulators to i8 output via temp buffer (truncation) */
   int32_t tmp[16];
-#define GEMMSUP_I8_STORE_ROW(row, lo, hi)                                      \
-  do {                                                                          \
-    _mm256_storeu_si256((__m256i *)tmp, lo);                                    \
-    _mm256_storeu_si256((__m256i *)(tmp + 8), hi);                             \
-    for (size_t j = 0; j < 16; j++)                                            \
-      c[(row) * rso + j] = (int8_t)tmp[j];                                    \
+#define GEMMSUP_I8_STORE_ROW(row, lo, hi)          \
+  do {                                             \
+    _mm256_storeu_si256((__m256i *)tmp, lo);       \
+    _mm256_storeu_si256((__m256i *)(tmp + 8), hi); \
+    for (size_t j = 0; j < 16; j++)                \
+      c[(row) * rso + j] = (int8_t)tmp[j];         \
   } while (0)
 
   GEMMSUP_I8_STORE_ROW(0, c00, c01);
@@ -804,9 +804,9 @@ static inline __m256i _gemmsup_load_u8_to_i32(const uint8_t *ptr) {
 }
 
 static inline void gemmsup_ukernel_u8_6x16(const uint8_t *a, const uint8_t *b,
-                                            uint8_t *c, size_t kc, intptr_t rsa,
-                                            intptr_t csa, intptr_t rsb,
-                                            intptr_t rso) {
+                                           uint8_t *c, size_t kc, intptr_t rsa,
+                                           intptr_t csa, intptr_t rsb,
+                                           intptr_t rso) {
   __m256i c00 = _mm256_setzero_si256(), c01 = _mm256_setzero_si256();
   __m256i c10 = _mm256_setzero_si256(), c11 = _mm256_setzero_si256();
   __m256i c20 = _mm256_setzero_si256(), c21 = _mm256_setzero_si256();
@@ -814,30 +814,30 @@ static inline void gemmsup_ukernel_u8_6x16(const uint8_t *a, const uint8_t *b,
   __m256i c40 = _mm256_setzero_si256(), c41 = _mm256_setzero_si256();
   __m256i c50 = _mm256_setzero_si256(), c51 = _mm256_setzero_si256();
 
-#define GEMMSUP_U8_K_BODY(p_off)                                               \
-  do {                                                                          \
-    const uint8_t *bp_ = b + (p_off) * rsb;                                    \
-    __m256i b0_ = _gemmsup_load_u8_to_i32(bp_);                                \
-    __m256i b1_ = _gemmsup_load_u8_to_i32(bp_ + 8);                            \
-    __m256i a0_, a1_;                                                           \
-    a0_ = _mm256_set1_epi32((int32_t)(uint32_t)a[0 * rsa + (p_off) * csa]);    \
-    a1_ = _mm256_set1_epi32((int32_t)(uint32_t)a[1 * rsa + (p_off) * csa]);    \
-    c00 = _mm256_add_epi32(c00, _mm256_mullo_epi32(a0_, b0_));                 \
-    c01 = _mm256_add_epi32(c01, _mm256_mullo_epi32(a0_, b1_));                 \
-    c10 = _mm256_add_epi32(c10, _mm256_mullo_epi32(a1_, b0_));                 \
-    c11 = _mm256_add_epi32(c11, _mm256_mullo_epi32(a1_, b1_));                 \
-    a0_ = _mm256_set1_epi32((int32_t)(uint32_t)a[2 * rsa + (p_off) * csa]);    \
-    a1_ = _mm256_set1_epi32((int32_t)(uint32_t)a[3 * rsa + (p_off) * csa]);    \
-    c20 = _mm256_add_epi32(c20, _mm256_mullo_epi32(a0_, b0_));                 \
-    c21 = _mm256_add_epi32(c21, _mm256_mullo_epi32(a0_, b1_));                 \
-    c30 = _mm256_add_epi32(c30, _mm256_mullo_epi32(a1_, b0_));                 \
-    c31 = _mm256_add_epi32(c31, _mm256_mullo_epi32(a1_, b1_));                 \
-    a0_ = _mm256_set1_epi32((int32_t)(uint32_t)a[4 * rsa + (p_off) * csa]);    \
-    a1_ = _mm256_set1_epi32((int32_t)(uint32_t)a[5 * rsa + (p_off) * csa]);    \
-    c40 = _mm256_add_epi32(c40, _mm256_mullo_epi32(a0_, b0_));                 \
-    c41 = _mm256_add_epi32(c41, _mm256_mullo_epi32(a0_, b1_));                 \
-    c50 = _mm256_add_epi32(c50, _mm256_mullo_epi32(a1_, b0_));                 \
-    c51 = _mm256_add_epi32(c51, _mm256_mullo_epi32(a1_, b1_));                 \
+#define GEMMSUP_U8_K_BODY(p_off)                                            \
+  do {                                                                      \
+    const uint8_t *bp_ = b + (p_off) * rsb;                                 \
+    __m256i b0_ = _gemmsup_load_u8_to_i32(bp_);                             \
+    __m256i b1_ = _gemmsup_load_u8_to_i32(bp_ + 8);                         \
+    __m256i a0_, a1_;                                                       \
+    a0_ = _mm256_set1_epi32((int32_t)(uint32_t)a[0 * rsa + (p_off) * csa]); \
+    a1_ = _mm256_set1_epi32((int32_t)(uint32_t)a[1 * rsa + (p_off) * csa]); \
+    c00 = _mm256_add_epi32(c00, _mm256_mullo_epi32(a0_, b0_));              \
+    c01 = _mm256_add_epi32(c01, _mm256_mullo_epi32(a0_, b1_));              \
+    c10 = _mm256_add_epi32(c10, _mm256_mullo_epi32(a1_, b0_));              \
+    c11 = _mm256_add_epi32(c11, _mm256_mullo_epi32(a1_, b1_));              \
+    a0_ = _mm256_set1_epi32((int32_t)(uint32_t)a[2 * rsa + (p_off) * csa]); \
+    a1_ = _mm256_set1_epi32((int32_t)(uint32_t)a[3 * rsa + (p_off) * csa]); \
+    c20 = _mm256_add_epi32(c20, _mm256_mullo_epi32(a0_, b0_));              \
+    c21 = _mm256_add_epi32(c21, _mm256_mullo_epi32(a0_, b1_));              \
+    c30 = _mm256_add_epi32(c30, _mm256_mullo_epi32(a1_, b0_));              \
+    c31 = _mm256_add_epi32(c31, _mm256_mullo_epi32(a1_, b1_));              \
+    a0_ = _mm256_set1_epi32((int32_t)(uint32_t)a[4 * rsa + (p_off) * csa]); \
+    a1_ = _mm256_set1_epi32((int32_t)(uint32_t)a[5 * rsa + (p_off) * csa]); \
+    c40 = _mm256_add_epi32(c40, _mm256_mullo_epi32(a0_, b0_));              \
+    c41 = _mm256_add_epi32(c41, _mm256_mullo_epi32(a0_, b1_));              \
+    c50 = _mm256_add_epi32(c50, _mm256_mullo_epi32(a1_, b0_));              \
+    c51 = _mm256_add_epi32(c51, _mm256_mullo_epi32(a1_, b1_));              \
   } while (0)
 
   /* 4x K-loop unroll */
@@ -857,12 +857,12 @@ static inline void gemmsup_ukernel_u8_6x16(const uint8_t *a, const uint8_t *b,
 
   /* Store i32 accumulators to u8 output via temp buffer (truncation) */
   int32_t tmp[16];
-#define GEMMSUP_U8_STORE_ROW(row, lo, hi)                                      \
-  do {                                                                          \
-    _mm256_storeu_si256((__m256i *)tmp, lo);                                    \
-    _mm256_storeu_si256((__m256i *)(tmp + 8), hi);                             \
-    for (size_t j = 0; j < 16; j++)                                            \
-      c[(row) * rso + j] = (uint8_t)tmp[j];                                   \
+#define GEMMSUP_U8_STORE_ROW(row, lo, hi)          \
+  do {                                             \
+    _mm256_storeu_si256((__m256i *)tmp, lo);       \
+    _mm256_storeu_si256((__m256i *)(tmp + 8), hi); \
+    for (size_t j = 0; j < 16; j++)                \
+      c[(row) * rso + j] = (uint8_t)tmp[j];        \
   } while (0)
 
   GEMMSUP_U8_STORE_ROW(0, c00, c01);
