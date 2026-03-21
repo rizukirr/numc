@@ -1,10 +1,6 @@
 # numc
 
-A high-performance N-dimensional tensor library in pure C. Zero dependencies — no BLAS, no Fortran, no Python runtime.
-
-Hand-written SIMD kernels (AVX2, AVX-512, NEON, SVE, RVV), packed GEMM with Goto's algorithm, arena-based memory, and OpenMP parallelization. Scalar fallback ensures it builds on any platform.
-
-## Example
+A high-performance N-dimensional tensor library in pure C. Zero dependencies — no BLAS, no Fortran, no Python runtime. Hand-written SIMD kernels, packed GEMM, arena memory, and OpenMP parallelization.
 
 ```c
 #include <numc/numc.h>
@@ -24,20 +20,16 @@ int main(void) {
 }
 ```
 
-## Features
+## Why numc
 
-- **Arena allocator** — all arrays owned by a `NumcCtx`. Free the context, free everything in O(1). Checkpoint/restore for scoped temporaries.
-- **10 dtypes** — `int8/16/32/64`, `uint8/16/32/64`, `float32`, `float64`. Every operation supports all of them.
-- **NumPy-compatible broadcasting** — same shape semantics, same edge cases.
-- **Zero-copy views** — slice, transpose, reshape without copying data.
-- **GEMM** — 3-tier dispatch: GEMMSUP (small), packed 5-loop Goto's (large), naive fallback. ISA-specific micro-kernels (e.g., 6x16 f32 on AVX2).
-- **Elementwise ops** — add, sub, mul, div, pow, abs, neg, exp, log, sqrt, clip, fma, where, comparisons. All vectorized with direct SIMD fast-paths.
-- **Reductions** — sum, mean, max, min, argmax, argmin. Per-axis with keepdim support.
-- **OpenMP** — auto-parallelization above 512 KB threshold. 2D IC x JR parallelism for GEMM.
+- **Fast** — hand-written AVX2, AVX-512, NEON, SVE/SVE2, and RVV kernels. Packed GEMM with Goto's algorithm. Beats NumPy (OpenBLAS) across all operation categories.
+- **Complete** — 10 dtypes (`int8`–`int64`, `uint8`–`uint64`, `float32`, `float64`), elementwise ops, reductions, matmul, broadcasting, slicing, random. Every operation supports every dtype.
+- **Simple** — arena allocator owns all memory. Create a context, use it, free it. No manual `malloc`/`free` per array.
+- **Portable** — pure C23 with scalar fallback. Builds on any platform. SIMD is a bonus, not a requirement.
 
 ## Performance
 
-Benchmarked against NumPy (OpenBLAS backend) on i7-13620H. numc wins across all 13 operation categories.
+Benchmarked against NumPy (OpenBLAS backend) on i7-13620H:
 
 ![Overview](bench/graph/output/overview.png)
 
@@ -51,12 +43,9 @@ cd numc
 ./run.sh release        # optimized build
 ./run.sh test           # tests with AddressSanitizer
 ./run.sh bench          # benchmark vs NumPy
-./run.sh check          # clang-format + clang-tidy + test+ASan
 ```
 
-### Cross-compilation
-
-Requires cross-compilers and QEMU user-mode emulation.
+Cross-compilation (requires cross-compilers + QEMU):
 
 ```bash
 ./run.sh neon test      # AArch64 NEON
@@ -65,25 +54,7 @@ Requires cross-compilers and QEMU user-mode emulation.
 ./run.sh avx512 test    # x86 AVX-512
 ```
 
-### CMake options
-
-| Option | Default | Purpose |
-|---|---|---|
-| `NUMC_ENABLE_ASAN` | `OFF` | AddressSanitizer |
-| `NUMC_WERROR` | `OFF` | `-Werror` |
-| `NUMC_OPTIMIZE_NATIVE` | `ON` | `-march=native` |
-
-## Architecture
-
-```
-Public API (include/numc/) → Dispatcher (src/*/dispatch.h) → Kernels (src/*/kernel.h)
-```
-
-- **API layer** validates inputs, allocates output via the arena
-- **Dispatcher** selects contiguous fast-path (flat SIMD loop) or strided N-D walker
-- **Kernels** are X-macro generated per-dtype, with `__builtin_assume_aligned` and OpenMP
-
-GEMM dispatch: GEMMSUP → packed GEMM (5-loop, cache-blocked MC/KC/NC panels) → naive fallback.
+CMake options: `NUMC_ENABLE_ASAN` (AddressSanitizer), `NUMC_WERROR` (`-Werror`), `NUMC_OPTIMIZE_NATIVE` (`-march=native`, default ON).
 
 ## Documentation
 
