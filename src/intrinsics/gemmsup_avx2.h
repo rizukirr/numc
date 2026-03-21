@@ -670,6 +670,251 @@ static inline void gemmsup_u64_avx2(const uint64_t *a, const uint64_t *b,
                    N, rsa, csa, rsb, rso);
 }
 
+/* =================================================================
+   Int8 unpacked 6x16 micro-kernel
+   Accumulates in i32 to avoid overflow, stores back as (int8_t).
+   Each B load converts 8 i8 -> 8 i32 via _mm256_cvtepi8_epi32.
+   NR=16 output columns = 2 YMM vectors of 8 i32 each.
+   12 accumulators (6 rows x 2 halves) + 2 B loads + 2 A bcast = 16 YMM.
+   ================================================================= */
+
+static inline __m256i _gemmsup_load_i8_to_i32(const int8_t *ptr) {
+  return _mm256_cvtepi8_epi32(_mm_loadl_epi64((const __m128i *)ptr));
+}
+
+static inline void gemmsup_ukernel_i8_6x16(const int8_t *a, const int8_t *b,
+                                            int8_t *c, size_t kc, intptr_t rsa,
+                                            intptr_t csa, intptr_t rsb,
+                                            intptr_t rso) {
+  __m256i c00 = _mm256_setzero_si256(), c01 = _mm256_setzero_si256();
+  __m256i c10 = _mm256_setzero_si256(), c11 = _mm256_setzero_si256();
+  __m256i c20 = _mm256_setzero_si256(), c21 = _mm256_setzero_si256();
+  __m256i c30 = _mm256_setzero_si256(), c31 = _mm256_setzero_si256();
+  __m256i c40 = _mm256_setzero_si256(), c41 = _mm256_setzero_si256();
+  __m256i c50 = _mm256_setzero_si256(), c51 = _mm256_setzero_si256();
+
+#define GEMMSUP_I8_K_BODY(p_off)                                               \
+  do {                                                                          \
+    const int8_t *bp_ = b + (p_off) * rsb;                                     \
+    __m256i b0_ = _gemmsup_load_i8_to_i32(bp_);                                \
+    __m256i b1_ = _gemmsup_load_i8_to_i32(bp_ + 8);                            \
+    __m256i a0_, a1_;                                                           \
+    a0_ = _mm256_set1_epi32((int32_t)a[0 * rsa + (p_off) * csa]);              \
+    a1_ = _mm256_set1_epi32((int32_t)a[1 * rsa + (p_off) * csa]);              \
+    c00 = _mm256_add_epi32(c00, _mm256_mullo_epi32(a0_, b0_));                 \
+    c01 = _mm256_add_epi32(c01, _mm256_mullo_epi32(a0_, b1_));                 \
+    c10 = _mm256_add_epi32(c10, _mm256_mullo_epi32(a1_, b0_));                 \
+    c11 = _mm256_add_epi32(c11, _mm256_mullo_epi32(a1_, b1_));                 \
+    a0_ = _mm256_set1_epi32((int32_t)a[2 * rsa + (p_off) * csa]);              \
+    a1_ = _mm256_set1_epi32((int32_t)a[3 * rsa + (p_off) * csa]);              \
+    c20 = _mm256_add_epi32(c20, _mm256_mullo_epi32(a0_, b0_));                 \
+    c21 = _mm256_add_epi32(c21, _mm256_mullo_epi32(a0_, b1_));                 \
+    c30 = _mm256_add_epi32(c30, _mm256_mullo_epi32(a1_, b0_));                 \
+    c31 = _mm256_add_epi32(c31, _mm256_mullo_epi32(a1_, b1_));                 \
+    a0_ = _mm256_set1_epi32((int32_t)a[4 * rsa + (p_off) * csa]);              \
+    a1_ = _mm256_set1_epi32((int32_t)a[5 * rsa + (p_off) * csa]);              \
+    c40 = _mm256_add_epi32(c40, _mm256_mullo_epi32(a0_, b0_));                 \
+    c41 = _mm256_add_epi32(c41, _mm256_mullo_epi32(a0_, b1_));                 \
+    c50 = _mm256_add_epi32(c50, _mm256_mullo_epi32(a1_, b0_));                 \
+    c51 = _mm256_add_epi32(c51, _mm256_mullo_epi32(a1_, b1_));                 \
+  } while (0)
+
+  /* 4x K-loop unroll */
+  size_t k_iter = kc / 4;
+  size_t k_left = kc % 4;
+  size_t p = 0;
+  for (size_t ki = 0; ki < k_iter; ki++, p += 4) {
+    GEMMSUP_I8_K_BODY(p);
+    GEMMSUP_I8_K_BODY(p + 1);
+    GEMMSUP_I8_K_BODY(p + 2);
+    GEMMSUP_I8_K_BODY(p + 3);
+  }
+  for (size_t pi = 0; pi < k_left; pi++, p++) {
+    GEMMSUP_I8_K_BODY(p);
+  }
+#undef GEMMSUP_I8_K_BODY
+
+  /* Store i32 accumulators to i8 output via temp buffer (truncation) */
+  int32_t tmp[16];
+#define GEMMSUP_I8_STORE_ROW(row, lo, hi)                                      \
+  do {                                                                          \
+    _mm256_storeu_si256((__m256i *)tmp, lo);                                    \
+    _mm256_storeu_si256((__m256i *)(tmp + 8), hi);                             \
+    for (size_t j = 0; j < 16; j++)                                            \
+      c[(row) * rso + j] = (int8_t)tmp[j];                                    \
+  } while (0)
+
+  GEMMSUP_I8_STORE_ROW(0, c00, c01);
+  GEMMSUP_I8_STORE_ROW(1, c10, c11);
+  GEMMSUP_I8_STORE_ROW(2, c20, c21);
+  GEMMSUP_I8_STORE_ROW(3, c30, c31);
+  GEMMSUP_I8_STORE_ROW(4, c40, c41);
+  GEMMSUP_I8_STORE_ROW(5, c50, c51);
+#undef GEMMSUP_I8_STORE_ROW
+}
+
+/* Scalar edge kernel for i8 remainder tiles (accumulate in i32) */
+static inline void gemmsup_edge_i8(const int8_t *a, const int8_t *b, int8_t *c,
+                                   size_t mr, size_t nr, size_t kc,
+                                   intptr_t rsa, intptr_t csa, intptr_t rsb,
+                                   intptr_t rso) {
+  for (size_t i = 0; i < mr; i++) {
+    for (size_t j = 0; j < nr; j++) {
+      int32_t acc = 0;
+      for (size_t p = 0; p < kc; p++)
+        acc += (int32_t)a[i * rsa + p * csa] * (int32_t)b[p * rsb + j];
+      c[i * rso + j] = (int8_t)acc;
+    }
+  }
+}
+
+/* OMP-parallel over MR-row tiles when compute volume warrants it. */
+static inline void gemmsup_i8_avx2(const int8_t *a, const int8_t *b,
+                                   int8_t *out, size_t M, size_t K, size_t N,
+                                   intptr_t rsa, intptr_t csa, intptr_t rsb,
+                                   intptr_t rso) {
+  const size_t MR = 6, NR = 16;
+  size_t n_ir = (M + MR - 1) / MR;
+#pragma omp parallel for schedule(static) if ((uint64_t)M * K * N > \
+                                                  GEMMSUP_OMP_THRESHOLD)
+  for (size_t ir = 0; ir < n_ir; ir++) {
+    size_t i = ir * MR;
+    size_t mr = GEMMSUP_MIN(MR, M - i);
+    for (size_t j = 0; j < N; j += NR) {
+      size_t nr = GEMMSUP_MIN(NR, N - j);
+      if (mr == MR && nr == NR) {
+        gemmsup_ukernel_i8_6x16(a + i * rsa, b + j, out + i * rso + j, K, rsa,
+                                csa, rsb, rso);
+      } else {
+        gemmsup_edge_i8(a + i * rsa, b + j, out + i * rso + j, mr, nr, K, rsa,
+                        csa, rsb, rso);
+      }
+    }
+  }
+}
+
+/* =================================================================
+   UInt8 unpacked 6x16 micro-kernel
+   Same structure as i8 but uses _mm256_cvtepu8_epi32 for unsigned
+   extension, and stores as (uint8_t).
+   ================================================================= */
+
+static inline __m256i _gemmsup_load_u8_to_i32(const uint8_t *ptr) {
+  return _mm256_cvtepu8_epi32(_mm_loadl_epi64((const __m128i *)ptr));
+}
+
+static inline void gemmsup_ukernel_u8_6x16(const uint8_t *a, const uint8_t *b,
+                                            uint8_t *c, size_t kc, intptr_t rsa,
+                                            intptr_t csa, intptr_t rsb,
+                                            intptr_t rso) {
+  __m256i c00 = _mm256_setzero_si256(), c01 = _mm256_setzero_si256();
+  __m256i c10 = _mm256_setzero_si256(), c11 = _mm256_setzero_si256();
+  __m256i c20 = _mm256_setzero_si256(), c21 = _mm256_setzero_si256();
+  __m256i c30 = _mm256_setzero_si256(), c31 = _mm256_setzero_si256();
+  __m256i c40 = _mm256_setzero_si256(), c41 = _mm256_setzero_si256();
+  __m256i c50 = _mm256_setzero_si256(), c51 = _mm256_setzero_si256();
+
+#define GEMMSUP_U8_K_BODY(p_off)                                               \
+  do {                                                                          \
+    const uint8_t *bp_ = b + (p_off) * rsb;                                    \
+    __m256i b0_ = _gemmsup_load_u8_to_i32(bp_);                                \
+    __m256i b1_ = _gemmsup_load_u8_to_i32(bp_ + 8);                            \
+    __m256i a0_, a1_;                                                           \
+    a0_ = _mm256_set1_epi32((int32_t)(uint32_t)a[0 * rsa + (p_off) * csa]);    \
+    a1_ = _mm256_set1_epi32((int32_t)(uint32_t)a[1 * rsa + (p_off) * csa]);    \
+    c00 = _mm256_add_epi32(c00, _mm256_mullo_epi32(a0_, b0_));                 \
+    c01 = _mm256_add_epi32(c01, _mm256_mullo_epi32(a0_, b1_));                 \
+    c10 = _mm256_add_epi32(c10, _mm256_mullo_epi32(a1_, b0_));                 \
+    c11 = _mm256_add_epi32(c11, _mm256_mullo_epi32(a1_, b1_));                 \
+    a0_ = _mm256_set1_epi32((int32_t)(uint32_t)a[2 * rsa + (p_off) * csa]);    \
+    a1_ = _mm256_set1_epi32((int32_t)(uint32_t)a[3 * rsa + (p_off) * csa]);    \
+    c20 = _mm256_add_epi32(c20, _mm256_mullo_epi32(a0_, b0_));                 \
+    c21 = _mm256_add_epi32(c21, _mm256_mullo_epi32(a0_, b1_));                 \
+    c30 = _mm256_add_epi32(c30, _mm256_mullo_epi32(a1_, b0_));                 \
+    c31 = _mm256_add_epi32(c31, _mm256_mullo_epi32(a1_, b1_));                 \
+    a0_ = _mm256_set1_epi32((int32_t)(uint32_t)a[4 * rsa + (p_off) * csa]);    \
+    a1_ = _mm256_set1_epi32((int32_t)(uint32_t)a[5 * rsa + (p_off) * csa]);    \
+    c40 = _mm256_add_epi32(c40, _mm256_mullo_epi32(a0_, b0_));                 \
+    c41 = _mm256_add_epi32(c41, _mm256_mullo_epi32(a0_, b1_));                 \
+    c50 = _mm256_add_epi32(c50, _mm256_mullo_epi32(a1_, b0_));                 \
+    c51 = _mm256_add_epi32(c51, _mm256_mullo_epi32(a1_, b1_));                 \
+  } while (0)
+
+  /* 4x K-loop unroll */
+  size_t k_iter = kc / 4;
+  size_t k_left = kc % 4;
+  size_t p = 0;
+  for (size_t ki = 0; ki < k_iter; ki++, p += 4) {
+    GEMMSUP_U8_K_BODY(p);
+    GEMMSUP_U8_K_BODY(p + 1);
+    GEMMSUP_U8_K_BODY(p + 2);
+    GEMMSUP_U8_K_BODY(p + 3);
+  }
+  for (size_t pi = 0; pi < k_left; pi++, p++) {
+    GEMMSUP_U8_K_BODY(p);
+  }
+#undef GEMMSUP_U8_K_BODY
+
+  /* Store i32 accumulators to u8 output via temp buffer (truncation) */
+  int32_t tmp[16];
+#define GEMMSUP_U8_STORE_ROW(row, lo, hi)                                      \
+  do {                                                                          \
+    _mm256_storeu_si256((__m256i *)tmp, lo);                                    \
+    _mm256_storeu_si256((__m256i *)(tmp + 8), hi);                             \
+    for (size_t j = 0; j < 16; j++)                                            \
+      c[(row) * rso + j] = (uint8_t)tmp[j];                                   \
+  } while (0)
+
+  GEMMSUP_U8_STORE_ROW(0, c00, c01);
+  GEMMSUP_U8_STORE_ROW(1, c10, c11);
+  GEMMSUP_U8_STORE_ROW(2, c20, c21);
+  GEMMSUP_U8_STORE_ROW(3, c30, c31);
+  GEMMSUP_U8_STORE_ROW(4, c40, c41);
+  GEMMSUP_U8_STORE_ROW(5, c50, c51);
+#undef GEMMSUP_U8_STORE_ROW
+}
+
+/* Scalar edge kernel for u8 remainder tiles (accumulate in i32) */
+static inline void gemmsup_edge_u8(const uint8_t *a, const uint8_t *b,
+                                   uint8_t *c, size_t mr, size_t nr, size_t kc,
+                                   intptr_t rsa, intptr_t csa, intptr_t rsb,
+                                   intptr_t rso) {
+  for (size_t i = 0; i < mr; i++) {
+    for (size_t j = 0; j < nr; j++) {
+      int32_t acc = 0;
+      for (size_t p = 0; p < kc; p++)
+        acc += (int32_t)(uint32_t)a[i * rsa + p * csa] *
+               (int32_t)(uint32_t)b[p * rsb + j];
+      c[i * rso + j] = (uint8_t)acc;
+    }
+  }
+}
+
+/* OMP-parallel over MR-row tiles when compute volume warrants it. */
+static inline void gemmsup_u8_avx2(const uint8_t *a, const uint8_t *b,
+                                   uint8_t *out, size_t M, size_t K, size_t N,
+                                   intptr_t rsa, intptr_t csa, intptr_t rsb,
+                                   intptr_t rso) {
+  const size_t MR = 6, NR = 16;
+  size_t n_ir = (M + MR - 1) / MR;
+#pragma omp parallel for schedule(static) if ((uint64_t)M * K * N > \
+                                                  GEMMSUP_OMP_THRESHOLD)
+  for (size_t ir = 0; ir < n_ir; ir++) {
+    size_t i = ir * MR;
+    size_t mr = GEMMSUP_MIN(MR, M - i);
+    for (size_t j = 0; j < N; j += NR) {
+      size_t nr = GEMMSUP_MIN(NR, N - j);
+      if (mr == MR && nr == NR) {
+        gemmsup_ukernel_u8_6x16(a + i * rsa, b + j, out + i * rso + j, K, rsa,
+                                csa, rsb, rso);
+      } else {
+        gemmsup_edge_u8(a + i * rsa, b + j, out + i * rso + j, mr, nr, K, rsa,
+                        csa, rsb, rso);
+      }
+    }
+  }
+}
+
 #undef GEMMSUP_MIN
 
 #endif

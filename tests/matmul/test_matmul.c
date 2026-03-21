@@ -510,6 +510,76 @@ static int test_matmul_u64_identity(void) {
   return 0;
 }
 
+/* ── Int8 ─────────────────────────────────────────────────────── */
+
+static int test_matmul_i8_identity(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t sh[] = {N, N};
+  NumcArray *a = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT8);
+  NumcArray *b = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT8);
+  NumcArray *c = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT8);
+  int8_t *da = (int8_t *)numc_array_data(a);
+  int8_t *db = (int8_t *)numc_array_data(b);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    da[i] = (int8_t)((i % 5) + 1);
+  for (size_t i = 0; i < N; i++)
+    db[i * N + i] = 1;
+  int err = numc_matmul(a, b, c);
+  ASSERT_MSG_CTX(err == 0, "matmul i8 identity should succeed", ctx);
+  int8_t *rc = (int8_t *)numc_array_data(c);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    ASSERT_MSG_CTX(rc[i] == da[i], "matmul i8 A*I should equal A", ctx);
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+static int test_matmul_gemm_vs_naive_i8(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t sh[] = {N, N};
+  NumcArray *a = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT8);
+  NumcArray *b = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT8);
+  NumcArray *c_gemm = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT8);
+  NumcArray *c_naive = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_INT8);
+  int8_t *da = (int8_t *)numc_array_data(a);
+  int8_t *db = (int8_t *)numc_array_data(b);
+  for (size_t i = 0; i < (size_t)N * N; i++) {
+    da[i] = (int8_t)((i % 3) + 1);
+    db[i] = (int8_t)((i % 2) + 1);
+  }
+  int err1 = numc_matmul(a, b, c_gemm);
+  int err2 = numc_matmul_naive(a, b, c_naive);
+  ASSERT_MSG_CTX(err1 == 0 && err2 == 0, "both should succeed", ctx);
+  int8_t *rg = (int8_t *)numc_array_data(c_gemm);
+  int8_t *rn = (int8_t *)numc_array_data(c_naive);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    ASSERT_MSG_CTX(rg[i] == rn[i], "GEMM and naive i8 should match", ctx);
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+/* ── UInt8 ────────────────────────────────────────────────────── */
+
+static int test_matmul_u8_identity(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t sh[] = {N, N};
+  NumcArray *a = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_UINT8);
+  NumcArray *b = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_UINT8);
+  NumcArray *c = numc_array_zeros(ctx, sh, 2, NUMC_DTYPE_UINT8);
+  uint8_t *da = (uint8_t *)numc_array_data(a);
+  uint8_t *db = (uint8_t *)numc_array_data(b);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    da[i] = (uint8_t)((i % 5) + 1);
+  for (size_t i = 0; i < N; i++)
+    db[i * N + i] = 1;
+  int err = numc_matmul(a, b, c);
+  ASSERT_MSG_CTX(err == 0, "matmul u8 identity should succeed", ctx);
+  uint8_t *rc = (uint8_t *)numc_array_data(c);
+  for (size_t i = 0; i < (size_t)N * N; i++)
+    ASSERT_MSG_CTX(rc[i] == da[i], "matmul u8 A*I should equal A", ctx);
+  numc_ctx_free(ctx);
+  return 0;
+}
+
 /* ── main ───────────────────────────────────────────────────────── */
 
 int main(void) {
@@ -553,6 +623,13 @@ int main(void) {
 
   printf("\nUInt64:\n");
   RUN_TEST(test_matmul_u64_identity);
+
+  printf("\nInt8:\n");
+  RUN_TEST(test_matmul_i8_identity);
+  RUN_TEST(test_matmul_gemm_vs_naive_i8);
+
+  printf("\nUInt8:\n");
+  RUN_TEST(test_matmul_u8_identity);
 
   printf("\n=== Results: %d passed, %d failed ===\n", passes, fails);
   return fails > 0 ? 1 : 0;
