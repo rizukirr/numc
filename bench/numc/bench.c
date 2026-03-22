@@ -29,6 +29,16 @@ static double time_us(void) {
   return ts.tv_sec * 1e6 + ts.tv_nsec / 1e3;
 }
 
+/* Burn ~200ms of CPU to force turbo-boost ramp-up on hybrid CPUs. */
+static void bench_cpu_warmup(void) {
+  volatile double sink = 0.0;
+  double t0 = time_us();
+  while (time_us() - t0 < 200000.0)
+    for (int i = 0; i < 100000; i++)
+      sink += (double)i * 1.0001;
+  (void)sink;
+}
+
 /* ── Helpers ───────────────────────────────────────────────────────── */
 
 static const char *dtype_name(NumcDType dt) {
@@ -754,6 +764,9 @@ static void bench_random(const char *name, size_t size,
 /* ── main ──────────────────────────────────────────────────────────── */
 
 int main(void) {
+  /* Pre-warm CPU to force turbo-boost ramp-up before measurements */
+  bench_cpu_warmup();
+
   /* CSV header */
   printf(
       "library,category,operation,dtype,size,shape,time_us,throughput_mops\n");

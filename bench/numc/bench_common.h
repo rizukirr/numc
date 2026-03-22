@@ -59,6 +59,26 @@ static inline double time_us(void) {
     us = _min_us;                           \
   } while (0)
 
+/* ── CPU frequency warmup ─────────────────────────────────────────── */
+
+/**
+ * @brief Burn ~200ms of CPU time to force turbo-boost ramp-up.
+ *
+ * On hybrid CPUs (Intel Alder Lake / Raptor Lake), the CPU starts at a
+ * low P-state and ramps up to turbo within ~50-100ms of sustained load.
+ * Without pre-warming, the first benchmark in a run pays a ~3-5x penalty.
+ * Call this once at the start of main() before any measurements.
+ */
+static inline void bench_cpu_warmup(void) {
+  volatile double sink = 0.0;
+  double t0 = time_us();
+  while (time_us() - t0 < 200000.0) { /* 200ms */
+    for (int i = 0; i < 100000; i++)
+      sink += (double)i * 1.0001;
+  }
+  (void)sink;
+}
+
 /* ── Dtype arrays ─────────────────────────────────────────────────── */
 
 static const NumcDType ALL_DTYPES[] = {

@@ -66,6 +66,7 @@ static void bench_reduce_axis(const char *name, ReduceAxisFn fn, int axis,
 }
 
 int main(int argc, char **argv) {
+  bench_cpu_warmup();
   if (bench_should_print_header(argc, argv))
     bench_csv_header();
 

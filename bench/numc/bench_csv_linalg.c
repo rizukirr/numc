@@ -29,6 +29,7 @@ static void bench_dot(size_t size) {
 }
 
 int main(int argc, char **argv) {
+  bench_cpu_warmup();
   if (bench_should_print_header(argc, argv))
     bench_csv_header();
 
