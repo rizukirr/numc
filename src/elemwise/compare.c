@@ -207,46 +207,6 @@ static const NumcBinaryKernel minimum_table[] = {
     E(minimum, NUMC_DTYPE_FLOAT32), E(minimum, NUMC_DTYPE_FLOAT64),
 };
 
-static const NumcBinaryKernel eq_table[] = {
-    E(eq, NUMC_DTYPE_INT8),    E(eq, NUMC_DTYPE_INT16),
-    E(eq, NUMC_DTYPE_INT32),   E(eq, NUMC_DTYPE_INT64),
-    E(eq, NUMC_DTYPE_UINT8),   E(eq, NUMC_DTYPE_UINT16),
-    E(eq, NUMC_DTYPE_UINT32),  E(eq, NUMC_DTYPE_UINT64),
-    E(eq, NUMC_DTYPE_FLOAT32), E(eq, NUMC_DTYPE_FLOAT64),
-};
-
-static const NumcBinaryKernel gt_table[] = {
-    E(gt, NUMC_DTYPE_INT8),    E(gt, NUMC_DTYPE_INT16),
-    E(gt, NUMC_DTYPE_INT32),   E(gt, NUMC_DTYPE_INT64),
-    E(gt, NUMC_DTYPE_UINT8),   E(gt, NUMC_DTYPE_UINT16),
-    E(gt, NUMC_DTYPE_UINT32),  E(gt, NUMC_DTYPE_UINT64),
-    E(gt, NUMC_DTYPE_FLOAT32), E(gt, NUMC_DTYPE_FLOAT64),
-};
-
-static const NumcBinaryKernel lt_table[] = {
-    E(lt, NUMC_DTYPE_INT8),    E(lt, NUMC_DTYPE_INT16),
-    E(lt, NUMC_DTYPE_INT32),   E(lt, NUMC_DTYPE_INT64),
-    E(lt, NUMC_DTYPE_UINT8),   E(lt, NUMC_DTYPE_UINT16),
-    E(lt, NUMC_DTYPE_UINT32),  E(lt, NUMC_DTYPE_UINT64),
-    E(lt, NUMC_DTYPE_FLOAT32), E(lt, NUMC_DTYPE_FLOAT64),
-};
-
-static const NumcBinaryKernel ge_table[] = {
-    E(ge, NUMC_DTYPE_INT8),    E(ge, NUMC_DTYPE_INT16),
-    E(ge, NUMC_DTYPE_INT32),   E(ge, NUMC_DTYPE_INT64),
-    E(ge, NUMC_DTYPE_UINT8),   E(ge, NUMC_DTYPE_UINT16),
-    E(ge, NUMC_DTYPE_UINT32),  E(ge, NUMC_DTYPE_UINT64),
-    E(ge, NUMC_DTYPE_FLOAT32), E(ge, NUMC_DTYPE_FLOAT64),
-};
-
-static const NumcBinaryKernel le_table[] = {
-    E(le, NUMC_DTYPE_INT8),    E(le, NUMC_DTYPE_INT16),
-    E(le, NUMC_DTYPE_INT32),   E(le, NUMC_DTYPE_INT64),
-    E(le, NUMC_DTYPE_UINT8),   E(le, NUMC_DTYPE_UINT16),
-    E(le, NUMC_DTYPE_UINT32),  E(le, NUMC_DTYPE_UINT64),
-    E(le, NUMC_DTYPE_FLOAT32), E(le, NUMC_DTYPE_FLOAT64),
-};
-
 /* ── Public API ──────────────────────────────────────────────────── */
 
 #define DEFINE_ELEMWISE_BINARY(NAME, TABLE)                                 \
@@ -515,10 +475,51 @@ CMPSC_TABLE(le);
     return _scalar_op_inplace(a, scalar, TABLE);                   \
   }
 
+static const NumcBinaryKernel eq_table[] = {
+    E(eq, NUMC_DTYPE_INT8),    E(eq, NUMC_DTYPE_INT16),
+    E(eq, NUMC_DTYPE_INT32),   E(eq, NUMC_DTYPE_INT64),
+    E(eq, NUMC_DTYPE_UINT8),   E(eq, NUMC_DTYPE_UINT16),
+    E(eq, NUMC_DTYPE_UINT32),  E(eq, NUMC_DTYPE_UINT64),
+    E(eq, NUMC_DTYPE_FLOAT32), E(eq, NUMC_DTYPE_FLOAT64),
+};
+static const NumcBinaryKernel gt_table[] = {
+    E(gt, NUMC_DTYPE_INT8),    E(gt, NUMC_DTYPE_INT16),
+    E(gt, NUMC_DTYPE_INT32),   E(gt, NUMC_DTYPE_INT64),
+    E(gt, NUMC_DTYPE_UINT8),   E(gt, NUMC_DTYPE_UINT16),
+    E(gt, NUMC_DTYPE_UINT32),  E(gt, NUMC_DTYPE_UINT64),
+    E(gt, NUMC_DTYPE_FLOAT32), E(gt, NUMC_DTYPE_FLOAT64),
+};
+static const NumcBinaryKernel lt_table[] = {
+    E(lt, NUMC_DTYPE_INT8),    E(lt, NUMC_DTYPE_INT16),
+    E(lt, NUMC_DTYPE_INT32),   E(lt, NUMC_DTYPE_INT64),
+    E(lt, NUMC_DTYPE_UINT8),   E(lt, NUMC_DTYPE_UINT16),
+    E(lt, NUMC_DTYPE_UINT32),  E(lt, NUMC_DTYPE_UINT64),
+    E(lt, NUMC_DTYPE_FLOAT32), E(lt, NUMC_DTYPE_FLOAT64),
+};
+static const NumcBinaryKernel ge_table[] = {
+    E(ge, NUMC_DTYPE_INT8),    E(ge, NUMC_DTYPE_INT16),
+    E(ge, NUMC_DTYPE_INT32),   E(ge, NUMC_DTYPE_INT64),
+    E(ge, NUMC_DTYPE_UINT8),   E(ge, NUMC_DTYPE_UINT16),
+    E(ge, NUMC_DTYPE_UINT32),  E(ge, NUMC_DTYPE_UINT64),
+    E(ge, NUMC_DTYPE_FLOAT32), E(ge, NUMC_DTYPE_FLOAT64),
+};
+static const NumcBinaryKernel le_table[] = {
+    E(le, NUMC_DTYPE_INT8),    E(le, NUMC_DTYPE_INT16),
+    E(le, NUMC_DTYPE_INT32),   E(le, NUMC_DTYPE_INT64),
+    E(le, NUMC_DTYPE_UINT8),   E(le, NUMC_DTYPE_UINT16),
+    E(le, NUMC_DTYPE_UINT32),  E(le, NUMC_DTYPE_UINT64),
+    E(le, NUMC_DTYPE_FLOAT32), E(le, NUMC_DTYPE_FLOAT64),
+};
+
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 DEFINE_CMP_SCALAR_WITH_SIMD(eq, eq_table)
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 DEFINE_CMP_SCALAR_WITH_SIMD(gt, gt_table)
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 DEFINE_CMP_SCALAR_WITH_SIMD(lt, lt_table)
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 DEFINE_CMP_SCALAR_WITH_SIMD(ge, ge_table)
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 DEFINE_CMP_SCALAR_WITH_SIMD(le, le_table)
 #undef DEFINE_CMP_SCALAR_WITH_SIMD
 

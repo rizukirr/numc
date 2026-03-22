@@ -128,23 +128,23 @@ static void _kern_rand_f64_avx2(char *out, size_t n) {
         s2[l] = lt[2];
         s3[l] = lt[3];
       }
-      size_t _i = start;
-      uint64_t _raw[4];
-      for (; _i + NUMC_PRNG_LANES <= end; _i += NUMC_PRNG_LANES) {
-        XOSHIRO_STEP_4(s0, s1, s2, s3, _raw);
-        _rand_f64_convert4_avx2(_raw, po + _i);
+      size_t ri = start;
+      uint64_t raw[4];
+      for (; ri + NUMC_PRNG_LANES <= end; ri += NUMC_PRNG_LANES) {
+        XOSHIRO_STEP_4(s0, s1, s2, s3, raw);
+        _rand_f64_convert4_avx2(raw, po + ri);
       }
-      uint64_t _ts[4] = {s0[0], s1[0], s2[0], s3[0]};
-      for (; _i < end; _i++) {
-        const uint64_t _res = _rotl64(_ts[1] * 5, 7) * 9;
-        const uint64_t _t = _ts[1] << 17;
-        _ts[2] ^= _ts[0];
-        _ts[3] ^= _ts[1];
-        _ts[1] ^= _ts[2];
-        _ts[0] ^= _ts[3];
-        _ts[2] ^= _t;
-        _ts[3] = _rotl64(_ts[3], 45);
-        po[_i] = _u64_to_f64(_res);
+      uint64_t rs[4] = {s0[0], s1[0], s2[0], s3[0]};
+      for (; ri < end; ri++) {
+        const uint64_t res = _rotl64(rs[1] * 5, 7) * 9;
+        const uint64_t t = rs[1] << 17;
+        rs[2] ^= rs[0];
+        rs[3] ^= rs[1];
+        rs[1] ^= rs[2];
+        rs[0] ^= rs[3];
+        rs[2] ^= t;
+        rs[3] = _rotl64(rs[3], 45);
+        po[ri] = _u64_to_f64(res);
       }
     } /* end omp parallel */
     prng_skip(base, n);
@@ -153,18 +153,18 @@ static void _kern_rand_f64_avx2(char *out, size_t n) {
     prng_s[2][0] = base[2];
     prng_s[3][0] = base[3];
     /* advance lanes 1-3 by n steps to keep all lanes in sync */
-    for (int _lane = 1; _lane < NUMC_PRNG_LANES; _lane++) {
-      uint64_t _ls[4] = {
-          prng_s[0][_lane],
-          prng_s[1][_lane],
-          prng_s[2][_lane],
-          prng_s[3][_lane],
+    for (int lane = 1; lane < NUMC_PRNG_LANES; lane++) {
+      uint64_t ls[4] = {
+          prng_s[0][lane],
+          prng_s[1][lane],
+          prng_s[2][lane],
+          prng_s[3][lane],
       };
-      prng_skip(_ls, n);
-      prng_s[0][_lane] = _ls[0];
-      prng_s[1][_lane] = _ls[1];
-      prng_s[2][_lane] = _ls[2];
-      prng_s[3][_lane] = _ls[3];
+      prng_skip(ls, n);
+      prng_s[0][lane] = ls[0];
+      prng_s[1][lane] = ls[1];
+      prng_s[2][lane] = ls[2];
+      prng_s[3][lane] = ls[3];
     }
   }
 }

@@ -100,6 +100,7 @@ static inline void gemm_pack_b_f32_rvv(const float *b, float *packed,
     float *dest = packed + jr * kc;
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb + jr;
+      __builtin_prefetch(src + 4 * rsb, 0, 3);
       size_t vl = __riscv_vsetvl_e32m2(nr);
       vfloat32m2_t v = __riscv_vle32_v_f32m2(src, vl);
       __riscv_vse32_v_f32m2(dest + p * nr, v, vl);
@@ -128,6 +129,7 @@ static inline void _gemm_pack_b_strip_f32_rvv(const float *b, float *dest,
   if (nr_pack == nr) {
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb;
+      __builtin_prefetch(src + 4 * rsb, 0, 3);
       size_t vl = __riscv_vsetvl_e32m2(nr);
       vfloat32m2_t v = __riscv_vle32_v_f32m2(src, vl);
       __riscv_vse32_v_f32m2(dest + p * nr, v, vl);
@@ -160,6 +162,11 @@ static inline void gemm_pack_a_f32_rvv(const float *a, float *packed,
       const float *r5 = a + (ir + 5) * rsa;
       const float *r6 = a + (ir + 6) * rsa;
       const float *r7 = a + (ir + 7) * rsa;
+      /* Prefetch next MR-panel's rows */
+      if (ir + 2 * GEMM_F32_MR <= mc) {
+        for (size_t i = 0; i < GEMM_F32_MR; i++)
+          __builtin_prefetch(a + (ir + GEMM_F32_MR + i) * rsa, 0, 3);
+      }
       for (size_t p = 0; p < kc; p++) {
         dest[p * GEMM_F32_MR + 0] = r0[p];
         dest[p * GEMM_F32_MR + 1] = r1[p];
@@ -215,6 +222,7 @@ static inline void gemm_pack_b_f64_rvv(const double *b, double *packed,
     double *dest = packed + jr * kc;
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb + jr;
+      __builtin_prefetch(src + 4 * rsb, 0, 3);
       size_t vl = __riscv_vsetvl_e64m2(nr);
       vfloat64m2_t v = __riscv_vle64_v_f64m2(src, vl);
       __riscv_vse64_v_f64m2(dest + p * nr, v, vl);
@@ -241,6 +249,7 @@ static inline void _gemm_pack_b_strip_f64_rvv(const double *b, double *dest,
   if (nr_pack == nr) {
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb;
+      __builtin_prefetch(src + 4 * rsb, 0, 3);
       size_t vl = __riscv_vsetvl_e64m2(nr);
       vfloat64m2_t v = __riscv_vle64_v_f64m2(src, vl);
       __riscv_vse64_v_f64m2(dest + p * nr, v, vl);
@@ -271,6 +280,11 @@ static inline void gemm_pack_a_f64_rvv(const double *a, double *packed,
       const double *r3 = a + (ir + 3) * rsa;
       const double *r4 = a + (ir + 4) * rsa;
       const double *r5 = a + (ir + 5) * rsa;
+      /* Prefetch next MR-panel's rows */
+      if (ir + 2 * GEMM_F64_MR <= mc) {
+        for (size_t i = 0; i < GEMM_F64_MR; i++)
+          __builtin_prefetch(a + (ir + GEMM_F64_MR + i) * rsa, 0, 3);
+      }
       for (size_t p = 0; p < kc; p++) {
         dest[p * GEMM_F64_MR + 0] = r0[p];
         dest[p * GEMM_F64_MR + 1] = r1[p];

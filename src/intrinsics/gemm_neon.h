@@ -62,6 +62,7 @@ static inline void gemm_pack_b_f32(const float *b, float *packed, size_t kc,
     float *dest = packed + jr * kc;
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb + jr;
+      __builtin_prefetch(src + 4 * rsb, 0, 3);
       vst1q_f32(dest + p * GEMM_F32_NR, vld1q_f32(src));
       vst1q_f32(dest + p * GEMM_F32_NR + 4, vld1q_f32(src + 4));
       vst1q_f32(dest + p * GEMM_F32_NR + 8, vld1q_f32(src + 8));
@@ -96,6 +97,7 @@ static inline void _gemm_pack_b_strip_f32(const float *b, float *dest,
   if (nr_pack == GEMM_F32_NR) {
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb;
+      __builtin_prefetch(src + 4 * rsb, 0, 3);
       vst1q_f32(dest + p * GEMM_F32_NR, vld1q_f32(src));
       vst1q_f32(dest + p * GEMM_F32_NR + 4, vld1q_f32(src + 4));
       vst1q_f32(dest + p * GEMM_F32_NR + 8, vld1q_f32(src + 8));
@@ -127,6 +129,11 @@ static inline void gemm_pack_a_f32(const float *a, float *packed, size_t mc,
       const float *r5 = a + (ir + 5) * rsa;
       const float *r6 = a + (ir + 6) * rsa;
       const float *r7 = a + (ir + 7) * rsa;
+      /* Prefetch next MR-panel's rows */
+      if (ir + 2 * GEMM_F32_MR <= mc) {
+        for (size_t i = 0; i < GEMM_F32_MR; i++)
+          __builtin_prefetch(a + (ir + GEMM_F32_MR + i) * rsa, 0, 3);
+      }
       size_t p = 0;
       /* Process 4 K-columns at a time via 4x4 NEON transpose:
        * vzip1q_f32(a,b) = [a0,b0,a1,b1], vzip2q_f32(a,b) = [a2,b2,a3,b3]
@@ -242,6 +249,7 @@ static inline void gemm_pack_b_f64(const double *b, double *packed, size_t kc,
     double *dest = packed + jr * kc;
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb + jr;
+      __builtin_prefetch(src + 4 * rsb, 0, 3);
       vst1q_f64(dest + p * GEMM_F64_NR, vld1q_f64(src));
       vst1q_f64(dest + p * GEMM_F64_NR + 2, vld1q_f64(src + 2));
       vst1q_f64(dest + p * GEMM_F64_NR + 4, vld1q_f64(src + 4));
@@ -277,6 +285,7 @@ static inline void _gemm_pack_b_strip_f64(const double *b, double *dest,
   if (nr_pack == GEMM_F64_NR) {
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb;
+      __builtin_prefetch(src + 4 * rsb, 0, 3);
       vst1q_f64(dest + p * GEMM_F64_NR, vld1q_f64(src));
       vst1q_f64(dest + p * GEMM_F64_NR + 2, vld1q_f64(src + 2));
       vst1q_f64(dest + p * GEMM_F64_NR + 4, vld1q_f64(src + 4));
@@ -307,6 +316,11 @@ static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
       const double *r3 = a + (ir + 3) * rsa;
       const double *r4 = a + (ir + 4) * rsa;
       const double *r5 = a + (ir + 5) * rsa;
+      /* Prefetch next MR-panel's rows */
+      if (ir + 2 * GEMM_F64_MR <= mc) {
+        for (size_t i = 0; i < GEMM_F64_MR; i++)
+          __builtin_prefetch(a + (ir + GEMM_F64_MR + i) * rsa, 0, 3);
+      }
       size_t p = 0;
       /* Process 2 K-columns at a time: transpose 2x2 blocks */
       for (; p + 2 <= kc; p += 2) {

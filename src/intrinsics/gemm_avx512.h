@@ -43,6 +43,7 @@ static inline void gemm_pack_b_f32(const float *b, float *packed, size_t kc,
     float *dest = packed + jr * kc;
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb + jr;
+      _mm_prefetch((const char *)(src + 4 * rsb), _MM_HINT_T0);
       _mm512_storeu_ps(dest + p * GEMM_F32_NR, _mm512_loadu_ps(src));
       _mm512_storeu_ps(dest + p * GEMM_F32_NR + 16, _mm512_loadu_ps(src + 16));
     }
@@ -69,6 +70,7 @@ static inline void _gemm_pack_b_strip_f32(const float *b, float *dest,
   if (nr_pack == GEMM_F32_NR) {
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb;
+      _mm_prefetch((const char *)(src + 4 * rsb), _MM_HINT_T0);
       _mm512_storeu_ps(dest + p * GEMM_F32_NR, _mm512_loadu_ps(src));
       _mm512_storeu_ps(dest + p * GEMM_F32_NR + 16, _mm512_loadu_ps(src + 16));
     }
@@ -107,6 +109,12 @@ static inline void gemm_pack_a_f32(const float *a, float *packed, size_t mc,
       const float *r9 = a + (ir + 9) * rsa;
       const float *r10 = a + (ir + 10) * rsa;
       const float *r11 = a + (ir + 11) * rsa;
+      /* Prefetch next MR-panel's rows */
+      if (ir + 2 * GEMM_F32_MR <= mc) {
+        for (size_t i = 0; i < GEMM_F32_MR; i++)
+          _mm_prefetch((const char *)(a + (ir + GEMM_F32_MR + i) * rsa),
+                       _MM_HINT_T0);
+      }
       /* Scalar gather with precomputed row pointers — compiler auto-vectorizes
        * the sequential stores at -O3. 12 elements per K-column. */
       size_t p = 0;
@@ -168,6 +176,7 @@ static inline void gemm_pack_b_f64(const double *b, double *packed, size_t kc,
     double *dest = packed + jr * kc;
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb + jr;
+      _mm_prefetch((const char *)(src + 4 * rsb), _MM_HINT_T0);
       _mm512_storeu_pd(dest + p * GEMM_F64_NR, _mm512_loadu_pd(src));
       _mm512_storeu_pd(dest + p * GEMM_F64_NR + 8, _mm512_loadu_pd(src + 8));
     }
@@ -193,6 +202,7 @@ static inline void _gemm_pack_b_strip_f64(const double *b, double *dest,
   if (nr_pack == GEMM_F64_NR) {
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb;
+      _mm_prefetch((const char *)(src + 4 * rsb), _MM_HINT_T0);
       _mm512_storeu_pd(dest + p * GEMM_F64_NR, _mm512_loadu_pd(src));
       _mm512_storeu_pd(dest + p * GEMM_F64_NR + 8, _mm512_loadu_pd(src + 8));
     }
@@ -231,6 +241,12 @@ static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
       const double *r11 = a + (ir + 11) * rsa;
       const double *r12 = a + (ir + 12) * rsa;
       const double *r13 = a + (ir + 13) * rsa;
+      /* Prefetch next MR-panel's rows */
+      if (ir + 2 * GEMM_F64_MR <= mc) {
+        for (size_t i = 0; i < GEMM_F64_MR; i++)
+          _mm_prefetch((const char *)(a + (ir + GEMM_F64_MR + i) * rsa),
+                       _MM_HINT_T0);
+      }
       for (size_t p = 0; p < kc; p++) {
         double *d = dest + p * GEMM_F64_MR;
         d[0] = r0[p];

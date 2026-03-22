@@ -287,4 +287,276 @@ numc_gemm_ukernel_f64_6x8_avx2:
 
     .size numc_gemm_ukernel_f64_6x8_avx2, .-numc_gemm_ukernel_f64_6x8_avx2
 
+/*
+ * numc_gemm_f64_6x8_avx2_loop — IR-loop fused micro-kernel (f64)
+ *
+ * void numc_gemm_f64_6x8_avx2_loop(
+ *     const double *a,       // rdi — packed A (start of first MR panel)
+ *     const double *b,       // rsi — packed B micropanel (constant across IR)
+ *     double       *c,       // rdx — output C (row 0 of first MR tile)
+ *     uint64_t      kc,      // rcx — K dimension
+ *     int64_t       rso,     // r8  — row stride of output C (in elements)
+ *     int           first,   // r9d — beta flag: 1 = zero, 0 = accumulate
+ *     uint64_t      mr_iters // [rsp+8] — number of full MR iterations
+ * );
+ */
+    .balign 32
+    .globl numc_gemm_f64_6x8_avx2_loop
+    .type  numc_gemm_f64_6x8_avx2_loop, @function
+
+numc_gemm_f64_6x8_avx2_loop:
+    push    %rbx
+    push    %rbp
+    push    %r12
+    push    %r13
+    push    %r14
+    push    %r15
+
+    mov     56(%rsp), %r14          /* r14 = mr_iters */
+    test    %r14, %r14
+    jz      .Lf64L_done
+
+    mov     %rsi, %r15              /* r15 = original B pointer */
+
+    /* C stride = MR * rso * sizeof(double) = 6 * rso * 8 = 48 * rso */
+    lea     (%r8, %r8, 2), %rax     /* rax = 3 * rso */
+    shl     $4, %rax                /* rax = 48 * rso */
+    push    %rax                    /* [rsp] = C stride */
+    push    %rdx                    /* [rsp] = current C, [rsp+8] = stride */
+
+    .p2align 4
+.Lf64L_ir_loop:
+    mov     (%rsp), %rbx
+    lea     (%rbx, %r8, 8), %r10
+    lea     (%r10, %r8, 8), %r11
+    lea     (%r11, %r8, 8), %r12
+    lea     (%r12, %r8, 8), %r13
+    lea     (%r13, %r8, 8), %rbp
+
+    /* Bias A and B */
+    lea     128(%rdi), %rdi
+    lea     128(%r15), %rsi
+
+    prefetcht0  (%rbx)
+    prefetcht0  (%r10)
+    prefetcht0  (%r11)
+    prefetcht0  (%r12)
+    prefetcht0  (%r13)
+    prefetcht0  (%rbp)
+
+    test    %r9d, %r9d
+    jz      .Lf64L_load_c
+
+    vxorpd  %ymm0,  %ymm0,  %ymm0
+    vxorpd  %ymm1,  %ymm1,  %ymm1
+    vxorpd  %ymm2,  %ymm2,  %ymm2
+    vxorpd  %ymm3,  %ymm3,  %ymm3
+    vxorpd  %ymm4,  %ymm4,  %ymm4
+    vxorpd  %ymm5,  %ymm5,  %ymm5
+    vxorpd  %ymm6,  %ymm6,  %ymm6
+    vxorpd  %ymm7,  %ymm7,  %ymm7
+    vxorpd  %ymm8,  %ymm8,  %ymm8
+    vxorpd  %ymm9,  %ymm9,  %ymm9
+    vxorpd  %ymm10, %ymm10, %ymm10
+    vxorpd  %ymm11, %ymm11, %ymm11
+    jmp     .Lf64L_preload_b
+
+.Lf64L_load_c:
+    vmovupd (%rbx),      %ymm0
+    vmovupd 32(%rbx),    %ymm1
+    vmovupd (%r10),      %ymm2
+    vmovupd 32(%r10),    %ymm3
+    vmovupd (%r11),      %ymm4
+    vmovupd 32(%r11),    %ymm5
+    vmovupd (%r12),      %ymm6
+    vmovupd 32(%r12),    %ymm7
+    vmovupd (%r13),      %ymm8
+    vmovupd 32(%r13),    %ymm9
+    vmovupd (%rbp),      %ymm10
+    vmovupd 32(%rbp),    %ymm11
+
+.Lf64L_preload_b:
+    vmovupd -128(%rsi),  %ymm12
+    vmovupd -96(%rsi),   %ymm13
+
+    mov     %rcx, %rdx
+    shr     $2, %rdx
+    jz      .Lf64L_k_left
+
+    .p2align 5
+.Lf64L_k_loop:
+    /* K-iteration 0 */
+    prefetcht0 640(%rdi)
+
+    vbroadcastsd -128(%rdi),  %ymm14
+    vbroadcastsd -120(%rdi),  %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm0
+    vfmadd231pd  %ymm14, %ymm13, %ymm1
+    vfmadd231pd  %ymm15, %ymm12, %ymm2
+    vfmadd231pd  %ymm15, %ymm13, %ymm3
+    vbroadcastsd -112(%rdi),  %ymm14
+    vbroadcastsd -104(%rdi),  %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm4
+    vfmadd231pd  %ymm14, %ymm13, %ymm5
+    vfmadd231pd  %ymm15, %ymm12, %ymm6
+    vfmadd231pd  %ymm15, %ymm13, %ymm7
+    vbroadcastsd -96(%rdi),   %ymm14
+    vbroadcastsd -88(%rdi),   %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm8
+    vfmadd231pd  %ymm14, %ymm13, %ymm9
+    vfmadd231pd  %ymm15, %ymm12, %ymm10
+    vfmadd231pd  %ymm15, %ymm13, %ymm11
+    vmovupd      -64(%rsi),   %ymm12
+    vmovupd      -32(%rsi),   %ymm13
+
+    /* K-iteration 1 */
+    vbroadcastsd -80(%rdi),   %ymm14
+    vbroadcastsd -72(%rdi),   %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm0
+    vfmadd231pd  %ymm14, %ymm13, %ymm1
+    vfmadd231pd  %ymm15, %ymm12, %ymm2
+    vfmadd231pd  %ymm15, %ymm13, %ymm3
+    vbroadcastsd -64(%rdi),   %ymm14
+    vbroadcastsd -56(%rdi),   %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm4
+    vfmadd231pd  %ymm14, %ymm13, %ymm5
+    vfmadd231pd  %ymm15, %ymm12, %ymm6
+    vfmadd231pd  %ymm15, %ymm13, %ymm7
+    vbroadcastsd -48(%rdi),   %ymm14
+    vbroadcastsd -40(%rdi),   %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm8
+    vfmadd231pd  %ymm14, %ymm13, %ymm9
+    vfmadd231pd  %ymm15, %ymm12, %ymm10
+    vfmadd231pd  %ymm15, %ymm13, %ymm11
+    vmovupd      0(%rsi),     %ymm12
+    vmovupd      32(%rsi),    %ymm13
+
+    /* K-iteration 2 */
+    prefetcht0 1280(%rdi)
+
+    vbroadcastsd -32(%rdi),   %ymm14
+    vbroadcastsd -24(%rdi),   %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm0
+    vfmadd231pd  %ymm14, %ymm13, %ymm1
+    vfmadd231pd  %ymm15, %ymm12, %ymm2
+    vfmadd231pd  %ymm15, %ymm13, %ymm3
+    vbroadcastsd -16(%rdi),   %ymm14
+    vbroadcastsd -8(%rdi),    %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm4
+    vfmadd231pd  %ymm14, %ymm13, %ymm5
+    vfmadd231pd  %ymm15, %ymm12, %ymm6
+    vfmadd231pd  %ymm15, %ymm13, %ymm7
+    vbroadcastsd 0(%rdi),     %ymm14
+    vbroadcastsd 8(%rdi),     %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm8
+    vfmadd231pd  %ymm14, %ymm13, %ymm9
+    vfmadd231pd  %ymm15, %ymm12, %ymm10
+    vfmadd231pd  %ymm15, %ymm13, %ymm11
+    vmovupd      64(%rsi),    %ymm12
+    vmovupd      96(%rsi),    %ymm13
+
+    /* K-iteration 3 */
+    prefetcht0   512(%rsi)
+
+    vbroadcastsd 16(%rdi),    %ymm14
+    vbroadcastsd 24(%rdi),    %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm0
+    vfmadd231pd  %ymm14, %ymm13, %ymm1
+    vfmadd231pd  %ymm15, %ymm12, %ymm2
+    vfmadd231pd  %ymm15, %ymm13, %ymm3
+    vbroadcastsd 32(%rdi),    %ymm14
+    vbroadcastsd 40(%rdi),    %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm4
+    vfmadd231pd  %ymm14, %ymm13, %ymm5
+    vfmadd231pd  %ymm15, %ymm12, %ymm6
+    vfmadd231pd  %ymm15, %ymm13, %ymm7
+    vbroadcastsd 48(%rdi),    %ymm14
+    vbroadcastsd 56(%rdi),    %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm8
+    vfmadd231pd  %ymm14, %ymm13, %ymm9
+    vfmadd231pd  %ymm15, %ymm12, %ymm10
+    vfmadd231pd  %ymm15, %ymm13, %ymm11
+
+    add     $192, %rdi
+    add     $256, %rsi
+    vmovupd -128(%rsi), %ymm12
+    vmovupd -96(%rsi),  %ymm13
+
+    dec     %rdx
+    jnz     .Lf64L_k_loop
+
+.Lf64L_k_left:
+    mov     %rcx, %rdx
+    and     $3, %rdx
+    jz      .Lf64L_store
+
+    .p2align 4
+.Lf64L_k_left_loop:
+    vbroadcastsd -128(%rdi),  %ymm14
+    vbroadcastsd -120(%rdi),  %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm0
+    vfmadd231pd  %ymm14, %ymm13, %ymm1
+    vfmadd231pd  %ymm15, %ymm12, %ymm2
+    vfmadd231pd  %ymm15, %ymm13, %ymm3
+    vbroadcastsd -112(%rdi),  %ymm14
+    vbroadcastsd -104(%rdi),  %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm4
+    vfmadd231pd  %ymm14, %ymm13, %ymm5
+    vfmadd231pd  %ymm15, %ymm12, %ymm6
+    vfmadd231pd  %ymm15, %ymm13, %ymm7
+    vbroadcastsd -96(%rdi),   %ymm14
+    vbroadcastsd -88(%rdi),   %ymm15
+    vfmadd231pd  %ymm14, %ymm12, %ymm8
+    vfmadd231pd  %ymm14, %ymm13, %ymm9
+    vfmadd231pd  %ymm15, %ymm12, %ymm10
+    vfmadd231pd  %ymm15, %ymm13, %ymm11
+    add     $48, %rdi
+    add     $64, %rsi
+    vmovupd -128(%rsi), %ymm12
+    vmovupd -96(%rsi),  %ymm13
+    dec     %rdx
+    jnz     .Lf64L_k_left_loop
+
+.Lf64L_store:
+    prefetcht0  (%rbx)
+    prefetcht0  (%r10)
+    prefetcht0  (%r11)
+    prefetcht0  (%r12)
+    prefetcht0  (%r13)
+    prefetcht0  (%rbp)
+
+    vmovupd %ymm0,  (%rbx)
+    vmovupd %ymm1,  32(%rbx)
+    vmovupd %ymm2,  (%r10)
+    vmovupd %ymm3,  32(%r10)
+    vmovupd %ymm4,  (%r11)
+    vmovupd %ymm5,  32(%r11)
+    vmovupd %ymm6,  (%r12)
+    vmovupd %ymm7,  32(%r12)
+    vmovupd %ymm8,  (%r13)
+    vmovupd %ymm9,  32(%r13)
+    vmovupd %ymm10, (%rbp)
+    vmovupd %ymm11, 32(%rbp)
+
+    /* Advance C, undo A bias for next iteration */
+    sub     $128, %rdi              /* undo bias (K-loop left rdi biased) */
+    mov     8(%rsp), %rax
+    add     %rax, (%rsp)
+
+    dec     %r14
+    jnz     .Lf64L_ir_loop
+
+    add     $16, %rsp
+.Lf64L_done:
+    vzeroupper
+    pop     %r15
+    pop     %r14
+    pop     %r13
+    pop     %r12
+    pop     %rbp
+    pop     %rbx
+    ret
+
+    .size numc_gemm_f64_6x8_avx2_loop, .-numc_gemm_f64_6x8_avx2_loop
+
 #endif /* __x86_64__ || _M_X64 */
