@@ -705,6 +705,103 @@ static int test_matmul_packed_67_i16(void) {
   return 0;
 }
 
+/* ── Edge cases: MR/NR remainder, vector-matrix, fused IR-loop ── */
+
+/* Generic cross-validation helper: GEMM vs naive for arbitrary M×K×N.
+ * Uses small integer fills so integer dtypes match exactly and float
+ * dtypes match within tolerance. */
+#define DEFINE_EDGE_TEST(NAME, M, K, NN, DTYPE, CTYPE, TOL)                \
+  static int NAME(void) {                                                  \
+    NumcCtx *ctx = numc_ctx_create();                                      \
+    size_t sha[] = {M, K}, shb[] = {K, NN}, shc[] = {M, NN};               \
+    NumcArray *a = numc_array_zeros(ctx, sha, 2, DTYPE);                   \
+    NumcArray *b = numc_array_zeros(ctx, shb, 2, DTYPE);                   \
+    NumcArray *c1 = numc_array_zeros(ctx, shc, 2, DTYPE);                  \
+    NumcArray *c2 = numc_array_zeros(ctx, shc, 2, DTYPE);                  \
+    CTYPE *da = (CTYPE *)numc_array_data(a);                               \
+    CTYPE *db = (CTYPE *)numc_array_data(b);                               \
+    for (size_t i = 0; i < (size_t)(M) * (K); i++)                         \
+      da[i] = (CTYPE)((i % 7) + 1);                                        \
+    for (size_t i = 0; i < (size_t)(K) * (NN); i++)                        \
+      db[i] = (CTYPE)((i % 5) + 1);                                        \
+    int e1 = numc_matmul(a, b, c1);                                        \
+    int e2 = numc_matmul_naive(a, b, c2);                                  \
+    ASSERT_MSG_CTX(e1 == 0 && e2 == 0, #NAME " both should succeed", ctx); \
+    CTYPE *r1 = (CTYPE *)numc_array_data(c1);                              \
+    CTYPE *r2 = (CTYPE *)numc_array_data(c2);                              \
+    for (size_t i = 0; i < (size_t)(M) * (NN); i++) {                      \
+      double d = (double)r1[i] - (double)r2[i];                            \
+      if (d < 0)                                                           \
+        d = -d;                                                            \
+      ASSERT_MSG_CTX(d <= TOL, #NAME " GEMM vs naive mismatch", ctx);      \
+    }                                                                      \
+    numc_ctx_free(ctx);                                                    \
+    return 0;                                                              \
+  }
+
+/* 1×N and N×1 (vector-matrix multiply) */
+DEFINE_EDGE_TEST(test_matmul_f32_1xN, 1, 128, 64, NUMC_DTYPE_FLOAT32, float,
+                 1e-3)
+DEFINE_EDGE_TEST(test_matmul_f32_Nx1, 64, 128, 1, NUMC_DTYPE_FLOAT32, float,
+                 1e-3)
+DEFINE_EDGE_TEST(test_matmul_f64_1xN, 1, 64, 32, NUMC_DTYPE_FLOAT64, double,
+                 1e-10)
+DEFINE_EDGE_TEST(test_matmul_f64_Nx1, 32, 64, 1, NUMC_DTYPE_FLOAT64, double,
+                 1e-10)
+
+/* MR remainder: M not divisible by MR=6 */
+DEFINE_EDGE_TEST(test_matmul_f32_mr_rem, 100, 128, 64, NUMC_DTYPE_FLOAT32,
+                 float, 1e-3)
+DEFINE_EDGE_TEST(test_matmul_f64_mr_rem, 100, 64, 32, NUMC_DTYPE_FLOAT64,
+                 double, 1e-10)
+DEFINE_EDGE_TEST(test_matmul_i32_mr_rem, 100, 128, 64, NUMC_DTYPE_INT32,
+                 int32_t, 0)
+
+/* NR remainder: N not divisible by NR (16 for f32, 8 for f64) */
+DEFINE_EDGE_TEST(test_matmul_f32_nr_rem, 64, 128, 100, NUMC_DTYPE_FLOAT32,
+                 float, 1e-3)
+DEFINE_EDGE_TEST(test_matmul_f64_nr_rem, 32, 64, 100, NUMC_DTYPE_FLOAT64,
+                 double, 1e-10)
+
+/* Both MR and NR remainder */
+DEFINE_EDGE_TEST(test_matmul_f32_mr_nr_rem, 100, 128, 100, NUMC_DTYPE_FLOAT32,
+                 float, 1e-3)
+DEFINE_EDGE_TEST(test_matmul_f64_mr_nr_rem, 50, 64, 50, NUMC_DTYPE_FLOAT64,
+                 double, 1e-10)
+
+/* Exact MC boundary: exercises fused IR-loop with zero remainder.
+ * f32: MC=144, MR=6 → 144/6=24 full tiles. */
+DEFINE_EDGE_TEST(test_matmul_f32_exact_mc, 144, 256, 64, NUMC_DTYPE_FLOAT32,
+                 float, 1e-2)
+
+/* MC+remainder: 148 rows → 24 full MR tiles + 4-row remainder */
+DEFINE_EDGE_TEST(test_matmul_f32_mc_rem, 148, 256, 64, NUMC_DTYPE_FLOAT32,
+                 float, 1e-2)
+
+/* KC boundary: K exactly equals KC (256 for f32) → single KC iteration */
+DEFINE_EDGE_TEST(test_matmul_f32_exact_kc, 64, 256, 64, NUMC_DTYPE_FLOAT32,
+                 float, 1e-2)
+
+/* KC+remainder: K > KC → multiple KC iterations with remainder */
+DEFINE_EDGE_TEST(test_matmul_f32_kc_rem, 64, 300, 64, NUMC_DTYPE_FLOAT32, float,
+                 1e-2)
+
+/* Small edge: 7×7 (just above MR, below GEMMSUP threshold for some types) */
+DEFINE_EDGE_TEST(test_matmul_f32_7x7, 7, 7, 7, NUMC_DTYPE_FLOAT32, float, 1e-3)
+DEFINE_EDGE_TEST(test_matmul_i32_7x7, 7, 7, 7, NUMC_DTYPE_INT32, int32_t, 0)
+
+/* Prime dimensions: 97×101×103 (no nice divisibility) */
+DEFINE_EDGE_TEST(test_matmul_f32_prime, 97, 101, 103, NUMC_DTYPE_FLOAT32, float,
+                 1e-2)
+DEFINE_EDGE_TEST(test_matmul_f64_prime, 97, 101, 103, NUMC_DTYPE_FLOAT64,
+                 double, 1e-8)
+DEFINE_EDGE_TEST(test_matmul_i32_prime, 97, 101, 103, NUMC_DTYPE_INT32, int32_t,
+                 0)
+DEFINE_EDGE_TEST(test_matmul_i16_prime, 37, 41, 43, NUMC_DTYPE_INT16, int16_t,
+                 0)
+
+#undef DEFINE_EDGE_TEST
+
 /* ── main ───────────────────────────────────────────────────────── */
 
 int main(void) {
@@ -763,6 +860,39 @@ int main(void) {
   printf("\nPacked GEMM coverage (larger sizes):\n");
   RUN_TEST(test_matmul_packed_128_i32);
   RUN_TEST(test_matmul_packed_67_i16);
+
+  printf("\nEdge cases (vector-matrix):\n");
+  RUN_TEST(test_matmul_f32_1xN);
+  RUN_TEST(test_matmul_f32_Nx1);
+  RUN_TEST(test_matmul_f64_1xN);
+  RUN_TEST(test_matmul_f64_Nx1);
+
+  printf("\nEdge cases (MR remainder):\n");
+  RUN_TEST(test_matmul_f32_mr_rem);
+  RUN_TEST(test_matmul_f64_mr_rem);
+  RUN_TEST(test_matmul_i32_mr_rem);
+
+  printf("\nEdge cases (NR remainder):\n");
+  RUN_TEST(test_matmul_f32_nr_rem);
+  RUN_TEST(test_matmul_f64_nr_rem);
+
+  printf("\nEdge cases (MR + NR remainder):\n");
+  RUN_TEST(test_matmul_f32_mr_nr_rem);
+  RUN_TEST(test_matmul_f64_mr_nr_rem);
+
+  printf("\nEdge cases (MC/KC boundaries):\n");
+  RUN_TEST(test_matmul_f32_exact_mc);
+  RUN_TEST(test_matmul_f32_mc_rem);
+  RUN_TEST(test_matmul_f32_exact_kc);
+  RUN_TEST(test_matmul_f32_kc_rem);
+
+  printf("\nEdge cases (small and prime dims):\n");
+  RUN_TEST(test_matmul_f32_7x7);
+  RUN_TEST(test_matmul_i32_7x7);
+  RUN_TEST(test_matmul_f32_prime);
+  RUN_TEST(test_matmul_f64_prime);
+  RUN_TEST(test_matmul_i32_prime);
+  RUN_TEST(test_matmul_i16_prime);
 
   printf("\n=== Results: %d passed, %d failed ===\n", passes, fails);
   return fails > 0 ? 1 : 0;
