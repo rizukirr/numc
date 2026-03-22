@@ -811,71 +811,83 @@ static const uint32_t _cmp_lut4_avx2[16] = {
 };
 
 /* i64 */
-#define FAST_CMP_64_AVX2(SUFFIX, CT, CMPEQ, CMPGT, LOAD, MASK, TAIL_EQ,      \
-                         TAIL_GT, TAIL_GE)                                   \
-  static inline void _fast_eq_##SUFFIX##_avx2(const void *restrict ap,       \
-                                              const void *restrict bp,       \
-                                              void *restrict op, size_t n) { \
-    const CT *a = (const CT *)ap;                                            \
-    const CT *b = (const CT *)bp;                                            \
-    uint8_t *out = (uint8_t *)op;                                            \
-    size_t i = 0;                                                            \
-    for (; i + 32 <= n; i += 32) {                                           \
-      for (int k = 0; k < 8; k++) {                                          \
-        int m = MASK(CMPEQ(LOAD(a + i + k * 4), LOAD(b + i + k * 4)));       \
-        *(uint32_t *)(out + i + k * 4) = _cmp_lut4_avx2[m & 0xF];            \
-      }                                                                      \
-    }                                                                        \
-    for (; i + 4 <= n; i += 4) {                                             \
-      int m = MASK(CMPEQ(LOAD(a + i), LOAD(b + i)));                         \
-      *(uint32_t *)(out + i) = _cmp_lut4_avx2[m & 0xF];                      \
-    }                                                                        \
-    for (; i < n; i++)                                                       \
-      out[i] = (uint8_t)TAIL_EQ;                                             \
-  }                                                                          \
-  static inline void _fast_gt_##SUFFIX##_avx2(const void *restrict ap,       \
-                                              const void *restrict bp,       \
-                                              void *restrict op, size_t n) { \
-    const CT *a = (const CT *)ap;                                            \
-    const CT *b = (const CT *)bp;                                            \
-    uint8_t *out = (uint8_t *)op;                                            \
-    size_t i = 0;                                                            \
-    for (; i + 32 <= n; i += 32) {                                           \
-      for (int k = 0; k < 8; k++) {                                          \
-        int m = MASK(CMPGT(LOAD(a + i + k * 4), LOAD(b + i + k * 4)));       \
-        *(uint32_t *)(out + i + k * 4) = _cmp_lut4_avx2[m & 0xF];            \
-      }                                                                      \
-    }                                                                        \
-    for (; i + 4 <= n; i += 4) {                                             \
-      int m = MASK(CMPGT(LOAD(a + i), LOAD(b + i)));                         \
-      *(uint32_t *)(out + i) = _cmp_lut4_avx2[m & 0xF];                      \
-    }                                                                        \
-    for (; i < n; i++)                                                       \
-      out[i] = (uint8_t)TAIL_GT;                                             \
-  }                                                                          \
-  static inline void _fast_lt_##SUFFIX##_avx2(const void *restrict ap,       \
-                                              const void *restrict bp,       \
-                                              void *restrict op, size_t n) { \
-    _fast_gt_##SUFFIX##_avx2(bp, ap, op, n);                                 \
-  }                                                                          \
-  static inline void _fast_ge_##SUFFIX##_avx2(const void *restrict ap,       \
-                                              const void *restrict bp,       \
-                                              void *restrict op, size_t n) { \
-    const CT *a = (const CT *)ap;                                            \
-    const CT *b = (const CT *)bp;                                            \
-    uint8_t *out = (uint8_t *)op;                                            \
-    size_t i = 0;                                                            \
-    for (; i + 4 <= n; i += 4) {                                             \
-      int m = MASK(CMPGT(LOAD(b + i), LOAD(a + i)));                         \
-      *(uint32_t *)(out + i) = _cmp_lut4_avx2[m & 0xF] ^ 0x01010101;         \
-    }                                                                        \
-    for (; i < n; i++)                                                       \
-      out[i] = (uint8_t)TAIL_GE;                                             \
-  }                                                                          \
-  static inline void _fast_le_##SUFFIX##_avx2(const void *restrict ap,       \
-                                              const void *restrict bp,       \
-                                              void *restrict op, size_t n) { \
-    _fast_ge_##SUFFIX##_avx2(bp, ap, op, n);                                 \
+#define FAST_CMP_64_AVX2(SUFFIX, CT, CMPEQ, CMPGT, LOAD, MASK, TAIL_EQ,        \
+                         TAIL_GT, TAIL_GE)                                     \
+  static inline void _fast_eq_##SUFFIX##_avx2(const void *restrict ap,         \
+                                              const void *restrict bp,         \
+                                              void *restrict op, size_t n) {   \
+    const CT *a = (const CT *)ap;                                              \
+    const CT *b = (const CT *)bp;                                              \
+    uint8_t *out = (uint8_t *)op;                                              \
+    size_t i = 0;                                                              \
+    for (; i + 128 <= n; i += 128) {                                           \
+      _mm_prefetch((const char *)(a + i + 128), _MM_HINT_T0);                  \
+      _mm_prefetch((const char *)(b + i + 128), _MM_HINT_T0);                  \
+      for (int k = 0; k < 32; k++) {                                           \
+        int m = MASK(CMPEQ(LOAD(a + i + k * 4), LOAD(b + i + k * 4)));         \
+        *(uint32_t *)(out + i + k * 4) = _cmp_lut4_avx2[m & 0xF];              \
+      }                                                                        \
+    }                                                                          \
+    for (; i + 4 <= n; i += 4) {                                               \
+      int m = MASK(CMPEQ(LOAD(a + i), LOAD(b + i)));                           \
+      *(uint32_t *)(out + i) = _cmp_lut4_avx2[m & 0xF];                        \
+    }                                                                          \
+    for (; i < n; i++)                                                         \
+      out[i] = (uint8_t)TAIL_EQ;                                               \
+  }                                                                            \
+  static inline void _fast_gt_##SUFFIX##_avx2(const void *restrict ap,         \
+                                              const void *restrict bp,         \
+                                              void *restrict op, size_t n) {   \
+    const CT *a = (const CT *)ap;                                              \
+    const CT *b = (const CT *)bp;                                              \
+    uint8_t *out = (uint8_t *)op;                                              \
+    size_t i = 0;                                                              \
+    for (; i + 128 <= n; i += 128) {                                           \
+      _mm_prefetch((const char *)(a + i + 128), _MM_HINT_T0);                  \
+      _mm_prefetch((const char *)(b + i + 128), _MM_HINT_T0);                  \
+      for (int k = 0; k < 32; k++) {                                           \
+        int m = MASK(CMPGT(LOAD(a + i + k * 4), LOAD(b + i + k * 4)));         \
+        *(uint32_t *)(out + i + k * 4) = _cmp_lut4_avx2[m & 0xF];              \
+      }                                                                        \
+    }                                                                          \
+    for (; i + 4 <= n; i += 4) {                                               \
+      int m = MASK(CMPGT(LOAD(a + i), LOAD(b + i)));                           \
+      *(uint32_t *)(out + i) = _cmp_lut4_avx2[m & 0xF];                        \
+    }                                                                          \
+    for (; i < n; i++)                                                         \
+      out[i] = (uint8_t)TAIL_GT;                                               \
+  }                                                                            \
+  static inline void _fast_lt_##SUFFIX##_avx2(const void *restrict ap,         \
+                                              const void *restrict bp,         \
+                                              void *restrict op, size_t n) {   \
+    _fast_gt_##SUFFIX##_avx2(bp, ap, op, n);                                   \
+  }                                                                            \
+  static inline void _fast_ge_##SUFFIX##_avx2(const void *restrict ap,         \
+                                              const void *restrict bp,         \
+                                              void *restrict op, size_t n) {   \
+    const CT *a = (const CT *)ap;                                              \
+    const CT *b = (const CT *)bp;                                              \
+    uint8_t *out = (uint8_t *)op;                                              \
+    size_t i = 0;                                                              \
+    for (; i + 128 <= n; i += 128) {                                           \
+      _mm_prefetch((const char *)(a + i + 128), _MM_HINT_T0);                  \
+      _mm_prefetch((const char *)(b + i + 128), _MM_HINT_T0);                  \
+      for (int k = 0; k < 32; k++) {                                           \
+        int m = MASK(CMPGT(LOAD(b + i + k * 4), LOAD(a + i + k * 4)));         \
+        *(uint32_t *)(out + i + k * 4) = _cmp_lut4_avx2[m & 0xF] ^ 0x01010101; \
+      }                                                                        \
+    }                                                                          \
+    for (; i + 4 <= n; i += 4) {                                               \
+      int m = MASK(CMPGT(LOAD(b + i), LOAD(a + i)));                           \
+      *(uint32_t *)(out + i) = _cmp_lut4_avx2[m & 0xF] ^ 0x01010101;           \
+    }                                                                          \
+    for (; i < n; i++)                                                         \
+      out[i] = (uint8_t)TAIL_GE;                                               \
+  }                                                                            \
+  static inline void _fast_le_##SUFFIX##_avx2(const void *restrict ap,         \
+                                              const void *restrict bp,         \
+                                              void *restrict op, size_t n) {   \
+    _fast_ge_##SUFFIX##_avx2(bp, ap, op, n);                                   \
   }
 
 static inline __m256i _loadi64(const int64_t *p) {
@@ -896,6 +908,15 @@ static inline void _fast_eq_u64_avx2(const void *restrict ap,
   const uint64_t *b = (const uint64_t *)bp;
   uint8_t *out = (uint8_t *)op;
   size_t i = 0;
+  for (; i + 128 <= n; i += 128) {
+    _mm_prefetch((const char *)(a + i + 128), _MM_HINT_T0);
+    _mm_prefetch((const char *)(b + i + 128), _MM_HINT_T0);
+    for (int k = 0; k < 32; k++) {
+      int m = _mm256_movemask_pd(_mm256_castsi256_pd(_mm256_cmpeq_epi64(
+          _loadu64(a + i + k * 4), _loadu64(b + i + k * 4))));
+      *(uint32_t *)(out + i + k * 4) = _cmp_lut4_avx2[m & 0xF];
+    }
+  }
   for (; i + 4 <= n; i += 4) {
     int m = _mm256_movemask_pd(_mm256_castsi256_pd(
         _mm256_cmpeq_epi64(_loadu64(a + i), _loadu64(b + i))));
@@ -913,6 +934,16 @@ static inline void _fast_gt_u64_avx2(const void *restrict ap,
   uint8_t *out = (uint8_t *)op;
   const __m256i bias = _mm256_set1_epi64x((long long)0x8000000000000000LL);
   size_t i = 0;
+  for (; i + 128 <= n; i += 128) {
+    _mm_prefetch((const char *)(a + i + 128), _MM_HINT_T0);
+    _mm_prefetch((const char *)(b + i + 128), _MM_HINT_T0);
+    for (int k = 0; k < 32; k++) {
+      int m = _mm256_movemask_pd(_mm256_castsi256_pd(
+          _mm256_cmpgt_epi64(_mm256_xor_si256(_loadu64(a + i + k * 4), bias),
+                             _mm256_xor_si256(_loadu64(b + i + k * 4), bias))));
+      *(uint32_t *)(out + i + k * 4) = _cmp_lut4_avx2[m & 0xF];
+    }
+  }
   for (; i + 4 <= n; i += 4) {
     int m = _mm256_movemask_pd(_mm256_castsi256_pd(
         _mm256_cmpgt_epi64(_mm256_xor_si256(_loadu64(a + i), bias),
@@ -937,6 +968,16 @@ static inline void _fast_ge_u64_avx2(const void *restrict ap,
   uint8_t *out = (uint8_t *)op;
   const __m256i bias = _mm256_set1_epi64x((long long)0x8000000000000000LL);
   size_t i = 0;
+  for (; i + 128 <= n; i += 128) {
+    _mm_prefetch((const char *)(a + i + 128), _MM_HINT_T0);
+    _mm_prefetch((const char *)(b + i + 128), _MM_HINT_T0);
+    for (int k = 0; k < 32; k++) {
+      int m = _mm256_movemask_pd(_mm256_castsi256_pd(
+          _mm256_cmpgt_epi64(_mm256_xor_si256(_loadu64(b + i + k * 4), bias),
+                             _mm256_xor_si256(_loadu64(a + i + k * 4), bias))));
+      *(uint32_t *)(out + i + k * 4) = _cmp_lut4_avx2[m & 0xF] ^ 0x01010101;
+    }
+  }
   for (; i + 4 <= n; i += 4) {
     int m = _mm256_movemask_pd(_mm256_castsi256_pd(
         _mm256_cmpgt_epi64(_mm256_xor_si256(_loadu64(b + i), bias),
@@ -962,8 +1003,10 @@ static inline void _fast_le_u64_avx2(const void *restrict ap,
     const double *b = (const double *)bp;                                      \
     uint8_t *out = (uint8_t *)op;                                              \
     size_t i = 0;                                                              \
-    for (; i + 32 <= n; i += 32) {                                             \
-      for (int k = 0; k < 8; k++) {                                            \
+    for (; i + 128 <= n; i += 128) {                                           \
+      _mm_prefetch((const char *)(a + i + 128), _MM_HINT_T0);                  \
+      _mm_prefetch((const char *)(b + i + 128), _MM_HINT_T0);                  \
+      for (int k = 0; k < 32; k++) {                                           \
         int m = _mm256_movemask_pd(                                            \
             _mm256_cmp_pd(_mm256_loadu_pd(a + i + k * 4),                      \
                           _mm256_loadu_pd(b + i + k * 4), PRED));              \
