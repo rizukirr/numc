@@ -20,6 +20,7 @@ build*
 
 # External reference repos (not dependencies, kept for optimization reference)
 external/
+.claude/
 
 .worktrees/
 *.core
