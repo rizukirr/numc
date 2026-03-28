@@ -489,7 +489,7 @@ void numc_ctx_free(NumcCtx *ctx) {
     return;
 
   arena_free(ctx->arena);
-  free(ctx);
+  numc_free(ctx);
 }
 
 NumcCheckpoint numc_ctx_checkpoint(NumcCtx *ctx) {

@@ -33,13 +33,16 @@
  */
 
 #if defined(__x86_64__) || defined(_M_X64)
+#include "asm_compat.inc"
 
     .text
     .balign 32
     .globl numc_gemm_ukernel_i16_6x32_avx2
-    .type  numc_gemm_ukernel_i16_6x32_avx2, @function
+    DECLARE_FUNC(numc_gemm_ukernel_i16_6x32_avx2)
 
 numc_gemm_ukernel_i16_6x32_avx2:
+    WIN64_SAVE
+    WIN64_REMAP_ARGS6
     /* --- prologue: save callee-saved registers --- */
     push    %rbx
     push    %rbp
@@ -374,8 +377,9 @@ numc_gemm_ukernel_i16_6x32_avx2:
     pop     %r12
     pop     %rbp
     pop     %rbx
+    WIN64_RESTORE
     ret
 
-    .size numc_gemm_ukernel_i16_6x32_avx2, .-numc_gemm_ukernel_i16_6x32_avx2
+    END_FUNC(numc_gemm_ukernel_i16_6x32_avx2)
 
 #endif /* __x86_64__ || _M_X64 */

@@ -49,11 +49,23 @@
  * for 200 ms between calls. Must run before the first OpenMP
  * parallel region; overwrite=0 respects user-set values. */
 #ifdef HAVE_OMP
+#if defined(_WIN32) || defined(_WIN64)
+#include <stdlib.h>
+#pragma section(".CRT$XCU", read)
+static void _numc_omp_init(void) {
+  if (!getenv("KMP_BLOCKTIME") && !getenv("OMP_WAIT_POLICY")) {
+    _putenv_s("KMP_BLOCKTIME", "200");
+  }
+}
+__declspec(allocate(".CRT$XCU")) static void (*_numc_omp_init_p)(void) =
+    _numc_omp_init;
+#else
 __attribute__((constructor)) static void _numc_omp_init(void) {
   if (!getenv("KMP_BLOCKTIME") && !getenv("OMP_WAIT_POLICY")) {
     setenv("KMP_BLOCKTIME", "200", 0);
   }
 }
+#endif
 #endif
 
 void _numc_runtime_init(void) {

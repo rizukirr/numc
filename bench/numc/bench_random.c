@@ -9,7 +9,11 @@
 #include <numc/numc.h>
 #include <stdio.h>
 #include <string.h>
+#if defined(_WIN32) || defined(_WIN64)
+#include <windows.h>
+#else
 #include <time.h>
+#endif
 
 /* ── Config ────────────────────────────────────────────────────────── */
 
@@ -19,9 +23,16 @@
 /* ── Timer ─────────────────────────────────────────────────────────── */
 
 static double time_us(void) {
+#if defined(_WIN32) || defined(_WIN64)
+  LARGE_INTEGER freq, cnt;
+  QueryPerformanceFrequency(&freq);
+  QueryPerformanceCounter(&cnt);
+  return (double)cnt.QuadPart / (double)freq.QuadPart * 1e6;
+#else
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
   return ts.tv_sec * 1e6 + ts.tv_nsec / 1e3;
+#endif
 }
 
 /* ── Helpers ───────────────────────────────────────────────────────── */

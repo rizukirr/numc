@@ -63,8 +63,9 @@
 #define GEMM_I32_NC 4080
 #define GEMM_I16_NC 4096
 
-/* ─── Dedicated .S assembly micro-kernels (x86_64 only, SysV ABI) ─── */
-#if (defined(__x86_64__) || defined(_M_X64)) && !defined(_MSC_VER)
+/* ─── Dedicated .S assembly micro-kernels (x86_64, SysV + Win64 ABI) ─── */
+#if (defined(__x86_64__) || defined(_M_X64)) && \
+    (!defined(_MSC_VER) || defined(__clang__))
 extern void numc_gemm_ukernel_f32_6x16_avx2(const float *a, const float *b,
                                             float *c, uint64_t kc, int64_t rso,
                                             int first);

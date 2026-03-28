@@ -57,7 +57,9 @@ numc_test(test_dot_nd           reduction/test_dot_nd.c)
 # ── matmul ────────────────────────────────────────────────────────────────
 numc_test(test_matmul_naive     matmul/test_matmul_naive.c)
 numc_test(test_matmul           matmul/test_matmul.c)
-target_link_libraries(test_matmul PRIVATE m)
+if(NOT WIN32)
+    target_link_libraries(test_matmul PRIVATE m)
+endif()
 
 # ── random ────────────────────────────────────────────────────────────────
 numc_test(test_rand             random/test_rand.c)

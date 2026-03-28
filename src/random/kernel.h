@@ -50,7 +50,7 @@ static inline uint64_t _splitmix64(uint64_t *x) {
   return z ^ (z >> 31);
 }
 
-static inline uint64_t _rotl64(const uint64_t x, int k) {
+static inline uint64_t numc_rotl64(const uint64_t x, int k) {
   return (x << k) | (x >> (64 - k));
 }
 
@@ -83,7 +83,7 @@ static inline void _xoshiro_jump(uint64_t s[4]) {
       s[1] ^= s[2];
       s[0] ^= s[3];
       s[2] ^= t;
-      s[3] = _rotl64(s[3], 45);
+      s[3] = numc_rotl64(s[3], 45);
     }
   }
   s[0] = s0;
@@ -133,10 +133,10 @@ static inline void _prng_ensure_seeded(void) {
 
 #define XOSHIRO_STEP_4(s0, s1, s2, s3, out)   \
   do {                                        \
-    uint64_t _r0 = _rotl64(s1[0] * 5, 7) * 9; \
-    uint64_t _r1 = _rotl64(s1[1] * 5, 7) * 9; \
-    uint64_t _r2 = _rotl64(s1[2] * 5, 7) * 9; \
-    uint64_t _r3 = _rotl64(s1[3] * 5, 7) * 9; \
+    uint64_t _r0 = numc_rotl64(s1[0] * 5, 7) * 9; \
+    uint64_t _r1 = numc_rotl64(s1[1] * 5, 7) * 9; \
+    uint64_t _r2 = numc_rotl64(s1[2] * 5, 7) * 9; \
+    uint64_t _r3 = numc_rotl64(s1[3] * 5, 7) * 9; \
     uint64_t _t0 = s1[0] << 17;               \
     uint64_t _t1 = s1[1] << 17;               \
     uint64_t _t2 = s1[2] << 17;               \
@@ -161,10 +161,10 @@ static inline void _prng_ensure_seeded(void) {
     s2[1] ^= _t1;                             \
     s2[2] ^= _t2;                             \
     s2[3] ^= _t3;                             \
-    s3[0] = _rotl64(s3[0], 45);               \
-    s3[1] = _rotl64(s3[1], 45);               \
-    s3[2] = _rotl64(s3[2], 45);               \
-    s3[3] = _rotl64(s3[3], 45);               \
+    s3[0] = numc_rotl64(s3[0], 45);               \
+    s3[1] = numc_rotl64(s3[1], 45);               \
+    s3[2] = numc_rotl64(s3[2], 45);               \
+    s3[3] = numc_rotl64(s3[3], 45);               \
     (out)[0] = _r0;                           \
     (out)[1] = _r1;                           \
     (out)[2] = _r2;                           \
@@ -180,14 +180,14 @@ static inline void _prng_ensure_seeded(void) {
 static inline uint64_t _prng_next_scalar(void) {
   _prng_ensure_seeded();
   /* use lane 0 only */
-  const uint64_t result = _rotl64(prng_s[1][0] * 5, 7) * 9;
+  const uint64_t result = numc_rotl64(prng_s[1][0] * 5, 7) * 9;
   const uint64_t t = prng_s[1][0] << 17;
   prng_s[2][0] ^= prng_s[0][0];
   prng_s[3][0] ^= prng_s[1][0];
   prng_s[1][0] ^= prng_s[2][0];
   prng_s[0][0] ^= prng_s[3][0];
   prng_s[2][0] ^= t;
-  prng_s[3][0] = _rotl64(prng_s[3][0], 45);
+  prng_s[3][0] = numc_rotl64(prng_s[3][0], 45);
   return result;
 }
 
@@ -290,7 +290,7 @@ static inline void prng_skip(uint64_t s[4], size_t skip) {
     s[1] ^= s[2];
     s[0] ^= s[3];
     s[2] ^= t;
-    s[3] = _rotl64(s[3], 45);
+    s[3] = numc_rotl64(s[3], 45);
   }
 }
 
@@ -389,14 +389,14 @@ static inline int _prng_get_tid(void) {
         }                                                                \
         uint64_t _ts[4] = {s0[0], s1[0], s2[0], s3[0]};                  \
         for (; _i < end; _i++) {                                         \
-          const uint64_t _res = _rotl64(_ts[1] * 5, 7) * 9;              \
+          const uint64_t _res = numc_rotl64(_ts[1] * 5, 7) * 9;              \
           const uint64_t _t = _ts[1] << 17;                              \
           _ts[2] ^= _ts[0];                                              \
           _ts[3] ^= _ts[1];                                              \
           _ts[1] ^= _ts[2];                                              \
           _ts[0] ^= _ts[3];                                              \
           _ts[2] ^= _t;                                                  \
-          _ts[3] = _rotl64(_ts[3], 45);                                  \
+          _ts[3] = numc_rotl64(_ts[3], 45);                                  \
           po[_i] = (CONVERT_EXPR(_res));                                 \
         }                                                                \
       } /* end omp parallel */                                           \

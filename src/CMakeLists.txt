@@ -36,6 +36,13 @@ endif()
 
 add_library(numc ${NUMC_CORE_SOURCES})
 
+# When building as a static library on Windows, define NUMC_STATIC_DEFINE
+# so that NUMC_API expands to nothing instead of __declspec(dllimport).
+get_target_property(_numc_type numc TYPE)
+if(_numc_type STREQUAL "STATIC_LIBRARY" AND WIN32)
+    target_compile_definitions(numc PUBLIC NUMC_STATIC_DEFINE)
+endif()
+
 add_library(numc::numc ALIAS numc)
 
 target_include_directories(numc
@@ -94,5 +101,7 @@ if(OpenMP_C_FOUND)
     target_compile_definitions(numc PRIVATE HAVE_OMP=1)
 endif()
 
-# Math library
-target_link_libraries(numc PUBLIC m)
+# Math library (not needed on Windows — math functions are in msvcrt)
+if(NOT WIN32)
+    target_link_libraries(numc PUBLIC m)
+endif()

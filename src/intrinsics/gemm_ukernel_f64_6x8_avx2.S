@@ -28,13 +28,16 @@
  */
 
 #if defined(__x86_64__) || defined(_M_X64)
+#include "asm_compat.inc"
 
     .text
     .balign 32
     .globl numc_gemm_ukernel_f64_6x8_avx2
-    .type  numc_gemm_ukernel_f64_6x8_avx2, @function
+    DECLARE_FUNC(numc_gemm_ukernel_f64_6x8_avx2)
 
 numc_gemm_ukernel_f64_6x8_avx2:
+    WIN64_SAVE
+    WIN64_REMAP_ARGS6
     /* ─── prologue: save callee-saved registers ─── */
     push    %rbx
     push    %rbp
@@ -283,9 +286,10 @@ numc_gemm_ukernel_f64_6x8_avx2:
     pop     %r12
     pop     %rbp
     pop     %rbx
+    WIN64_RESTORE
     ret
 
-    .size numc_gemm_ukernel_f64_6x8_avx2, .-numc_gemm_ukernel_f64_6x8_avx2
+    END_FUNC(numc_gemm_ukernel_f64_6x8_avx2)
 
 /*
  * numc_gemm_f64_6x8_avx2_loop — IR-loop fused micro-kernel (f64)
@@ -302,9 +306,11 @@ numc_gemm_ukernel_f64_6x8_avx2:
  */
     .balign 32
     .globl numc_gemm_f64_6x8_avx2_loop
-    .type  numc_gemm_f64_6x8_avx2_loop, @function
+    DECLARE_FUNC(numc_gemm_f64_6x8_avx2_loop)
 
 numc_gemm_f64_6x8_avx2_loop:
+    WIN64_SAVE
+    WIN64_REMAP_ARGS6
     push    %rbx
     push    %rbp
     push    %r12
@@ -312,7 +318,7 @@ numc_gemm_f64_6x8_avx2_loop:
     push    %r14
     push    %r15
 
-    mov     56(%rsp), %r14          /* r14 = mr_iters */
+    mov     LOOP_ARG7_OFF(%rsp), %r14  /* r14 = mr_iters */
     test    %r14, %r14
     jz      .Lf64L_done
 
@@ -555,8 +561,9 @@ numc_gemm_f64_6x8_avx2_loop:
     pop     %r12
     pop     %rbp
     pop     %rbx
+    WIN64_RESTORE
     ret
 
-    .size numc_gemm_f64_6x8_avx2_loop, .-numc_gemm_f64_6x8_avx2_loop
+    END_FUNC(numc_gemm_f64_6x8_avx2_loop)
 
 #endif /* __x86_64__ || _M_X64 */
