@@ -148,14 +148,14 @@ static const int N_DTYPES = sizeof(ALL_DTYPES) / sizeof(ALL_DTYPES[0]);
 /* ── Benchmark: contiguous pow ─────────────────────────────────────── */
 
 static void bench_contiguous(NumcCtx *ctx, size_t size) {
-  printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("=============================================="
+         "===================================\n");
   printf("  POW CONTIGUOUS  (%zu elements, %d iters)\n", size, ITERS);
   printf("\n  %-8s %10s %10s   %10s %10s\n", "dtype", "pow", "inplace", "pow",
          "inplace");
   printf("  %-8s %10s %10s   %10s %10s\n", "", "(us)", "(us)", "(Mop/s)",
          "(Mop/s)");
-  printf("  ──────────────────────────────────────────────────────────\n");
+  printf("  ------------------------------------------------------------\n");
 
   for (int d = 0; d < N_DTYPES; d++) {
     NumcDType dt = ALL_DTYPES[d];
@@ -183,12 +183,12 @@ static void bench_contiguous(NumcCtx *ctx, size_t size) {
 /* ── Benchmark: size scaling ───────────────────────────────────────── */
 
 static void bench_scaling(NumcCtx *ctx) {
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("\n=============================================="
+         "===================================\n");
   printf("  SIZE SCALING  (float32 pow, %d iters)\n", ITERS);
   printf("\n  %10s %10s %10s %10s\n", "elements", "time (us)", "Mops/s",
          "GB/s");
-  printf("  ──────────────────────────────────────────\n");
+  printf("  ------------------------------------------\n");
 
   size_t sizes[] = {100, 1000, 10000, 100000, 1000000};
   int nsizes = sizeof(sizes) / sizeof(sizes[0]);
@@ -215,14 +215,14 @@ static void bench_scaling(NumcCtx *ctx) {
 /* ── Benchmark: int vs float comparison ────────────────────────────── */
 
 static void bench_int_vs_float(NumcCtx *ctx, size_t size) {
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("\n=============================================="
+         "===================================\n");
   printf("  INT vs FLOAT path comparison  (%zu elements, %d iters)\n", size,
          ITERS);
   printf("  int path: exponentiation by squaring (exact)\n");
   printf("  float path: fused exp(b * log(a))\n");
   printf("\n  %-8s %10s %10s\n", "dtype", "time (us)", "Mop/s");
-  printf("  ──────────────────────────────\n");
+  printf("  ------------------------------\n");
 
   NumcDType dtypes[] = {NUMC_DTYPE_INT32, NUMC_DTYPE_INT64, NUMC_DTYPE_FLOAT32,
                         NUMC_DTYPE_FLOAT64};

@@ -51,11 +51,11 @@ static const char *dtype_name(NumcDType dt) {
 /* ── Benchmark: randn ──────────────────────────────────────────────── */
 
 static void bench_randn(size_t size) {
-  printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("=============================================="
+         "===================================\n");
   printf("  RANDN  (%zu elements, %d iters)\n", size, ITERS);
   printf("\n  %-8s %10s %10s\n", "dtype", "time (us)", "Mop/s");
-  printf("  ──────────────────────────────\n");
+  printf("  ------------------------------\n");
 
   NumcDType dtypes[] = {NUMC_DTYPE_FLOAT32, NUMC_DTYPE_FLOAT64};
   int ndtypes = sizeof(dtypes) / sizeof(dtypes[0]);

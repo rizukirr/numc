@@ -68,8 +68,8 @@ static void print_header(const char *title) {
          "mul", "div", "add", "sub", "mul", "div");
   printf("  %-8s %8s %8s %8s %8s   %8s %8s %8s %8s\n", "", "(us)", "(us)",
          "(us)", "(us)", "(Mop/s)", "(Mop/s)", "(Mop/s)", "(Mop/s)");
-  printf("  ────────────────────────────────────────────"
-         "──────────────────────────────────────\n");
+  printf("  --------------------------------------------"
+         "--------------------------------------\n");
 }
 
 static void fill_value(NumcDType dt, char buf[static 8]) {
@@ -118,8 +118,8 @@ static const int N_DTYPES = sizeof(ALL_DTYPES) / sizeof(ALL_DTYPES[0]);
 /* ── Benchmark: contiguous binary ops ──────────────────────────────── */
 
 static void bench_contiguous(NumcCtx *ctx, size_t size) {
-  printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("=============================================="
+         "===================================\n");
   printf("  CONTIGUOUS BINARY  (%zu elements, %d iters)\n", size, ITERS);
   print_header("dtype");
 
@@ -156,8 +156,8 @@ static void bench_contiguous(NumcCtx *ctx, size_t size) {
 static void bench_strided(NumcCtx *ctx, size_t rows, size_t cols) {
   size_t total = rows * cols;
 
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("\n=============================================="
+         "===================================\n");
   printf("  STRIDED  (%zux%zu transposed, %zu elements, %d iters)\n", rows,
          cols, total, ITERS);
   print_header("dtype");
@@ -233,8 +233,8 @@ static void bench_broadcast(NumcCtx *ctx, size_t M, size_t N) {
   size_t total = M * N;
 
   /* Row broadcast: (1,N) + (M,N) → (M,N) */
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("\n=============================================="
+         "===================================\n");
   printf("  BROADCAST ROW  (1,%zu) + (%zu,%zu) -> (%zu,%zu), %d iters\n", N, M,
          N, M, N, ITERS);
   print_header("dtype");
@@ -244,8 +244,8 @@ static void bench_broadcast(NumcCtx *ctx, size_t M, size_t N) {
   }
 
   /* Outer broadcast: (M,1) + (1,N) → (M,N) */
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("\n=============================================="
+         "===================================\n");
   printf("  BROADCAST OUTER  (%zu,1) + (1,%zu) -> (%zu,%zu), %d iters\n", M, N,
          M, N, ITERS);
   print_header("dtype");
@@ -255,8 +255,8 @@ static void bench_broadcast(NumcCtx *ctx, size_t M, size_t N) {
   }
 
   /* Rank broadcast: (N,) + (M,N) → (M,N) */
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("\n=============================================="
+         "===================================\n");
   printf("  BROADCAST RANK  (%zu,) + (%zu,%zu) -> (%zu,%zu), %d iters\n", N, M,
          N, M, N, ITERS);
   print_header("dtype");
@@ -269,12 +269,12 @@ static void bench_broadcast(NumcCtx *ctx, size_t M, size_t N) {
 /* ── Benchmark: scaling across sizes ───────────────────────────────── */
 
 static void bench_scaling(NumcCtx *ctx) {
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("\n=============================================="
+         "===================================\n");
   printf("  SIZE SCALING  (float32 add, %d iters)\n", ITERS);
   printf("\n  %10s %10s %10s %10s\n", "elements", "time (us)", "Mops/s",
          "GB/s");
-  printf("  ──────────────────────────────────────────\n");
+  printf("  ------------------------------------------\n");
 
   size_t sizes[] = {100, 1000, 10000, 100000, 1000000};
   int nsizes = sizeof(sizes) / sizeof(sizes[0]);

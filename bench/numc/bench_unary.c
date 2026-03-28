@@ -80,8 +80,8 @@ static void print_header(const char *title) {
          "abs", "sqrt", "log", "exp", "abs", "sqrt");
   printf("  %-8s %8s %8s %8s %8s   %8s %8s %8s %8s\n", "", "(us)", "(us)",
          "(us)", "(us)", "(Mop/s)", "(Mop/s)", "(Mop/s)", "(Mop/s)");
-  printf("  ──────────────────────────────────────────────────────────────"
-         "──────────────\n");
+  printf("  --------------------------------------------------------------"
+         "--------------\n");
 }
 
 /* Positive values ≥ 1 — safe for log (no -inf), safe for abs. */
@@ -176,8 +176,8 @@ static int dtype_is_unsigned(NumcDType dt) {
 /* ── Benchmark: unary allocating ops ───────────────────────────────── */
 
 static void bench_unary_ops(NumcCtx *ctx, size_t size) {
-  printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("=============================================="
+         "===================================\n");
   printf("  UNARY OPS  (%zu elements, %d iters)\n", size, ITERS);
   print_header("dtype");
 
@@ -236,8 +236,8 @@ static void bench_unary_ops(NumcCtx *ctx, size_t size) {
 /* ── Benchmark: unary inplace ops ──────────────────────────────────── */
 
 static void bench_unary_inplace_ops(NumcCtx *ctx, size_t size) {
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("\n=============================================="
+         "===================================\n");
   printf("  UNARY INPLACE  (%zu elements, %d iters)\n", size, ITERS);
   print_header("dtype");
 
@@ -295,12 +295,12 @@ static void bench_unary_inplace_ops(NumcCtx *ctx, size_t size) {
 /* ── Benchmark: size scaling (float32 sqrt) ────────────────────────── */
 
 static void bench_scaling(NumcCtx *ctx) {
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("\n=============================================="
+         "===================================\n");
   printf("  SIZE SCALING  (float32 sqrt, %d iters)\n", ITERS);
   printf("\n  %10s %10s %10s %10s\n", "elements", "time (us)", "Mops/s",
          "GB/s");
-  printf("  ──────────────────────────────────────────\n");
+  printf("  ------------------------------------------\n");
 
   size_t sizes[] = {100, 1000, 10000, 100000, 1000000};
   int nsizes = sizeof(sizes) / sizeof(sizes[0]);

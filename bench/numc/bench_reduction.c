@@ -99,12 +99,12 @@ typedef int (*ReduceAxisFn)(const NumcArray *, int, int, NumcArray *);
 /* ── Benchmark: full reduction — all dtypes ───────────────────────── */
 
 static void bench_full(const char *name, ReduceFullFn fn, size_t size) {
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("\n=============================================="
+         "===================================\n");
   printf("  %s (full reduction)  (%zu elements, %d iters)\n", name, size,
          ITERS);
   printf("\n  %-8s %10s %10s\n", "dtype", "time (us)", "Mop/s");
-  printf("  ────────────────────────────────\n");
+  printf("  --------------------------------\n");
 
   for (int d = 0; d < N_DTYPES; d++) {
     NumcDType dt = ALL_DTYPES[d];
@@ -143,12 +143,12 @@ static void bench_full(const char *name, ReduceFullFn fn, size_t size) {
 static void bench_axis(const char *name, ReduceAxisFn fn, int axis, size_t rows,
                        size_t cols) {
   size_t total = rows * cols;
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("\n=============================================="
+         "===================================\n");
   printf("  %s AXIS=%d  (%zux%zu = %zu elements, %d iters)\n", name, axis, rows,
          cols, total, ITERS);
   printf("\n  %-8s %10s %10s\n", "dtype", "time (us)", "Mop/s");
-  printf("  ────────────────────────────────\n");
+  printf("  --------------------------------\n");
 
   for (int d = 0; d < N_DTYPES; d++) {
     NumcDType dt = ALL_DTYPES[d];
@@ -185,12 +185,12 @@ static void bench_axis(const char *name, ReduceAxisFn fn, int axis, size_t rows,
 /* ── Benchmark: arg-reduction (output is INT64) ───────────────────── */
 
 static void bench_full_arg(const char *name, ReduceFullFn fn, size_t size) {
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("\n=============================================="
+         "===================================\n");
   printf("  %s (full reduction)  (%zu elements, %d iters)\n", name, size,
          ITERS);
   printf("\n  %-8s %10s %10s\n", "dtype", "time (us)", "Mop/s");
-  printf("  ────────────────────────────────\n");
+  printf("  --------------------------------\n");
 
   for (int d = 0; d < N_DTYPES; d++) {
     NumcDType dt = ALL_DTYPES[d];
@@ -227,12 +227,12 @@ static void bench_full_arg(const char *name, ReduceFullFn fn, size_t size) {
 static void bench_axis_arg(const char *name, ReduceAxisFn fn, int axis,
                            size_t rows, size_t cols) {
   size_t total = rows * cols;
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("\n=============================================="
+         "===================================\n");
   printf("  %s AXIS=%d  (%zux%zu = %zu elements, %d iters)\n", name, axis, rows,
          cols, total, ITERS);
   printf("\n  %-8s %10s %10s\n", "dtype", "time (us)", "Mop/s");
-  printf("  ────────────────────────────────\n");
+  printf("  --------------------------------\n");
 
   for (int d = 0; d < N_DTYPES; d++) {
     NumcDType dt = ALL_DTYPES[d];
@@ -269,11 +269,11 @@ static void bench_axis_arg(const char *name, ReduceAxisFn fn, int axis,
 /* ── Benchmark: size scaling (float32 full sum) ────────────────────── */
 
 static void bench_scaling(void) {
-  printf("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  printf("\n=============================================="
+         "===================================\n");
   printf("  SIZE SCALING  (float32 sum, %d iters)\n", ITERS);
   printf("\n  %10s %10s %10s %10s\n", "elements", "time (us)", "Mop/s", "GB/s");
-  printf("  ──────────────────────────────────────────\n");
+  printf("  ------------------------------------------\n");
 
   size_t sizes[] = {100, 1000, 10000, 100000, 1000000};
   int nsizes = sizeof(sizes) / sizeof(sizes[0]);
