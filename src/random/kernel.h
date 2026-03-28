@@ -131,44 +131,44 @@ static inline void _prng_ensure_seeded(void) {
  * stores back after, keeping the hot state entirely in YMM registers.
  */
 
-#define XOSHIRO_STEP_4(s0, s1, s2, s3, out)   \
-  do {                                        \
+#define XOSHIRO_STEP_4(s0, s1, s2, s3, out)       \
+  do {                                            \
     uint64_t _r0 = numc_rotl64(s1[0] * 5, 7) * 9; \
     uint64_t _r1 = numc_rotl64(s1[1] * 5, 7) * 9; \
     uint64_t _r2 = numc_rotl64(s1[2] * 5, 7) * 9; \
     uint64_t _r3 = numc_rotl64(s1[3] * 5, 7) * 9; \
-    uint64_t _t0 = s1[0] << 17;               \
-    uint64_t _t1 = s1[1] << 17;               \
-    uint64_t _t2 = s1[2] << 17;               \
-    uint64_t _t3 = s1[3] << 17;               \
-    s2[0] ^= s0[0];                           \
-    s2[1] ^= s0[1];                           \
-    s2[2] ^= s0[2];                           \
-    s2[3] ^= s0[3];                           \
-    s3[0] ^= s1[0];                           \
-    s3[1] ^= s1[1];                           \
-    s3[2] ^= s1[2];                           \
-    s3[3] ^= s1[3];                           \
-    s1[0] ^= s2[0];                           \
-    s1[1] ^= s2[1];                           \
-    s1[2] ^= s2[2];                           \
-    s1[3] ^= s2[3];                           \
-    s0[0] ^= s3[0];                           \
-    s0[1] ^= s3[1];                           \
-    s0[2] ^= s3[2];                           \
-    s0[3] ^= s3[3];                           \
-    s2[0] ^= _t0;                             \
-    s2[1] ^= _t1;                             \
-    s2[2] ^= _t2;                             \
-    s2[3] ^= _t3;                             \
+    uint64_t _t0 = s1[0] << 17;                   \
+    uint64_t _t1 = s1[1] << 17;                   \
+    uint64_t _t2 = s1[2] << 17;                   \
+    uint64_t _t3 = s1[3] << 17;                   \
+    s2[0] ^= s0[0];                               \
+    s2[1] ^= s0[1];                               \
+    s2[2] ^= s0[2];                               \
+    s2[3] ^= s0[3];                               \
+    s3[0] ^= s1[0];                               \
+    s3[1] ^= s1[1];                               \
+    s3[2] ^= s1[2];                               \
+    s3[3] ^= s1[3];                               \
+    s1[0] ^= s2[0];                               \
+    s1[1] ^= s2[1];                               \
+    s1[2] ^= s2[2];                               \
+    s1[3] ^= s2[3];                               \
+    s0[0] ^= s3[0];                               \
+    s0[1] ^= s3[1];                               \
+    s0[2] ^= s3[2];                               \
+    s0[3] ^= s3[3];                               \
+    s2[0] ^= _t0;                                 \
+    s2[1] ^= _t1;                                 \
+    s2[2] ^= _t2;                                 \
+    s2[3] ^= _t3;                                 \
     s3[0] = numc_rotl64(s3[0], 45);               \
     s3[1] = numc_rotl64(s3[1], 45);               \
     s3[2] = numc_rotl64(s3[2], 45);               \
     s3[3] = numc_rotl64(s3[3], 45);               \
-    (out)[0] = _r0;                           \
-    (out)[1] = _r1;                           \
-    (out)[2] = _r2;                           \
-    (out)[3] = _r3;                           \
+    (out)[0] = _r0;                               \
+    (out)[1] = _r1;                               \
+    (out)[2] = _r2;                               \
+    (out)[3] = _r3;                               \
   } while (0)
 
 /* ── Scalar fallback: single-stream step ────────────────────────────
@@ -389,14 +389,14 @@ static inline int _prng_get_tid(void) {
         }                                                                \
         uint64_t _ts[4] = {s0[0], s1[0], s2[0], s3[0]};                  \
         for (; _i < end; _i++) {                                         \
-          const uint64_t _res = numc_rotl64(_ts[1] * 5, 7) * 9;              \
+          const uint64_t _res = numc_rotl64(_ts[1] * 5, 7) * 9;          \
           const uint64_t _t = _ts[1] << 17;                              \
           _ts[2] ^= _ts[0];                                              \
           _ts[3] ^= _ts[1];                                              \
           _ts[1] ^= _ts[2];                                              \
           _ts[0] ^= _ts[3];                                              \
           _ts[2] ^= _t;                                                  \
-          _ts[3] = numc_rotl64(_ts[3], 45);                                  \
+          _ts[3] = numc_rotl64(_ts[3], 45);                              \
           po[_i] = (CONVERT_EXPR(_res));                                 \
         }                                                                \
       } /* end omp parallel */                                           \
