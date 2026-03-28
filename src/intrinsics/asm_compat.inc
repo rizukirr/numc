@@ -35,7 +35,8 @@
 #define END_FUNC(name)
 #else
 #define DECLARE_FUNC(name) .type name, @function
-#define END_FUNC(name)     .size name, .-name
+#define END_FUNC(name)     .size name, .-name; \
+                           .section .note.GNU-stack,"",@progbits
 #endif
 
 /* ─── Win64 callee-saved register save / restore ───

@@ -136,14 +136,14 @@ static void _kern_rand_f64_avx2(char *out, size_t n) {
       }
       uint64_t rs[4] = {s0[0], s1[0], s2[0], s3[0]};
       for (; ri < end; ri++) {
-        const uint64_t res = _rotl64(rs[1] * 5, 7) * 9;
+        const uint64_t res = numc_rotl64(rs[1] * 5, 7) * 9;
         const uint64_t t = rs[1] << 17;
         rs[2] ^= rs[0];
         rs[3] ^= rs[1];
         rs[1] ^= rs[2];
         rs[0] ^= rs[3];
         rs[2] ^= t;
-        rs[3] = _rotl64(rs[3], 45);
+        rs[3] = numc_rotl64(rs[3], 45);
         po[ri] = _u64_to_f64(res);
       }
     } /* end omp parallel */
