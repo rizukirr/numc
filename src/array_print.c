@@ -1,16 +1,17 @@
 #include <numc/array.h>
+#include <inttypes.h>
 #include <stdio.h>
 
-#define NUMC_PRINT_TYPES(X)                \
-  X(NUMC_DTYPE_INT8, NUMC_INT8, "d")       \
-  X(NUMC_DTYPE_UINT8, NUMC_UINT8, "u")     \
-  X(NUMC_DTYPE_INT16, NUMC_INT16, "d")     \
-  X(NUMC_DTYPE_UINT16, NUMC_UINT16, "u")   \
-  X(NUMC_DTYPE_INT32, NUMC_INT32, "d")     \
-  X(NUMC_DTYPE_UINT32, NUMC_UINT32, "u")   \
-  X(NUMC_DTYPE_INT64, NUMC_INT64, "ld")    \
-  X(NUMC_DTYPE_UINT64, NUMC_UINT64, "lu")  \
-  X(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, "g") \
+#define NUMC_PRINT_TYPES(X)                       \
+  X(NUMC_DTYPE_INT8, NUMC_INT8, "d")              \
+  X(NUMC_DTYPE_UINT8, NUMC_UINT8, "u")            \
+  X(NUMC_DTYPE_INT16, NUMC_INT16, "d")            \
+  X(NUMC_DTYPE_UINT16, NUMC_UINT16, "u")          \
+  X(NUMC_DTYPE_INT32, NUMC_INT32, "d")            \
+  X(NUMC_DTYPE_UINT32, NUMC_UINT32, "u")          \
+  X(NUMC_DTYPE_INT64, NUMC_INT64, PRId64)         \
+  X(NUMC_DTYPE_UINT64, NUMC_UINT64, PRIu64)       \
+  X(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, "g")        \
   X(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, "g")
 
 /**
