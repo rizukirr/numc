@@ -345,4 +345,5 @@ numc_gemm_ukernel_u16_6x32_avx2:
 
     END_FUNC(numc_gemm_ukernel_u16_6x32_avx2)
 
+GNU_STACK_NOTE
 #endif /* __x86_64__ || _M_X64 */

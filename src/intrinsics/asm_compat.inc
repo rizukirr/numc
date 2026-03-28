@@ -33,10 +33,13 @@
 #if defined(_WIN32) || defined(_WIN64)
 #define DECLARE_FUNC(name)
 #define END_FUNC(name)
+#define GNU_STACK_NOTE
 #else
 #define DECLARE_FUNC(name) .type name, @function
-#define END_FUNC(name)     .size name, .-name; \
-                           .section .note.GNU-stack,"",@progbits
+#define END_FUNC(name)     .size name, .-name
+/* Mark stack as non-executable. Place once at the very end of each .S file,
+ * AFTER the last END_FUNC and before the #endif guard. */
+#define GNU_STACK_NOTE     .section .note.GNU-stack,"",@progbits
 #endif
 
 /* ─── Win64 callee-saved register save / restore ───

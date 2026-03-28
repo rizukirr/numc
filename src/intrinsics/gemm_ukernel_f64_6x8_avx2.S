@@ -566,4 +566,5 @@ numc_gemm_f64_6x8_avx2_loop:
 
     END_FUNC(numc_gemm_f64_6x8_avx2_loop)
 
+GNU_STACK_NOTE
 #endif /* __x86_64__ || _M_X64 */
