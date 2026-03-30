@@ -92,6 +92,7 @@ Binary kernels have three stride specializations in priority order:
 - Format check: `find src include tests examples bench -type f \( -name '*.c' -o -name '*.h' \) -not -path '*/.venv/*' | xargs clang-format -i`
 - Static analysis: clang-tidy with bugprone, performance, clang-analyzer checks
 - C23 standard (`alignas` keyword, `nullptr`)
+- Commit messages: do NOT add `Co-Authored-By` trailers
 
 ## Performance Conventions
 
