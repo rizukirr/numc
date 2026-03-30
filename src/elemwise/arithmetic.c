@@ -92,8 +92,8 @@ static const NumcBinaryKernel div_table[] = {
 #if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || \
     NUMC_HAVE_RVV
 
-typedef void (*FastBinKern)(const void *restrict, const void *restrict,
-                            void *restrict, size_t);
+/* Use the shared typedef from kernel.h */
+typedef NumcFastBinKern FastBinKern;
 
 #if NUMC_HAVE_AVX512
 #define FBIN(OP, SFX) (FastBinKern) _fast_##OP##_##SFX##_avx512
@@ -166,7 +166,7 @@ FBIN_TABLE(mul);
         return 0;                                                              \
       }                                                                        \
     }                                                                          \
-    _binary_op(a, b, out, FALLBACK_TABLE);                                     \
+    _binary_op_ex(a, b, out, FALLBACK_TABLE, FAST_TABLE[a->dtype]);            \
     return 0;                                                                  \
   }
 

@@ -36,20 +36,30 @@
  * @param shape Array of dimensions.
  * @param ndim  Number of dimensions.
  */
-static inline void _elemwise_binary_nd(NumcBinaryKernel kern, const char *a,
-                                       const size_t *sa, const char *b,
-                                       const size_t *sb, char *out,
-                                       const size_t *so, const size_t *shape,
-                                       size_t ndim) {
+static inline void
+_elemwise_binary_nd(NumcBinaryKernel kern, NumcFastBinKern fast_kern,
+                    intptr_t elem_size, const char *a, const size_t *sa,
+                    const char *b, const size_t *sb, char *out,
+                    const size_t *so, const size_t *shape, size_t ndim) {
   if (ndim == 1) {
-    kern(a, b, out, shape[0], (intptr_t)sa[0], (intptr_t)sb[0],
-         (intptr_t)so[0]);
+    /* When the inner dimension is contiguous for all operands and a SIMD
+     * fast kernel is available, use it.  The SIMD kernels use unaligned
+     * loads/stores so they are safe even when the N-D walker produced
+     * pointers that are not NUMC_SIMD_ALIGN-byte aligned. */
+    if (fast_kern && (intptr_t)sa[0] == elem_size &&
+        (intptr_t)sb[0] == elem_size && (intptr_t)so[0] == elem_size) {
+      fast_kern(a, b, out, shape[0]);
+    } else {
+      kern(a, b, out, shape[0], (intptr_t)sa[0], (intptr_t)sb[0],
+           (intptr_t)so[0]);
+    }
     return;
   }
 
   for (size_t i = 0; i < shape[0]; i++) {
-    _elemwise_binary_nd(kern, a + i * sa[0], sa + 1, b + i * sb[0], sb + 1,
-                        out + i * so[0], so + 1, shape + 1, ndim - 1);
+    _elemwise_binary_nd(kern, fast_kern, elem_size, a + i * sa[0], sa + 1,
+                        b + i * sb[0], sb + 1, out + i * so[0], so + 1,
+                        shape + 1, ndim - 1);
   }
 }
 
@@ -660,9 +670,11 @@ static inline int _check_quaternary(const struct NumcArray *a,
  * @param out   Output array.
  * @param table Kernel function table for the operation.
  */
-static inline void _binary_op(const struct NumcArray *a,
-                              const struct NumcArray *b, struct NumcArray *out,
-                              const NumcBinaryKernel *table) {
+static inline void _binary_op_ex(const struct NumcArray *a,
+                                 const struct NumcArray *b,
+                                 struct NumcArray *out,
+                                 const NumcBinaryKernel *table,
+                                 NumcFastBinKern fast_kern) {
   NumcBinaryKernel kern = table[a->dtype];
   intptr_t es = (intptr_t)a->elem_size;
 
@@ -687,7 +699,7 @@ static inline void _binary_op(const struct NumcArray *a,
           pb[NUMC_MAX_DIMENSIONS], po[NUMC_MAX_DIMENSIONS];
       _sort_axes_binary(a->dim, a->shape, a->strides, b->strides, out->strides,
                         ps, pa, pb, po);
-      _elemwise_binary_nd(kern, (const char *)a->data, pa,
+      _elemwise_binary_nd(kern, fast_kern, es, (const char *)a->data, pa,
                           (const char *)b->data, pb, (char *)out->data, po, ps,
                           a->dim);
     }
@@ -709,9 +721,17 @@ static inline void _binary_op(const struct NumcArray *a,
         pb[NUMC_MAX_DIMENSIONS], po[NUMC_MAX_DIMENSIONS];
     _sort_axes_binary(bcast_ndim, out->shape, va, vb, out->strides, ps, pa, pb,
                       po);
-    _elemwise_binary_nd(kern, (const char *)a->data, pa, (const char *)b->data,
-                        pb, (char *)out->data, po, ps, bcast_ndim);
+    _elemwise_binary_nd(kern, fast_kern, es, (const char *)a->data, pa,
+                        (const char *)b->data, pb, (char *)out->data, po, ps,
+                        bcast_ndim);
   }
+}
+
+/* Backward-compatible wrapper — no SIMD fast kernel */
+static inline void _binary_op(const struct NumcArray *a,
+                              const struct NumcArray *b, struct NumcArray *out,
+                              const NumcBinaryKernel *table) {
+  _binary_op_ex(a, b, out, table, NULL);
 }
 
 /* ── Ternary op dispatch ──────────────────────────────────────────── */
@@ -856,8 +876,8 @@ static inline void _scalar_op(const struct NumcArray *a, const char *scalar_buf,
         pb[NUMC_MAX_DIMENSIONS], po[NUMC_MAX_DIMENSIONS];
     _sort_axes_binary(a->dim, a->shape, a->strides, zero_strides, out->strides,
                       ps, pa, pb, po);
-    _elemwise_binary_nd(kern, (const char *)a->data, pa, scalar_buf, pb,
-                        (char *)out->data, po, ps, a->dim);
+    _elemwise_binary_nd(kern, NULL, 0, (const char *)a->data, pa, scalar_buf,
+                        pb, (char *)out->data, po, ps, a->dim);
   }
 }
 
@@ -887,7 +907,7 @@ static inline int _scalar_op_inplace(struct NumcArray *a, double scalar,
         pb[NUMC_MAX_DIMENSIONS], po[NUMC_MAX_DIMENSIONS];
     _sort_axes_binary(a->dim, a->shape, a->strides, zero_strides, a->strides,
                       ps, pa, pb, po);
-    _elemwise_binary_nd(kern, (const char *)a->data, pa, buf, pb,
+    _elemwise_binary_nd(kern, NULL, 0, (const char *)a->data, pa, buf, pb,
                         (char *)a->data, po, ps, a->dim);
   }
   return 0;
