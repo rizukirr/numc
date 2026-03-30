@@ -264,6 +264,24 @@ NUMC_API NumcDType numc_array_dtype(const NumcArray *arr);
  */
 NUMC_API void *numc_array_data(const NumcArray *arr);
 
+/* --- One-hot encoding --- */
+
+/**
+ * @brief Create a one-hot encoded 2-D array from integer labels.
+ *
+ * Given a 1-D array of integer labels with shape (n,), produces a 2-D
+ * float array of shape (n, num_classes) where each row is all zeros
+ * except for a 1.0 at the column corresponding to the label value.
+ *
+ * @param ctx         Context for memory allocation.
+ * @param labels      1-D integer array of label indices.
+ * @param num_classes Number of classes (columns in the output).
+ * @param dtype       Output dtype (must be NUMC_DTYPE_FLOAT32 or FLOAT64).
+ * @return Pointer to the newly created (n, num_classes) array, or NULL.
+ */
+NUMC_API NumcArray *numc_one_hot(NumcCtx *ctx, const NumcArray *labels,
+                                 size_t num_classes, NumcDType dtype);
+
 /* --- Print --- */
 
 /**

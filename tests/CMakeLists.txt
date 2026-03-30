@@ -25,6 +25,7 @@ numc_test(test_transpose        core/test_transpose.c)
 numc_test(test_slice            core/test_slice.c)
 numc_test(test_print            core/test_print.c)
 numc_test(test_error            core/test_error.c)
+numc_test(test_one_hot          core/test_one_hot.c)
 
 # ── elemwise ─────────────────────────────────────────────────────────────────
 numc_test(test_add              elemwise/test_add.c)

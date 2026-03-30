@@ -504,3 +504,88 @@ void numc_ctx_restore(NumcCtx *ctx, NumcCheckpoint checkpoint) {
                         .index = checkpoint._index};
   arena_restore(ctx->arena, cp);
 }
+
+/* ── One-hot encoding ─────────────────────────────────────────────── */
+
+/* Per-dtype one-hot kernels generated via X-macro.
+ * Each kernel reads labels of a specific integer type and writes
+ * 1.0 into the corresponding column of an f32 or f64 output row. */
+
+#define DEFINE_ONE_HOT_KERN(DTYPE_ENUM, C_TYPE)                               \
+  static void _one_hot_f32_##DTYPE_ENUM(const char *lp, intptr_t lstride,     \
+                                        float *op, size_t n, size_t nc) {     \
+    NUMC_PRAGMA(omp parallel for schedule(static) if ((int64_t)n > 100000))   \
+    for (size_t i = 0; i < n; i++) {                                          \
+      int64_t idx = (int64_t)(*(const C_TYPE *)(lp + (intptr_t)i * lstride)); \
+      if (idx >= 0 && (size_t)idx < nc)                                       \
+        op[i * nc + (size_t)idx] = 1.0f;                                      \
+    }                                                                         \
+  }                                                                           \
+  static void _one_hot_f64_##DTYPE_ENUM(const char *lp, intptr_t lstride,     \
+                                        double *op, size_t n, size_t nc) {    \
+    NUMC_PRAGMA(omp parallel for schedule(static) if ((int64_t)n > 100000))   \
+    for (size_t i = 0; i < n; i++) {                                          \
+      int64_t idx = (int64_t)(*(const C_TYPE *)(lp + (intptr_t)i * lstride)); \
+      if (idx >= 0 && (size_t)idx < nc)                                       \
+        op[i * nc + (size_t)idx] = 1.0;                                       \
+    }                                                                         \
+  }
+
+GENERATE_INT_NUMC_TYPES(DEFINE_ONE_HOT_KERN)
+#undef DEFINE_ONE_HOT_KERN
+
+typedef void (*OneHotF32Kern)(const char *, intptr_t, float *, size_t, size_t);
+typedef void (*OneHotF64Kern)(const char *, intptr_t, double *, size_t, size_t);
+
+#define F32_ENTRY(DTYPE_ENUM, C_TYPE) [DTYPE_ENUM] = _one_hot_f32_##DTYPE_ENUM,
+#define F64_ENTRY(DTYPE_ENUM, C_TYPE) [DTYPE_ENUM] = _one_hot_f64_##DTYPE_ENUM,
+
+static const OneHotF32Kern one_hot_f32_table[] = {
+    GENERATE_INT_NUMC_TYPES(F32_ENTRY)};
+static const OneHotF64Kern one_hot_f64_table[] = {
+    GENERATE_INT_NUMC_TYPES(F64_ENTRY)};
+
+#undef F32_ENTRY
+#undef F64_ENTRY
+
+NumcArray *numc_one_hot(NumcCtx *ctx, const NumcArray *labels,
+                        size_t num_classes, NumcDType dtype) {
+  if (!ctx || !labels)
+    return NULL;
+
+  if (labels->dim != 1) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "one_hot: labels must be 1-D (got %zu-D)",
+                   labels->dim);
+    return NULL;
+  }
+  if (numc_dtype_is_float(labels->dtype)) {
+    NUMC_SET_ERROR(NUMC_ERR_TYPE,
+                   "one_hot: labels must be integer dtype (got %d)",
+                   labels->dtype);
+    return NULL;
+  }
+  if (!numc_dtype_is_float(dtype)) {
+    NUMC_SET_ERROR(NUMC_ERR_TYPE,
+                   "one_hot: output dtype must be float (got %d)", dtype);
+    return NULL;
+  }
+
+  size_t n = labels->size;
+  size_t shape[2] = {n, num_classes};
+  NumcArray *out = numc_array_zeros(ctx, shape, 2, dtype);
+  if (!out)
+    return NULL;
+
+  const char *lp = (const char *)labels->data;
+  intptr_t lstride = (intptr_t)labels->strides[0];
+
+  if (dtype == NUMC_DTYPE_FLOAT32) {
+    OneHotF32Kern kern = one_hot_f32_table[labels->dtype];
+    kern(lp, lstride, (float *)out->data, n, num_classes);
+  } else {
+    OneHotF64Kern kern = one_hot_f64_table[labels->dtype];
+    kern(lp, lstride, (double *)out->data, n, num_classes);
+  }
+
+  return out;
+}
