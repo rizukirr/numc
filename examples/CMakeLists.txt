@@ -29,3 +29,11 @@ numc_demo(demo_dot             reduction/demo_dot.c)
 
 # ── matmul ─────────────────────────────────────────────────────────────────
 numc_demo(demo_matmul          matmul/demo_matmul.c)
+
+# ── nn ─────────────────────────────────────────────────────────────────────
+numc_demo(demo_mnist             nn/mnist.c)
+numc_demo(demo_linear_regression nn/linear_regression.c)
+numc_demo(demo_kmeans            nn/kmeans.c)
+if(NOT WIN32)
+    target_link_libraries(demo_mnist PRIVATE m)
+endif()
