@@ -36,8 +36,8 @@
 
 /* ── Float32 packing routines ──────────────────────────────────────────── */
 
-static inline void gemm_pack_b_f32(const float *b, float *packed, size_t kc,
-                                   size_t nc, intptr_t rsb) {
+static inline void gemm_pack_b_f32_avx512(const float *b, float *packed,
+                                          size_t kc, size_t nc, intptr_t rsb) {
   size_t jr = 0;
   for (; jr + GEMM_F32_NR <= nc; jr += GEMM_F32_NR) {
     float *dest = packed + jr * kc;
@@ -64,9 +64,9 @@ static inline void gemm_pack_b_f32(const float *b, float *packed, size_t kc,
 }
 
 /* Pack a single NR-wide B strip for parallel packing. */
-static inline void _gemm_pack_b_strip_f32(const float *b, float *dest,
-                                          size_t kc, size_t nr_pack,
-                                          intptr_t rsb) {
+static inline void _gemm_pack_b_strip_f32_avx512(const float *b, float *dest,
+                                                 size_t kc, size_t nr_pack,
+                                                 intptr_t rsb) {
   if (nr_pack == GEMM_F32_NR) {
     for (size_t p = 0; p < kc; p++) {
       const float *src = b + p * rsb;
@@ -87,8 +87,9 @@ static inline void _gemm_pack_b_strip_f32(const float *b, float *dest,
   }
 }
 
-static inline void gemm_pack_a_f32(const float *a, float *packed, size_t mc,
-                                   size_t kc, intptr_t rsa, intptr_t csa) {
+static inline void gemm_pack_a_f32_avx512(const float *a, float *packed,
+                                          size_t mc, size_t kc, intptr_t rsa,
+                                          intptr_t csa) {
   size_t ir = 0;
   /* Fast path: csa=1 (row-major A) — gather MR rows with pointer arithmetic.
    * AVX-512 SIMD transpose: process 16 K-columns at a time.
@@ -169,8 +170,8 @@ static inline void gemm_pack_a_f32(const float *a, float *packed, size_t mc,
 
 /* ── Float64 packing routines ──────────────────────────────────────────── */
 
-static inline void gemm_pack_b_f64(const double *b, double *packed, size_t kc,
-                                   size_t nc, intptr_t rsb) {
+static inline void gemm_pack_b_f64_avx512(const double *b, double *packed,
+                                          size_t kc, size_t nc, intptr_t rsb) {
   size_t jr = 0;
   for (; jr + GEMM_F64_NR <= nc; jr += GEMM_F64_NR) {
     double *dest = packed + jr * kc;
@@ -196,9 +197,9 @@ static inline void gemm_pack_b_f64(const double *b, double *packed, size_t kc,
   }
 }
 
-static inline void _gemm_pack_b_strip_f64(const double *b, double *dest,
-                                          size_t kc, size_t nr_pack,
-                                          intptr_t rsb) {
+static inline void _gemm_pack_b_strip_f64_avx512(const double *b, double *dest,
+                                                 size_t kc, size_t nr_pack,
+                                                 intptr_t rsb) {
   if (nr_pack == GEMM_F64_NR) {
     for (size_t p = 0; p < kc; p++) {
       const double *src = b + p * rsb;
@@ -218,8 +219,9 @@ static inline void _gemm_pack_b_strip_f64(const double *b, double *dest,
   }
 }
 
-static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
-                                   size_t kc, intptr_t rsa, intptr_t csa) {
+static inline void gemm_pack_a_f64_avx512(const double *a, double *packed,
+                                          size_t mc, size_t kc, intptr_t rsa,
+                                          intptr_t csa) {
   size_t ir = 0;
   /* Fast path: csa=1 (row-major A) — gather MR rows with pointer arithmetic.
    * Precomputed row pointers for MR=14 rows, compiler auto-vectorizes
@@ -498,8 +500,8 @@ static inline void gemm_f32_avx512(const float *a, const float *b, float *out,
         for (size_t jr_idx = 0; jr_idx < n_jr; jr_idx++) {
           size_t jj = jr_idx * GEMM_F32_NR;
           size_t nr_pack = GEMM_MIN(GEMM_F32_NR, nc - jj);
-          _gemm_pack_b_strip_f32(b + pc * rsb + (jc + jj), packed_b + jj * kc,
-                                 kc, nr_pack, rsb);
+          _gemm_pack_b_strip_f32_avx512(b + pc * rsb + (jc + jj),
+                                        packed_b + jj * kc, kc, nr_pack, rsb);
         }
 
         size_t n_ic = (m_dim + GEMM_F32_MC - 1) / GEMM_F32_MC;
@@ -513,8 +515,8 @@ static inline void gemm_f32_avx512(const float *a, const float *b, float *out,
           size_t nr_cur = GEMM_MIN(GEMM_F32_NR, nc - jr);
 
           if (ic != last_ic) {
-            gemm_pack_a_f32(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa,
-                            csa);
+            gemm_pack_a_f32_avx512(a + ic * rsa + pc * csa, packed_a, mc, kc,
+                                   rsa, csa);
             last_ic = ic;
           }
 
@@ -552,7 +554,7 @@ static inline void gemm_f32_avx512(const float *a, const float *b, float *out,
         size_t kc = GEMM_MIN(GEMM_F32_KC, k_dim - pc);
         int first = (pc == 0);
 
-        gemm_pack_b_f32(b + pc * rsb + jc, packed_b, kc, nc, rsb);
+        gemm_pack_b_f32_avx512(b + pc * rsb + jc, packed_b, kc, nc, rsb);
 
         size_t n_ic = (m_dim + GEMM_F32_MC - 1) / GEMM_F32_MC;
         size_t n_tasks = n_ic * n_jr;
@@ -564,8 +566,8 @@ static inline void gemm_f32_avx512(const float *a, const float *b, float *out,
           size_t nr_cur = GEMM_MIN(GEMM_F32_NR, nc - jr);
 
           if (task % n_jr == 0)
-            gemm_pack_a_f32(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa,
-                            csa);
+            gemm_pack_a_f32_avx512(a + ic * rsa + pc * csa, packed_a, mc, kc,
+                                   rsa, csa);
 
           for (size_t ir = 0; ir < mc; ir += GEMM_F32_MR) {
             size_t mr_cur = GEMM_MIN(GEMM_F32_MR, mc - ir);
@@ -803,8 +805,8 @@ static inline void gemm_f64_avx512(const double *a, const double *b,
         for (size_t jr_idx = 0; jr_idx < n_jr; jr_idx++) {
           size_t jj = jr_idx * GEMM_F64_NR;
           size_t nr_pack = GEMM_MIN(GEMM_F64_NR, nc - jj);
-          _gemm_pack_b_strip_f64(b + pc * rsb + (jc + jj), packed_b + jj * kc,
-                                 kc, nr_pack, rsb);
+          _gemm_pack_b_strip_f64_avx512(b + pc * rsb + (jc + jj),
+                                        packed_b + jj * kc, kc, nr_pack, rsb);
         }
 
         size_t n_ic = (m_dim + GEMM_F64_MC - 1) / GEMM_F64_MC;
@@ -818,8 +820,8 @@ static inline void gemm_f64_avx512(const double *a, const double *b,
           size_t nr_cur = GEMM_MIN(GEMM_F64_NR, nc - jr);
 
           if (ic != last_ic) {
-            gemm_pack_a_f64(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa,
-                            csa);
+            gemm_pack_a_f64_avx512(a + ic * rsa + pc * csa, packed_a, mc, kc,
+                                   rsa, csa);
             last_ic = ic;
           }
 
@@ -857,7 +859,7 @@ static inline void gemm_f64_avx512(const double *a, const double *b,
         size_t kc = GEMM_MIN(GEMM_F64_KC, k_dim - pc);
         int first = (pc == 0);
 
-        gemm_pack_b_f64(b + pc * rsb + jc, packed_b, kc, nc, rsb);
+        gemm_pack_b_f64_avx512(b + pc * rsb + jc, packed_b, kc, nc, rsb);
 
         size_t n_ic = (m_dim + GEMM_F64_MC - 1) / GEMM_F64_MC;
         size_t n_tasks = n_ic * n_jr;
@@ -869,8 +871,8 @@ static inline void gemm_f64_avx512(const double *a, const double *b,
           size_t nr_cur = GEMM_MIN(GEMM_F64_NR, nc - jr);
 
           if (task % n_jr == 0)
-            gemm_pack_a_f64(a + ic * rsa + pc * csa, packed_a, mc, kc, rsa,
-                            csa);
+            gemm_pack_a_f64_avx512(a + ic * rsa + pc * csa, packed_a, mc, kc,
+                                   rsa, csa);
 
           for (size_t ir = 0; ir < mc; ir += GEMM_F64_MR) {
             size_t mr_cur = GEMM_MIN(GEMM_F64_MR, mc - ir);
@@ -900,9 +902,8 @@ static inline void gemm_f64_avx512(const double *a, const double *b,
     }
 #endif
   }
-}
 
-numc_free(packed_b);
+  numc_free(packed_b);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

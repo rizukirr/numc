@@ -4,14 +4,14 @@
 #include <numc/math.h>
 #include <string.h>
 
-#if NUMC_HAVE_AVX512
-#include "intrinsics/dot_avx512.h"
-#include "intrinsics/gemm_avx512.h"
-#endif
-
 #if NUMC_HAVE_AVX2
 #include "intrinsics/dot_avx2.h"
 #include "intrinsics/gemm_avx2.h"
+#endif
+
+#if NUMC_HAVE_AVX512
+#include "intrinsics/dot_avx512.h"
+#include "intrinsics/gemm_avx512.h"
 #endif
 
 #define NUMC_DTYPE_COUNT (NUMC_DTYPE_FLOAT64 + 1)
