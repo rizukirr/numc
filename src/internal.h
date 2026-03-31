@@ -99,10 +99,11 @@ void numc_free(void *ptr);
 /* Cap computed thread count at the runtime maximum to avoid
  * over-subscription on hybrid (P+E core) and smaller CPUs. */
 #if defined(_OPENMP) || defined(HAVE_OMP)
-#define NUMC_OMP_CAP_THREADS(nt)                  \
-  do {                                            \
-    int _max = omp_get_max_threads();             \
-    if ((nt) > _max) (nt) = _max;                 \
+#define NUMC_OMP_CAP_THREADS(nt)      \
+  do {                                \
+    int _max = omp_get_max_threads(); \
+    if ((nt) > _max)                  \
+      (nt) = _max;                    \
   } while (0)
 #else
 #define NUMC_OMP_CAP_THREADS(nt) ((void)(nt))
