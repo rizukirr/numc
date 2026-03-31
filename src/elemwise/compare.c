@@ -292,8 +292,9 @@ FBIN_TABLE(le);
         }                                                                      \
       if (same_shape) {                                                        \
         FastBinKern kern = FAST_TABLE[a->dtype];                               \
-        size_t n = a->size, es = a->elem_size, total = n * 3 * es;             \
-        int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);                     \
+        size_t n = a->size, es = a->elem_size;                                 \
+        int nt = (int)((n * es) / NUMC_OMP_BYTES_PER_THREAD);                  \
+        NUMC_OMP_CAP_THREADS(nt);                                              \
         if (nt >= 2) {                                                         \
           size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;                    \
           NUMC_PRAGMA(                                                      \
@@ -342,6 +343,7 @@ DEFINE_BINARY_SIMD(minimum, minimum_fast_table, minimum_table)
         size_t in_es = a->elem_size;                                         \
         size_t io_total = n * (2 * in_es + 1);                               \
         int nt = (int)(io_total / NUMC_OMP_BYTES_PER_THREAD);                \
+        NUMC_OMP_CAP_THREADS(nt);                                            \
         if (nt >= 2) {                                                       \
           size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;                  \
           NUMC_PRAGMA(                                                      \
@@ -450,6 +452,7 @@ CMPSC_TABLE(le);
       size_t in_es = a->elem_size;                                 \
       size_t io_total = n * (2 * in_es + 1);                       \
       int nt = (int)(io_total / NUMC_OMP_BYTES_PER_THREAD);        \
+      NUMC_OMP_CAP_THREADS(nt);                                    \
       if (nt >= 2) {                                               \
         size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;          \
         NUMC_PRAGMA(                                                   \

@@ -104,6 +104,7 @@ static void _kern_rand_f64_avx2(char *out, size_t n) {
   } else {
     /* ── Large path: per-thread sub-states, OMP when available ─── */
     int _nthreads = (int)(total_bytes / NUMC_OMP_BYTES_PER_THREAD);
+    NUMC_OMP_CAP_THREADS(_nthreads);
     if (_nthreads < 1)
       _nthreads = 1;
     uint64_t base[4] = {

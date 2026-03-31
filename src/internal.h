@@ -96,10 +96,23 @@ void numc_free(void *ptr);
 #define NUMC_LOOP_NOSIMD
 #endif
 
+/* Cap computed thread count at the runtime maximum to avoid
+ * over-subscription on hybrid (P+E core) and smaller CPUs. */
+#if defined(_OPENMP) || defined(HAVE_OMP)
+#define NUMC_OMP_CAP_THREADS(nt)                  \
+  do {                                            \
+    int _max = omp_get_max_threads();             \
+    if ((nt) > _max) (nt) = _max;                 \
+  } while (0)
+#else
+#define NUMC_OMP_CAP_THREADS(nt) ((void)(nt))
+#endif
+
 #define NUMC_OMP_FOR(n, elem_size, loop)                                    \
   do {                                                                      \
     size_t _total_bytes = (n) * (elem_size);                                \
     int _nthreads = (int)(_total_bytes / NUMC_OMP_BYTES_PER_THREAD);        \
+    NUMC_OMP_CAP_THREADS(_nthreads);                                        \
     if (_nthreads >= 2) {                                                   \
       NUMC_PRAGMA(omp parallel for schedule(static) num_threads(_nthreads)) \
       loop                                                                  \
@@ -113,6 +126,7 @@ void numc_free(void *ptr);
   do {                                                                      \
     size_t _total_bytes = (n) * (elem_size);                                \
     int _nthreads = (int)(_total_bytes / NUMC_OMP_BYTES_PER_THREAD);        \
+    NUMC_OMP_CAP_THREADS(_nthreads);                                        \
     if (_nthreads >= 2) {                                                   \
       NUMC_PRAGMA(omp parallel for schedule(static) num_threads(_nthreads)) \
       loop                                                                  \
@@ -126,6 +140,7 @@ void numc_free(void *ptr);
   do {                                                               \
     size_t _total_bytes = (n) * (elem_size);                         \
     int _nthreads = (int)(_total_bytes / NUMC_OMP_BYTES_PER_THREAD); \
+    NUMC_OMP_CAP_THREADS(_nthreads);                                 \
     if (_nthreads >= 2) {                                            \
       NUMC_PRAGMA(omp parallel for reduction(omp_op : acc)                     \
                       schedule(static) num_threads(_nthreads))       \
@@ -140,6 +155,7 @@ void numc_free(void *ptr);
   do {                                                               \
     size_t _total_bytes = (n) * (elem_size);                         \
     int _nthreads = (int)(_total_bytes / NUMC_OMP_BYTES_PER_THREAD); \
+    NUMC_OMP_CAP_THREADS(_nthreads);                                 \
     if (_nthreads >= 2) {                                            \
       NUMC_PRAGMA(omp parallel for reduction(omp_op : acc)                     \
                       schedule(static) num_threads(_nthreads))       \
@@ -155,6 +171,7 @@ void numc_free(void *ptr);
   do {                                                                      \
     size_t _total_bytes = (n) * (elem_size);                                \
     int _nthreads = (int)(_total_bytes / NUMC_OMP_REDUCE_BYTES_PER_THREAD); \
+    NUMC_OMP_CAP_THREADS(_nthreads);                                        \
     if (_nthreads >= 2) {                                                   \
       NUMC_PRAGMA(omp parallel for reduction(omp_op : acc)                     \
                       schedule(static) num_threads(_nthreads))              \

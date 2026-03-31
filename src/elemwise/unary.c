@@ -583,6 +583,7 @@ static inline bool _dtype_is_unsigned(NumcDType dt) {
       if (kern) {                                                              \
         size_t n = a->size, es = a->elem_size, total = n * es;                 \
         int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);                     \
+        NUMC_OMP_CAP_THREADS(nt);                                              \
         if (nt >= 2) {                                                         \
           size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;                    \
           NUMC_PRAGMA(                                             \
@@ -612,6 +613,7 @@ static inline bool _dtype_is_unsigned(NumcDType dt) {
       if (kern) {                                                              \
         size_t n = a->size, es = a->elem_size, total = n * es;                 \
         int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);                     \
+        NUMC_OMP_CAP_THREADS(nt);                                              \
         if (nt >= 2) {                                                         \
           size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;                    \
           NUMC_PRAGMA(                                             \
@@ -649,6 +651,7 @@ int numc_abs(NumcArray *a, NumcArray *out) {
     if (kern) {
       size_t n = a->size, es = a->elem_size, total = n * es;
       int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);
+      NUMC_OMP_CAP_THREADS(nt);
       if (nt >= 2) {
         size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;
         NUMC_PRAGMA(omp parallel for schedule(static) num_threads(nt))
@@ -680,6 +683,7 @@ int numc_abs_inplace(NumcArray *a) {
     if (kern) {
       size_t n = a->size, es = a->elem_size, total = n * es;
       int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);
+      NUMC_OMP_CAP_THREADS(nt);
       if (nt >= 2) {
         size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;
         NUMC_PRAGMA(omp parallel for schedule(static) num_threads(nt))

@@ -144,8 +144,9 @@ FBIN_TABLE(mul);
         }                                                                      \
       if (same_shape) {                                                        \
         FastBinKern kern = FAST_TABLE[a->dtype];                               \
-        size_t n = a->size, es = a->elem_size, total = n * 3 * es;             \
-        int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);                     \
+        size_t n = a->size, es = a->elem_size;                                 \
+        int nt = (int)((n * es) / NUMC_OMP_BYTES_PER_THREAD);                  \
+        NUMC_OMP_CAP_THREADS(nt);                                              \
         if (nt >= 2) {                                                         \
           size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;                    \
           NUMC_PRAGMA(                                                      \
@@ -264,6 +265,7 @@ FSC_TABLE(mul);
       FastScKern kern = FAST_TABLE[a->dtype];                     \
       size_t n = a->size, es = a->elem_size, total = n * 2 * es;  \
       int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);          \
+      NUMC_OMP_CAP_THREADS(nt);                                   \
       if (nt >= 2) {                                              \
         size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;         \
         NUMC_PRAGMA(                                                   \
@@ -294,6 +296,7 @@ FSC_TABLE(mul);
       FastScKern kern = FAST_TABLE[a->dtype];                     \
       size_t n = a->size, es = a->elem_size, total = n * 2 * es;  \
       int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);          \
+      NUMC_OMP_CAP_THREADS(nt);                                   \
       if (nt >= 2) {                                              \
         size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;         \
         NUMC_PRAGMA(                                                   \
