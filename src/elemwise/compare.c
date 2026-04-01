@@ -109,7 +109,7 @@ static inline void _cmp_binary_op(const NumcArray *a, const NumcArray *b,
                    (char *)out->data, so, bcast_shape, bcast_ndim);
 }
 
-/* ── Stamp out comparison (same-type, used by scalar_inplace in SIMD path) ── */
+/* ── Stamp out comparison (same-type, scalar_inplace in SIMD path) ────── */
 
 #if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || \
     NUMC_HAVE_RVV
