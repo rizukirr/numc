@@ -2,6 +2,8 @@
 
 A fast, lightweight NumPy-like N-dimensional tensor library in C, built for high-performance scientific computing and AI workloads. Hand-written SIMD kernels, packed GEMM, arena memory, and OpenMP parallelization.
 
+> Warning, this is not production ready yet
+
 ```c
 #include <numc/numc.h>
 
