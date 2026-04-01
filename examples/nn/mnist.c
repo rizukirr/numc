@@ -78,8 +78,15 @@ static int build_path(char *dst, size_t cap, const char *dir,
 static int load_mnist_split(NumcCtx *ctx, const char *img_path,
                             const char *lbl_path, size_t limit,
                             MnistSplit *out) {
-  FILE *fi = fopen(img_path, "rb");
-  FILE *fl = fopen(lbl_path, "rb");
+  FILE *fi = nullptr;
+  FILE *fl = nullptr;
+#if defined(_MSC_VER)
+  fopen_s(&fi, img_path, "rb");
+  fopen_s(&fl, lbl_path, "rb");
+#else
+  fi = fopen(img_path, "rb");
+  fl = fopen(lbl_path, "rb");
+#endif
   uint8_t *img_u8 = nullptr;
   float *img_f32 = nullptr;
   uint8_t *labels = nullptr;
