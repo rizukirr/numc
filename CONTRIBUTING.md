@@ -45,7 +45,7 @@ We provide a `run.sh` script to simplify common tasks:
 This project strictly enforces `clang-format`. Please run the following before committing:
 
 ```bash
-find src include tests examples bench -iname *.c -o -iname *.h | xargs clang-format -i
+find src include tests bench -iname *.c -o -iname *.h | xargs clang-format -i
 ```
 
 ### Technical Standards

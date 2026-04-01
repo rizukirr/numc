@@ -26,7 +26,7 @@ endif()
 # Options
 option(NUMC_BUILD_TESTS      "Build numc tests"             ${NUMC_STANDALONE})
 option(NUMC_BUILD_BENCHMARKS "Build numc benchmarks"        ${NUMC_STANDALONE})
-option(NUMC_BUILD_EXAMPLES   "Build numc examples"          ${NUMC_STANDALONE})
+
 option(NUMC_ENABLE_ASAN      "Enable AddressSanitizer"      OFF)
 option(NUMC_WERROR           "Treat warnings as errors"     OFF)
 option(NUMC_OPTIMIZE_NATIVE  "Enable -march=native"         ON)
@@ -44,9 +44,6 @@ configure_file(
 # Library (always built)
 add_subdirectory(src)
 
-if(NUMC_BUILD_EXAMPLES)
-    add_subdirectory(examples)
-endif()
 
 if(NUMC_BUILD_BENCHMARKS)
     add_subdirectory(bench)

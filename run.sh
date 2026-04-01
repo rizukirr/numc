@@ -276,9 +276,9 @@ case $COMMAND in
             warn "clang-format not found, skipping..."
         else
             # Use -P for parallel execution; exclude vendored/venv dirs
-            FORMAT_ERRS=$(find src include tests examples bench -type f \( -name '*.c' -o -name '*.h' \) -not -path '*/\.venv/*' -not -path '*/vendor/*' | xargs -P "$(nproc)" clang-format --dry-run --Werror 2>&1 || true)
+            FORMAT_ERRS=$(find src include tests bench -type f \( -name '*.c' -o -name '*.h' \) -not -path '*/\.venv/*' -not -path '*/vendor/*' | xargs -P "$(nproc)" clang-format --dry-run --Werror 2>&1 || true)
             if [ -n "$FORMAT_ERRS" ]; then
-                error "Formatting check failed! Please run: find src include tests examples bench -type f \( -name '*.c' -o -name '*.h' \) | xargs clang-format -i"
+                error "Formatting check failed! Please run: find src include tests bench -type f \( -name '*.c' -o -name '*.h' \) | xargs clang-format -i"
             fi
             success "Formatting is correct"
         fi

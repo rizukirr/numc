@@ -58,9 +58,14 @@ Cross-compilation (requires cross-compilers + QEMU):
 
 CMake options: `NUMC_ENABLE_ASAN` (AddressSanitizer), `NUMC_WERROR` (`-Werror`), `NUMC_OPTIMIZE_NATIVE` (`-march=native`, default ON).
 
+## Examples
+
+Examples and demo programs (including MNIST) live in a separate repository to keep this repo lightweight:
+[numc-example](https://github.com/rizukirr/numc-example)
+
 ## Documentation
 
-[Project Wiki](https://github.com/rizukirr/numc/wiki) — API reference, architecture details, usage examples.
+[Project Wiki](https://github.com/rizukirr/numc/wiki) — API reference, architecture details.
 
 ## Hardware testing wanted
 
