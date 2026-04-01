@@ -109,8 +109,10 @@ static inline void _cmp_binary_op(const NumcArray *a, const NumcArray *b,
                    (char *)out->data, so, bcast_shape, bcast_ndim);
 }
 
-/* ── Stamp out comparison (same-type fallback for non-SIMD builds) ─── */
+/* ── Stamp out comparison (same-type, used by scalar_inplace in SIMD path) ── */
 
+#if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || \
+    NUMC_HAVE_RVV
 #define STAMP_EQ(TE, CT) DEFINE_BINARY_KERNEL(eq, TE, CT, in1 == in2)
 GENERATE_NUMC_TYPES(STAMP_EQ)
 #undef STAMP_EQ
@@ -130,6 +132,7 @@ GENERATE_NUMC_TYPES(STAMP_GE)
 #define STAMP_LE(TE, CT) DEFINE_BINARY_KERNEL(le, TE, CT, in1 <= in2)
 GENERATE_NUMC_TYPES(STAMP_LE)
 #undef STAMP_LE
+#endif
 
 /* ── Comparison kernels producing uint8 output ───────────────────── */
 
