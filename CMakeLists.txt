@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
-cmake_policy(SET CMP0194 NEW)
+if(POLICY CMP0194)
+    cmake_policy(SET CMP0194 NEW)
+endif()
 project(numc VERSION 0.1.1 LANGUAGES C ASM)
 set(NUMC_VERSION_SUFFIX "-rc.1")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
