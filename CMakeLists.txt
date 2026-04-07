@@ -1,4 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
+if(POLICY CMP0194)
+    cmake_policy(SET CMP0194 NEW)
+endif()
 project(numc VERSION 0.1.1 LANGUAGES C ASM)
 set(NUMC_VERSION_SUFFIX "-rc.1")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -23,7 +26,7 @@ endif()
 # Options
 option(NUMC_BUILD_TESTS      "Build numc tests"             ${NUMC_STANDALONE})
 option(NUMC_BUILD_BENCHMARKS "Build numc benchmarks"        ${NUMC_STANDALONE})
-option(NUMC_BUILD_EXAMPLES   "Build numc examples"          ${NUMC_STANDALONE})
+
 option(NUMC_ENABLE_ASAN      "Enable AddressSanitizer"      OFF)
 option(NUMC_WERROR           "Treat warnings as errors"     OFF)
 option(NUMC_OPTIMIZE_NATIVE  "Enable -march=native"         ON)
@@ -41,9 +44,6 @@ configure_file(
 # Library (always built)
 add_subdirectory(src)
 
-if(NUMC_BUILD_EXAMPLES)
-    add_subdirectory(examples)
-endif()
 
 if(NUMC_BUILD_BENCHMARKS)
     add_subdirectory(bench)

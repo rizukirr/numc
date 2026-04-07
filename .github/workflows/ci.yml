@@ -28,7 +28,7 @@ jobs:
 
       - name: Check Formatting
         run: |
-          find src include tests examples bench -type f \( -name '*.c' -o -name '*.h' \) -not -path '*/.venv/*' -not -path '*/vendor/*' | xargs clang-format-21 --dry-run --Werror
+          find src include tests bench -type f \( -name '*.c' -o -name '*.h' \) -not -path '*/.venv/*' -not -path '*/vendor/*' | xargs clang-format-21 --dry-run --Werror
 
       - name: Static Analysis (Clang-Tidy)
         run: |
@@ -97,8 +97,7 @@ jobs:
           -DCMAKE_C_COMPILER=clang `
           -DCMAKE_BUILD_TYPE=Release `
           -DNUMC_BUILD_TESTS=ON `
-          -DNUMC_BUILD_BENCHMARKS=OFF `
-          -DNUMC_BUILD_EXAMPLES=OFF
+          -DNUMC_BUILD_BENCHMARKS=OFF
 
     - name: Build
       run: cmake --build build
@@ -165,7 +164,6 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
             -DCMAKE_BUILD_TYPE=Release \
             -DNUMC_BUILD_TESTS=ON \
-            -DNUMC_BUILD_EXAMPLES=OFF \
             -DNUMC_BUILD_BENCHMARKS=OFF
           cmake --build build --parallel $(nproc)
 

@@ -2,6 +2,8 @@
 
 A fast, lightweight NumPy-like N-dimensional tensor library in C, built for high-performance scientific computing and AI workloads. Hand-written SIMD kernels, packed GEMM, arena memory, and OpenMP parallelization.
 
+> Warning, this is not production ready yet
+
 ```c
 #include <numc/numc.h>
 
@@ -56,9 +58,14 @@ Cross-compilation (requires cross-compilers + QEMU):
 
 CMake options: `NUMC_ENABLE_ASAN` (AddressSanitizer), `NUMC_WERROR` (`-Werror`), `NUMC_OPTIMIZE_NATIVE` (`-march=native`, default ON).
 
+## Examples
+
+Examples and demo programs (including MNIST) live in a separate repository to keep this repo lightweight:
+[numc-example](https://github.com/rizukirr/numc-example)
+
 ## Documentation
 
-[Project Wiki](https://github.com/rizukirr/numc/wiki) — API reference, architecture details, usage examples.
+[Project Wiki](https://github.com/rizukirr/numc/wiki) — API reference, architecture details.
 
 ## Hardware testing wanted
 
