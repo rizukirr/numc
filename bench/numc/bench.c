@@ -713,8 +713,8 @@ static void bench_matmul(size_t M, size_t K, size_t N, int warmup, int iters) {
 /* ── Dot product ──────────────────────────────────────────────────── */
 
 static void bench_dot(size_t size) {
-  for (int d = 0; d < N_FLOAT; d++) {
-    NumcDType dt = FLOAT_DTYPES[d];
+  for (int d = 0; d < N_DTYPES; d++) {
+    NumcDType dt = ALL_DTYPES[d];
     NumcCtx *ctx = numc_ctx_create();
     size_t shape[] = {size};
 
@@ -747,8 +747,8 @@ static void bench_random(const char *name, size_t size,
                          NumcArray *(*gen)(NumcCtx *, const size_t *, size_t,
                                            NumcDType)) {
   int iters = 50;
-  for (int d = 0; d < N_FLOAT; d++) {
-    NumcDType dt = FLOAT_DTYPES[d];
+  for (int d = 0; d < N_DTYPES; d++) {
+    NumcDType dt = ALL_DTYPES[d];
     size_t shape[] = {size};
 
     /* Warmup */

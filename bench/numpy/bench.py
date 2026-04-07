@@ -375,7 +375,7 @@ def bench_matmul(M, K, N, warmup, iters):
 # ── Dot product ───────────────────────────────────────────────────────
 
 def bench_dot(size):
-    for dname, dt in FLOAT_DTYPES:
+    for dname, dt in ALL_DTYPES:
         a = np.random.randn(size).astype(dt)
         b = np.random.randn(size).astype(dt)
 
@@ -402,7 +402,7 @@ def bench_random(name, size):
     }
     gen = gen_map[name]
 
-    for dname, dt in FLOAT_DTYPES:
+    for dname, dt in ALL_DTYPES:
         # Warmup
         for _ in range(5):
             gen(dt)
