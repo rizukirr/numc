@@ -136,6 +136,7 @@ efficient training.
 
 | Operation | Signature | Notes |
 |---|---|---|
+| `numc_linear` | `(x, w, bias, out)` | Fused linear layer `y = x @ W + bias`. The canonical dense layer used in every MLP/transformer FFN. Bias add folded into GEMM micro-kernel epilogue — one store pass instead of two, and keeps the wider accumulator before cast-back (matters for int8/int16 quantized layers). Equivalent to `torch.nn.functional.linear` / BLAS `gemm` with beta·C. |
 | `numc_bmm` | `(a, b, out)` | Batched matrix multiply. Multi-head attention: `(B,H,S,D) @ (B,H,D,S)`. Critical for transformers. |
 | `numc_outer` | `(a, b, out)` | Outer product. Rank-1 updates, attention patterns. |
 | `numc_trace` | `(a, out)` | Matrix trace. Regularization. |
@@ -250,9 +251,10 @@ Now:     tanh, sigmoid, concat, cast, sort, argsort, gather, scatter
          (8 ops — unlocks logistic regression, decision trees, KNN,
           SVM, RNNs, embedding models)
 
-Next:    gelu, silu, bmm, softmax (fused), var, std, cumsum,
-         sin, cos, arange, eye, tril, pad, randint, shuffle
-         (15 ops — unlocks CNNs, transformers, modern activations)
+Next:    gelu, silu, linear (fused x@W+b), bmm, softmax (fused),
+         var, std, cumsum, sin, cos, arange, eye, tril, pad,
+         randint, shuffle
+         (16 ops — unlocks CNNs, transformers, modern activations)
 
 Later:   flash_attention, rope, conv2d, layer_norm, rms_norm,
          topk, multinomial, quantization, bf16/fp16
