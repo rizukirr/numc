@@ -34,7 +34,7 @@
 #define GEMM_F32_NC 3072
 #define GEMM_F64_NC 3752
 
-/* ── Float32 packing routines ──────────────────────────────────────────── */
+/* -- Float32 packing routines -------------------------------------------- */
 
 static inline void gemm_pack_b_f32_avx512(const float *b, float *packed,
                                           size_t kc, size_t nc, intptr_t rsb) {
@@ -168,7 +168,7 @@ static inline void gemm_pack_a_f32_avx512(const float *a, float *packed,
   }
 }
 
-/* ── Float64 packing routines ──────────────────────────────────────────── */
+/* -- Float64 packing routines -------------------------------------------- */
 
 static inline void gemm_pack_b_f64_avx512(const double *b, double *packed,
                                           size_t kc, size_t nc, intptr_t rsb) {
@@ -300,9 +300,9 @@ static inline void gemm_pack_a_f64_avx512(const double *a, double *packed,
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Float32: 12x32 micro-kernel (24 acc + 1 A broadcast + 2 B loads = 27 ZMM)
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 /* One K-iteration of the 12x32 micro-kernel body.
@@ -601,9 +601,9 @@ static inline void gemm_f32_avx512(const float *a, const float *b, float *out,
   numc_free(packed_b);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Float64: 14x16 micro-kernel (28 acc + 1 A broadcast + 2 B loads = 31 ZMM)
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 /* One K-iteration of the 14x16 f64 micro-kernel body.
@@ -906,11 +906,11 @@ static inline void gemm_f64_avx512(const double *a, const double *b,
   numc_free(packed_b);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int32/Uint32: 12×32 micro-kernel (mullo_epi32 + add_epi32, ZMM)
    mullo_epi32 produces identical low 32 bits for signed and unsigned.
    Reuses f32 blocking parameters (same element size).
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 #undef GEMM_I32_MR
@@ -1022,10 +1022,10 @@ static inline void gemm_u32_avx512(const uint32_t *a, const uint32_t *b,
                   k_dim, n_dim, rsa, csa, rsb, rso);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int16/Uint16: 12×64 micro-kernel (mullo_epi16 + add_epi16, ZMM)
    32 i16 per ZMM, 2 ZMM per row = 64 elements.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 #undef GEMM_I16_MR
@@ -1137,10 +1137,10 @@ static inline void gemm_u16_avx512(const uint16_t *a, const uint16_t *b,
                   k_dim, n_dim, rsa, csa, rsb, rso);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int64/Uint64: 14×16 micro-kernel (ZMM, 8 i64 per register)
    AVX-512DQ has native _mm512_mullo_epi64; fallback uses widening.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 #undef GEMM_I64_MR
@@ -1260,11 +1260,11 @@ static inline void gemm_u64_avx512(const uint64_t *a, const uint64_t *b,
                   k_dim, n_dim, rsa, csa, rsb, rso);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int8: 12×16 promoted micro-kernel (widen to i32, full-K accumulation)
    Load 16 i8, sign-extend to 16 i32 via _mm512_cvtepi8_epi32,
    accumulate in i32, narrow back to i8 on store.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 #undef GEMM_I8_MR
@@ -1340,10 +1340,10 @@ static inline void gemm_i8_avx512(const int8_t *a, const int8_t *b, int8_t *out,
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Uint8: 12×16 promoted micro-kernel (widen to u32, full-K accumulation)
    Same as i8 but uses zero-extension and unsigned truncation.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_u8_12x16(const uint8_t *a, const uint8_t *b,

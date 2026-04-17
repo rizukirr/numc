@@ -28,7 +28,7 @@
 #include "intrinsics/reduce_rvv.h"
 #endif
 
-/* ── Pairwise summation for float types ──────────────────────────────
+/* -- Pairwise summation for float types ------------------------------
  *
  * IEEE-754 non-associativity prevents the compiler from vectorizing
  * a serial `acc += val` loop — it emits scalar vaddss/vaddsd with a
@@ -107,7 +107,7 @@ static inline double _pairwise_sum_f64(const double *restrict a, size_t n) {
   return _pairwise_sum_f64(a, half) + _pairwise_sum_f64(a + half, n - half);
 }
 
-/* ── Multi-accumulator max/min for float types ─────────────────────────
+/* -- Multi-accumulator max/min for float types -------------------------
  *
  * Same technique as pairwise summation: 8 independent accumulators
  * that the SLP vectorizer packs into vmaxps/vminps (float32) or

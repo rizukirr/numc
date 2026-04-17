@@ -10,7 +10,7 @@
 
 #define N 64
 
-/* ── Float32 ──────────────────────────────────────────────────── */
+/* -- Float32 ---------------------------------------------------- */
 
 static int test_matmul_f32_identity(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -73,7 +73,7 @@ static int test_matmul_f32_known_result(void) {
   return 0;
 }
 
-/* ── Float64 ──────────────────────────────────────────────────── */
+/* -- Float64 ---------------------------------------------------- */
 
 static int test_matmul_f64_identity(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -132,7 +132,7 @@ static int test_matmul_f64_known_result(void) {
   return 0;
 }
 
-/* ── Rectangular shapes ────────────────────────────────────────── */
+/* -- Rectangular shapes ------------------------------------------ */
 
 static int test_matmul_f32_rect(void) {
   /* (4 x 128) @ (128 x 8) = (4 x 8), ops = 4*128*8 = 4096 * ... > 32k */
@@ -165,7 +165,7 @@ static int test_matmul_f32_rect(void) {
   return 0;
 }
 
-/* ── Verify GEMM and naive agree ───────────────────────────────── */
+/* -- Verify GEMM and naive agree --------------------------------- */
 
 static int test_matmul_gemm_vs_naive_f32(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -300,7 +300,7 @@ static int test_matmul_packed_256_f64(void) {
   return 0;
 }
 
-/* ── Int32 ────────────────────────────────────────────────────── */
+/* -- Int32 ------------------------------------------------------ */
 
 static int test_matmul_i32_identity(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -349,7 +349,7 @@ static int test_matmul_gemm_vs_naive_i32(void) {
   return 0;
 }
 
-/* ── UInt32 ───────────────────────────────────────────────────── */
+/* -- UInt32 ----------------------------------------------------- */
 
 static int test_matmul_u32_identity(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -372,7 +372,7 @@ static int test_matmul_u32_identity(void) {
   return 0;
 }
 
-/* ── Int16 ────────────────────────────────────────────────────── */
+/* -- Int16 ------------------------------------------------------ */
 
 static int test_matmul_i16_identity(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -419,7 +419,7 @@ static int test_matmul_gemm_vs_naive_i16(void) {
   return 0;
 }
 
-/* ── UInt16 ───────────────────────────────────────────────────── */
+/* -- UInt16 ----------------------------------------------------- */
 
 static int test_matmul_u16_identity(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -442,7 +442,7 @@ static int test_matmul_u16_identity(void) {
   return 0;
 }
 
-/* ── Int64 ────────────────────────────────────────────────────── */
+/* -- Int64 ------------------------------------------------------ */
 
 static int test_matmul_i64_identity(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -489,7 +489,7 @@ static int test_matmul_gemm_vs_naive_i64(void) {
   return 0;
 }
 
-/* ── UInt64 ───────────────────────────────────────────────────── */
+/* -- UInt64 ----------------------------------------------------- */
 
 static int test_matmul_u64_identity(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -512,7 +512,7 @@ static int test_matmul_u64_identity(void) {
   return 0;
 }
 
-/* ── Int8 ─────────────────────────────────────────────────────── */
+/* -- Int8 ------------------------------------------------------- */
 
 static int test_matmul_i8_identity(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -562,7 +562,7 @@ static int test_matmul_gemm_vs_naive_i8(void) {
   return 0;
 }
 
-/* ── UInt8 ────────────────────────────────────────────────────── */
+/* -- UInt8 ------------------------------------------------------ */
 
 static int test_matmul_u8_identity(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -585,7 +585,7 @@ static int test_matmul_u8_identity(void) {
   return 0;
 }
 
-/* ── Transposed Input Tests ─────────────────────────────────────── */
+/* -- Transposed Input Tests --------------------------------------- */
 
 static int test_matmul_f32_transposed_b(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -651,7 +651,7 @@ static int test_matmul_i32_transposed_a(void) {
   return 0;
 }
 
-/* ── Packed GEMM Coverage Tests (Larger Sizes) ──────────────────── */
+/* -- Packed GEMM Coverage Tests (Larger Sizes) -------------------- */
 
 static int test_matmul_packed_128_i32(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -705,7 +705,7 @@ static int test_matmul_packed_67_i16(void) {
   return 0;
 }
 
-/* ── Edge cases: MR/NR remainder, vector-matrix, fused IR-loop ── */
+/* -- Edge cases: MR/NR remainder, vector-matrix, fused IR-loop -- */
 
 /* Generic cross-validation helper: GEMM vs naive for arbitrary M×K×N.
  * Uses small integer fills so integer dtypes match exactly and float
@@ -802,7 +802,7 @@ DEFINE_EDGE_TEST(test_matmul_i16_prime, 37, 41, 43, NUMC_DTYPE_INT16, int16_t,
 
 #undef DEFINE_EDGE_TEST
 
-/* ── main ───────────────────────────────────────────────────────── */
+/* -- main --------------------------------------------------------- */
 
 int main(void) {
   int passes = 0, fails = 0;

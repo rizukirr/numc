@@ -16,7 +16,7 @@ import numpy as np
 import time
 import sys
 
-# ── Config ────────────────────────────────────────────────────────────
+# -- Config ------------------------------------------------------------
 
 WARMUP = 20
 ITERS = 200
@@ -55,7 +55,7 @@ FILL_VALUES_POW_EXP = {
 UNSIGNED = {np.uint8, np.uint16, np.uint32, np.uint64}
 
 
-# ── Helpers ───────────────────────────────────────────────────────────
+# -- Helpers -----------------------------------------------------------
 
 def csv(cat, op, dt, size, shape, us):
     mops = size / us
@@ -76,7 +76,7 @@ def bench_fn(fn, iters=ITERS):
     return min_us
 
 
-# ── Binary element-wise ──────────────────────────────────────────────
+# -- Binary element-wise ----------------------------------------------
 
 def bench_binary(name, np_op, size):
     for dname, dt in ALL_DTYPES:
@@ -94,7 +94,7 @@ def bench_binary(name, np_op, size):
         csv("binary", name, dname, size, f"({size})", us)
 
 
-# ── Pow ───────────────────────────────────────────────────────────────
+# -- Pow ---------------------------------------------------------------
 
 def bench_pow(size):
     for dname, dt in ALL_DTYPES:
@@ -113,7 +113,7 @@ def bench_pow(size):
         csv("binary", "pow", dname, size, f"({size})", us)
 
 
-# ── FMA (a*b + c) ────────────────────────────────────────────────────
+# -- FMA (a*b + c) ----------------------------------------------------
 
 def bench_fma(size):
     for dname, dt in ALL_DTYPES:
@@ -134,7 +134,7 @@ def bench_fma(size):
         csv("ternary", "fma", dname, size, f"({size})", us)
 
 
-# ── Where ─────────────────────────────────────────────────────────────
+# -- Where -------------------------------------------------------------
 
 def bench_where(size):
     for dname, dt in ALL_DTYPES:
@@ -147,7 +147,7 @@ def bench_where(size):
         csv("ternary", "where", dname, size, f"({size})", us)
 
 
-# ── Scalar ops ────────────────────────────────────────────────────────
+# -- Scalar ops --------------------------------------------------------
 
 def bench_scalar_op(name, np_op, size, scalar=2.0):
     for dname, dt in ALL_DTYPES:
@@ -164,7 +164,7 @@ def bench_scalar_op(name, np_op, size, scalar=2.0):
         csv("scalar", name, dname, size, f"({size})", us)
 
 
-# ── Scalar inplace ops ───────────────────────────────────────────────
+# -- Scalar inplace ops -----------------------------------------------
 
 def bench_scalar_inplace(name, size, scalar=1.01):
     """NumPy inplace scalar: a += scalar, a -= scalar, etc."""
@@ -210,7 +210,7 @@ def bench_scalar_inplace(name, size, scalar=1.01):
         csv("scalar_inplace", name, dname, size, f"({size})", us)
 
 
-# ── Unary ops ─────────────────────────────────────────────────────────
+# -- Unary ops ---------------------------------------------------------
 
 def bench_unary(name, np_op, size, skip_unsigned=False, use_exp_fill=False):
     for dname, dt in ALL_DTYPES:
@@ -230,7 +230,7 @@ def bench_unary(name, np_op, size, skip_unsigned=False, use_exp_fill=False):
         csv("unary", name, dname, size, f"({size})", us)
 
 
-# ── Unary inplace ops ────────────────────────────────────────────────
+# -- Unary inplace ops ------------------------------------------------
 
 def bench_unary_inplace(name, np_op, size, skip_unsigned=False, use_exp_fill=False):
     for dname, dt in ALL_DTYPES:
@@ -249,7 +249,7 @@ def bench_unary_inplace(name, np_op, size, skip_unsigned=False, use_exp_fill=Fal
         csv("unary_inplace", name, dname, size, f"({size})", us)
 
 
-# ── Clip ──────────────────────────────────────────────────────────────
+# -- Clip --------------------------------------------------------------
 
 def bench_clip(size):
     for dname, dt in ALL_DTYPES:
@@ -260,7 +260,7 @@ def bench_clip(size):
         csv("unary", "clip", dname, size, f"({size})", us)
 
 
-# ── Comparison ops ────────────────────────────────────────────────────
+# -- Comparison ops ----------------------------------------------------
 
 def bench_comparison(name, np_op, size):
     for dname, dt in ALL_DTYPES:
@@ -272,7 +272,7 @@ def bench_comparison(name, np_op, size):
         csv("comparison", name, dname, size, f"({size})", us)
 
 
-# ── Comparison scalar ops ────────────────────────────────────────────
+# -- Comparison scalar ops --------------------------------------------
 
 def bench_comparison_scalar(name, np_op, size, scalar=2.0):
     for dname, dt in ALL_DTYPES:
@@ -283,7 +283,7 @@ def bench_comparison_scalar(name, np_op, size, scalar=2.0):
         csv("comparison_scalar", name, dname, size, f"({size})", us)
 
 
-# ── Full reductions ──────────────────────────────────────────────────
+# -- Full reductions --------------------------------------------------
 
 def bench_reduce_full(name, size):
     for dname, dt in ALL_DTYPES:
@@ -294,7 +294,7 @@ def bench_reduce_full(name, size):
         csv("reduction", name, dname, size, f"({size})", us)
 
 
-# ── Axis reductions ──────────────────────────────────────────────────
+# -- Axis reductions --------------------------------------------------
 
 def bench_reduce_axis(name, axis, rows, cols):
     total = rows * cols
@@ -307,7 +307,7 @@ def bench_reduce_axis(name, axis, rows, cols):
         csv("reduction", op_name, dname, total, f"({rows}x{cols})", us)
 
 
-# ── Matmul ────────────────────────────────────────────────────────────
+# -- Matmul ------------------------------------------------------------
 
 def bench_matmul(M, K, N, warmup, iters):
     """Matmul benchmark: per-iteration timing, reports minimum (most stable)."""
@@ -372,7 +372,7 @@ def bench_matmul(M, K, N, warmup, iters):
             f"({M}x{K})@({K}x{N})", min_us)
 
 
-# ── Dot product ───────────────────────────────────────────────────────
+# -- Dot product -------------------------------------------------------
 
 def bench_dot(size):
     for dname, dt in ALL_DTYPES:
@@ -392,7 +392,7 @@ def bench_dot(size):
         csv("linalg", "dot", dname, size, f"({size})", us)
 
 
-# ── Random ────────────────────────────────────────────────────────────
+# -- Random ------------------------------------------------------------
 
 def bench_random(name, size):
     iters = 50
@@ -416,7 +416,7 @@ def bench_random(name, size):
         csv("random", name, dname, size, f"({size})", us)
 
 
-# ── main ──────────────────────────────────────────────────────────────
+# -- main --------------------------------------------------------------
 
 def main():
     print("library,category,operation,dtype,size,shape,time_us,throughput_mops")
@@ -461,6 +461,7 @@ def main():
     bench_unary("log", np.log, SIZE)
     bench_unary("exp", np.exp, SIZE, use_exp_fill=True)
     bench_unary("sqrt", np.sqrt, SIZE)
+    bench_unary("tanh", np.tanh, SIZE)
     bench_clip(SIZE)
 
     # Unary inplace
@@ -469,6 +470,7 @@ def main():
     bench_unary_inplace("log_inplace", np.log, SIZE)
     bench_unary_inplace("exp_inplace", np.exp, SIZE, use_exp_fill=True)
     bench_unary_inplace("sqrt_inplace", np.sqrt, SIZE)
+    bench_unary_inplace("tanh_inplace", np.tanh, SIZE)
 
     # Comparison ops
     bench_comparison("eq", np.equal, SIZE)

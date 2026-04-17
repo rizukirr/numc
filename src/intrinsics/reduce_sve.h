@@ -7,12 +7,12 @@
 
 // clang-format off
 
-/* ── scalar comparison helpers ───────────────────────────────────── */
+/* -- scalar comparison helpers ------------------------------------- */
 
 #define _RSMIN(a, b) ((a) < (b) ? (a) : (b))
 #define _RSMAX(a, b) ((a) > (b) ? (a) : (b))
 
-/* ── full array min/max reduction (SVE) ──────────────────────────── *
+/* -- full array min/max reduction (SVE) ---------------------------- *
  *
  * 4-vector unrolled main loop, then predicated cleanup via svwhilelt.
  * SVE handles tails natively — no scalar tail loop needed.            */
@@ -96,7 +96,7 @@ DEFINE_REDUCE_FULL_SVE(reduce_max_u64_sve, uint64_t, svuint64_t,
 
 #undef DEFINE_REDUCE_FULL_SVE
 
-/* ── fused row-reduce (axis-1 reduction, SVE) ────────────────────── *
+/* -- fused row-reduce (axis-1 reduction, SVE) ---------------------- *
  *
  * Processes 4 rows at a time, vectorizing the inner column loop.
  * SVE predication handles column tails — no scalar cleanup needed.    */

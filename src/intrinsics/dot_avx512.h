@@ -6,7 +6,7 @@
 
 // clang-format off
 
-/* ── helpers ─────────────────────────────────────────────────────────── */
+/* -- helpers ----------------------------------------------------------- */
 
 /* tree-reduce 8 accumulators into acc0 */
 #define REDUCE_ACC8_512(add_fn, a0, a1, a2, a3, a4, a5, a6, a7) \
@@ -58,7 +58,7 @@
         _mm512_cvtepu16_epi32(_mm512_extracti64x4_epi64(_vb, 1))));            \
   } while (0)
 
-/* ── float dot products ──────────────────────────────────────────────── */
+/* -- float dot products ------------------------------------------------ */
 
 static inline void dot_f32u_avx512(const float *a, const float *b, size_t n,
                                    float *dest) {
@@ -114,7 +114,7 @@ static inline void dot_f64u_avx512(const double *a, const double *b, size_t n,
   *dest = result + tail;
 }
 
-/* ── 32-bit integer dot products ─────────────────────────────────────── */
+/* -- 32-bit integer dot products --------------------------------------- */
 
 static inline void dot_i32_avx512(const int32_t *a, const int32_t *b, size_t n,
                                   int32_t *dest) {
@@ -170,7 +170,7 @@ static inline void dot_u32_avx512(const uint32_t *a, const uint32_t *b, size_t n
   *dest = result + tail;
 }
 
-/* ── 64-bit integer dot products ─────────────────────────────────────── */
+/* -- 64-bit integer dot products --------------------------------------- */
 
 static inline void dot_i64_avx512(const int64_t *a, const int64_t *b, size_t n,
                                   int64_t *dest) {
@@ -226,7 +226,7 @@ static inline void dot_u64_avx512(const uint64_t *a, const uint64_t *b, size_t n
   *dest = result + tail;
 }
 
-/* ── 8-bit dot (widen to i16, madd_epi16 → i32 accumulators) ────────── */
+/* -- 8-bit dot (widen to i16, madd_epi16 → i32 accumulators) ---------- */
 
 static inline void dot_i8_avx512(const int8_t *a, const int8_t *b, size_t n,
                                   int8_t *dest) {
@@ -282,7 +282,7 @@ static inline void dot_u8_avx512(const uint8_t *a, const uint8_t *b, size_t n,
   *dest = (uint8_t)(result + tail);
 }
 
-/* ── 16-bit dot (madd_epi16 → i32 accumulators) ─────────────────────── */
+/* -- 16-bit dot (madd_epi16 → i32 accumulators) ----------------------- */
 
 static inline void dot_i16_avx512(const int16_t *a, const int16_t *b, size_t n,
                                   int16_t *dest) {

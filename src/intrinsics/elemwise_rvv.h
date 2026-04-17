@@ -83,7 +83,7 @@
     }                                                                    \
   }
 
-/* ── Add ──────────────────────────────────────────────────────────── */
+/* -- Add ------------------------------------------------------------ */
 
 FAST_BIN_SINT_RVV(add, i8, int8_t, 8, __riscv_vadd_vv_i8m4)
 FAST_BIN_SINT_RVV(add, i16, int16_t, 16, __riscv_vadd_vv_i16m4)
@@ -96,7 +96,7 @@ FAST_BIN_UINT_RVV(add, u64, uint64_t, 64, __riscv_vadd_vv_u64m4)
 FAST_BIN_F32_RVV(add, __riscv_vfadd_vv_f32m4)
 FAST_BIN_F64_RVV(add, __riscv_vfadd_vv_f64m4)
 
-/* ── Sub ──────────────────────────────────────────────────────────── */
+/* -- Sub ------------------------------------------------------------ */
 
 FAST_BIN_SINT_RVV(sub, i8, int8_t, 8, __riscv_vsub_vv_i8m4)
 FAST_BIN_SINT_RVV(sub, i16, int16_t, 16, __riscv_vsub_vv_i16m4)
@@ -109,7 +109,7 @@ FAST_BIN_UINT_RVV(sub, u64, uint64_t, 64, __riscv_vsub_vv_u64m4)
 FAST_BIN_F32_RVV(sub, __riscv_vfsub_vv_f32m4)
 FAST_BIN_F64_RVV(sub, __riscv_vfsub_vv_f64m4)
 
-/* ── Mul ──────────────────────────────────────────────────────────── */
+/* -- Mul ------------------------------------------------------------ */
 
 FAST_BIN_SINT_RVV(mul, i8, int8_t, 8, __riscv_vmul_vv_i8m4)
 FAST_BIN_SINT_RVV(mul, i16, int16_t, 16, __riscv_vmul_vv_i16m4)
@@ -122,40 +122,40 @@ FAST_BIN_UINT_RVV(mul, u64, uint64_t, 64, __riscv_vmul_vv_u64m4)
 FAST_BIN_F32_RVV(mul, __riscv_vfmul_vv_f32m4)
 FAST_BIN_F64_RVV(mul, __riscv_vfmul_vv_f64m4)
 
-/* ── Maximum (signed) ─────────────────────────────────────────────── */
+/* -- Maximum (signed) ----------------------------------------------- */
 
 FAST_BIN_SINT_RVV(maximum, i8, int8_t, 8, __riscv_vmax_vv_i8m4)
 FAST_BIN_SINT_RVV(maximum, i16, int16_t, 16, __riscv_vmax_vv_i16m4)
 FAST_BIN_SINT_RVV(maximum, i32, int32_t, 32, __riscv_vmax_vv_i32m4)
 FAST_BIN_SINT_RVV(maximum, i64, int64_t, 64, __riscv_vmax_vv_i64m4)
 
-/* ── Maximum (unsigned) ───────────────────────────────────────────── */
+/* -- Maximum (unsigned) --------------------------------------------- */
 
 FAST_BIN_UINT_RVV(maximum, u8, uint8_t, 8, __riscv_vmaxu_vv_u8m4)
 FAST_BIN_UINT_RVV(maximum, u16, uint16_t, 16, __riscv_vmaxu_vv_u16m4)
 FAST_BIN_UINT_RVV(maximum, u32, uint32_t, 32, __riscv_vmaxu_vv_u32m4)
 FAST_BIN_UINT_RVV(maximum, u64, uint64_t, 64, __riscv_vmaxu_vv_u64m4)
 
-/* ── Maximum (float) ──────────────────────────────────────────────── */
+/* -- Maximum (float) ------------------------------------------------ */
 
 FAST_BIN_F32_RVV(maximum, __riscv_vfmax_vv_f32m4)
 FAST_BIN_F64_RVV(maximum, __riscv_vfmax_vv_f64m4)
 
-/* ── Minimum (signed) ─────────────────────────────────────────────── */
+/* -- Minimum (signed) ----------------------------------------------- */
 
 FAST_BIN_SINT_RVV(minimum, i8, int8_t, 8, __riscv_vmin_vv_i8m4)
 FAST_BIN_SINT_RVV(minimum, i16, int16_t, 16, __riscv_vmin_vv_i16m4)
 FAST_BIN_SINT_RVV(minimum, i32, int32_t, 32, __riscv_vmin_vv_i32m4)
 FAST_BIN_SINT_RVV(minimum, i64, int64_t, 64, __riscv_vmin_vv_i64m4)
 
-/* ── Minimum (unsigned) ───────────────────────────────────────────── */
+/* -- Minimum (unsigned) --------------------------------------------- */
 
 FAST_BIN_UINT_RVV(minimum, u8, uint8_t, 8, __riscv_vminu_vv_u8m4)
 FAST_BIN_UINT_RVV(minimum, u16, uint16_t, 16, __riscv_vminu_vv_u16m4)
 FAST_BIN_UINT_RVV(minimum, u32, uint32_t, 32, __riscv_vminu_vv_u32m4)
 FAST_BIN_UINT_RVV(minimum, u64, uint64_t, 64, __riscv_vminu_vv_u64m4)
 
-/* ── Minimum (float) ──────────────────────────────────────────────── */
+/* -- Minimum (float) ------------------------------------------------ */
 
 FAST_BIN_F32_RVV(minimum, __riscv_vfmin_vv_f32m4)
 FAST_BIN_F64_RVV(minimum, __riscv_vfmin_vv_f64m4)
@@ -169,7 +169,7 @@ FAST_BIN_F64_RVV(minimum, __riscv_vfmin_vv_f64m4)
  * Unary operations
  * ==================================================================== */
 
-/* ── Neg (signed integer) ─────────────────────────────────────────── */
+/* -- Neg (signed integer) ------------------------------------------- */
 
 #define FAST_NEG_SINT_RVV(SFX, CT, SEW)                                       \
   static inline void _fast_neg_##SFX##_rvv(const void *restrict ap,           \
@@ -192,7 +192,7 @@ FAST_NEG_SINT_RVV(i64, int64_t, 64)
 
 #undef FAST_NEG_SINT_RVV
 
-/* ── Neg (unsigned integer): 0 - x ───────────────────────────────── */
+/* -- Neg (unsigned integer): 0 - x --------------------------------- */
 
 #define FAST_NEG_UINT_RVV(SFX, CT, SEW)                                   \
   static inline void _fast_neg_##SFX##_rvv(const void *restrict ap,       \
@@ -216,7 +216,7 @@ FAST_NEG_UINT_RVV(u64, uint64_t, 64)
 
 #undef FAST_NEG_UINT_RVV
 
-/* ── Neg (float) ──────────────────────────────────────────────────── */
+/* -- Neg (float) ---------------------------------------------------- */
 
 static inline void _fast_neg_f32_rvv(const void *restrict ap, void *restrict op,
                                      size_t n) {
@@ -242,7 +242,7 @@ static inline void _fast_neg_f64_rvv(const void *restrict ap, void *restrict op,
   }
 }
 
-/* ── Abs (signed integer): max(x, -x) ────────────────────────────── */
+/* -- Abs (signed integer): max(x, -x) ------------------------------ */
 
 #define FAST_ABS_SINT_RVV(SFX, CT, SEW)                                   \
   static inline void _fast_abs_##SFX##_rvv(const void *restrict ap,       \
@@ -266,7 +266,7 @@ FAST_ABS_SINT_RVV(i64, int64_t, 64)
 
 #undef FAST_ABS_SINT_RVV
 
-/* ── Abs (float) ──────────────────────────────────────────────────── */
+/* -- Abs (float) ---------------------------------------------------- */
 
 static inline void _fast_abs_f32_rvv(const void *restrict ap, void *restrict op,
                                      size_t n) {

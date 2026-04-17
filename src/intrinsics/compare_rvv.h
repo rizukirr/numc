@@ -20,9 +20,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 8-bit: input and output both e8m4 — direct path
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_8_RVV(SFX, CT, VTYPE, SETVL, LOAD, BOOLBITS, CMPEQ, CMPGT, \
                        CMPLT, CMPGE, CMPLE)                                 \
@@ -133,7 +133,7 @@ FAST_CMP_8_RVV(u8, uint8_t, vuint8m4_t,
 /* clang-format on */
 #undef FAST_CMP_8_RVV
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Wider types (16/32/64): load at native width, compare, produce
  * uint8 output via matching-ratio u8 LMUL merge + vse8.
  *
@@ -143,7 +143,7 @@ FAST_CMP_8_RVV(u8, uint8_t, vuint8m4_t,
  *   e64m4 → vbool16 → use u8mf2 (ratio 16) for merge/store
  *
  * OLMU = output LMUL suffix for u8 (m2, m1, mf2)
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_WIDE_RVV(SFX, CT, VTYPE, SETVL, LOAD, BOOLBITS, OLMU, CMPEQ, \
                           CMPGT, CMPLT, CMPGE, CMPLE)                         \
@@ -240,7 +240,7 @@ FAST_CMP_8_RVV(u8, uint8_t, vuint8m4_t,
 
 /* clang-format off */
 
-/* ── Signed wider types ─────────────────────────────────────────── */
+/* -- Signed wider types ------------------------------------------- */
 
 /* i16: e16m4, vbool4 → u8m2 */
 FAST_CMP_WIDE_RVV(i16, int16_t, vint16m4_t,
@@ -266,7 +266,7 @@ FAST_CMP_WIDE_RVV(i64, int64_t, vint64m4_t,
   __riscv_vmslt_vv_i64m4_b16, __riscv_vmsge_vv_i64m4_b16,
   __riscv_vmsle_vv_i64m4_b16)
 
-/* ── Unsigned wider types ───────────────────────────────────────── */
+/* -- Unsigned wider types ----------------------------------------- */
 
 /* u16: e16m4, vbool4 → u8m2 */
 FAST_CMP_WIDE_RVV(u16, uint16_t, vuint16m4_t,
@@ -292,7 +292,7 @@ FAST_CMP_WIDE_RVV(u64, uint64_t, vuint64m4_t,
   __riscv_vmsltu_vv_u64m4_b16, __riscv_vmsgeu_vv_u64m4_b16,
   __riscv_vmsleu_vv_u64m4_b16)
 
-/* ── Float types ────────────────────────────────────────────────── */
+/* -- Float types -------------------------------------------------- */
 
 /* f32: e32m4, vbool8 → u8m1 */
 FAST_CMP_WIDE_RVV(f32, float, vfloat32m4_t,

@@ -23,7 +23,7 @@
 #include "intrinsics/elemwise_scalar_rvv.h"
 #endif
 
-/* ── Stamp binary elem-wise arithmetic typed kernels ────────────────────*/
+/* -- Stamp binary elem-wise arithmetic typed kernels --------------------*/
 
 /* add: all 10 types, native + */
 #define STAMP_ADD(TE, CT) DEFINE_BINARY_KERNEL(add, TE, CT, in1 + in2)
@@ -53,7 +53,7 @@ GENERATE_UNSIGNED_INT_NUMC_TYPES(STAMP_DIV_U)
 GENERATE_FLOAT_NUMC_TYPES(STAMP_DIV_F)
 #undef STAMP_DIV_F
 
-/* ── Dispatch tables ─────────────────────────────────────────────── */
+/* -- Dispatch tables ----------------------------------------------- */
 
 static const NumcBinaryKernel add_table[] = {
     E(add, NUMC_DTYPE_INT8),    E(add, NUMC_DTYPE_INT16),
@@ -87,7 +87,7 @@ static const NumcBinaryKernel div_table[] = {
     E(div, NUMC_DTYPE_FLOAT32), E(div, NUMC_DTYPE_FLOAT64),
 };
 
-/* ── SIMD fast-path dispatch for binary ops ─────────────────────── */
+/* -- SIMD fast-path dispatch for binary ops ----------------------- */
 
 #if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || \
     NUMC_HAVE_RVV
@@ -178,7 +178,7 @@ DEFINE_BINARY_SIMD(mul, mul_fast_table, mul_table)
 
 #endif /* SIMD available */
 
-/* ── Public API ──────────────────────────────────────────────────── */
+/* -- Public API ---------------------------------------------------- */
 
 #define DEFINE_ELEMWISE_BINARY(NAME, TABLE)                                 \
   int numc_##NAME(const NumcArray *a, const NumcArray *b, NumcArray *out) { \
@@ -212,7 +212,7 @@ DEFINE_ELEMWISE_BINARY(mul, mul_table)
 #endif
 DEFINE_ELEMWISE_BINARY(div, div_table)
 
-/* ── SIMD scalar arithmetic dispatch ──────────────────────────────── */
+/* -- SIMD scalar arithmetic dispatch -------------------------------- */
 
 #if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || \
     NUMC_HAVE_RVV

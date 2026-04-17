@@ -11,7 +11,7 @@ import time
 WARMUP = 20
 ITERS  = 200
 
-# ── Helpers ────────────────────────────────────────────────────────────
+# -- Helpers ------------------------------------------------------------
 
 ALL_DTYPES = [
     ("int8",    np.int8),    ("uint8",   np.uint8),
@@ -35,14 +35,14 @@ def bench(fn, iters=ITERS):
     return (t1 - t0) / iters * 1e6
 
 
-# ── Benchmark: full reduction — all dtypes ─────────────────────────────
+# -- Benchmark: full reduction — all dtypes -----------------------------
 
 def bench_full(op, size):
     label = op.upper()
     print(f"\n{'━' * 82}")
     print(f"  {label} (full reduction)  ({size} elements, {ITERS} iters)")
     print(f"\n  {'dtype':<8s} {'time (us)':>10s} {'Mop/s':>10s}")
-    print(f"  {'─' * 32}")
+    print(f"  {'-' * 32}")
 
     for name, dt in ALL_DTYPES:
         a = np.ones(size, dtype=dt)
@@ -54,7 +54,7 @@ def bench_full(op, size):
         print(f"  {name:<8s} {us:10.2f} {mops:10.1f}")
 
 
-# ── Benchmark: axis reduction on 2D array ──────────────────────────────
+# -- Benchmark: axis reduction on 2D array ------------------------------
 
 def bench_axis(op, axis, rows, cols):
     total = rows * cols
@@ -62,7 +62,7 @@ def bench_axis(op, axis, rows, cols):
     print(f"\n{'━' * 82}")
     print(f"  {label} AXIS={axis}  ({rows}x{cols} = {total} elements, {ITERS} iters)")
     print(f"\n  {'dtype':<8s} {'time (us)':>10s} {'Mop/s':>10s}")
-    print(f"  {'─' * 32}")
+    print(f"  {'-' * 32}")
 
     for name, dt in ALL_DTYPES:
         a = np.ones((rows, cols), dtype=dt)
@@ -74,13 +74,13 @@ def bench_axis(op, axis, rows, cols):
         print(f"  {name:<8s} {us:10.2f} {mops:10.1f}")
 
 
-# ── Benchmark: size scaling (float32 full sum) ────────────────────────
+# -- Benchmark: size scaling (float32 full sum) ------------------------
 
 def bench_scaling():
     print(f"\n{'━' * 82}")
     print(f"  SIZE SCALING  (float32 sum, {ITERS} iters)")
     print(f"\n  {'elements':>10s} {'time (us)':>10s} {'Mop/s':>10s} {'GB/s':>10s}")
-    print(f"  {'─' * 42}")
+    print(f"  {'-' * 42}")
 
     sizes = [100, 1_000, 10_000, 100_000, 1_000_000]
 
@@ -94,7 +94,7 @@ def bench_scaling():
         print(f"  {n:10d} {us:10.2f} {mops:10.1f} {gbs:10.2f}")
 
 
-# ── main ──────────────────────────────────────────────────────────────
+# -- main --------------------------------------------------------------
 
 def main():
     print(f"\n  numpy reduction benchmark")

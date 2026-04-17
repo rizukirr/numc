@@ -31,7 +31,7 @@ typedef enum {
   NUMC_DTYPE_FLOAT64,
 } NumcDType;
 
-/* ── Type Group Generators ────────────────────────────────────────── */
+/* -- Type Group Generators ------------------------------------------ */
 
 #define GENERATE_NUMC_TYPES(NUMC_DTYPE)        \
   NUMC_DTYPE(NUMC_DTYPE_INT8, NUMC_INT8)       \
@@ -71,7 +71,7 @@ typedef enum {
   NUMC_DTYPE(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32) \
   NUMC_DTYPE(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64)
 
-/* ── Narrow Type Group Generators ─────────────────────────────────── */
+/* -- Narrow Type Group Generators ----------------------------------- */
 #define GENERATE_INT8_INT16_NUMC_TYPES(NUMC_DTYPE) \
   NUMC_DTYPE(NUMC_DTYPE_INT8, NUMC_INT8)           \
   NUMC_DTYPE(NUMC_DTYPE_INT16, NUMC_INT16)         \
@@ -90,6 +90,10 @@ typedef enum {
   NUMC_DTYPE(NUMC_DTYPE_INT32, NUMC_INT32)    \
   NUMC_DTYPE(NUMC_DTYPE_UINT32, NUMC_UINT32)
 
+#define GENERATE_INT64_NUMC_TYPES(NUMC_DTYPE) \
+  NUMC_DTYPE(NUMC_DTYPE_INT64, NUMC_INT64)    \
+  NUMC_DTYPE(NUMC_DTYPE_UINT64, NUMC_UINT64)
+
 #define GENERATE_64BIT_NUMC_TYPES(NUMC_DTYPE) \
   NUMC_DTYPE(NUMC_DTYPE_INT64, NUMC_INT64)    \
   NUMC_DTYPE(NUMC_DTYPE_UINT64, NUMC_UINT64)  \
@@ -100,7 +104,7 @@ typedef enum {
   NUMC_DTYPE(NUMC_DTYPE_UINT32, NUMC_UINT32)  \
   NUMC_DTYPE(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32)
 
-/* ── Helpers ──────────────────────────────────────────────────────── */
+/* -- Helpers -------------------------------------------------------- */
 
 static inline bool numc_dtype_is_float(NumcDType dt) {
   return dt == NUMC_DTYPE_FLOAT32 || dt == NUMC_DTYPE_FLOAT64;

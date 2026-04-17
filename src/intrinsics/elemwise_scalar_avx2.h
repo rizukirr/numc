@@ -17,9 +17,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Generic macros for scalar operations
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_SCAL_INT_AVX2(OP, SFX, CT, VPV, SET1, VEC_OP, TAIL_EXPR)      \
   static inline void _fast_##OP##_scalar_##SFX##_avx2(                     \
@@ -72,7 +72,7 @@
       out[i] = (double)(TAIL_EXPR);                                        \
   }
 
-/* ── Add scalar ──────────────────────────────────────────────────── */
+/* -- Add scalar ---------------------------------------------------- */
 
 FAST_SCAL_INT_AVX2(add, i8, int8_t, 32, _mm256_set1_epi8, _mm256_add_epi8,
                    a[i] + s)
@@ -93,7 +93,7 @@ FAST_SCAL_INT_AVX2(add, u64, uint64_t, 4, _mm256_set1_epi64x, _mm256_add_epi64,
 FAST_SCAL_F32_AVX2(add, _mm256_add_ps, a[i] + s)
 FAST_SCAL_F64_AVX2(add, _mm256_add_pd, a[i] + s)
 
-/* ── Sub scalar ──────────────────────────────────────────────────── */
+/* -- Sub scalar ---------------------------------------------------- */
 
 FAST_SCAL_INT_AVX2(sub, i8, int8_t, 32, _mm256_set1_epi8, _mm256_sub_epi8,
                    a[i] - s)
@@ -114,7 +114,7 @@ FAST_SCAL_INT_AVX2(sub, u64, uint64_t, 4, _mm256_set1_epi64x, _mm256_sub_epi64,
 FAST_SCAL_F32_AVX2(sub, _mm256_sub_ps, a[i] - s)
 FAST_SCAL_F64_AVX2(sub, _mm256_sub_pd, a[i] - s)
 
-/* ── Mul scalar (16/32-bit: native mullo) ────────────────────────── */
+/* -- Mul scalar (16/32-bit: native mullo) -------------------------- */
 
 FAST_SCAL_INT_AVX2(mul, i16, int16_t, 16, _mm256_set1_epi16, _mm256_mullo_epi16,
                    a[i] * s)
@@ -125,7 +125,7 @@ FAST_SCAL_INT_AVX2(mul, u16, uint16_t, 16, _mm256_set1_epi16,
 FAST_SCAL_INT_AVX2(mul, u32, uint32_t, 8, _mm256_set1_epi32, _mm256_mullo_epi32,
                    a[i] * s)
 
-/* ── Mul scalar i8: widening trick (no native 8-bit multiply) ──── */
+/* -- Mul scalar i8: widening trick (no native 8-bit multiply) ---- */
 
 static inline void _fast_mul_scalar_i8_avx2(const void *restrict ap,
                                             const void *restrict sp,
@@ -173,7 +173,7 @@ static inline void _fast_mul_scalar_u8_avx2(const void *restrict ap,
     out[i] = (uint8_t)(a[i] * s);
 }
 
-/* ── Mul scalar i64/u64: scalar fallback (no efficient AVX2) ───── */
+/* -- Mul scalar i64/u64: scalar fallback (no efficient AVX2) ----- */
 
 static inline void _fast_mul_scalar_i64_avx2(const void *restrict ap,
                                              const void *restrict sp,
@@ -195,12 +195,12 @@ static inline void _fast_mul_scalar_u64_avx2(const void *restrict ap,
     out[i] = a[i] * s;
 }
 
-/* ── Mul scalar (float) ──────────────────────────────────────────── */
+/* -- Mul scalar (float) -------------------------------------------- */
 
 FAST_SCAL_F32_AVX2(mul, _mm256_mul_ps, a[i] * s)
 FAST_SCAL_F64_AVX2(mul, _mm256_mul_pd, a[i] * s)
 
-/* ── Clean up macros ─────────────────────────────────────────────── */
+/* -- Clean up macros ----------------------------------------------- */
 
 #undef FAST_SCAL_INT_AVX2
 #undef FAST_SCAL_F32_AVX2

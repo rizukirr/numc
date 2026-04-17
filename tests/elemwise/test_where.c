@@ -1,6 +1,6 @@
 #include "../helpers.h"
 
-/* ── Basic int32 ─────────────────────────────────────────────────────── */
+/* -- Basic int32 ------------------------------------------------------- */
 
 static int test_where_int32(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -30,7 +30,7 @@ static int test_where_int32(void) {
   return 0;
 }
 
-/* ── Basic float32 ───────────────────────────────────────────────────── */
+/* -- Basic float32 ----------------------------------------------------- */
 
 static int test_where_float32(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -60,7 +60,7 @@ static int test_where_float32(void) {
   return 0;
 }
 
-/* ── 2D arrays ───────────────────────────────────────────────────────── */
+/* -- 2D arrays --------------------------------------------------------- */
 
 static int test_where_2d(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -88,7 +88,7 @@ static int test_where_2d(void) {
   return 0;
 }
 
-/* ── Strided (transposed) ────────────────────────────────────────────── */
+/* -- Strided (transposed) ---------------------------------------------- */
 
 static int test_where_strided(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -129,7 +129,7 @@ static int test_where_strided(void) {
   return 0;
 }
 
-/* ── Condition from comparison op ────────────────────────────────────── */
+/* -- Condition from comparison op -------------------------------------- */
 
 static int test_where_from_gt(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -164,7 +164,7 @@ static int test_where_from_gt(void) {
   return 0;
 }
 
-/* ── Error: NULL pointers ────────────────────────────────────────────── */
+/* -- Error: NULL pointers ---------------------------------------------- */
 
 static int test_where_null(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -181,7 +181,7 @@ static int test_where_null(void) {
   return 0;
 }
 
-/* ── Error: dtype mismatch ───────────────────────────────────────────── */
+/* -- Error: dtype mismatch --------------------------------------------- */
 
 static int test_where_type_mismatch(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -197,7 +197,7 @@ static int test_where_type_mismatch(void) {
   return 0;
 }
 
-/* ── Error: shape mismatch ───────────────────────────────────────────── */
+/* -- Error: shape mismatch --------------------------------------------- */
 
 static int test_where_shape_mismatch(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -214,7 +214,7 @@ static int test_where_shape_mismatch(void) {
   return 0;
 }
 
-/* ── main ────────────────────────────────────────────────────────────── */
+/* -- main -------------------------------------------------------------- */
 
 int main(void) {
   int passes = 0, fails = 0;

@@ -26,13 +26,13 @@
 #include <time.h>
 #endif
 
-/* ── Config ────────────────────────────────────────────────────────── */
+/* -- Config ---------------------------------------------------------- */
 
 #define BENCH_WARMUP 20
 #define BENCH_ITERS  200
 #define BENCH_SIZE   1000000
 
-/* ── Timer ─────────────────────────────────────────────────────────── */
+/* -- Timer ----------------------------------------------------------- */
 
 static inline double time_us(void) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -70,7 +70,7 @@ static inline double time_us(void) {
     us = _min_us;                           \
   } while (0)
 
-/* ── CPU frequency warmup ─────────────────────────────────────────── */
+/* -- CPU frequency warmup ------------------------------------------- */
 
 /**
  * @brief Burn ~200ms of CPU time to force turbo-boost ramp-up.
@@ -90,7 +90,7 @@ static inline void bench_cpu_warmup(void) {
   (void)sink;
 }
 
-/* ── Dtype arrays ─────────────────────────────────────────────────── */
+/* -- Dtype arrays --------------------------------------------------- */
 
 static const NumcDType ALL_DTYPES[] = {
     NUMC_DTYPE_INT8,    NUMC_DTYPE_UINT8,   NUMC_DTYPE_INT16, NUMC_DTYPE_UINT16,
@@ -105,7 +105,7 @@ static const NumcDType FLOAT_DTYPES[] = {
 };
 static const int N_FLOAT = 2;
 
-/* ── Dtype helpers ────────────────────────────────────────────────── */
+/* -- Dtype helpers -------------------------------------------------- */
 
 static inline const char *dtype_name(NumcDType dt) {
   static const char *names[] = {
@@ -123,7 +123,7 @@ static inline int dtype_is_unsigned(NumcDType dt) {
          dt == NUMC_DTYPE_UINT32 || dt == NUMC_DTYPE_UINT64;
 }
 
-/* ── Fill-value helpers ───────────────────────────────────────────── */
+/* -- Fill-value helpers --------------------------------------------- */
 
 static inline void fill_value(NumcDType dt, char buf[8]) {
   memset(buf, 0, 8);
@@ -234,7 +234,7 @@ static inline void fill_pow_exp(NumcDType dt, char buf[8]) {
   }
 }
 
-/* ── CSV output ───────────────────────────────────────────────────── */
+/* -- CSV output ----------------------------------------------------- */
 
 static inline void bench_csv(const char *cat, const char *op, const char *dt,
                              size_t size, const char *shape, double us) {

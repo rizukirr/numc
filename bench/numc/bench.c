@@ -19,13 +19,13 @@
 #endif
 #include <float.h>
 
-/* ── Config ────────────────────────────────────────────────────────── */
+/* -- Config ---------------------------------------------------------- */
 
 #define WARMUP 20
 #define ITERS  200
 #define SIZE   1000000
 
-/* ── Timer ─────────────────────────────────────────────────────────── */
+/* -- Timer ----------------------------------------------------------- */
 
 static double time_us(void) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -50,7 +50,7 @@ static void bench_cpu_warmup(void) {
   (void)sink;
 }
 
-/* ── Helpers ───────────────────────────────────────────────────────── */
+/* -- Helpers --------------------------------------------------------- */
 
 static const char *dtype_name(NumcDType dt) {
   static const char *names[] = {
@@ -197,7 +197,7 @@ static void csv(const char *cat, const char *op, const char *dt, size_t size,
          size / us);
 }
 
-/* ── Binary element-wise ──────────────────────────────────────────── */
+/* -- Binary element-wise -------------------------------------------- */
 
 typedef int (*BinaryOp)(const NumcArray *, const NumcArray *, NumcArray *);
 
@@ -231,7 +231,7 @@ static void bench_binary(const char *name, BinaryOp op, size_t size) {
   }
 }
 
-/* ── Scalar ops ───────────────────────────────────────────────────── */
+/* -- Scalar ops ----------------------------------------------------- */
 
 typedef int (*ScalarOp)(const NumcArray *, double, NumcArray *);
 
@@ -264,7 +264,7 @@ static void bench_scalar_op(const char *name, ScalarOp op, size_t size) {
   }
 }
 
-/* ── Scalar inplace ops ───────────────────────────────────────────── */
+/* -- Scalar inplace ops --------------------------------------------- */
 
 typedef int (*ScalarInplace)(NumcArray *, double);
 
@@ -297,7 +297,7 @@ static void bench_scalar_inplace(const char *name, ScalarInplace op,
   }
 }
 
-/* ── Unary ops ────────────────────────────────────────────────────── */
+/* -- Unary ops ------------------------------------------------------ */
 
 typedef int (*UnaryOp)(NumcArray *, NumcArray *);
 
@@ -337,7 +337,7 @@ static void bench_unary(const char *name, UnaryOp op, size_t size,
   }
 }
 
-/* ── Unary inplace ops ────────────────────────────────────────────── */
+/* -- Unary inplace ops ---------------------------------------------- */
 
 typedef int (*UnaryInplace)(NumcArray *);
 
@@ -376,7 +376,7 @@ static void bench_unary_inplace(const char *name, UnaryInplace op, size_t size,
   }
 }
 
-/* ── Clip ─────────────────────────────────────────────────────────── */
+/* -- Clip ----------------------------------------------------------- */
 
 static void bench_clip(size_t size) {
   for (int d = 0; d < N_DTYPES; d++) {
@@ -407,7 +407,7 @@ static void bench_clip(size_t size) {
   }
 }
 
-/* ── Comparison ops ───────────────────────────────────────────────── */
+/* -- Comparison ops ------------------------------------------------- */
 
 static void bench_comparison(const char *name, BinaryOp op, size_t size) {
   for (int d = 0; d < N_DTYPES; d++) {
@@ -439,7 +439,7 @@ static void bench_comparison(const char *name, BinaryOp op, size_t size) {
   }
 }
 
-/* ── Comparison scalar ops ────────────────────────────────────────── */
+/* -- Comparison scalar ops ------------------------------------------ */
 
 static void bench_comparison_scalar(const char *name, ScalarOp op,
                                     size_t size) {
@@ -471,7 +471,7 @@ static void bench_comparison_scalar(const char *name, ScalarOp op,
   }
 }
 
-/* ── Pow ──────────────────────────────────────────────────────────── */
+/* -- Pow ------------------------------------------------------------ */
 
 static void bench_pow(size_t size) {
   for (int d = 0; d < N_DTYPES; d++) {
@@ -504,7 +504,7 @@ static void bench_pow(size_t size) {
   }
 }
 
-/* ── FMA ──────────────────────────────────────────────────────────── */
+/* -- FMA ------------------------------------------------------------ */
 
 static void bench_fma(size_t size) {
   for (int d = 0; d < N_DTYPES; d++) {
@@ -537,7 +537,7 @@ static void bench_fma(size_t size) {
   }
 }
 
-/* ── Where ────────────────────────────────────────────────────────── */
+/* -- Where ---------------------------------------------------------- */
 
 static void bench_where(size_t size) {
   for (int d = 0; d < N_DTYPES; d++) {
@@ -572,7 +572,7 @@ static void bench_where(size_t size) {
   }
 }
 
-/* ── Full reductions ──────────────────────────────────────────────── */
+/* -- Full reductions ------------------------------------------------ */
 
 typedef int (*ReduceFullFn)(const NumcArray *, NumcArray *);
 
@@ -608,7 +608,7 @@ static void bench_reduce_full(const char *name, ReduceFullFn fn, size_t size,
   }
 }
 
-/* ── Axis reductions ──────────────────────────────────────────────── */
+/* -- Axis reductions ------------------------------------------------ */
 
 typedef int (*ReduceAxisFn)(const NumcArray *, int, int, NumcArray *);
 
@@ -646,7 +646,7 @@ static void bench_reduce_axis(const char *name, ReduceAxisFn fn, int axis,
   }
 }
 
-/* ── Matmul ───────────────────────────────────────────────────────── */
+/* -- Matmul --------------------------------------------------------- */
 
 static void bench_matmul(size_t M, size_t K, size_t N, int warmup, int iters) {
   /* Re-warm OMP thread pool: after heavy naive integer matmuls from previous
@@ -710,7 +710,7 @@ static void bench_matmul(size_t M, size_t K, size_t N, int warmup, int iters) {
   }
 }
 
-/* ── Dot product ──────────────────────────────────────────────────── */
+/* -- Dot product ---------------------------------------------------- */
 
 static void bench_dot(size_t size) {
   for (int d = 0; d < N_DTYPES; d++) {
@@ -741,7 +741,7 @@ static void bench_dot(size_t size) {
   }
 }
 
-/* ── Random ───────────────────────────────────────────────────────── */
+/* -- Random --------------------------------------------------------- */
 
 static void bench_random(const char *name, size_t size,
                          NumcArray *(*gen)(NumcCtx *, const size_t *, size_t,
@@ -772,7 +772,7 @@ static void bench_random(const char *name, size_t size,
   }
 }
 
-/* ── main ──────────────────────────────────────────────────────────── */
+/* -- main ------------------------------------------------------------ */
 
 int main(void) {
   /* Pre-warm CPU to force turbo-boost ramp-up before measurements */
@@ -813,6 +813,7 @@ int main(void) {
   bench_unary("log", numc_log, SIZE, 0, 0);
   bench_unary("exp", numc_exp, SIZE, 0, 1); /* use small values */
   bench_unary("sqrt", numc_sqrt, SIZE, 0, 0);
+  bench_unary("tanh", numc_tanh, SIZE, 0, 0);
   bench_clip(SIZE);
 
   /* Unary inplace */
@@ -821,6 +822,7 @@ int main(void) {
   bench_unary_inplace("log_inplace", numc_log_inplace, SIZE, 0, 0);
   bench_unary_inplace("exp_inplace", numc_exp_inplace, SIZE, 0, 1);
   bench_unary_inplace("sqrt_inplace", numc_sqrt_inplace, SIZE, 0, 0);
+  bench_unary_inplace("tanh_inplace", numc_tanh_inplace, SIZE, 0, 0);
 
   /* Comparison ops */
   bench_comparison("eq", numc_eq, SIZE);

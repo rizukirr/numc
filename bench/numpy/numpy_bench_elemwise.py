@@ -11,7 +11,7 @@ import time
 WARMUP = 20
 ITERS  = 200
 
-# ── Timer helpers ──────────────────────────────────────────────────────
+# -- Timer helpers ------------------------------------------------------
 
 def time_binary(op, a, b, out):
     """Benchmark a binary op, return avg microseconds."""
@@ -39,7 +39,7 @@ def time_binary(op, a, b, out):
         return (t1 - t0) / ITERS * 1e6
 
 
-# ── Helpers ────────────────────────────────────────────────────────────
+# -- Helpers ------------------------------------------------------------
 
 ALL_DTYPES = [
     ("int8",    np.int8),    ("uint8",   np.uint8),
@@ -61,7 +61,7 @@ def print_header(title):
           f"{'add':>8s} {'sub':>8s} {'mul':>8s} {'div':>8s}")
     print(f"  {'':<8s} {'(us)':>8s} {'(us)':>8s} {'(us)':>8s} {'(us)':>8s}   "
           f"{'(Mop/s)':>8s} {'(Mop/s)':>8s} {'(Mop/s)':>8s} {'(Mop/s)':>8s}")
-    print(f"  {'─' * 78}")
+    print(f"  {'-' * 78}")
 
 
 def print_row(name, us, mops):
@@ -69,7 +69,7 @@ def print_row(name, us, mops):
           f"{mops[0]:8.1f} {mops[1]:8.1f} {mops[2]:8.1f} {mops[3]:8.1f}")
 
 
-# ── Benchmark: contiguous binary ops ──────────────────────────────────
+# -- Benchmark: contiguous binary ops ----------------------------------
 
 def bench_contiguous(size):
     print(f"{'━' * 82}")
@@ -89,7 +89,7 @@ def bench_contiguous(size):
         print_row(name, us, mops)
 
 
-# ── Benchmark: strided (transposed view) ──────────────────────────────
+# -- Benchmark: strided (transposed view) ------------------------------
 
 def bench_strided(rows, cols):
     total = rows * cols
@@ -115,7 +115,7 @@ def bench_strided(rows, cols):
         print_row(name, us, mops)
 
 
-# ── Benchmark: broadcast patterns ─────────────────────────────────────
+# -- Benchmark: broadcast patterns -------------------------------------
 
 def bench_bcast_pattern(a_shape, b_shape, out_shape, total):
     ops = [np.add, np.subtract, np.multiply, np.divide]
@@ -158,13 +158,13 @@ def bench_broadcast(M, N):
     bench_bcast_pattern((N,), (M, N), (M, N), total)
 
 
-# ── Benchmark: scaling across sizes ───────────────────────────────────
+# -- Benchmark: scaling across sizes -----------------------------------
 
 def bench_scaling():
     print(f"\n{'━' * 82}")
     print(f"  SIZE SCALING  (float32 add, {ITERS} iters)")
     print(f"\n  {'elements':>10s} {'time (us)':>10s} {'Mops/s':>10s} {'GB/s':>10s}")
-    print(f"  {'─' * 42}")
+    print(f"  {'-' * 42}")
 
     sizes = [100, 1_000, 10_000, 100_000, 1_000_000]
 
@@ -180,7 +180,7 @@ def bench_scaling():
         print(f"  {n:10d} {us:10.2f} {mops:10.1f} {gbs:10.2f}")
 
 
-# ── main ──────────────────────────────────────────────────────────────
+# -- main --------------------------------------------------------------
 
 def main():
     print(f"\n  numpy binary element-wise benchmark")

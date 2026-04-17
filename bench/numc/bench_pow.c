@@ -15,7 +15,7 @@
 #include <time.h>
 #endif
 
-/* ── Config ────────────────────────────────────────────────────────── */
+/* -- Config ---------------------------------------------------------- */
 
 #define WARMUP 20
 #define ITERS  200
@@ -23,7 +23,7 @@
 typedef int (*PowOp)(NumcArray *, NumcArray *, NumcArray *);
 typedef int (*PowInplace)(NumcArray *, NumcArray *);
 
-/* ── Timer ─────────────────────────────────────────────────────────── */
+/* -- Timer ----------------------------------------------------------- */
 
 static double time_us(void) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -51,7 +51,7 @@ static double bench_pow_op(PowOp op, NumcArray *a, NumcArray *b, NumcArray *out,
   return (t1 - t0) / iters;
 }
 
-/* ── Helpers ───────────────────────────────────────────────────────── */
+/* -- Helpers --------------------------------------------------------- */
 
 static const char *dtype_name(NumcDType dt) {
   static const char *names[] = {
@@ -145,7 +145,7 @@ static const NumcDType ALL_DTYPES[] = {
 };
 static const int N_DTYPES = sizeof(ALL_DTYPES) / sizeof(ALL_DTYPES[0]);
 
-/* ── Benchmark: contiguous pow ─────────────────────────────────────── */
+/* -- Benchmark: contiguous pow --------------------------------------- */
 
 static void bench_contiguous(NumcCtx *ctx, size_t size) {
   printf("=============================================="
@@ -180,7 +180,7 @@ static void bench_contiguous(NumcCtx *ctx, size_t size) {
   }
 }
 
-/* ── Benchmark: size scaling ───────────────────────────────────────── */
+/* -- Benchmark: size scaling ----------------------------------------- */
 
 static void bench_scaling(NumcCtx *ctx) {
   printf("\n=============================================="
@@ -212,7 +212,7 @@ static void bench_scaling(NumcCtx *ctx) {
   }
 }
 
-/* ── Benchmark: int vs float comparison ────────────────────────────── */
+/* -- Benchmark: int vs float comparison ------------------------------ */
 
 static void bench_int_vs_float(NumcCtx *ctx, size_t size) {
   printf("\n=============================================="
@@ -247,7 +247,7 @@ static void bench_int_vs_float(NumcCtx *ctx, size_t size) {
   }
 }
 
-/* ── main ──────────────────────────────────────────────────────────── */
+/* -- main ------------------------------------------------------------ */
 
 int main(void) {
   printf("\n  numc pow benchmark\n");

@@ -16,10 +16,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 8-bit signed integers (64 elems/vector → 64 uint8 output)
  * mask is __mmask64, _mm512_maskz_set1_epi8 produces 64 bytes of 0/1
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_I8_AVX512(SFX, CT, CMP)                                       \
   static inline void _fast_eq_##SFX##_avx512(const void *restrict ap,          \
@@ -107,10 +107,10 @@ FAST_CMP_I8_AVX512(i8, int8_t, _mm512_cmp_epi8_mask)
 FAST_CMP_I8_AVX512(u8, uint8_t, _mm512_cmp_epu8_mask)
 #undef FAST_CMP_I8_AVX512
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 16-bit integers (32 elems/vector → 32 uint8 output)
  * mask is __mmask32, _mm256_maskz_set1_epi8 produces 32 bytes
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_I16_AVX512(SFX, CT, CMP)                                      \
   static inline void _fast_eq_##SFX##_avx512(const void *restrict ap,          \
@@ -198,10 +198,10 @@ FAST_CMP_I16_AVX512(i16, int16_t, _mm512_cmp_epi16_mask)
 FAST_CMP_I16_AVX512(u16, uint16_t, _mm512_cmp_epu16_mask)
 #undef FAST_CMP_I16_AVX512
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 32-bit integers (16 elems/vector → 16 uint8 output)
  * mask is __mmask16, _mm_maskz_set1_epi8 produces 16 bytes
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_I32_AVX512(SFX, CT, CMP)                                   \
   static inline void _fast_eq_##SFX##_avx512(const void *restrict ap,       \
@@ -289,11 +289,11 @@ FAST_CMP_I32_AVX512(i32, int32_t, _mm512_cmp_epi32_mask)
 FAST_CMP_I32_AVX512(u32, uint32_t, _mm512_cmp_epu32_mask)
 #undef FAST_CMP_I32_AVX512
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 64-bit integers (8 elems/vector → 8 uint8 output)
  * mask is __mmask8, widen to __mmask16 for _mm_maskz_set1_epi8,
  * then storel (low 8 bytes)
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_I64_AVX512(SFX, CT, CMP)                                   \
   static inline void _fast_eq_##SFX##_avx512(const void *restrict ap,       \
@@ -386,10 +386,10 @@ FAST_CMP_I64_AVX512(i64, int64_t, _mm512_cmp_epi64_mask)
 FAST_CMP_I64_AVX512(u64, uint64_t, _mm512_cmp_epu64_mask)
 #undef FAST_CMP_I64_AVX512
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Float comparisons (f32 — 16 per vector → 16 uint8 output)
  * mask is __mmask16, _mm_maskz_set1_epi8 produces 16 bytes
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_F32_AVX512(OP, PRED, TAIL_OP)                              \
   static inline void _fast_##OP##_f32_avx512(const void *restrict ap,       \
@@ -416,11 +416,11 @@ FAST_CMP_F32_AVX512(ge, _CMP_GE_OQ, >=)
 FAST_CMP_F32_AVX512(le, _CMP_LE_OQ, <=)
 #undef FAST_CMP_F32_AVX512
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Float comparisons (f64 — 8 per vector → 8 uint8 output)
  * mask is __mmask8, widen to __mmask16 for _mm_maskz_set1_epi8,
  * then storel (low 8 bytes)
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_F64_AVX512(OP, PRED, TAIL_OP)                              \
   static inline void _fast_##OP##_f64_avx512(const void *restrict ap,       \

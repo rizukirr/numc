@@ -18,7 +18,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ── 8-bit signed: input and output both e8m4 ───────────────────── */
+/* -- 8-bit signed: input and output both e8m4 --------------------- */
 
 #define STAMP_CMPSC_I8_RVV(FNAME, CMP_VX)                                    \
   static inline void _cmpsc_##FNAME##_i8_rvv(const void *restrict ap,        \
@@ -45,7 +45,7 @@ STAMP_CMPSC_I8_RVV(ge, __riscv_vmsge_vx_i8m4_b2)
 STAMP_CMPSC_I8_RVV(le, __riscv_vmsle_vx_i8m4_b2)
 #undef STAMP_CMPSC_I8_RVV
 
-/* ── 8-bit unsigned: input and output both e8m4 ─────────────────── */
+/* -- 8-bit unsigned: input and output both e8m4 ------------------- */
 
 #define STAMP_CMPSC_U8_RVV(FNAME, CMP_VX)                                    \
   static inline void _cmpsc_##FNAME##_u8_rvv(const void *restrict ap,        \
@@ -72,7 +72,7 @@ STAMP_CMPSC_U8_RVV(ge, __riscv_vmsgeu_vx_u8m4_b2)
 STAMP_CMPSC_U8_RVV(le, __riscv_vmsleu_vx_u8m4_b2)
 #undef STAMP_CMPSC_U8_RVV
 
-/* ── Wider signed integer (16/32/64): byte output ───────────────── */
+/* -- Wider signed integer (16/32/64): byte output ----------------- */
 /* OLMU = output LMUL suffix: m2 for 16-bit, m1 for 32-bit, mf2 for 64-bit */
 
 #define STAMP_CMPSC_SINT_WIDE_RVV(SFX, CT, SEW, LMUL, RATIO, OLMU, CMP_VX) \
@@ -115,7 +115,7 @@ STAMP_CMPSC_SINT_WIDE_RVV(le_i64, int64_t, 64, 4, 16, mf2, __riscv_vmsle_vx_i64m
 /* clang-format on */
 #undef STAMP_CMPSC_SINT_WIDE_RVV
 
-/* ── Wider unsigned integer (16/32/64): byte output ─────────────── */
+/* -- Wider unsigned integer (16/32/64): byte output --------------- */
 
 #define STAMP_CMPSC_UINT_WIDE_RVV(SFX, CT, SEW, LMUL, RATIO, OLMU, CMP_VX) \
   static inline void _cmpsc_##SFX##_rvv(const void *restrict ap,           \
@@ -157,7 +157,7 @@ STAMP_CMPSC_UINT_WIDE_RVV(le_u64, uint64_t, 64, 4, 16, mf2, __riscv_vmsleu_vx_u6
 /* clang-format on */
 #undef STAMP_CMPSC_UINT_WIDE_RVV
 
-/* ── Float (32/64): byte output ─────────────────────────────────── */
+/* -- Float (32/64): byte output ----------------------------------- */
 
 #define STAMP_CMPSC_FLOAT_RVV(SFX, CT, SEW, LMUL, RATIO, OLMU, CMP_VF) \
   static inline void _cmpsc_##SFX##_rvv(const void *restrict ap,       \

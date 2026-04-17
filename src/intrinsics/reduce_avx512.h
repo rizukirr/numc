@@ -7,7 +7,7 @@
 
 // clang-format off
 
-/* ── load/store helpers ────────────────────────────────────────────── */
+/* -- load/store helpers ---------------------------------------------- */
 
 #define R512LOAD(p) _mm512_loadu_si512((const void *)(p))
 #define R512STORE(p, v) _mm512_storeu_si512((void *)(p), v)
@@ -89,7 +89,7 @@ static inline uint16_t _hmax_u16_avx512(__m512i v) {
   return r;
 }
 
-/* ── full array min/max reduction ──────────────────────────────────── *
+/* -- full array min/max reduction ------------------------------------ *
  *
  * 4 vector accumulators, 256 bytes/iteration for 8-bit types.
  * Single-vector cleanup loop, then scalar tail.
@@ -170,7 +170,7 @@ DEFINE_REDUCE_FULL_AVX512(reduce_max_u64_avx512, uint64_t, 8,
 
 #undef DEFINE_REDUCE_FULL_AVX512
 
-/* ── fused row-reduce (axis-1 reduction) ───────────────────────────── *
+/* -- fused row-reduce (axis-1 reduction) ----------------------------- *
  *
  * Processes 4 rows at a time, vectorizing the inner column loop.
  * For int8: 64 columns per SIMD iteration (vs 1 scalar).            */

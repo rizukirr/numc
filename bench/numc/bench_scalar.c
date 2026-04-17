@@ -15,7 +15,7 @@
 #include <time.h>
 #endif
 
-/* ── Config ────────────────────────────────────────────────────────── */
+/* -- Config ---------------------------------------------------------- */
 
 #define WARMUP 20
 #define ITERS  200
@@ -23,7 +23,7 @@
 typedef int (*ScalarOp)(const NumcArray *, double, NumcArray *);
 typedef int (*ScalarInplace)(NumcArray *, double);
 
-/* ── Timer ─────────────────────────────────────────────────────────── */
+/* -- Timer ----------------------------------------------------------- */
 
 static double time_us(void) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -64,7 +64,7 @@ static double bench_inplace(ScalarInplace op, NumcArray *a, double scalar,
   return (t1 - t0) / iters;
 }
 
-/* ── Helpers ───────────────────────────────────────────────────────── */
+/* -- Helpers --------------------------------------------------------- */
 
 static const char *dtype_name(NumcDType dt) {
   static const char *names[] = {
@@ -129,7 +129,7 @@ static const NumcDType ALL_DTYPES[] = {
 };
 static const int N_DTYPES = sizeof(ALL_DTYPES) / sizeof(ALL_DTYPES[0]);
 
-/* ── Benchmark: scalar allocating ops ──────────────────────────────── */
+/* -- Benchmark: scalar allocating ops -------------------------------- */
 
 static void bench_scalar_ops(NumcCtx *ctx, size_t size) {
   printf("=============================================="
@@ -165,7 +165,7 @@ static void bench_scalar_ops(NumcCtx *ctx, size_t size) {
   }
 }
 
-/* ── Benchmark: scalar inplace ops ─────────────────────────────────── */
+/* -- Benchmark: scalar inplace ops ----------------------------------- */
 
 static void bench_scalar_inplace_ops(NumcCtx *ctx, size_t size) {
   printf("\n=============================================="
@@ -200,7 +200,7 @@ static void bench_scalar_inplace_ops(NumcCtx *ctx, size_t size) {
   }
 }
 
-/* ── Benchmark: size scaling (scalar add) ──────────────────────────── */
+/* -- Benchmark: size scaling (scalar add) ---------------------------- */
 
 static void bench_scaling(NumcCtx *ctx) {
   printf("\n=============================================="
@@ -231,7 +231,7 @@ static void bench_scaling(NumcCtx *ctx) {
   }
 }
 
-/* ── main ──────────────────────────────────────────────────────────── */
+/* -- main ------------------------------------------------------------ */
 
 int main(void) {
   printf("\n  numc scalar operation benchmark\n");

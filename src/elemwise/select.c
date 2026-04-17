@@ -3,14 +3,14 @@
 #include <math.h>
 #include <numc/math.h>
 
-/* ── Stamp out ternary where ───────────────────────────────────────── */
+/* -- Stamp out ternary where ----------------------------------------- */
 
 #define STAMP_WHERE(TE, CT) \
   DEFINE_TERNARY_KERNEL(where, TE, CT, (in_cond != 0 ? in_a : in_b))
 GENERATE_NUMC_TYPES(STAMP_WHERE)
 #undef STAMP_WHERE
 
-/* ── Stamp out quaternary fma ─────────────────────────────────────── */
+/* -- Stamp out quaternary fma --------------------------------------- */
 
 #define STAMP_FMA(TE, CT) \
   DEFINE_QUATERNARY_KERNEL(fma, TE, CT, in_a *in_b + in_c)
@@ -23,7 +23,7 @@ DEFINE_QUATERNARY_KERNEL(fma, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32,
 DEFINE_QUATERNARY_KERNEL(fma, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64,
                          fma(in_a, in_b, in_c))
 
-/* ── Dispatch tables ─────────────────────────────────────────────── */
+/* -- Dispatch tables ----------------------------------------------- */
 
 static const NumcTernaryKernel where_table[] = {
     E(where, NUMC_DTYPE_INT8),    E(where, NUMC_DTYPE_INT16),
@@ -41,7 +41,7 @@ static const NumcQuaternaryKernel fma_table[] = {
     E(fma, NUMC_DTYPE_FLOAT32), E(fma, NUMC_DTYPE_FLOAT64),
 };
 
-/* ── Public API ──────────────────────────────────────────────────── */
+/* -- Public API ---------------------------------------------------- */
 
 /* where: ternary selection */
 int numc_where(const NumcArray *cond, const NumcArray *a, const NumcArray *b,

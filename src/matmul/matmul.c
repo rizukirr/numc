@@ -77,7 +77,7 @@ void _numc_runtime_init(void) {
 #endif
 }
 
-/* ── SIMD gemm wrappers ──────────────────────────────────────────── */
+/* -- SIMD gemm wrappers -------------------------------------------- */
 
 #define NUMC_DTYPE_COUNT (NUMC_DTYPE_FLOAT64 + 1)
 
@@ -159,7 +159,7 @@ GEMM_WRAP(_gemm_f64_rvv, double, gemm_f64_rvv)
 
 #undef GEMM_WRAP
 
-/* ── SIMD gemmsup wrappers ─────────────────────────────────────── */
+/* -- SIMD gemmsup wrappers --------------------------------------- */
 
 typedef void (*GemmSupKernel)(const void *a, const void *b, void *out, size_t M,
                               size_t K, size_t N, intptr_t rsa, intptr_t csa,
@@ -319,7 +319,7 @@ static const GemmSimdKernel gemm_simd_table[NUMC_DTYPE_COUNT] = {
 #endif
 };
 
-/* ── Dispatch table for naive C23 kernels ────────────────────────── */
+/* -- Dispatch table for naive C23 kernels -------------------------- */
 
 #define E(TE) [TE] = _matmul_naive_##TE
 static const MatmulKernel matmul_table[] = {
@@ -342,7 +342,7 @@ int numc_matmul_naive(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   return 0;
 }
 
-/* ── Public Unified API ──────────────────────────────────────────── */
+/* -- Public Unified API -------------------------------------------- */
 
 int numc_matmul(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   int err = _check_matmul(a, b, out);

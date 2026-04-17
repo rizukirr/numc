@@ -18,9 +18,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 8-bit signed integer: 32 elems → 32 uint8 output per vector
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_8_AVX2(SUFFIX, CT, CMPEQ, CMPGT)                            \
   static inline void _fast_eq_##SUFFIX##_avx2(const void *restrict ap,       \
@@ -226,9 +226,9 @@ static inline void _fast_le_u8_avx2(const void *restrict ap,
   _fast_ge_u8_avx2(bp, ap, op, n);
 }
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 16-bit: compare 2×16 elems → packs_epi16 → 32 uint8 output
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_16_AVX2(SUFFIX, CT, CMPEQ, CMPGT)                           \
   static inline void _fast_eq_##SUFFIX##_avx2(const void *restrict ap,       \
@@ -516,9 +516,9 @@ FAST_CMP_U16_AVX2(u16, uint16_t, _mm256_cmpeq_epi16, _mm256_cmpgt_epi16,
                   _mm256_set1_epi16((short)0x8000))
 #undef FAST_CMP_U16_AVX2
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 32-bit: compare 4×8 elems → packs_epi32 → packs_epi16 → 32 uint8
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 /* Helper: pack 4 comparison results (32-bit masks) into 32 bytes of uint8 */
 static inline __m256i _pack32_avx2(__m256i c0, __m256i c1, __m256i c2,
@@ -799,9 +799,9 @@ FAST_CMP_F32_AVX2(le, _CMP_LE_OQ, <=)
 #undef FAST_CMP_F32_AVX2
 #undef _CMP_F32
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 64-bit: compare 8×4 elems → 3-stage pack → 32 uint8 output
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 /* 64-bit types use movemask + LUT for simplicity (packing 64→8 is complex) */
 static const uint32_t _cmp_lut4_avx2[16] = {

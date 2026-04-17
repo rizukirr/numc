@@ -15,7 +15,7 @@
 #include <stdint.h>
 #include <string.h>
 
-/* ── xoshiro256** PRNG — 4-stream parallel state ────────────────────
+/* -- xoshiro256** PRNG — 4-stream parallel state --------------------
  *
  * To enable auto-vectorization the state is stored in Structure-of-Arrays
  * (SoA) layout: four independent xoshiro256** streams run in lockstep.
@@ -41,7 +41,7 @@
 static _Thread_local uint64_t prng_s[4][NUMC_PRNG_LANES];
 static _Thread_local bool prng_seeded = false;
 
-/* ── splitmix64: seed expansion ─────────────────────────────────────*/
+/* -- splitmix64: seed expansion -------------------------------------*/
 
 static inline uint64_t _splitmix64(uint64_t *x) {
   uint64_t z = (*x += UINT64_C(0x9e3779b97f4a7c15));
@@ -54,7 +54,7 @@ static inline uint64_t numc_rotl64(const uint64_t x, int k) {
   return (x << k) | (x >> (64 - k));
 }
 
-/* ── xoshiro256** jump — advance one stream by 2^128 steps ──────────
+/* -- xoshiro256** jump — advance one stream by 2^128 steps ----------
  *
  * Jump polynomial from the official xoshiro reference implementation.
  * Applying this to stream k's state gives stream k+1's starting point.
@@ -92,7 +92,7 @@ static inline void _xoshiro_jump(uint64_t s[4]) {
   s[3] = s3;
 }
 
-/* ── Seed all 4 streams ──────────────────────────────────────────────*/
+/* -- Seed all 4 streams ----------------------------------------------*/
 
 static inline void prng_seed(uint64_t seed) {
   /* Seed stream 0 via splitmix64 */
@@ -121,7 +121,7 @@ static inline void _prng_ensure_seeded(void) {
     prng_seed(UINT64_C(0xdeadbeefcafe1234));
 }
 
-/* ── Vectorizable 4-wide xoshiro256** step ───────────────────────────
+/* -- Vectorizable 4-wide xoshiro256** step ---------------------------
  *
  * Operates on local uint64_t[4] arrays — no global reads/writes inside
  * the loop body. The compiler sees a pure arithmetic recurrence on
@@ -171,7 +171,7 @@ static inline void _prng_ensure_seeded(void) {
     (out)[3] = _r3;                               \
   } while (0)
 
-/* ── Scalar fallback: single-stream step ────────────────────────────
+/* -- Scalar fallback: single-stream step ----------------------------
  *
  * Used for the tail (n % 4 != 0) and for randn (Box-Muller pairs
  * don't benefit from SIMD due to the transcendental functions).
@@ -191,7 +191,7 @@ static inline uint64_t _prng_next_scalar(void) {
   return result;
 }
 
-/* ── Uniform [0, 1) helpers — operate on raw uint64_t ───────────────
+/* -- Uniform [0, 1) helpers — operate on raw uint64_t ---------------
  *
  * IEEE 754 bit trick: OR in the exponent for [1.0, 2.0), subtract 1.0.
  * Inlined into the fill loop so the compiler fuses bit manipulation
@@ -220,7 +220,7 @@ static inline float _prng_f32(void) {
   return _u64_to_f32(_prng_next_scalar());
 }
 
-/* ── Box-Muller — scalar only (transcendentals block vectorization) ──
+/* -- Box-Muller — scalar only (transcendentals block vectorization) --
  *
  * sin/cos/log cannot be SIMD'd by the auto-vectorizer without libmvec.
  * Box-Muller remains sequential; the spare caches one extra sample.
@@ -250,11 +250,11 @@ static inline float _prng_normal_f32(void) {
   return (float)_prng_normal_f64();
 }
 
-/* ── Per-dtype fill kernel typedef ──────────────────────────────────*/
+/* -- Per-dtype fill kernel typedef ----------------------------------*/
 
 typedef void (*NumcRandKernel)(char *out, size_t n);
 
-/* ── DEFINE_RAND_KERNEL ──────────────────────────────────────────────
+/* -- DEFINE_RAND_KERNEL ----------------------------------------------
  *
  * Two execution paths selected by total byte count (same threshold as
  * all other numc kernels: NUMC_OMP_BYTE_THRESHOLD = 1 MB):
@@ -294,7 +294,7 @@ static inline void prng_skip(uint64_t s[4], size_t skip) {
   }
 }
 
-/* ── _prng_get_tid: safe omp_get_thread_num wrapper ─────────────────
+/* -- _prng_get_tid: safe omp_get_thread_num wrapper -----------------
  *
  * Returns the OMP thread ID when OpenMP is available, 0 otherwise.
  * Declared here so DEFINE_RAND_KERNEL can call it without #ifdef inside
@@ -308,7 +308,7 @@ static inline int _prng_get_tid(void) {
 #endif
 }
 
-/* ── DEFINE_RAND_KERNEL ──────────────────────────────────────────────
+/* -- DEFINE_RAND_KERNEL ----------------------------------------------
  *
  * Stamps _kern_rand_TYPE_ENUM with two execution paths:
  *
@@ -330,7 +330,7 @@ static inline int _prng_get_tid(void) {
     C_TYPE *restrict po = (C_TYPE *)out;                                 \
     size_t total_bytes = n * sizeof(C_TYPE);                             \
     if (total_bytes <= NUMC_OMP_BYTE_THRESHOLD) {                        \
-      /* ── Small path: single-threaded 4-wide SIMD ───────────────── */ \
+      /* -- Small path: single-threaded 4-wide SIMD ----------------- */ \
       uint64_t s0[4], s1[4], s2[4], s3[4];                               \
       memcpy(s0, prng_s[0], sizeof s0);                                  \
       memcpy(s1, prng_s[1], sizeof s1);                                  \
@@ -352,7 +352,7 @@ static inline int _prng_get_tid(void) {
       for (; i < n; i++)                                                 \
         po[i] = (CONVERT_EXPR(_prng_next_scalar()));                     \
     } else {                                                             \
-      /* ── Large path: per-thread sub-states, OMP when available ─── */ \
+      /* -- Large path: per-thread sub-states, OMP when available --- */ \
       int _nthreads = (int)(total_bytes / NUMC_OMP_BYTES_PER_THREAD);    \
       NUMC_OMP_CAP_THREADS(_nthreads);                                   \
       if (_nthreads < 1)                                                 \
@@ -423,7 +423,7 @@ static inline int _prng_get_tid(void) {
     }                                                                    \
   }
 
-/* ── DEFINE_RANDN_KERNEL ─────────────────────────────────────────────
+/* -- DEFINE_RANDN_KERNEL ---------------------------------------------
  *
  * randn uses Box-Muller (log/sin/cos) which cannot be auto-vectorized
  * without libmvec. Parallelized with NUMC_OMP_FOR over a simple scalar
@@ -445,7 +445,7 @@ static inline int _prng_get_tid(void) {
         for (size_t i = 0; i < n; i++) { po[i] = (EXPR); }); \
   }
 
-/* ── Dispatch table entry helper ────────────────────────────────────*/
+/* -- Dispatch table entry helper ------------------------------------*/
 
 #define ER(OP, TE) [TE] = _kern_##OP##_##TE
 

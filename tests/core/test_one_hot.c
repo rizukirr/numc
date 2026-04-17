@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-/* ── Basic: int32 labels → float32 one-hot ────────────────────────── */
+/* -- Basic: int32 labels → float32 one-hot -------------------------- */
 
 static int test_one_hot_basic(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -40,7 +40,7 @@ static int test_one_hot_basic(void) {
   return 0;
 }
 
-/* ── float64 output ───────────────────────────────────────────────── */
+/* -- float64 output ------------------------------------------------- */
 
 static int test_one_hot_float64(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -63,7 +63,7 @@ static int test_one_hot_float64(void) {
   return 0;
 }
 
-/* ── uint8 labels ─────────────────────────────────────────────────── */
+/* -- uint8 labels --------------------------------------------------- */
 
 static int test_one_hot_uint8_labels(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -93,7 +93,7 @@ static int test_one_hot_uint8_labels(void) {
   return 0;
 }
 
-/* ── Out-of-bounds labels are silently skipped ────────────────────── */
+/* -- Out-of-bounds labels are silently skipped ---------------------- */
 
 static int test_one_hot_oob(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -120,7 +120,7 @@ static int test_one_hot_oob(void) {
   return 0;
 }
 
-/* ── Error: float labels rejected ─────────────────────────────────── */
+/* -- Error: float labels rejected ----------------------------------- */
 
 static int test_one_hot_reject_float_labels(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -134,7 +134,7 @@ static int test_one_hot_reject_float_labels(void) {
   return 0;
 }
 
-/* ── Error: 2-D labels rejected ───────────────────────────────────── */
+/* -- Error: 2-D labels rejected ------------------------------------- */
 
 static int test_one_hot_reject_2d(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -148,7 +148,7 @@ static int test_one_hot_reject_2d(void) {
   return 0;
 }
 
-/* ── Error: integer output dtype rejected ─────────────────────────── */
+/* -- Error: integer output dtype rejected --------------------------- */
 
 static int test_one_hot_reject_int_output(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -161,7 +161,7 @@ static int test_one_hot_reject_int_output(void) {
   return 0;
 }
 
-/* ── main ─────────────────────────────────────────────────────────── */
+/* -- main ----------------------------------------------------------- */
 
 int main(void) {
   int passes = 0, fails = 0;

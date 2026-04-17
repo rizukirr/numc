@@ -63,7 +63,7 @@
 #define GEMM_RVV_MAX_VL_I64 32
 #define GEMM_RVV_MAX_VL_I8  64
 
-/* ── Runtime NR query helpers ──────────────────────────────────────────── */
+/* -- Runtime NR query helpers -------------------------------------------- */
 
 static inline size_t gemm_nr_f32_rvv(void) {
   return __riscv_vsetvlmax_e32m2();
@@ -90,7 +90,7 @@ static inline size_t gemm_nr_i8_rvv(void) {
   return __riscv_vsetvlmax_e32m2();
 }
 
-/* ── Float32 packing routines ──────────────────────────────────────────── */
+/* -- Float32 packing routines -------------------------------------------- */
 
 static inline void gemm_pack_b_f32_rvv(const float *b, float *packed,
                                         size_t kc, size_t nc, size_t nr,
@@ -212,7 +212,7 @@ static inline void gemm_pack_a_f32_rvv(const float *a, float *packed,
   }
 }
 
-/* ── Float64 packing routines ──────────────────────────────────────────── */
+/* -- Float64 packing routines -------------------------------------------- */
 
 static inline void gemm_pack_b_f64_rvv(const double *b, double *packed,
                                         size_t kc, size_t nc, size_t nr,
@@ -328,10 +328,10 @@ static inline void gemm_pack_a_f64_rvv(const double *a, double *packed,
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Float32: 8xVL micro-kernel (vfmacc_vf — scalar-vector FMA, no broadcast)
    8 acc m2 groups + 1 B m2 group = 9 m2 groups out of 16 available.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 /* One K-iteration: uses pre-loaded b0 from outer scope; does FMA into 8 rows;
@@ -589,10 +589,10 @@ static inline void gemm_f32_rvv(const float *a, const float *b, float *out,
   numc_free(packed_b);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Float64: 6xVL micro-kernel (vfmacc_vf — scalar-vector FMA)
    6 acc m2 groups + 1 B m2 group = 7 m2 groups out of 16 available.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 /* Uses pre-loaded b0 from outer scope; does FMA into 6 rows;
@@ -838,10 +838,10 @@ static inline void gemm_f64_rvv(const double *a, const double *b, double *out,
   numc_free(packed_b);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int32/Uint32: 6xVL unpacked micro-kernel (vmacc_vx_i32m2)
    vmacc_vx: acc += scalar * b_vec — identical low bits for signed/unsigned.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_i32_6xVL(const int32_t *a, const int32_t *b,
@@ -947,10 +947,10 @@ static inline void gemm_u32_rvv(const uint32_t *a, const uint32_t *b,
                k_dim, n_dim, rsa, csa, rsb, rso);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int16/Uint16: 6xVL unpacked micro-kernel (vmacc_vx_i16m2)
    Same-width accumulation — matches the i32 overflow trade-off.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_i16_6xVL(const int16_t *a, const int16_t *b,
@@ -1056,10 +1056,10 @@ static inline void gemm_u16_rvv(const uint16_t *a, const uint16_t *b,
                k_dim, n_dim, rsa, csa, rsb, rso);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int64/Uint64: 6xVL unpacked micro-kernel (vmacc_vx_i64m2)
    RVV has native 64-bit integer multiply — unlike NEON and AVX2!
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_i64_6xVL(const int64_t *a, const int64_t *b,
@@ -1153,11 +1153,11 @@ static inline void gemm_u64_rvv(const uint64_t *a, const uint64_t *b,
                k_dim, n_dim, rsa, csa, rsb, rso);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int8: 6xVL promoted micro-kernel (widen to i32, full-K accumulation)
    NR matches i32 VL (e32m2). Each B element is widened i8->i16->i32.
    Uses vwadd for widening, then vmacc_vx_i32m2 for accumulation.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_i8_6xVL(const int8_t *a, const int8_t *b,
@@ -1251,9 +1251,9 @@ static inline void gemm_i8_rvv(const int8_t *a, const int8_t *b, int8_t *out,
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Uint8: 6xVL promoted micro-kernel (widen to u32, full-K accumulation)
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_u8_6xVL(const uint8_t *a, const uint8_t *b,

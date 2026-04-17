@@ -87,7 +87,7 @@
     }                                                                      \
   }
 
-/* ── Add scalar ──────────────────────────────────────────────────── */
+/* -- Add scalar ---------------------------------------------------- */
 
 FAST_SCAL_SINT_RVV(add, i8, int8_t, 8, __riscv_vadd_vx_i8m4)
 FAST_SCAL_SINT_RVV(add, i16, int16_t, 16, __riscv_vadd_vx_i16m4)
@@ -100,7 +100,7 @@ FAST_SCAL_UINT_RVV(add, u64, uint64_t, 64, __riscv_vadd_vx_u64m4)
 FAST_SCAL_F32_RVV(add, __riscv_vfadd_vf_f32m4)
 FAST_SCAL_F64_RVV(add, __riscv_vfadd_vf_f64m4)
 
-/* ── Sub scalar ──────────────────────────────────────────────────── */
+/* -- Sub scalar ---------------------------------------------------- */
 
 FAST_SCAL_SINT_RVV(sub, i8, int8_t, 8, __riscv_vsub_vx_i8m4)
 FAST_SCAL_SINT_RVV(sub, i16, int16_t, 16, __riscv_vsub_vx_i16m4)
@@ -113,7 +113,7 @@ FAST_SCAL_UINT_RVV(sub, u64, uint64_t, 64, __riscv_vsub_vx_u64m4)
 FAST_SCAL_F32_RVV(sub, __riscv_vfsub_vf_f32m4)
 FAST_SCAL_F64_RVV(sub, __riscv_vfsub_vf_f64m4)
 
-/* ── Mul scalar ──────────────────────────────────────────────────── */
+/* -- Mul scalar ---------------------------------------------------- */
 
 FAST_SCAL_SINT_RVV(mul, i8, int8_t, 8, __riscv_vmul_vx_i8m4)
 FAST_SCAL_SINT_RVV(mul, i16, int16_t, 16, __riscv_vmul_vx_i16m4)
@@ -126,7 +126,7 @@ FAST_SCAL_UINT_RVV(mul, u64, uint64_t, 64, __riscv_vmul_vx_u64m4)
 FAST_SCAL_F32_RVV(mul, __riscv_vfmul_vf_f32m4)
 FAST_SCAL_F64_RVV(mul, __riscv_vfmul_vf_f64m4)
 
-/* ── Cleanup ─────────────────────────────────────────────────────── */
+/* -- Cleanup ------------------------------------------------------- */
 
 #undef FAST_SCAL_SINT_RVV
 #undef FAST_SCAL_UINT_RVV

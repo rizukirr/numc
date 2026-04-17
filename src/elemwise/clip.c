@@ -1,13 +1,13 @@
 #include "dispatch.h"
 #include <numc/math.h>
 
-/* ── Stamp out clip loop kernels ────────────────────────────────────────*/
+/* -- Stamp out clip loop kernels ----------------------------------------*/
 
 #define STAMP_CLIP(TE, CT) DEFINE_CLIP_KERNEL(TE, CT)
 GENERATE_NUMC_TYPES(STAMP_CLIP)
 #undef STAMP_CLIP
 
-/* ── Dispatch table (dtype -> kernel) ──────────────────────────────── */
+/* -- Dispatch table (dtype -> kernel) -------------------------------- */
 
 static const NumcClipKernel clip_table[] = {
     E(clip, NUMC_DTYPE_INT8),    E(clip, NUMC_DTYPE_INT16),
@@ -17,9 +17,9 @@ static const NumcClipKernel clip_table[] = {
     E(clip, NUMC_DTYPE_FLOAT32), E(clip, NUMC_DTYPE_FLOAT64),
 };
 
-/* ═══════════════════════════════════════════════════════════════════════
+/* =======================================================================
  * Public API — Clip ops
- * ═══════════════════════════════════════════════════════════════════════ */
+ * ======================================================================= */
 
 int numc_clip(NumcArray *a, NumcArray *out, double min, double max) {
   int err = _check_unary(a, out);

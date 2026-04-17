@@ -26,3 +26,4 @@ external/
 *.core
 externals
 .omc/
+/.no-vibe

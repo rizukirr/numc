@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-/* ── He init: mean ~ 0, std ~ sqrt(2/fan_in) ───────────────────────*/
+/* -- He init: mean ~ 0, std ~ sqrt(2/fan_in) -----------------------*/
 
 static int test_he_float32_stats(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -63,7 +63,7 @@ static int test_he_float64_stats(void) {
   return 0;
 }
 
-/* ── 2D shape ────────────────────────────────────────────────────────*/
+/* -- 2D shape --------------------------------------------------------*/
 
 static int test_he_2d(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -79,7 +79,7 @@ static int test_he_2d(void) {
   return 0;
 }
 
-/* ── error cases ────────────────────────────────────────────────────*/
+/* -- error cases ----------------------------------------------------*/
 
 static int test_he_null_ctx(void) {
   NumcArray *a =

@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdint.h>
 
-/* ── He (Kaiming) initialization ────────────────────────────────────
+/* -- He (Kaiming) initialization ------------------------------------
  *
  * Expected: N(0, sqrt(2/fan_in))
  * => mean ~ 0, std ~ sqrt(2/fan_in)
@@ -93,7 +93,7 @@ static int test_he_error_zero_fan_in(void) {
   return 0;
 }
 
-/* ── Xavier (Glorot) initialization ─────────────────────────────────
+/* -- Xavier (Glorot) initialization ---------------------------------
  *
  * Expected: uniform [-limit, limit), limit = sqrt(6/(fan_in+fan_out))
  * => mean ~ 0, all values in (-limit, limit)
@@ -194,7 +194,7 @@ static int test_xavier_error_zero_fan(void) {
   return 0;
 }
 
-/* ── He vs Xavier are different ─────────────────────────────────────*/
+/* -- He vs Xavier are different -------------------------------------*/
 
 static int test_he_xavier_differ(void) {
   NumcCtx *ctx = numc_ctx_create();

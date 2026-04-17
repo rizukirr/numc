@@ -6,7 +6,7 @@
 
 // clang-format off
 
-/* ── helpers ─────────────────────────────────────────────────────────── */
+/* -- helpers ----------------------------------------------------------- */
 
 #define PREFETCH_NEON(p, off) __builtin_prefetch((const char *)((p) + (off)), 0, 3)
 #define PREFETCH2_NEON(a, b, off) PREFETCH_NEON(a, off); PREFETCH_NEON(b, off)
@@ -39,7 +39,7 @@ static inline uint64_t _hsum_u64(uint64x2_t v) {
   return vgetq_lane_u64(v, 0) + vgetq_lane_u64(v, 1);
 }
 
-/* ── float dot products ──────────────────────────────────────────────── */
+/* -- float dot products ------------------------------------------------ */
 
 static inline void dot_f32u_neon(const float *a, const float *b, size_t n,
                                  float *dest) {
@@ -83,7 +83,7 @@ static inline void dot_f64u_neon(const double *a, const double *b, size_t n,
   *dest = result + tail;
 }
 
-/* ── 32-bit integer dot products ─────────────────────────────────────── */
+/* -- 32-bit integer dot products --------------------------------------- */
 
 static inline void dot_i32_neon(const int32_t *a, const int32_t *b, size_t n,
                                 int32_t *dest) {
@@ -127,7 +127,7 @@ static inline void dot_u32_neon(const uint32_t *a, const uint32_t *b, size_t n,
   *dest = result + tail;
 }
 
-/* ── 64-bit integer dot products ─────────────────────────────────────── */
+/* -- 64-bit integer dot products --------------------------------------- */
 
 static inline void dot_i64_neon(const int64_t *a, const int64_t *b, size_t n,
                                 int64_t *dest) {
@@ -171,7 +171,7 @@ static inline void dot_u64_neon(const uint64_t *a, const uint64_t *b, size_t n,
   *dest = result + tail;
 }
 
-/* ── 8-bit dot (widen i8→i16, multiply, widen-accumulate i16→i32) ────── */
+/* -- 8-bit dot (widen i8→i16, multiply, widen-accumulate i16→i32) ------ */
 
 static inline void dot_i8_neon(const int8_t *a, const int8_t *b, size_t n,
                                int8_t *dest) {
@@ -224,7 +224,7 @@ static inline void dot_u8_neon(const uint8_t *a, const uint8_t *b, size_t n,
   *dest = (uint8_t)(result + tail);
 }
 
-/* ── 16-bit dot (vmlal: i16→i32 widening multiply-accumulate) ────────── */
+/* -- 16-bit dot (vmlal: i16→i32 widening multiply-accumulate) ---------- */
 
 static inline void dot_i16_neon(const int16_t *a, const int16_t *b, size_t n,
                                 int16_t *dest) {

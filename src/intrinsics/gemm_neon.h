@@ -53,7 +53,7 @@
 #define GEMM_F32_NC 4080
 #define GEMM_F64_NC 2048
 
-/* ── Float32 packing routines ──────────────────────────────────────────── */
+/* -- Float32 packing routines -------------------------------------------- */
 
 static inline void gemm_pack_b_f32(const float *b, float *packed, size_t kc,
                                    size_t nc, intptr_t rsb) {
@@ -240,7 +240,7 @@ static inline void gemm_pack_a_f32(const float *a, float *packed, size_t mc,
   }
 }
 
-/* ── Float64 packing routines ──────────────────────────────────────────── */
+/* -- Float64 packing routines -------------------------------------------- */
 
 static inline void gemm_pack_b_f64(const double *b, double *packed, size_t kc,
                                    size_t nc, intptr_t rsb) {
@@ -391,10 +391,10 @@ static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Float32: 8x12 micro-kernel (24 acc + 3 B + 2 A = 29/32 NEON regs)
    Uses vfmaq_laneq_f32 for fused broadcast+FMA — avoids explicit broadcast.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 /* One K-iteration: uses pre-loaded b0/b1/b2 from outer scope, loads A,
@@ -736,9 +736,9 @@ static inline void gemm_f32_neon(const float *a, const float *b, float *out,
   numc_free(packed_b);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Float64: 6x8 micro-kernel (24 acc + 4 B + 3 A = 31/32 NEON regs)
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 /* Uses pre-loaded b0/b1/b2/b3 from outer scope, loads A,
@@ -1077,9 +1077,9 @@ static inline void gemm_f64_neon(const double *a, const double *b, double *out,
   numc_free(packed_b);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int32/Uint32: 6x8 unpacked micro-kernel (vmlaq_s32)
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_i32_6x8(const int32_t *a, const int32_t *b,
@@ -1196,9 +1196,9 @@ static inline void gemm_u32_neon(const uint32_t *a, const uint32_t *b,
                 k_dim, n_dim, rsa, csa, rsb, rso);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int16/Uint16: 6x16 unpacked micro-kernel (vmlaq_s16)
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_i16_6x16(const int16_t *a, const int16_t *b,
@@ -1315,9 +1315,9 @@ static inline void gemm_u16_neon(const uint16_t *a, const uint16_t *b,
                 k_dim, n_dim, rsa, csa, rsb, rso);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int64/Uint64: 6x4 unpacked (no native 64-bit multiply, scalar emulation)
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_i64_6x4(const int64_t *a, const int64_t *b,
@@ -1430,9 +1430,9 @@ static inline void gemm_u64_neon(const uint64_t *a, const uint64_t *b,
                 k_dim, n_dim, rsa, csa, rsb, rso);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int8/Uint8: 6x8 promoted micro-kernel (widen to i32, full-K accumulation)
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_i8_6x8(const int8_t *a, const int8_t *b,

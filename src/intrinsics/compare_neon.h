@@ -18,9 +18,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 8-bit signed integer: 16 elems → 16 uint8 output per vector
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_S8_NEON(NAME, CMP)                                        \
   static inline void _fast_##NAME##_i8_neon(const void *restrict ap,       \
@@ -71,9 +71,9 @@ FAST_CMP_I8_NEON(ge, vcgeq_s8, a[i] >= b[i])
 FAST_CMP_I8_NEON(le, vcleq_s8, a[i] <= b[i])
 #undef FAST_CMP_I8_NEON
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 16-bit signed integer: 2×8 → narrow → 16 uint8 output
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_I16_NEON(FNAME, CMP, SCALAR_OP)                             \
   static inline void _fast_##FNAME##_i16_neon(const void *restrict ap,       \
@@ -116,9 +116,9 @@ FAST_CMP_I16_NEON(ge, vcgeq_s16, a[i] >= b[i])
 FAST_CMP_I16_NEON(le, vcleq_s16, a[i] <= b[i])
 #undef FAST_CMP_I16_NEON
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 32-bit signed integer: 4×4 → narrow chain → 16 uint8 output
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_I32_NEON(FNAME, CMP, SCALAR_OP)                             \
   static inline void _fast_##FNAME##_i32_neon(const void *restrict ap,       \
@@ -168,9 +168,9 @@ FAST_CMP_I32_NEON(ge, vcgeq_s32, a[i] >= b[i])
 FAST_CMP_I32_NEON(le, vcleq_s32, a[i] <= b[i])
 #undef FAST_CMP_I32_NEON
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 64-bit signed integer: scalar output (2 per vector, narrow not worth it)
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_I64_NEON(FNAME, CMP, SCALAR_OP)                             \
   static inline void _fast_##FNAME##_i64_neon(const void *restrict ap,       \
@@ -198,9 +198,9 @@ FAST_CMP_I64_NEON(ge, vcgeq_s64, a[i] >= b[i])
 FAST_CMP_I64_NEON(le, vcleq_s64, a[i] <= b[i])
 #undef FAST_CMP_I64_NEON
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 8-bit unsigned integer: 16 elems → 16 uint8 output per vector
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_U8_NEON(FNAME, CMP, SCALAR_OP)                             \
   static inline void _fast_##FNAME##_u8_neon(const void *restrict ap,       \
@@ -228,9 +228,9 @@ FAST_CMP_U8_NEON(ge, vcgeq_u8, a[i] >= b[i])
 FAST_CMP_U8_NEON(le, vcleq_u8, a[i] <= b[i])
 #undef FAST_CMP_U8_NEON
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 16-bit unsigned integer: 2×8 → narrow → 16 uint8 output
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_U16_NEON(FNAME, CMP, SCALAR_OP)                             \
   static inline void _fast_##FNAME##_u16_neon(const void *restrict ap,       \
@@ -272,9 +272,9 @@ FAST_CMP_U16_NEON(ge, vcgeq_u16, a[i] >= b[i])
 FAST_CMP_U16_NEON(le, vcleq_u16, a[i] <= b[i])
 #undef FAST_CMP_U16_NEON
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 32-bit unsigned integer: 4×4 → narrow chain → 16 uint8 output
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_U32_NEON(FNAME, CMP, SCALAR_OP)                             \
   static inline void _fast_##FNAME##_u32_neon(const void *restrict ap,       \
@@ -320,9 +320,9 @@ FAST_CMP_U32_NEON(ge, vcgeq_u32, a[i] >= b[i])
 FAST_CMP_U32_NEON(le, vcleq_u32, a[i] <= b[i])
 #undef FAST_CMP_U32_NEON
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 64-bit unsigned integer: scalar output (2 per vector)
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_U64_NEON(FNAME, CMP, SCALAR_OP)                             \
   static inline void _fast_##FNAME##_u64_neon(const void *restrict ap,       \
@@ -350,9 +350,9 @@ FAST_CMP_U64_NEON(ge, vcgeq_u64, a[i] >= b[i])
 FAST_CMP_U64_NEON(le, vcleq_u64, a[i] <= b[i])
 #undef FAST_CMP_U64_NEON
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Float32: 4×4 → narrow chain → 16 uint8 output
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_F32_NEON(FNAME, CMP, SCALAR_OP)                             \
   static inline void _fast_##FNAME##_f32_neon(const void *restrict ap,       \
@@ -398,9 +398,9 @@ FAST_CMP_F32_NEON(ge, vcgeq_f32, a[i] >= b[i])
 FAST_CMP_F32_NEON(le, vcleq_f32, a[i] <= b[i])
 #undef FAST_CMP_F32_NEON
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Float64: scalar output (2 per vector)
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_F64_NEON(FNAME, CMP, SCALAR_OP)                             \
   static inline void _fast_##FNAME##_f64_neon(const void *restrict ap,       \
@@ -428,9 +428,9 @@ FAST_CMP_F64_NEON(ge, vcgeq_f64, a[i] >= b[i])
 FAST_CMP_F64_NEON(le, vcleq_f64, a[i] <= b[i])
 #undef FAST_CMP_F64_NEON
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Legacy u8-only wrappers (old API: typed pointers, not void *)
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 static inline void _cmp_eq_u8_neon(const uint8_t *restrict a,
                                    const uint8_t *restrict b,

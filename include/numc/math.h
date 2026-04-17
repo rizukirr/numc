@@ -214,6 +214,24 @@ NUMC_API int numc_exp(NumcArray *a, NumcArray *out);
 NUMC_API int numc_exp_inplace(NumcArray *a);
 
 /**
+ * @brief Element-wise hyperbolic tangent: out = tanh(a).
+ *
+ * @param a   Input array.
+ * @param out Output array.
+ * @return 0 on success, negative error code on failure.
+ */
+NUMC_API int numc_tanh(NumcArray *a, NumcArray *out);
+
+/**
+ * @brief Element-wise hyperbolic tangent in-place: a = tanh(a).
+ *
+ * @param a Array to be modified.
+ * @return 0 on success, negative error code on failure.
+ */
+NUMC_API int numc_tanh_inplace(NumcArray *a);
+
+
+/**
  * @brief Element-wise square root: out = sqrt(a).
  *
  * @param a   Input array.

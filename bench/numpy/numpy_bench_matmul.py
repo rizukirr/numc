@@ -13,7 +13,7 @@ Usage:
 import numpy as np
 import time
 
-# ── Timer ───────────────────────────────────────────────────────────────
+# -- Timer ---------------------------------------------------------------
 
 def bench(a, b, out, warmup, iters):
     """Warmup + timed matmul, return avg microseconds."""
@@ -30,7 +30,7 @@ def gflops(M, K, N, us):
     return 2.0 * M * K * N / (us * 1e3)
 
 
-# ── Helpers ─────────────────────────────────────────────────────────────
+# -- Helpers -------------------------------------------------------------
 
 ALL_DTYPES = [
     ("int8",    np.int8),    ("int16",   np.int16),
@@ -41,14 +41,14 @@ ALL_DTYPES = [
 ]
 
 
-# ── Section 1: Square size scaling ──────────────────────────────────────
+# -- Section 1: Square size scaling --------------------------------------
 
 def bench_square_scaling():
     print()
     print("━" * 60)
     print("  SQUARE SIZE SCALING  (float32, NxN @ NxN -> NxN)")
     print(f"\n  {'N':>6s}  {'iters':>6s}  {'time(us)':>8s}  {'time(ms)':>8s}  {'GFLOP/s':>8s}")
-    print("  " + "─" * 53)
+    print("  " + "-" * 53)
 
     sizes = [
         ( 32, 50, 500),
@@ -67,7 +67,7 @@ def bench_square_scaling():
         print(f"  {n:6d}  {iters:6d}  {us:8.2f}  {us/1e3:8.3f}  {gflops(n,n,n,us):8.3f}")
 
 
-# ── Section 2: Dtype comparison ──────────────────────────────────────────
+# -- Section 2: Dtype comparison ------------------------------------------
 
 def bench_dtype_comparison():
     N = 256
@@ -75,7 +75,7 @@ def bench_dtype_comparison():
     print("━" * 60)
     print(f"  DTYPE COMPARISON  ({N}x{N} @ {N}x{N}, 20 iters)")
     print(f"\n  {'dtype':<8s}  {'time(us)':>8s}  {'GFLOP/s':>8s}")
-    print("  " + "─" * 30)
+    print("  " + "-" * 30)
 
     for name, dt in ALL_DTYPES:
         # np.matmul promotes integer types internally — use float32 out for integers
@@ -99,14 +99,14 @@ def bench_dtype_comparison():
         print(f"  {name:<8s}  {us:8.2f}  {gflops(N,N,N,us):8.3f}")
 
 
-# ── Section 3: Shape variants ─────────────────────────────────────────────
+# -- Section 3: Shape variants ---------------------------------------------
 
 def bench_shape_variants():
     print()
     print("━" * 60)
     print("  SHAPE VARIANTS  (float32, 20 iters)")
     print(f"\n  {'shape (M,K)@(K,N)':<24s}  {'time(us)':>8s}  {'GFLOP/s':>8s}  {'flops':>8s}")
-    print("  " + "─" * 54)
+    print("  " + "-" * 54)
 
     shapes = [
         (512,  32, 512, "wide K (512x32@32x512)"),
@@ -127,7 +127,7 @@ def bench_shape_variants():
         print(f"  {label:<24s}  {us:8.2f}  {gflops(M,K,N,us):8.3f}  {total_flops/1e3:8.0f} K")
 
 
-# ── main ─────────────────────────────────────────────────────────────────
+# -- main -----------------------------------------------------------------
 
 def main():
     print()

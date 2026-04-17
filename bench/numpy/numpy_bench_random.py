@@ -11,7 +11,7 @@ import time
 WARMUP = 5
 ITERS  = 50
 
-# ── Timer helpers ──────────────────────────────────────────────────────
+# -- Timer helpers ------------------------------------------------------
 
 def time_randn(size, dt):
     """Benchmark np.random.standard_normal, return avg microseconds."""
@@ -27,27 +27,27 @@ def time_randn(size, dt):
     return (t1 - t0) / ITERS * 1e6
 
 
-# ── Helpers ────────────────────────────────────────────────────────────
+# -- Helpers ------------------------------------------------------------
 
 ALL_DTYPES = [
     ("float32", np.float32), ("float64", np.float64),
 ]
 
 
-# ── Benchmark: randn ───────────────────────────────────────────────────
+# -- Benchmark: randn ---------------------------------------------------
 
 def bench_randn(size):
     print(f"{'━' * 82}")
     print(f"  RANDN  ({size} elements, {ITERS} iters)")
     print(f"\n  {'dtype':<8s} {'time (us)':>10s} {'Mop/s':>10s}")
-    print(f"  {'─' * 30}")
+    print(f"  {'-' * 30}")
 
     for name, dt in ALL_DTYPES:
         us = time_randn(size, dt)
         print(f"  {name:<8s} {us:10.2f} {size/us:10.1f}")
 
 
-# ── main ──────────────────────────────────────────────────────────────
+# -- main --------------------------------------------------------------
 
 def main():
     print(f"\n  numpy random benchmark")

@@ -15,9 +15,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Generic integer scalar macro (for ops with native AVX-512 support)
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_SC_INT_AVX512(OP, SFX, CT, VPV, BCAST, VEC_OP, TAIL_OP)       \
   static inline void _fast_##OP##_scalar_##SFX##_avx512(                   \
@@ -70,7 +70,7 @@
       out[i] = (double)(a[i] TAIL_OP s);                                   \
   }
 
-/* ── Add scalar ─────────────────────────────────────────────────── */
+/* -- Add scalar --------------------------------------------------- */
 
 FAST_SC_INT_AVX512(add, i8, int8_t, 64, _mm512_set1_epi8, _mm512_add_epi8, +)
 FAST_SC_INT_AVX512(add, i16, int16_t, 32, _mm512_set1_epi16, _mm512_add_epi16,
@@ -88,7 +88,7 @@ FAST_SC_INT_AVX512(add, u64, uint64_t, 8, _mm512_set1_epi64, _mm512_add_epi64,
 FAST_SC_F32_AVX512(add, _mm512_add_ps, +)
 FAST_SC_F64_AVX512(add, _mm512_add_pd, +)
 
-/* ── Sub scalar ─────────────────────────────────────────────────── */
+/* -- Sub scalar --------------------------------------------------- */
 
 FAST_SC_INT_AVX512(sub, i8, int8_t, 64, _mm512_set1_epi8, _mm512_sub_epi8, -)
 FAST_SC_INT_AVX512(sub, i16, int16_t, 32, _mm512_set1_epi16, _mm512_sub_epi16,
@@ -106,7 +106,7 @@ FAST_SC_INT_AVX512(sub, u64, uint64_t, 8, _mm512_set1_epi64, _mm512_sub_epi64,
 FAST_SC_F32_AVX512(sub, _mm512_sub_ps, -)
 FAST_SC_F64_AVX512(sub, _mm512_sub_pd, -)
 
-/* ── Mul scalar (16/32-bit: native mullo) ───────────────────────── */
+/* -- Mul scalar (16/32-bit: native mullo) ------------------------- */
 
 FAST_SC_INT_AVX512(mul, i16, int16_t, 32, _mm512_set1_epi16,
                    _mm512_mullo_epi16, *)
@@ -117,7 +117,7 @@ FAST_SC_INT_AVX512(mul, u16, uint16_t, 32, _mm512_set1_epi16,
 FAST_SC_INT_AVX512(mul, u32, uint32_t, 16, _mm512_set1_epi32,
                    _mm512_mullo_epi32, *)
 
-/* ── Mul scalar i8: widening trick (no native 8-bit multiply) ──── */
+/* -- Mul scalar i8: widening trick (no native 8-bit multiply) ---- */
 
 static inline void _fast_mul_scalar_i8_avx512(const void *restrict ap,
                                               const void *restrict sp,
@@ -169,7 +169,7 @@ static inline void _fast_mul_scalar_u8_avx512(const void *restrict ap,
     out[i] = (uint8_t)(a[i] * s);
 }
 
-/* ── Mul scalar i64/u64: scalar fallback (AVX512DQ not guaranteed) ─ */
+/* -- Mul scalar i64/u64: scalar fallback (AVX512DQ not guaranteed) - */
 
 static inline void _fast_mul_scalar_i64_avx512(const void *restrict ap,
                                                const void *restrict sp,

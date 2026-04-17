@@ -6,7 +6,7 @@
 
 // clang-format off
 
-/* ── load/store helpers ────────────────────────────────────────────── */
+/* -- load/store helpers ---------------------------------------------- */
 
 #define RLOADI(p) _mm256_loadu_si256((const __m256i *)(p))
 #define RSTOREI(p, v) _mm256_storeu_si256((__m256i *)(p), v)
@@ -14,7 +14,7 @@
 #define _RSMIN(a, b) ((a) < (b) ? (a) : (b))
 #define _RSMAX(a, b) ((a) > (b) ? (a) : (b))
 
-/* ── horizontal reduction helpers ──────────────────────────────────── */
+/* -- horizontal reduction helpers ------------------------------------ */
 
 /* 8-bit: 256→128→64→32→16→8 bits */
 #define DEFINE_HREDUCE_8(NAME, CT, CMP128)              \
@@ -71,7 +71,7 @@ DEFINE_HREDUCE_32(_hmax_epu32_avx2, uint32_t, _mm_max_epu32)
 #undef DEFINE_HREDUCE_16
 #undef DEFINE_HREDUCE_32
 
-/* ── full array min/max reduction ──────────────────────────────────── *
+/* -- full array min/max reduction ------------------------------------ *
  *
  * 4 vector accumulators, 128 bytes/iteration for 8-bit types.
  * Single-vector cleanup loop, then scalar tail.                      */
@@ -139,7 +139,7 @@ DEFINE_REDUCE_FULL_AVX2(reduce_max_u32_avx2, uint32_t,
 
 #undef DEFINE_REDUCE_FULL_AVX2
 
-/* ── fused row-reduce (axis-1 reduction) ───────────────────────────── *
+/* -- fused row-reduce (axis-1 reduction) ----------------------------- *
  *
  * Processes 4 rows at a time, vectorizing the inner column loop.
  * For int8: 32 columns per SIMD iteration (vs 1 scalar).            */
@@ -214,7 +214,7 @@ DEFINE_FUSED_REDUCE_AVX2(_max_fused_u32_avx2, uint32_t,
 
 #undef DEFINE_FUSED_REDUCE_AVX2
 
-/* ── 64-bit integer min/max (emulated, no native AVX2 support) ──── *
+/* -- 64-bit integer min/max (emulated, no native AVX2 support) ---- *
  *
  * AVX2 lacks vpminsq/vpmaxsq/vpminuq/vpmaxuq.  We emulate using:
  *   signed:   cmp = vpcmpgtq(a, b);  result = blendvpd(b, a, cmp)
@@ -291,7 +291,7 @@ static inline uint64_t _hmin_epu64_avx2(__m256i v) {
   return (uint64_t)_mm_cvtsi128_si64(m);
 }
 
-/* ── 64-bit full array reductions ──────────────────────────────────── */
+/* -- 64-bit full array reductions ------------------------------------ */
 
 #define DEFINE_REDUCE_FULL_64_AVX2(NAME, CT, INIT_VEC, CMP256, HREDUCE, \
                                    SCMP)                                 \
@@ -330,7 +330,7 @@ DEFINE_REDUCE_FULL_64_AVX2(reduce_min_u64_avx2, uint64_t,
 
 #undef DEFINE_REDUCE_FULL_64_AVX2
 
-/* ── 64-bit fused row-reduce (axis-1) ──────────────────────────────── */
+/* -- 64-bit fused row-reduce (axis-1) -------------------------------- */
 
 #define DEFINE_FUSED_64_AVX2(NAME, CT, CMP256, SCMP)                          \
   static inline void NAME(const char *restrict base, intptr_t row_stride,     \

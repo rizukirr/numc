@@ -15,9 +15,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Binary: generic integer macro (for ops with native AVX2 support)
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_BIN_INT_AVX2(OP, SFX, CT, VPV, VEC_OP, TAIL_EXPR)                \
   static inline void _fast_##OP##_##SFX##_avx2(const void *restrict ap,       \
@@ -70,7 +70,7 @@
       out[i] = (double)(TAIL_EXPR);                                       \
   }
 
-/* ── Add ─────────────────────────────────────────────────────────── */
+/* -- Add ----------------------------------------------------------- */
 
 FAST_BIN_INT_AVX2(add, i8, int8_t, 32, _mm256_add_epi8, a[i] + b[i])
 FAST_BIN_INT_AVX2(add, i16, int16_t, 16, _mm256_add_epi16, a[i] + b[i])
@@ -83,7 +83,7 @@ FAST_BIN_INT_AVX2(add, u64, uint64_t, 4, _mm256_add_epi64, a[i] + b[i])
 FAST_BIN_F32_AVX2(add, _mm256_add_ps, a[i] + b[i])
 FAST_BIN_F64_AVX2(add, _mm256_add_pd, a[i] + b[i])
 
-/* ── Sub ─────────────────────────────────────────────────────────── */
+/* -- Sub ----------------------------------------------------------- */
 
 FAST_BIN_INT_AVX2(sub, i8, int8_t, 32, _mm256_sub_epi8, a[i] - b[i])
 FAST_BIN_INT_AVX2(sub, i16, int16_t, 16, _mm256_sub_epi16, a[i] - b[i])
@@ -96,7 +96,7 @@ FAST_BIN_INT_AVX2(sub, u64, uint64_t, 4, _mm256_sub_epi64, a[i] - b[i])
 FAST_BIN_F32_AVX2(sub, _mm256_sub_ps, a[i] - b[i])
 FAST_BIN_F64_AVX2(sub, _mm256_sub_pd, a[i] - b[i])
 
-/* ── Maximum (signed) ────────────────────────────────────────────── */
+/* -- Maximum (signed) ---------------------------------------------- */
 
 FAST_BIN_INT_AVX2(maximum, i8, int8_t, 32, _mm256_max_epi8,
                   a[i] > b[i] ? a[i] : b[i])
@@ -123,7 +123,7 @@ static inline void _fast_maximum_i64_avx2(const void *restrict ap,
     out[i] = a[i] > b[i] ? a[i] : b[i];
 }
 
-/* ── Maximum (unsigned) ──────────────────────────────────────────── */
+/* -- Maximum (unsigned) -------------------------------------------- */
 
 FAST_BIN_INT_AVX2(maximum, u8, uint8_t, 32, _mm256_max_epu8,
                   a[i] > b[i] ? a[i] : b[i])
@@ -152,12 +152,12 @@ static inline void _fast_maximum_u64_avx2(const void *restrict ap,
     out[i] = a[i] > b[i] ? a[i] : b[i];
 }
 
-/* ── Maximum (float) ─────────────────────────────────────────────── */
+/* -- Maximum (float) ----------------------------------------------- */
 
 FAST_BIN_F32_AVX2(maximum, _mm256_max_ps, a[i] > b[i] ? a[i] : b[i])
 FAST_BIN_F64_AVX2(maximum, _mm256_max_pd, a[i] > b[i] ? a[i] : b[i])
 
-/* ── Minimum (signed) ────────────────────────────────────────────── */
+/* -- Minimum (signed) ---------------------------------------------- */
 
 FAST_BIN_INT_AVX2(minimum, i8, int8_t, 32, _mm256_min_epi8,
                   a[i] < b[i] ? a[i] : b[i])
@@ -183,7 +183,7 @@ static inline void _fast_minimum_i64_avx2(const void *restrict ap,
     out[i] = a[i] < b[i] ? a[i] : b[i];
 }
 
-/* ── Minimum (unsigned) ──────────────────────────────────────────── */
+/* -- Minimum (unsigned) -------------------------------------------- */
 
 FAST_BIN_INT_AVX2(minimum, u8, uint8_t, 32, _mm256_min_epu8,
                   a[i] < b[i] ? a[i] : b[i])
@@ -214,14 +214,14 @@ static inline void _fast_minimum_u64_avx2(const void *restrict ap,
 FAST_BIN_F32_AVX2(minimum, _mm256_min_ps, a[i] < b[i] ? a[i] : b[i])
 FAST_BIN_F64_AVX2(minimum, _mm256_min_pd, a[i] < b[i] ? a[i] : b[i])
 
-/* ── Mul (16/32-bit: native mullo) ───────────────────────────────── */
+/* -- Mul (16/32-bit: native mullo) --------------------------------- */
 
 FAST_BIN_INT_AVX2(mul, i16, int16_t, 16, _mm256_mullo_epi16, a[i] * b[i])
 FAST_BIN_INT_AVX2(mul, i32, int32_t, 8, _mm256_mullo_epi32, a[i] * b[i])
 FAST_BIN_INT_AVX2(mul, u16, uint16_t, 16, _mm256_mullo_epi16, a[i] * b[i])
 FAST_BIN_INT_AVX2(mul, u32, uint32_t, 8, _mm256_mullo_epi32, a[i] * b[i])
 
-/* ── Mul i8/u8: widening trick (no native 8-bit multiply) ──────── */
+/* -- Mul i8/u8: widening trick (no native 8-bit multiply) -------- */
 
 static inline void _fast_mul_i8_avx2(const void *restrict ap,
                                      const void *restrict bp, void *restrict op,
@@ -273,7 +273,7 @@ static inline void _fast_mul_u8_avx2(const void *restrict ap,
     out[i] = (uint8_t)(a[i] * b[i]);
 }
 
-/* ── Mul i64/u64: scalar (no efficient AVX2 emulation) ───────────── */
+/* -- Mul i64/u64: scalar (no efficient AVX2 emulation) ------------- */
 
 static inline void _fast_mul_i64_avx2(const void *restrict ap,
                                       const void *restrict bp,
@@ -302,9 +302,9 @@ FAST_BIN_F64_AVX2(mul, _mm256_mul_pd, a[i] * b[i])
 #undef FAST_BIN_F32_AVX2
 #undef FAST_BIN_F64_AVX2
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Unary operations
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_UN_INT_AVX2(OP, SFX, CT, VPV, VEC_OP, TAIL_EXPR)                 \
   static inline void _fast_##OP##_##SFX##_avx2(const void *restrict ap,       \
@@ -320,7 +320,7 @@ FAST_BIN_F64_AVX2(mul, _mm256_mul_pd, a[i] * b[i])
       out[i] = (CT)(TAIL_EXPR);                                               \
   }
 
-/* ── Neg ─────────────────────────────────────────────────────────── */
+/* -- Neg ----------------------------------------------------------- */
 
 #define NEG_VEC(W) _mm256_sub_epi##W(_mm256_setzero_si256(), va)
 
@@ -359,7 +359,7 @@ static inline void _fast_neg_f64_avx2(const void *restrict ap,
     out[i] = -a[i];
 }
 
-/* ── Abs (signed integers) ───────────────────────────────────────── */
+/* -- Abs (signed integers) ----------------------------------------- */
 
 FAST_UN_INT_AVX2(abs, i8, int8_t, 32, _mm256_abs_epi8(va),
                  (int8_t)(a[i] < 0 ? -a[i] : a[i]))

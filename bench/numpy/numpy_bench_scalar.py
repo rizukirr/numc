@@ -11,7 +11,7 @@ import time
 WARMUP = 20
 ITERS  = 200
 
-# ── Timer helpers ──────────────────────────────────────────────────────
+# -- Timer helpers ------------------------------------------------------
 
 def time_scalar(op, a, scalar, out):
     """Benchmark a scalar op, return avg microseconds."""
@@ -51,7 +51,7 @@ def time_scalar_inplace(op, a, scalar):
     return (t1 - t0) / ITERS * 1e6
 
 
-# ── Helpers ────────────────────────────────────────────────────────────
+# -- Helpers ------------------------------------------------------------
 
 ALL_DTYPES = [
     ("int8",    np.int8),    ("uint8",   np.uint8),
@@ -73,7 +73,7 @@ def print_header(title):
           f"{'add':>8s} {'sub':>8s} {'mul':>8s} {'div':>8s}")
     print(f"  {'':<8s} {'(us)':>8s} {'(us)':>8s} {'(us)':>8s} {'(us)':>8s}   "
           f"{'(Mop/s)':>8s} {'(Mop/s)':>8s} {'(Mop/s)':>8s} {'(Mop/s)':>8s}")
-    print(f"  {'─' * 78}")
+    print(f"  {'-' * 78}")
 
 
 def print_row(name, us, mops):
@@ -81,7 +81,7 @@ def print_row(name, us, mops):
           f"{mops[0]:8.1f} {mops[1]:8.1f} {mops[2]:8.1f} {mops[3]:8.1f}")
 
 
-# ── Benchmark: scalar ops ─────────────────────────────────────────────
+# -- Benchmark: scalar ops ---------------------------------------------
 
 def bench_scalar_ops(size):
     print(f"{'━' * 82}")
@@ -101,7 +101,7 @@ def bench_scalar_ops(size):
         print_row(name, us, mops)
 
 
-# ── Benchmark: scalar inplace ops ─────────────────────────────────────
+# -- Benchmark: scalar inplace ops -------------------------------------
 
 def bench_scalar_inplace_ops(size):
     print(f"\n{'━' * 82}")
@@ -141,13 +141,13 @@ def bench_scalar_inplace_ops(size):
         print_row(name, us, mops)
 
 
-# ── Benchmark: scaling across sizes ───────────────────────────────────
+# -- Benchmark: scaling across sizes -----------------------------------
 
 def bench_scalar_scaling():
     print(f"\n{'━' * 82}")
     print(f"  SIZE SCALING  (float32 add_scalar, {ITERS} iters)")
     print(f"\n  {'elements':>10s} {'time (us)':>10s} {'Mops/s':>10s} {'GB/s':>10s}")
-    print(f"  {'─' * 42}")
+    print(f"  {'-' * 42}")
 
     sizes = [100, 1_000, 10_000, 100_000, 1_000_000]
 
@@ -162,7 +162,7 @@ def bench_scalar_scaling():
         print(f"  {n:10d} {us:10.2f} {mops:10.1f} {gbs:10.2f}")
 
 
-# ── main ──────────────────────────────────────────────────────────────
+# -- main --------------------------------------------------------------
 
 def main():
     print(f"\n  numpy scalar element-wise benchmark")

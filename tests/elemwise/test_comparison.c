@@ -1,6 +1,6 @@
 #include "../helpers.h"
 
-/* ── numc_eq ─────────────────────────────────────────────────────────── */
+/* -- numc_eq ----------------------------------------------------------- */
 
 static int test_eq_int32(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -74,7 +74,7 @@ static int test_eq_scalar_int32(void) {
   return 0;
 }
 
-/* ── numc_gt ─────────────────────────────────────────────────────────── */
+/* -- numc_gt ----------------------------------------------------------- */
 
 static int test_gt_int32(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -148,7 +148,7 @@ static int test_gt_scalar_float32(void) {
   return 0;
 }
 
-/* ── numc_lt ─────────────────────────────────────────────────────────── */
+/* -- numc_lt ----------------------------------------------------------- */
 
 static int test_lt_int32(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -222,7 +222,7 @@ static int test_lt_scalar_int32(void) {
   return 0;
 }
 
-/* ── numc_ge ─────────────────────────────────────────────────────────── */
+/* -- numc_ge ----------------------------------------------------------- */
 
 static int test_ge_int32(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -296,7 +296,7 @@ static int test_ge_scalar_float32(void) {
   return 0;
 }
 
-/* ── numc_le ─────────────────────────────────────────────────────────── */
+/* -- numc_le ----------------------------------------------------------- */
 
 static int test_le_int32(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -370,7 +370,7 @@ static int test_le_scalar_int32(void) {
   return 0;
 }
 
-/* ── 2D test ─────────────────────────────────────────────────────────── */
+/* -- 2D test ----------------------------------------------------------- */
 
 static int test_comparison_2d(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -395,7 +395,7 @@ static int test_comparison_2d(void) {
   return 0;
 }
 
-/* ── Strided (transposed) test ───────────────────────────────────────── */
+/* -- Strided (transposed) test ----------------------------------------- */
 
 static int test_comparison_strided(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -430,7 +430,7 @@ static int test_comparison_strided(void) {
   return 0;
 }
 
-/* ── Error cases ─────────────────────────────────────────────────────── */
+/* -- Error cases ------------------------------------------------------- */
 
 static int test_comparison_null(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -500,7 +500,7 @@ static int test_comparison_scalar_null(void) {
   return 0;
 }
 
-/* ── Output type validation ──────────────────────────────────────────── */
+/* -- Output type validation -------------------------------------------- */
 
 static int test_comparison_wrong_output_type(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -516,7 +516,7 @@ static int test_comparison_wrong_output_type(void) {
   return 0;
 }
 
-/* ── main ────────────────────────────────────────────────────────────── */
+/* -- main -------------------------------------------------------------- */
 
 int main(void) {
   int passes = 0, fails = 0;

@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdint.h>
 
-/* ── numc_manual_seed reproducibility ──────────────────────────────*/
+/* -- numc_manual_seed reproducibility ------------------------------*/
 
 static int test_seed_reproducible(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -50,7 +50,7 @@ static int test_seed_different(void) {
   return 0;
 }
 
-/* ── float32 uniform [0, 1) ─────────────────────────────────────────*/
+/* -- float32 uniform [0, 1) -----------------------------------------*/
 
 static int test_rand_float32_range(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -85,7 +85,7 @@ static int test_rand_float32_not_all_zero(void) {
   return 0;
 }
 
-/* ── float64 uniform [0, 1) ─────────────────────────────────────────*/
+/* -- float64 uniform [0, 1) -----------------------------------------*/
 
 static int test_rand_float64_range(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -103,7 +103,7 @@ static int test_rand_float64_range(void) {
   return 0;
 }
 
-/* ── integer types — basic sanity ──────────────────────────────────*/
+/* -- integer types — basic sanity ----------------------------------*/
 
 static int test_rand_int32_not_uniform_zero(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -139,7 +139,7 @@ static int test_rand_uint8_range(void) {
   return 0;
 }
 
-/* ── multi-dimensional ──────────────────────────────────────────────*/
+/* -- multi-dimensional ----------------------------------------------*/
 
 static int test_rand_2d(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -178,7 +178,7 @@ static int test_rand_3d(void) {
   return 0;
 }
 
-/* ── error cases ────────────────────────────────────────────────────*/
+/* -- error cases ----------------------------------------------------*/
 
 static int test_rand_null_ctx(void) {
   NumcArray *a = numc_array_rand(NULL, (size_t[]){4}, 1, NUMC_DTYPE_FLOAT32);

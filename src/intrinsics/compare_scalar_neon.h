@@ -13,7 +13,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ── 8-bit signed: output is already byte-width ─────────────────── */
+/* -- 8-bit signed: output is already byte-width ------------------- */
 
 #define STAMP_CMPSC_I8_NEON(FNAME, CMP, SCALAR_OP)                           \
   static inline void _cmpsc_##FNAME##_i8_neon(const void *restrict ap,       \
@@ -41,7 +41,7 @@ STAMP_CMPSC_I8_NEON(ge, vcgeq_s8, a[i] >= s)
 STAMP_CMPSC_I8_NEON(le, vcleq_s8, a[i] <= s)
 #undef STAMP_CMPSC_I8_NEON
 
-/* ── 16-bit signed: narrow 16→8 ─────────────────────────────────── */
+/* -- 16-bit signed: narrow 16→8 ----------------------------------- */
 
 #define STAMP_CMPSC_I16_NEON(FNAME, CMP, SCALAR_OP)                           \
   static inline void _cmpsc_##FNAME##_i16_neon(const void *restrict ap,       \
@@ -78,7 +78,7 @@ STAMP_CMPSC_I16_NEON(ge, vcgeq_s16, a[i] >= s)
 STAMP_CMPSC_I16_NEON(le, vcleq_s16, a[i] <= s)
 #undef STAMP_CMPSC_I16_NEON
 
-/* ── 32-bit signed: narrow 32→16→8 ──────────────────────────────── */
+/* -- 32-bit signed: narrow 32→16→8 -------------------------------- */
 
 #define STAMP_CMPSC_I32_NEON(FNAME, CMP, SCALAR_OP)                           \
   static inline void _cmpsc_##FNAME##_i32_neon(const void *restrict ap,       \
@@ -125,7 +125,7 @@ STAMP_CMPSC_I32_NEON(ge, vcgeq_s32, a[i] >= s)
 STAMP_CMPSC_I32_NEON(le, vcleq_s32, a[i] <= s)
 #undef STAMP_CMPSC_I32_NEON
 
-/* ── 64-bit signed: scalar extract (2 per vector) ───────────────── */
+/* -- 64-bit signed: scalar extract (2 per vector) ----------------- */
 
 #define STAMP_CMPSC_I64_NEON(FNAME, CMP, SCALAR_OP)                           \
   static inline void _cmpsc_##FNAME##_i64_neon(const void *restrict ap,       \
@@ -153,7 +153,7 @@ STAMP_CMPSC_I64_NEON(ge, vcgeq_s64, a[i] >= s)
 STAMP_CMPSC_I64_NEON(le, vcleq_s64, a[i] <= s)
 #undef STAMP_CMPSC_I64_NEON
 
-/* ── 8-bit unsigned: output is already byte-width ───────────────── */
+/* -- 8-bit unsigned: output is already byte-width ----------------- */
 
 #define STAMP_CMPSC_U8_NEON(FNAME, CMP, SCALAR_OP)                           \
   static inline void _cmpsc_##FNAME##_u8_neon(const void *restrict ap,       \
@@ -181,7 +181,7 @@ STAMP_CMPSC_U8_NEON(ge, vcgeq_u8, a[i] >= s)
 STAMP_CMPSC_U8_NEON(le, vcleq_u8, a[i] <= s)
 #undef STAMP_CMPSC_U8_NEON
 
-/* ── 16-bit unsigned: narrow 16→8 ───────────────────────────────── */
+/* -- 16-bit unsigned: narrow 16→8 --------------------------------- */
 
 #define STAMP_CMPSC_U16_NEON(FNAME, CMP, SCALAR_OP)                           \
   static inline void _cmpsc_##FNAME##_u16_neon(const void *restrict ap,       \
@@ -218,7 +218,7 @@ STAMP_CMPSC_U16_NEON(ge, vcgeq_u16, a[i] >= s)
 STAMP_CMPSC_U16_NEON(le, vcleq_u16, a[i] <= s)
 #undef STAMP_CMPSC_U16_NEON
 
-/* ── 32-bit unsigned: narrow 32→16→8 ────────────────────────────── */
+/* -- 32-bit unsigned: narrow 32→16→8 ------------------------------ */
 
 #define STAMP_CMPSC_U32_NEON(FNAME, CMP, SCALAR_OP)                           \
   static inline void _cmpsc_##FNAME##_u32_neon(const void *restrict ap,       \
@@ -265,7 +265,7 @@ STAMP_CMPSC_U32_NEON(ge, vcgeq_u32, a[i] >= s)
 STAMP_CMPSC_U32_NEON(le, vcleq_u32, a[i] <= s)
 #undef STAMP_CMPSC_U32_NEON
 
-/* ── 64-bit unsigned: scalar extract (2 per vector) ─────────────── */
+/* -- 64-bit unsigned: scalar extract (2 per vector) --------------- */
 
 #define STAMP_CMPSC_U64_NEON(FNAME, CMP, SCALAR_OP)                           \
   static inline void _cmpsc_##FNAME##_u64_neon(const void *restrict ap,       \
@@ -293,7 +293,7 @@ STAMP_CMPSC_U64_NEON(ge, vcgeq_u64, a[i] >= s)
 STAMP_CMPSC_U64_NEON(le, vcleq_u64, a[i] <= s)
 #undef STAMP_CMPSC_U64_NEON
 
-/* ── Float: f32 (4 per vector) ──────────────────────────────────── */
+/* -- Float: f32 (4 per vector) ------------------------------------ */
 
 /* Scalar helpers for tail loop */
 static inline int eq_scalar_f32(float a, float b) {
@@ -357,7 +357,7 @@ CMPSC_F32_NEON(ge, vcgeq_f32)
 CMPSC_F32_NEON(le, vcleq_f32)
 #undef CMPSC_F32_NEON
 
-/* ── Float: f64 (2 per vector) ──────────────────────────────────── */
+/* -- Float: f64 (2 per vector) ------------------------------------ */
 
 static inline int eq_scalar_f64(double a, double b) {
   return a == b;

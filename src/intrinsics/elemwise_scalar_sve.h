@@ -14,9 +14,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Signed integer macro
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_SCAL_SINT_SVE(OP, SFX, CT, W, CNT, VEC_OP)                    \
   static inline void _fast_##OP##_scalar_##SFX##_sve(                      \
@@ -33,9 +33,9 @@
     }                                                                      \
   }
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Unsigned integer macro
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_SCAL_UINT_SVE(OP, SFX, CT, W, CNT, VEC_OP)                    \
   static inline void _fast_##OP##_scalar_##SFX##_sve(                      \
@@ -52,9 +52,9 @@
     }                                                                      \
   }
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Float macro
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_SCAL_F32_SVE(OP, VEC_OP)                                      \
   static inline void _fast_##OP##_scalar_f32_sve(                          \
@@ -86,7 +86,7 @@
     }                                                                      \
   }
 
-/* ── Add scalar ─────────────────────────────────────────────────── */
+/* -- Add scalar --------------------------------------------------- */
 
 FAST_SCAL_SINT_SVE(add, i8, int8_t, 8, svcntb, svadd_n_s8_x)
 FAST_SCAL_SINT_SVE(add, i16, int16_t, 16, svcnth, svadd_n_s16_x)
@@ -99,7 +99,7 @@ FAST_SCAL_UINT_SVE(add, u64, uint64_t, 64, svcntd, svadd_n_u64_x)
 FAST_SCAL_F32_SVE(add, svadd_n_f32_x)
 FAST_SCAL_F64_SVE(add, svadd_n_f64_x)
 
-/* ── Sub scalar ─────────────────────────────────────────────────── */
+/* -- Sub scalar --------------------------------------------------- */
 
 FAST_SCAL_SINT_SVE(sub, i8, int8_t, 8, svcntb, svsub_n_s8_x)
 FAST_SCAL_SINT_SVE(sub, i16, int16_t, 16, svcnth, svsub_n_s16_x)
@@ -112,7 +112,7 @@ FAST_SCAL_UINT_SVE(sub, u64, uint64_t, 64, svcntd, svsub_n_u64_x)
 FAST_SCAL_F32_SVE(sub, svsub_n_f32_x)
 FAST_SCAL_F64_SVE(sub, svsub_n_f64_x)
 
-/* ── Mul scalar ─────────────────────────────────────────────────── */
+/* -- Mul scalar --------------------------------------------------- */
 
 FAST_SCAL_SINT_SVE(mul, i8, int8_t, 8, svcntb, svmul_n_s8_x)
 FAST_SCAL_SINT_SVE(mul, i16, int16_t, 16, svcnth, svmul_n_s16_x)

@@ -3,7 +3,7 @@
 #include "numc/dtype.h"
 #include <numc/math.h>
 
-/* ── Argmax reduction kernels ────────────────────────────────────────
+/* -- Argmax reduction kernels ----------------------------------------
  *
  * Per-type INIT = type minimum so any element is > INIT.
  * Output is always int64_t (index of maximum element). */
@@ -21,7 +21,7 @@ DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32,
 DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmax, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64,
                                  -INFINITY, _vec_max_f64, >)
 
-/* ── Dispatch table ──────────────────────────────────────────────── */
+/* -- Dispatch table ------------------------------------------------ */
 
 #define R(OP, TE) [TE] = _kern_##OP##_##TE
 
@@ -35,7 +35,7 @@ static const NumcReductionKernel argmax_table[] = {
 
 #undef R
 
-/* ── Fused argmax row-reduce kernels ──────────────────────────────
+/* -- Fused argmax row-reduce kernels ------------------------------
  *
  * Tracks best value (in VLA scratch buffer) + index (in output).
  * Inner loop auto-vectorizes the comparison; the conditional index
@@ -79,7 +79,7 @@ static const NumcArgRowReduceKernel argmax_fused_table[] = {
 };
 #undef F
 
-/* ── Public API ──────────────────────────────────────────────────── */
+/* -- Public API ---------------------------------------------------- */
 
 int numc_argmax(const NumcArray *a, NumcArray *out) {
   int err = _check_argreduce_full(a, out);

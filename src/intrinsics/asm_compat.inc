@@ -9,7 +9,7 @@
  * kernel bodies stay in SysV register layout, and a thin ABI shim
  * remaps Win64 arguments at function entry/exit.
  *
- * ───────────────────────────────────────────────────────────────────
+ * -------------------------------------------------------------------
  * SysV x86-64 ABI (Linux, macOS, FreeBSD):
  *   args:  rdi, rsi, rdx, rcx, r8, r9, [rsp+8]
  *   callee-saved: rbx, rbp, r12-r15
@@ -19,10 +19,10 @@
  *   args:  rcx, rdx, r8, r9, [rsp+40], [rsp+48], [rsp+56]
  *   callee-saved: rbx, rbp, rdi, rsi, r12-r15, xmm6-xmm15
  *   32-byte shadow space above return address
- * ───────────────────────────────────────────────────────────────────
+ * -------------------------------------------------------------------
  */
 
-/* ─── ELF vs COFF function directives ───
+/* --- ELF vs COFF function directives ---
  *
  * ELF:  .type name, @function  /  .size name, .-name
  * COFF: no equivalent needed for clang (symbols are functions by default)
@@ -42,7 +42,7 @@
 #define GNU_STACK_NOTE     .section .note.GNU-stack,"",@progbits
 #endif
 
-/* ─── Win64 callee-saved register save / restore ───
+/* --- Win64 callee-saved register save / restore ---
  *
  * On Win64, rdi, rsi, and xmm6-xmm15 are callee-saved.
  * Our kernels clobber all of these — save on entry, restore on exit.

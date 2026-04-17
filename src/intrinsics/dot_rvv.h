@@ -14,7 +14,7 @@
  * handles tails with no scalar fallback needed.
  */
 
-/* ── float dot products ──────────────────────────────────────────────── */
+/* -- float dot products ------------------------------------------------ */
 
 static inline void dot_f32u_rvv(const float *a, const float *b, size_t n,
                                 float *dest) {
@@ -48,7 +48,7 @@ static inline void dot_f64u_rvv(const double *a, const double *b, size_t n,
   *dest = __riscv_vfmv_f_s_f64m1_f64(acc);
 }
 
-/* ── 32-bit integer dot products ─────────────────────────────────────── */
+/* -- 32-bit integer dot products --------------------------------------- */
 
 static inline void dot_i32_rvv(const int32_t *a, const int32_t *b, size_t n,
                                int32_t *dest) {
@@ -82,7 +82,7 @@ static inline void dot_u32_rvv(const uint32_t *a, const uint32_t *b, size_t n,
   *dest = __riscv_vmv_x_s_u32m1_u32(acc);
 }
 
-/* ── 64-bit integer dot products ─────────────────────────────────────── */
+/* -- 64-bit integer dot products --------------------------------------- */
 
 static inline void dot_i64_rvv(const int64_t *a, const int64_t *b, size_t n,
                                int64_t *dest) {
@@ -116,7 +116,7 @@ static inline void dot_u64_rvv(const uint64_t *a, const uint64_t *b, size_t n,
   *dest = __riscv_vmv_x_s_u64m1_u64(acc);
 }
 
-/* ── 8-bit dot (widen i8→i16, multiply, widen-reduce into i32) ───────── */
+/* -- 8-bit dot (widen i8→i16, multiply, widen-reduce into i32) --------- */
 
 static inline void dot_i8_rvv(const int8_t *a, const int8_t *b, size_t n,
                               int8_t *dest) {
@@ -154,7 +154,7 @@ static inline void dot_u8_rvv(const uint8_t *a, const uint8_t *b, size_t n,
   *dest = (uint8_t)__riscv_vmv_x_s_u32m1_u32(acc);
 }
 
-/* ── 16-bit dot (widen i16→i32, multiply-reduce) ─────────────────────── */
+/* -- 16-bit dot (widen i16→i32, multiply-reduce) ----------------------- */
 
 static inline void dot_i16_rvv(const int16_t *a, const int16_t *b, size_t n,
                                int16_t *dest) {

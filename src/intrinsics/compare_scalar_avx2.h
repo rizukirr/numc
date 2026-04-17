@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include <string.h>
 
-/* ── Helpers ─────────────────────────────────────────────────────── */
+/* -- Helpers ------------------------------------------------------- */
 
 /* LUT: 4-bit movemask → 4 bytes of 0/1 (for 64-bit types) */
 static const uint32_t _cmp_lut4_sc_avx2[16] = {
@@ -44,9 +44,9 @@ static inline __m256i _pack32_sc_avx2(__m256i c0, __m256i c1, __m256i c2,
   return _mm256_and_si256(p, one);
 }
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Float: f32 (8 per vector) → 32-bit packing path
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define CMPSC_F32_FUNC(NAME, IMM, SCALAR_OP)                                 \
   static inline void _cmpsc_##NAME##_f32_avx2(const void *restrict ap,       \
@@ -98,9 +98,9 @@ CMPSC_F32_FUNC(ge, _CMP_GE_OS, >=)
 CMPSC_F32_FUNC(le, _CMP_LE_OS, <=)
 #undef CMPSC_F32_FUNC
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Float: f64 (4 per vector) → movemask + LUT path
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define CMPSC_F64_FUNC(NAME, IMM, SCALAR_OP)                                 \
   static inline void _cmpsc_##NAME##_f64_avx2(const void *restrict ap,       \
@@ -135,9 +135,9 @@ CMPSC_F64_FUNC(ge, _CMP_GE_OS, >=)
 CMPSC_F64_FUNC(le, _CMP_LE_OS, <=)
 #undef CMPSC_F64_FUNC
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 8-bit signed: i8 — 32 elems per vector, output is also 8-bit
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define CMPSC_I8_FUNC(NAME, CMP_EXPR, SCALAR_OP)                            \
   static inline void _cmpsc_##NAME##_i8_avx2(const void *restrict ap,       \
@@ -179,9 +179,9 @@ CMPSC_I8_FUNC(le,
               <=)
 #undef CMPSC_I8_FUNC
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 8-bit unsigned: u8 — eq uses cmpeq, gt/ge use XOR sign-bit bias
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 static inline void _cmpsc_eq_u8_avx2(const void *restrict ap,
                                      const void *restrict sp, void *restrict op,
@@ -327,9 +327,9 @@ static inline void _cmpsc_le_u8_avx2(const void *restrict ap,
     out[i] = (uint8_t)(a[i] <= s);
 }
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 16-bit signed: i16 — 16 per vector, pack 2→1 for uint8 output
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define CMPSC_I16_EQ_GT(NAME, CMP_EXPR, SCALAR_OP)                           \
   static inline void _cmpsc_##NAME##_i16_avx2(const void *restrict ap,       \
@@ -445,9 +445,9 @@ CMPSC_I16_GE_LE(ge, _mm256_cmpgt_epi16(vs, va), >=)
 CMPSC_I16_GE_LE(le, _mm256_cmpgt_epi16(va, vs), <=)
 #undef CMPSC_I16_GE_LE
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 16-bit unsigned: u16 — eq uses cmpeq, gt/ge use XOR sign-bit bias
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 static inline void _cmpsc_eq_u16_avx2(const void *restrict ap,
                                       const void *restrict sp,
@@ -649,9 +649,9 @@ static inline void _cmpsc_le_u16_avx2(const void *restrict ap,
     out[i] = (uint8_t)(a[i] <= s);
 }
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 32-bit signed: i32 — 8 per vector, pack 4→1 for uint8 output
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define CMPSC_I32_FUNC(NAME, CMP_CALL, SCALAR_OP)                              \
   static inline void _cmpsc_##NAME##_i32_avx2(const void *restrict ap,         \
@@ -753,9 +753,9 @@ CMPSC_I32_GE_LE(le, _SC_CMPGT_I32, <=)
 #undef _SC_CMPGT_I32
 #undef _SC_CMPLT_I32
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 32-bit unsigned: u32 — eq uses cmpeq, gt/ge use XOR sign-bit bias
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 static inline void _cmpsc_eq_u32_avx2(const void *restrict ap,
                                       const void *restrict sp,
@@ -1012,9 +1012,9 @@ static inline void _cmpsc_le_u32_avx2(const void *restrict ap,
     out[i] = (uint8_t)(a[i] <= s);
 }
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 64-bit signed: i64 — movemask + LUT path (4 elems per vector)
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define _SC_MASKI64(v) _mm256_movemask_pd(_mm256_castsi256_pd(v))
 
@@ -1145,9 +1145,9 @@ static inline void _cmpsc_le_i64_avx2(const void *restrict ap,
 
 #undef _SC_MASKI64
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 64-bit unsigned: u64 — eq uses cmpeq, gt/ge use XOR sign-bit bias
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 static inline void _cmpsc_eq_u64_avx2(const void *restrict ap,
                                       const void *restrict sp,

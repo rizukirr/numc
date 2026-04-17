@@ -15,9 +15,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Binary: generic macros for signed int, unsigned int, float
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_BIN_SINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)            \
   static inline void _fast_##OP##_##SFX##_neon(const void *restrict ap,       \
@@ -87,7 +87,7 @@
       out[i] = (double)(TAIL_EXPR);                                       \
   }
 
-/* ── Add ─────────────────────────────────────────────────────────── */
+/* -- Add ----------------------------------------------------------- */
 
 FAST_BIN_SINT_NEON(add, i8, int8_t, 8, 16, vaddq_s8, a[i] + b[i])
 FAST_BIN_SINT_NEON(add, i16, int16_t, 16, 8, vaddq_s16, a[i] + b[i])
@@ -100,7 +100,7 @@ FAST_BIN_UINT_NEON(add, u64, uint64_t, 64, 2, vaddq_u64, a[i] + b[i])
 FAST_BIN_F32_NEON(add, vaddq_f32, a[i] + b[i])
 FAST_BIN_F64_NEON(add, vaddq_f64, a[i] + b[i])
 
-/* ── Sub ─────────────────────────────────────────────────────────── */
+/* -- Sub ----------------------------------------------------------- */
 
 FAST_BIN_SINT_NEON(sub, i8, int8_t, 8, 16, vsubq_s8, a[i] - b[i])
 FAST_BIN_SINT_NEON(sub, i16, int16_t, 16, 8, vsubq_s16, a[i] - b[i])
@@ -113,7 +113,7 @@ FAST_BIN_UINT_NEON(sub, u64, uint64_t, 64, 2, vsubq_u64, a[i] - b[i])
 FAST_BIN_F32_NEON(sub, vsubq_f32, a[i] - b[i])
 FAST_BIN_F64_NEON(sub, vsubq_f64, a[i] - b[i])
 
-/* ── Mul (8/16/32-bit: native) ───────────────────────────────────── */
+/* -- Mul (8/16/32-bit: native) ------------------------------------- */
 
 FAST_BIN_SINT_NEON(mul, i8, int8_t, 8, 16, vmulq_s8, a[i] * b[i])
 FAST_BIN_SINT_NEON(mul, i16, int16_t, 16, 8, vmulq_s16, a[i] * b[i])
@@ -147,7 +147,7 @@ static inline void _fast_mul_u64_neon(const void *restrict ap,
 FAST_BIN_F32_NEON(mul, vmulq_f32, a[i] * b[i])
 FAST_BIN_F64_NEON(mul, vmulq_f64, a[i] * b[i])
 
-/* ── Maximum (signed, 8/16/32: native) ──────────────────────────── */
+/* -- Maximum (signed, 8/16/32: native) ---------------------------- */
 
 FAST_BIN_SINT_NEON(maximum, i8, int8_t, 8, 16, vmaxq_s8,
                    a[i] > b[i] ? a[i] : b[i])
@@ -174,7 +174,7 @@ static inline void _fast_maximum_i64_neon(const void *restrict ap,
     out[i] = a[i] > b[i] ? a[i] : b[i];
 }
 
-/* ── Maximum (unsigned, 8/16/32: native) ────────────────────────── */
+/* -- Maximum (unsigned, 8/16/32: native) -------------------------- */
 
 FAST_BIN_UINT_NEON(maximum, u8, uint8_t, 8, 16, vmaxq_u8,
                    a[i] > b[i] ? a[i] : b[i])
@@ -201,12 +201,12 @@ static inline void _fast_maximum_u64_neon(const void *restrict ap,
     out[i] = a[i] > b[i] ? a[i] : b[i];
 }
 
-/* ── Maximum (float) ─────────────────────────────────────────────── */
+/* -- Maximum (float) ----------------------------------------------- */
 
 FAST_BIN_F32_NEON(maximum, vmaxq_f32, a[i] > b[i] ? a[i] : b[i])
 FAST_BIN_F64_NEON(maximum, vmaxq_f64, a[i] > b[i] ? a[i] : b[i])
 
-/* ── Minimum (signed, 8/16/32: native) ──────────────────────────── */
+/* -- Minimum (signed, 8/16/32: native) ---------------------------- */
 
 FAST_BIN_SINT_NEON(minimum, i8, int8_t, 8, 16, vminq_s8,
                    a[i] < b[i] ? a[i] : b[i])
@@ -233,7 +233,7 @@ static inline void _fast_minimum_i64_neon(const void *restrict ap,
     out[i] = a[i] < b[i] ? a[i] : b[i];
 }
 
-/* ── Minimum (unsigned, 8/16/32: native) ────────────────────────── */
+/* -- Minimum (unsigned, 8/16/32: native) -------------------------- */
 
 FAST_BIN_UINT_NEON(minimum, u8, uint8_t, 8, 16, vminq_u8,
                    a[i] < b[i] ? a[i] : b[i])
@@ -260,7 +260,7 @@ static inline void _fast_minimum_u64_neon(const void *restrict ap,
     out[i] = a[i] < b[i] ? a[i] : b[i];
 }
 
-/* ── Minimum (float) ─────────────────────────────────────────────── */
+/* -- Minimum (float) ----------------------------------------------- */
 
 FAST_BIN_F32_NEON(minimum, vminq_f32, a[i] < b[i] ? a[i] : b[i])
 FAST_BIN_F64_NEON(minimum, vminq_f64, a[i] < b[i] ? a[i] : b[i])
@@ -270,9 +270,9 @@ FAST_BIN_F64_NEON(minimum, vminq_f64, a[i] < b[i] ? a[i] : b[i])
 #undef FAST_BIN_F32_NEON
 #undef FAST_BIN_F64_NEON
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Unary operations
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_UN_SINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)             \
   static inline void _fast_##OP##_##SFX##_neon(const void *restrict ap,       \
@@ -302,14 +302,14 @@ FAST_BIN_F64_NEON(minimum, vminq_f64, a[i] < b[i] ? a[i] : b[i])
       out[i] = (CT)(TAIL_EXPR);                                               \
   }
 
-/* ── Neg (signed integers: native vnegq) ─────────────────────────── */
+/* -- Neg (signed integers: native vnegq) --------------------------- */
 
 FAST_UN_SINT_NEON(neg, i8, int8_t, 8, 16, vnegq_s8(va), -a[i])
 FAST_UN_SINT_NEON(neg, i16, int16_t, 16, 8, vnegq_s16(va), -a[i])
 FAST_UN_SINT_NEON(neg, i32, int32_t, 32, 4, vnegq_s32(va), -a[i])
 FAST_UN_SINT_NEON(neg, i64, int64_t, 64, 2, vnegq_s64(va), -a[i])
 
-/* ── Neg (unsigned integers: 0 - val) ────────────────────────────── */
+/* -- Neg (unsigned integers: 0 - val) ------------------------------ */
 
 FAST_UN_UINT_NEON(neg, u8, uint8_t, 8, 16, vsubq_u8(vdupq_n_u8(0), va),
                   (uint8_t)(-(int8_t)a[i]))
@@ -320,7 +320,7 @@ FAST_UN_UINT_NEON(neg, u32, uint32_t, 32, 4, vsubq_u32(vdupq_n_u32(0), va),
 FAST_UN_UINT_NEON(neg, u64, uint64_t, 64, 2, vsubq_u64(vdupq_n_u64(0), va),
                   (uint64_t)(-(int64_t)a[i]))
 
-/* ── Neg (float) ─────────────────────────────────────────────────── */
+/* -- Neg (float) --------------------------------------------------- */
 
 static inline void _fast_neg_f32_neon(const void *restrict ap,
                                       void *restrict op, size_t n) {
@@ -344,7 +344,7 @@ static inline void _fast_neg_f64_neon(const void *restrict ap,
     out[i] = -a[i];
 }
 
-/* ── Abs (signed integers: native vabsq) ─────────────────────────── */
+/* -- Abs (signed integers: native vabsq) --------------------------- */
 
 FAST_UN_SINT_NEON(abs, i8, int8_t, 8, 16, vabsq_s8(va),
                   (int8_t)(a[i] < 0 ? -a[i] : a[i]))
@@ -355,7 +355,7 @@ FAST_UN_SINT_NEON(abs, i32, int32_t, 32, 4, vabsq_s32(va),
 FAST_UN_SINT_NEON(abs, i64, int64_t, 64, 2, vabsq_s64(va),
                   a[i] < 0 ? -a[i] : a[i])
 
-/* ── Abs (float) ─────────────────────────────────────────────────── */
+/* -- Abs (float) --------------------------------------------------- */
 
 static inline void _fast_abs_f32_neon(const void *restrict ap,
                                       void *restrict op, size_t n) {

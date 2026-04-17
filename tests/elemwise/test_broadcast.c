@@ -1,6 +1,6 @@
 #include "../helpers.h"
 
-/* ── Broadcast dim 0: (1,4) + (3,4) → (3,4) ───────────────────────── */
+/* -- Broadcast dim 0: (1,4) + (3,4) → (3,4) ------------------------- */
 
 static int test_broadcast_dim0(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -33,7 +33,7 @@ static int test_broadcast_dim0(void) {
   return 0;
 }
 
-/* ── Broadcast dim 1: (3,1) + (3,4) → (3,4) ───────────────────────── */
+/* -- Broadcast dim 1: (3,1) + (3,4) → (3,4) ------------------------- */
 
 static int test_broadcast_dim1(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -66,7 +66,7 @@ static int test_broadcast_dim1(void) {
   return 0;
 }
 
-/* ── Both dims broadcast: (3,1) + (1,4) → (3,4) ───────────────────── */
+/* -- Both dims broadcast: (3,1) + (1,4) → (3,4) --------------------- */
 
 static int test_broadcast_both(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -98,7 +98,7 @@ static int test_broadcast_both(void) {
   return 0;
 }
 
-/* ── Scalar-like broadcast: (1,1) + (3,4) → (3,4) ─────────────────── */
+/* -- Scalar-like broadcast: (1,1) + (3,4) → (3,4) ------------------- */
 
 static int test_broadcast_scalar_like(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -123,7 +123,7 @@ static int test_broadcast_scalar_like(void) {
   return 0;
 }
 
-/* ── Rank mismatch: (4,) + (3,4) → (3,4) ──────────────────────────── */
+/* -- Rank mismatch: (4,) + (3,4) → (3,4) ---------------------------- */
 
 static int test_broadcast_rank(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -154,7 +154,7 @@ static int test_broadcast_rank(void) {
   return 0;
 }
 
-/* ── 3D broadcast: (2,1,4) + (1,3,1) → (2,3,4) ───────────────────── */
+/* -- 3D broadcast: (2,1,4) + (1,3,1) → (2,3,4) --------------------- */
 
 static int test_broadcast_3d(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -190,7 +190,7 @@ static int test_broadcast_3d(void) {
   return 0;
 }
 
-/* ── Broadcast with int32 ──────────────────────────────────────────── */
+/* -- Broadcast with int32 -------------------------------------------- */
 
 static int test_broadcast_int32(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -216,7 +216,7 @@ static int test_broadcast_int32(void) {
   return 0;
 }
 
-/* ── Broadcast with int8 ───────────────────────────────────────────── */
+/* -- Broadcast with int8 --------------------------------------------- */
 
 static int test_broadcast_int8(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -242,7 +242,7 @@ static int test_broadcast_int8(void) {
   return 0;
 }
 
-/* ── Non-contiguous (transposed) + broadcast ───────────────────────── */
+/* -- Non-contiguous (transposed) + broadcast ------------------------- */
 
 static int test_broadcast_noncontiguous(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -287,7 +287,7 @@ static int test_broadcast_noncontiguous(void) {
   return 0;
 }
 
-/* ── Error: incompatible broadcast shapes ──────────────────────────── */
+/* -- Error: incompatible broadcast shapes ---------------------------- */
 
 static int test_broadcast_error_incompatible(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -310,7 +310,7 @@ static int test_broadcast_error_incompatible(void) {
   return 0;
 }
 
-/* ── Error: wrong output shape ─────────────────────────────────────── */
+/* -- Error: wrong output shape --------------------------------------- */
 
 static int test_broadcast_error_wrong_output(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -332,7 +332,7 @@ static int test_broadcast_error_wrong_output(void) {
   return 0;
 }
 
-/* ── Other ops with broadcast: mul, maximum, minimum ───────────────── */
+/* -- Other ops with broadcast: mul, maximum, minimum ----------------- */
 
 static int test_broadcast_ops(void) {
   NumcCtx *ctx = numc_ctx_create();

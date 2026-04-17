@@ -38,13 +38,13 @@
 numc_gemm_ukernel_f64_6x8_avx2:
     WIN64_SAVE
     WIN64_REMAP_ARGS6
-    /* ─── prologue: save callee-saved registers ─── */
+    /* --- prologue: save callee-saved registers --- */
     push    %rbx
     push    %rbp
     push    %r12
     push    %r13
 
-    /* ─── map SysV arguments to working registers ─── */
+    /* --- map SysV arguments to working registers --- */
     /* rdi = a (A pointer)                              */
     /* rsi = b (B pointer)                              */
     /* rdx = c (C base pointer, row 0)                  */
@@ -59,11 +59,11 @@ numc_gemm_ukernel_f64_6x8_avx2:
     lea     (%r12, %r8, 8), %r13    /* r13 = c + 4*rso                     */
     lea     (%r13, %r8, 8), %rbp    /* rbp = c + 5*rso                     */
 
-    /* ─── Bias A and B pointers by +128 for compact disp8 encoding ─── */
+    /* --- Bias A and B pointers by +128 for compact disp8 encoding --- */
     add     $128, %rdi
     add     $128, %rsi
 
-    /* ─── C prefetch (bring output tile into L1 before compute) ─── */
+    /* --- C prefetch (bring output tile into L1 before compute) --- */
     prefetcht0  (%rbx)
     prefetcht0  (%r10)
     prefetcht0  (%r11)
@@ -71,7 +71,7 @@ numc_gemm_ukernel_f64_6x8_avx2:
     prefetcht0  (%r13)
     prefetcht0  (%rbp)
 
-    /* ─── beta handling: zero accumulators or load existing C ─── */
+    /* --- beta handling: zero accumulators or load existing C --- */
     test    %r9d, %r9d
     jz      .Lf64_load_c
 
@@ -106,11 +106,11 @@ numc_gemm_ukernel_f64_6x8_avx2:
     vmovupd 32(%rbp),    %ymm11     /* C[row5, 4:7]  */
 
 .Lf64_preload_b:
-    /* ─── Pre-load first B vectors (BLIS-style, before loop entry) ─── */
+    /* --- Pre-load first B vectors (BLIS-style, before loop entry) --- */
     vmovupd -128(%rsi),  %ymm12     /* B[0:3]  */
     vmovupd -96(%rsi),   %ymm13     /* B[4:7]  */
 
-    /* ─── Main K-loop: 4× unrolled ─── */
+    /* --- Main K-loop: 4× unrolled --- */
     mov     %rcx, %rdx              /* rdx = kc                            */
     shr     $2, %rdx                /* rdx = kc / 4 = k_iter              */
     jz      .Lf64_k_left
@@ -212,7 +212,7 @@ numc_gemm_ukernel_f64_6x8_avx2:
     vfmadd231pd  %ymm15, %ymm12, %ymm10
     vfmadd231pd  %ymm15, %ymm13, %ymm11
 
-    /* ─── Pointer advance (once per 4-unroll) ─── */
+    /* --- Pointer advance (once per 4-unroll) --- */
     add     $192, %rdi               /* A += 4 * MR * sizeof(double) = 4*6*8 = 192 */
     add     $256, %rsi               /* B += 4 * NR * sizeof(double) = 4*8*8 = 256  */
 
@@ -223,7 +223,7 @@ numc_gemm_ukernel_f64_6x8_avx2:
     dec     %rdx
     jnz     .Lf64_k_loop
 
-    /* ─── Remainder K-loop (kc % 4) ─── */
+    /* --- Remainder K-loop (kc % 4) --- */
 .Lf64_k_left:
     mov     %rcx, %rdx
     and     $3, %rdx                 /* rdx = kc % 4 */
@@ -257,7 +257,7 @@ numc_gemm_ukernel_f64_6x8_avx2:
     dec     %rdx
     jnz     .Lf64_k_left_loop
 
-    /* ─── C prefetch refresh (before store) ─── */
+    /* --- C prefetch refresh (before store) --- */
 .Lf64_store:
     prefetcht0  (%rbx)
     prefetcht0  (%r10)
@@ -266,7 +266,7 @@ numc_gemm_ukernel_f64_6x8_avx2:
     prefetcht0  (%r13)
     prefetcht0  (%rbp)
 
-    /* ─── Store accumulators to C ─── */
+    /* --- Store accumulators to C --- */
     vmovupd %ymm0,  (%rbx)
     vmovupd %ymm1,  32(%rbx)
     vmovupd %ymm2,  (%r10)
@@ -280,7 +280,7 @@ numc_gemm_ukernel_f64_6x8_avx2:
     vmovupd %ymm10, (%rbp)
     vmovupd %ymm11, 32(%rbp)
 
-    /* ─── epilogue ─── */
+    /* --- epilogue --- */
     vzeroupper
     pop     %r13
     pop     %r12

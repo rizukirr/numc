@@ -15,12 +15,12 @@
 #include <time.h>
 #endif
 
-/* ── Config ────────────────────────────────────────────────────────── */
+/* -- Config ---------------------------------------------------------- */
 
 #define WARMUP 5
 #define ITERS  50
 
-/* ── Timer ─────────────────────────────────────────────────────────── */
+/* -- Timer ----------------------------------------------------------- */
 
 static double time_us(void) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -35,7 +35,7 @@ static double time_us(void) {
 #endif
 }
 
-/* ── Helpers ───────────────────────────────────────────────────────── */
+/* -- Helpers --------------------------------------------------------- */
 
 static const char *dtype_name(NumcDType dt) {
   static const char *names[] = {
@@ -48,7 +48,7 @@ static const char *dtype_name(NumcDType dt) {
   return names[dt];
 }
 
-/* ── Benchmark: randn ──────────────────────────────────────────────── */
+/* -- Benchmark: randn ------------------------------------------------ */
 
 static void bench_randn(size_t size) {
   printf("=============================================="
@@ -84,7 +84,7 @@ static void bench_randn(size_t size) {
   }
 }
 
-/* ── main ──────────────────────────────────────────────────────────── */
+/* -- main ------------------------------------------------------------ */
 
 int main(void) {
   printf("\n  numc random benchmark\n");

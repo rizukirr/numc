@@ -4,7 +4,7 @@
 #include <numc/math.h>
 #include <string.h>
 
-/* ── Max reduction kernels ───────────────────────────────────────────
+/* -- Max reduction kernels -------------------------------------------
  *
  * Per-type INIT = type minimum so any element is >= INIT.
  * EXPR = val > acc ? val : acc. OMP reduction(max:acc). */
@@ -53,7 +53,7 @@ DEFINE_FLOAT_REDUCTION_KERNEL(max, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, -INFINITY,
 
 #undef MAX_EXPR
 
-/* ── Dispatch table ──────────────────────────────────────────────── */
+/* -- Dispatch table ------------------------------------------------ */
 
 #define R(OP, TE) [TE] = _kern_##OP##_##TE
 
@@ -67,7 +67,7 @@ static const NumcReductionKernel max_table[] = {
 
 #undef R
 
-/* ── Fused row-reduce kernels ───────────────────────────────────── */
+/* -- Fused row-reduce kernels ------------------------------------- */
 
 typedef void (*NumcRowReduceKernel)(const char *restrict base,
                                     intptr_t row_stride, size_t nrows,
@@ -150,7 +150,7 @@ static const NumcRowReduceKernel max_fused_table[] = {
 #undef S
 #undef F
 
-/* ── Public API ──────────────────────────────────────────────────── */
+/* -- Public API ---------------------------------------------------- */
 
 int numc_max(const NumcArray *a, NumcArray *out) {
   int err = _check_reduce_full(a, out);

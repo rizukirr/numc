@@ -15,9 +15,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Binary: signed integer macro
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_BIN_SINT_SVE(OP, SFX, CT, W, CNT, VEC_OP)                       \
   static inline void _fast_##OP##_##SFX##_sve(const void *restrict ap,       \
@@ -87,7 +87,7 @@
     }                                                                    \
   }
 
-/* ── Add ─────────────────────────────────────────────────────────── */
+/* -- Add ----------------------------------------------------------- */
 
 FAST_BIN_SINT_SVE(add, i8, int8_t, 8, svcntb, svadd_s8_x)
 FAST_BIN_SINT_SVE(add, i16, int16_t, 16, svcnth, svadd_s16_x)
@@ -100,7 +100,7 @@ FAST_BIN_UINT_SVE(add, u64, uint64_t, 64, svcntd, svadd_u64_x)
 FAST_BIN_F32_SVE(add, svadd_f32_x)
 FAST_BIN_F64_SVE(add, svadd_f64_x)
 
-/* ── Sub ─────────────────────────────────────────────────────────── */
+/* -- Sub ----------------------------------------------------------- */
 
 FAST_BIN_SINT_SVE(sub, i8, int8_t, 8, svcntb, svsub_s8_x)
 FAST_BIN_SINT_SVE(sub, i16, int16_t, 16, svcnth, svsub_s16_x)
@@ -113,7 +113,7 @@ FAST_BIN_UINT_SVE(sub, u64, uint64_t, 64, svcntd, svsub_u64_x)
 FAST_BIN_F32_SVE(sub, svsub_f32_x)
 FAST_BIN_F64_SVE(sub, svsub_f64_x)
 
-/* ── Mul ─────────────────────────────────────────────────────────── */
+/* -- Mul ----------------------------------------------------------- */
 
 FAST_BIN_SINT_SVE(mul, i8, int8_t, 8, svcntb, svmul_s8_x)
 FAST_BIN_SINT_SVE(mul, i16, int16_t, 16, svcnth, svmul_s16_x)
@@ -126,7 +126,7 @@ FAST_BIN_UINT_SVE(mul, u64, uint64_t, 64, svcntd, svmul_u64_x)
 FAST_BIN_F32_SVE(mul, svmul_f32_x)
 FAST_BIN_F64_SVE(mul, svmul_f64_x)
 
-/* ── Maximum ─────────────────────────────────────────────────────── */
+/* -- Maximum ------------------------------------------------------- */
 
 FAST_BIN_SINT_SVE(maximum, i8, int8_t, 8, svcntb, svmax_s8_x)
 FAST_BIN_SINT_SVE(maximum, i16, int16_t, 16, svcnth, svmax_s16_x)
@@ -139,7 +139,7 @@ FAST_BIN_UINT_SVE(maximum, u64, uint64_t, 64, svcntd, svmax_u64_x)
 FAST_BIN_F32_SVE(maximum, svmax_f32_x)
 FAST_BIN_F64_SVE(maximum, svmax_f64_x)
 
-/* ── Minimum ─────────────────────────────────────────────────────── */
+/* -- Minimum ------------------------------------------------------- */
 
 FAST_BIN_SINT_SVE(minimum, i8, int8_t, 8, svcntb, svmin_s8_x)
 FAST_BIN_SINT_SVE(minimum, i16, int16_t, 16, svcnth, svmin_s16_x)
@@ -157,11 +157,11 @@ FAST_BIN_F64_SVE(minimum, svmin_f64_x)
 #undef FAST_BIN_F32_SVE
 #undef FAST_BIN_F64_SVE
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Unary operations
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
-/* ── Neg (signed integers) ───────────────────────────────────────── */
+/* -- Neg (signed integers) ----------------------------------------- */
 
 #define FAST_NEG_SINT_SVE(SFX, CT, W, CNT)                                \
   static inline void _fast_neg_##SFX##_sve(const void *restrict ap,       \
@@ -184,7 +184,7 @@ FAST_NEG_SINT_SVE(i64, int64_t, 64, svcntd)
 
 #undef FAST_NEG_SINT_SVE
 
-/* ── Neg (unsigned integers): 0 - val ────────────────────────────── */
+/* -- Neg (unsigned integers): 0 - val ------------------------------ */
 
 #define FAST_NEG_UINT_SVE(SFX, CT, W, CNT)                                \
   static inline void _fast_neg_##SFX##_sve(const void *restrict ap,       \
@@ -207,7 +207,7 @@ FAST_NEG_UINT_SVE(u64, uint64_t, 64, svcntd)
 
 #undef FAST_NEG_UINT_SVE
 
-/* ── Neg (float) ─────────────────────────────────────────────────── */
+/* -- Neg (float) --------------------------------------------------- */
 
 static inline void _fast_neg_f32_sve(const void *restrict ap, void *restrict op,
                                      size_t n) {
@@ -235,7 +235,7 @@ static inline void _fast_neg_f64_sve(const void *restrict ap, void *restrict op,
   }
 }
 
-/* ── Abs (signed integers) ───────────────────────────────────────── */
+/* -- Abs (signed integers) ----------------------------------------- */
 
 #define FAST_ABS_SINT_SVE(SFX, CT, W, CNT)                                \
   static inline void _fast_abs_##SFX##_sve(const void *restrict ap,       \
@@ -258,7 +258,7 @@ FAST_ABS_SINT_SVE(i64, int64_t, 64, svcntd)
 
 #undef FAST_ABS_SINT_SVE
 
-/* ── Abs (float) ─────────────────────────────────────────────────── */
+/* -- Abs (float) --------------------------------------------------- */
 
 static inline void _fast_abs_f32_sve(const void *restrict ap, void *restrict op,
                                      size_t n) {

@@ -20,14 +20,14 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 
-# ── Paths ─────────────────────────────────────────────────────────────
+# -- Paths -------------------------------------------------------------
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NUMC_CSV = os.path.join(ROOT, "numc", "results.csv")
 NUMPY_CSV = os.path.join(ROOT, "numpy", "results.csv")
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
 
-# ── Colors ────────────────────────────────────────────────────────────
+# -- Colors ------------------------------------------------------------
 
 C_NUMC = "#2563eb"    # Blue
 C_NUMPY = "#dc2626"   # Red
@@ -36,7 +36,7 @@ C_SLOWDOWN = "#991b1b" # Dark Red (Slow)
 BG = "#ffffff"        # Clean White
 GRID = "#e5e7eb"      # Light Gray
 
-# ── System Info ───────────────────────────────────────────────────────
+# -- System Info -------------------------------------------------------
 
 def get_system_info():
     info = {
@@ -59,7 +59,7 @@ def get_system_info():
 SYS_INFO = get_system_info()
 SYS_STR = f"CPU: {SYS_INFO['CPU']} | OS: {SYS_INFO['OS']} | Arch: {SYS_INFO['Architecture']}"
 
-# ── Load data ─────────────────────────────────────────────────────────
+# -- Load data ---------------------------------------------------------
 
 def load():
     if not os.path.exists(NUMC_CSV):
@@ -87,7 +87,7 @@ def merge(numc, numpy, keys=None):
     return merged
 
 
-# ── Plot helpers ──────────────────────────────────────────────────────
+# -- Plot helpers ------------------------------------------------------
 
 def save(fig, name):
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -145,7 +145,7 @@ def speedup_bar(ax, labels, speedups):
     setup_ax(ax)
 
 
-# ── Chart generators ──────────────────────────────────────────────────
+# -- Chart generators --------------------------------------------------
 
 def plot_category_combined(merged, category, title, filename):
     """Combined chart: Time (left) and Speedup (right) for one category."""
@@ -280,7 +280,7 @@ def plot_all_ops_detailed(merged):
     save(fig, "all_ops_speedup.png")
 
 
-# ── Main ──────────────────────────────────────────────────────────────
+# -- Main --------------------------------------------------------------
 
 def main():
     cat_filter = None

@@ -15,14 +15,14 @@
 #include <time.h>
 #endif
 
-/* ── Config ────────────────────────────────────────────────────────── */
+/* -- Config ---------------------------------------------------------- */
 
 #define WARMUP 20
 #define ITERS  200
 
 typedef int (*ElemwiseOp)(const NumcArray *, const NumcArray *, NumcArray *);
 
-/* ── Timer ─────────────────────────────────────────────────────────── */
+/* -- Timer ----------------------------------------------------------- */
 
 static double time_us(void) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -50,7 +50,7 @@ static double bench(ElemwiseOp op, const NumcArray *a, const NumcArray *b,
   return (t1 - t0) / iters;
 }
 
-/* ── Helpers ───────────────────────────────────────────────────────── */
+/* -- Helpers --------------------------------------------------------- */
 
 static const char *dtype_name(NumcDType dt) {
   static const char *names[] = {
@@ -115,7 +115,7 @@ static const NumcDType ALL_DTYPES[] = {
 };
 static const int N_DTYPES = sizeof(ALL_DTYPES) / sizeof(ALL_DTYPES[0]);
 
-/* ── Benchmark: contiguous binary ops ──────────────────────────────── */
+/* -- Benchmark: contiguous binary ops -------------------------------- */
 
 static void bench_contiguous(NumcCtx *ctx, size_t size) {
   printf("=============================================="
@@ -151,7 +151,7 @@ static void bench_contiguous(NumcCtx *ctx, size_t size) {
   }
 }
 
-/* ── Benchmark: strided (transposed view) ──────────────────────────── */
+/* -- Benchmark: strided (transposed view) ---------------------------- */
 
 static void bench_strided(NumcCtx *ctx, size_t rows, size_t cols) {
   size_t total = rows * cols;
@@ -198,7 +198,7 @@ static void bench_strided(NumcCtx *ctx, size_t rows, size_t cols) {
   }
 }
 
-/* ── Benchmark: broadcast patterns ─────────────────────────────────── */
+/* -- Benchmark: broadcast patterns ----------------------------------- */
 
 static void bench_bcast_pattern(NumcCtx *ctx, const size_t *sa, size_t na,
                                 const size_t *sb, size_t nb, const size_t *so,
@@ -266,7 +266,7 @@ static void bench_broadcast(NumcCtx *ctx, size_t M, size_t N) {
   }
 }
 
-/* ── Benchmark: scaling across sizes ───────────────────────────────── */
+/* -- Benchmark: scaling across sizes --------------------------------- */
 
 static void bench_scaling(NumcCtx *ctx) {
   printf("\n=============================================="
@@ -297,7 +297,7 @@ static void bench_scaling(NumcCtx *ctx) {
   }
 }
 
-/* ── main ──────────────────────────────────────────────────────────── */
+/* -- main ------------------------------------------------------------ */
 
 int main(void) {
   printf("\n  numc element-wise binary benchmark\n");

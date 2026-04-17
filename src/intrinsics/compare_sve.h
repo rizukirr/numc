@@ -18,9 +18,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * 8-bit integer comparisons (signed + unsigned): natural byte output
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_8_SVE(SFX, CT, SVT, LD, CMPEQ, CMPGT, CMPLT, CMPGE, CMPLE) \
   static inline void _fast_eq_##SFX##_sve(const void *restrict ap,          \
@@ -109,11 +109,11 @@ FAST_CMP_8_SVE(u8,  uint8_t, svuint8_t, svld1_u8,
 /* clang-format on */
 #undef FAST_CMP_8_SVE
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Wider types (16/32/64): input predicate at native width,
  * byte output via scalar tail. Use CNT for input stride, write
  * one byte per element to output.
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_CMP_WIDE_SVE(SFX, CT, SVT, LD, WHILELT, CNT, CMPEQ, CMPGT, CMPLT, \
                           CMPGE, CMPLE)                                        \
@@ -198,7 +198,7 @@ FAST_CMP_8_SVE(u8,  uint8_t, svuint8_t, svld1_u8,
     }                                                                          \
   }
 
-/* ── Signed integer instantiations ──────────────────────────────── */
+/* -- Signed integer instantiations -------------------------------- */
 
 /* clang-format off */
 FAST_CMP_WIDE_SVE(i16, int16_t, svint16_t, svld1_s16, svwhilelt_b16, svcnth,
@@ -211,7 +211,7 @@ FAST_CMP_WIDE_SVE(i64, int64_t, svint64_t, svld1_s64, svwhilelt_b64, svcntd,
                    svcmpeq_s64, svcmpgt_s64, svcmplt_s64,
                    svcmpge_s64, svcmple_s64)
 
-/* ── Unsigned integer instantiations ────────────────────────────── */
+/* -- Unsigned integer instantiations ------------------------------ */
 
 FAST_CMP_WIDE_SVE(u16, uint16_t, svuint16_t, svld1_u16, svwhilelt_b16, svcnth,
                    svcmpeq_u16, svcmpgt_u16, svcmplt_u16,
@@ -223,7 +223,7 @@ FAST_CMP_WIDE_SVE(u64, uint64_t, svuint64_t, svld1_u64, svwhilelt_b64, svcntd,
                    svcmpeq_u64, svcmpgt_u64, svcmplt_u64,
                    svcmpge_u64, svcmple_u64)
 
-/* ── Floating-point instantiations ──────────────────────────────── */
+/* -- Floating-point instantiations -------------------------------- */
 
 FAST_CMP_WIDE_SVE(f32, float, svfloat32_t, svld1_f32, svwhilelt_b32, svcntw,
                    svcmpeq_f32, svcmpgt_f32, svcmplt_f32,

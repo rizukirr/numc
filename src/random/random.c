@@ -17,7 +17,7 @@
 #include "intrinsics/math_rvv.h"
 #endif
 
-/* ── Stamp rand kernels for all 10 dtypes ───────────────────────────
+/* -- Stamp rand kernels for all 10 dtypes ---------------------------
  *
  * CONVERT_EXPR(raw) maps a raw uint64_t from the PRNG to C_TYPE.
  * It is called once per lane per loop iteration — a pure expression
@@ -62,7 +62,7 @@ DEFINE_RAND_KERNEL(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, CONV_F64)
 #undef CONV_F32
 #undef CONV_F64
 
-/* ── AVX2-optimized rand f64: batch uint64→f64 conversion ──────────
+/* -- AVX2-optimized rand f64: batch uint64→f64 conversion ----------
  *
  * The generic macro uses scalar _u64_to_f64 per element.  With AVX2 we
  * convert 4 uint64 at a time: shift right 11, OR in the exponent bias
@@ -83,7 +83,7 @@ static void _kern_rand_f64_avx2(char *out, size_t n) {
   double *restrict po = (double *)out;
   size_t total_bytes = n * sizeof(double);
   if (total_bytes <= NUMC_OMP_BYTE_THRESHOLD) {
-    /* ── Small path: single-threaded 4-wide SIMD ───────────────── */
+    /* -- Small path: single-threaded 4-wide SIMD ----------------- */
     uint64_t s0[4], s1[4], s2[4], s3[4];
     memcpy(s0, prng_s[0], sizeof s0);
     memcpy(s1, prng_s[1], sizeof s1);
@@ -102,7 +102,7 @@ static void _kern_rand_f64_avx2(char *out, size_t n) {
     for (; i < n; i++)
       po[i] = _u64_to_f64(_prng_next_scalar());
   } else {
-    /* ── Large path: per-thread sub-states, OMP when available ─── */
+    /* -- Large path: per-thread sub-states, OMP when available --- */
     int _nthreads = (int)(total_bytes / NUMC_OMP_BYTES_PER_THREAD);
     NUMC_OMP_CAP_THREADS(_nthreads);
     if (_nthreads < 1)
@@ -171,7 +171,7 @@ static void _kern_rand_f64_avx2(char *out, size_t n) {
 }
 #endif /* NUMC_HAVE_AVX2 */
 
-/* ── Stamp randn kernels for all 10 dtypes ──────────────────────────
+/* -- Stamp randn kernels for all 10 dtypes --------------------------
  *
  * Float types:    N(0,1) via Box-Muller transform (true normal samples).
  * Integer types:  N(0,1) double sample, truncated and cast.
@@ -305,7 +305,7 @@ DEFINE_RANDN_KERNEL(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, _prng_normal_f32())
 #endif
 DEFINE_RANDN_KERNEL(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _prng_normal_f64())
 
-/* ── Dispatch tables (dtype -> kernel) ─────────────────────────────*/
+/* -- Dispatch tables (dtype -> kernel) -----------------------------*/
 
 static const NumcRandKernel rand_table[] = {
     ER(rand, NUMC_DTYPE_INT8),
@@ -332,7 +332,7 @@ static const NumcRandKernel randn_table[] = {
     ER(randn, NUMC_DTYPE_FLOAT32), ER(randn, NUMC_DTYPE_FLOAT64),
 };
 
-/* ── Shared creation helper ─────────────────────────────────────────*/
+/* -- Shared creation helper -----------------------------------------*/
 
 static NumcArray *_rand_impl(NumcCtx *ctx, const size_t *shape, size_t dim,
                              NumcDType dtype, const NumcRandKernel *table) {
@@ -351,7 +351,7 @@ static NumcArray *_rand_impl(NumcCtx *ctx, const size_t *shape, size_t dim,
   return arr;
 }
 
-/* ── Public API ─────────────────────────────────────────────────────*/
+/* -- Public API -----------------------------------------------------*/
 
 // NOLINTNEXTLINE(misc-use-internal-linkage)
 void numc_manual_seed(uint64_t seed) {

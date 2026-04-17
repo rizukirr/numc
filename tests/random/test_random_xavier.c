@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-/* ── Xavier init: uniform [-limit, limit), limit=sqrt(6/(fi+fo)) ───*/
+/* -- Xavier init: uniform [-limit, limit), limit=sqrt(6/(fi+fo)) ---*/
 
 static int test_xavier_float32_range(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -48,7 +48,7 @@ static int test_xavier_float64_range(void) {
   return 0;
 }
 
-/* ── mean ~ 0 over large sample ─────────────────────────────────────*/
+/* -- mean ~ 0 over large sample -------------------------------------*/
 
 static int test_xavier_float32_mean(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -74,7 +74,7 @@ static int test_xavier_float32_mean(void) {
   return 0;
 }
 
-/* ── 2D shape ────────────────────────────────────────────────────────*/
+/* -- 2D shape --------------------------------------------------------*/
 
 static int test_xavier_2d(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -90,7 +90,7 @@ static int test_xavier_2d(void) {
   return 0;
 }
 
-/* ── error cases ────────────────────────────────────────────────────*/
+/* -- error cases ----------------------------------------------------*/
 
 static int test_xavier_null_ctx(void) {
   NumcArray *a = numc_array_random_xavier(NULL, (size_t[]){4}, 1,

@@ -6,7 +6,7 @@
 
 // clang-format off
 
-/* ── helpers ─────────────────────────────────────────────────────────── */
+/* -- helpers ----------------------------------------------------------- */
 
 static inline __m256i _mullo_epi64_avx2(__m256i a, __m256i b) {
   __m256i lo    = _mm256_mul_epu32(a, b);
@@ -101,7 +101,7 @@ static inline int64_t _hsum_epi64_avx2(__m256i v) {
         _mm256_cvtepu16_epi32(_mm256_extracti128_si256(_vb, 1))));          \
   } while (0)
 
-/* ── float dot products ──────────────────────────────────────────────── */
+/* -- float dot products ------------------------------------------------ */
 
 static inline void dot_f32u_avx2(const float *a, const float *b, size_t n,
                                  float *dest) {
@@ -157,7 +157,7 @@ static inline void dot_f64u_avx2(const double *a, const double *b, size_t n,
   *dest = result + tail;
 }
 
-/* ── 32-bit integer dot products ─────────────────────────────────────── */
+/* -- 32-bit integer dot products --------------------------------------- */
 
 static inline void dot_i32_avx2(const int32_t *a, const int32_t *b, size_t n,
                                 int32_t *dest) {
@@ -213,7 +213,7 @@ static inline void dot_u32_avx2(const uint32_t *a, const uint32_t *b, size_t n,
   *dest = result + tail;
 }
 
-/* ── 64-bit integer dot products ─────────────────────────────────────── */
+/* -- 64-bit integer dot products --------------------------------------- */
 
 static inline void dot_i64_avx2(const int64_t *a, const int64_t *b, size_t n,
                                 int64_t *dest) {
@@ -269,7 +269,7 @@ static inline void dot_u64_avx2(const uint64_t *a, const uint64_t *b, size_t n,
   *dest = result + tail;
 }
 
-/* ── 8-bit dot (widen to i16, madd_epi16 → i32 accumulators) ────────── */
+/* -- 8-bit dot (widen to i16, madd_epi16 → i32 accumulators) ---------- */
 
 static inline void dot_i8_avx2(const int8_t *a, const int8_t *b, size_t n,
                                 int8_t *dest) {
@@ -325,7 +325,7 @@ static inline void dot_u8_avx2(const uint8_t *a, const uint8_t *b, size_t n,
   *dest = (uint8_t)(result + tail);
 }
 
-/* ── 16-bit dot (madd_epi16 → i32 accumulators) ─────────────────────── */
+/* -- 16-bit dot (madd_epi16 → i32 accumulators) ----------------------- */
 
 static inline void dot_i16_avx2(const int16_t *a, const int16_t *b, size_t n,
                                 int16_t *dest) {

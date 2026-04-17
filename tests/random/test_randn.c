@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdint.h>
 
-/* ── Box-Muller spare caching — consecutive calls differ ────────────*/
+/* -- Box-Muller spare caching — consecutive calls differ ------------*/
 
 static int test_randn_consecutive_differ(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -27,7 +27,7 @@ static int test_randn_consecutive_differ(void) {
   return 0;
 }
 
-/* ── float32 N(0,1): mean ~ 0, std ~ 1 over large sample ───────────*/
+/* -- float32 N(0,1): mean ~ 0, std ~ 1 over large sample -----------*/
 
 static int test_randn_float32_stats(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -57,7 +57,7 @@ static int test_randn_float32_stats(void) {
   return 0;
 }
 
-/* ── float64 N(0,1): mean ~ 0, std ~ 1 over large sample ───────────*/
+/* -- float64 N(0,1): mean ~ 0, std ~ 1 over large sample -----------*/
 
 static int test_randn_float64_stats(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -84,7 +84,7 @@ static int test_randn_float64_stats(void) {
   return 0;
 }
 
-/* ── reproducibility ────────────────────────────────────────────────*/
+/* -- reproducibility ------------------------------------------------*/
 
 static int test_randn_seed_reproducible(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -107,7 +107,7 @@ static int test_randn_seed_reproducible(void) {
   return 0;
 }
 
-/* ── integer dtypes produce near-zero values (N(0,1) cast) ─────────*/
+/* -- integer dtypes produce near-zero values (N(0,1) cast) ---------*/
 
 static int test_randn_int32_near_zero(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -131,7 +131,7 @@ static int test_randn_int32_near_zero(void) {
   return 0;
 }
 
-/* ── multi-dimensional ──────────────────────────────────────────────*/
+/* -- multi-dimensional ----------------------------------------------*/
 
 static int test_randn_2d(void) {
   NumcCtx *ctx = numc_ctx_create();
@@ -147,7 +147,7 @@ static int test_randn_2d(void) {
   return 0;
 }
 
-/* ── error cases ────────────────────────────────────────────────────*/
+/* -- error cases ----------------------------------------------------*/
 
 static int test_randn_null_ctx(void) {
   NumcArray *a = numc_array_randn(NULL, (size_t[]){4}, 1, NUMC_DTYPE_FLOAT32);

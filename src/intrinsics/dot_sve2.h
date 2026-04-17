@@ -18,7 +18,7 @@
  * so those are thin wrappers. The real wins are in 8-bit and 16-bit paths.
  */
 
-/* ── float dot products (same as SVE) ────────────────────────────────── */
+/* -- float dot products (same as SVE) ---------------------------------- */
 
 static inline void dot_f32u_sve2(const float *a, const float *b, size_t n,
                                  float *dest) {
@@ -74,7 +74,7 @@ static inline void dot_f64u_sve2(const double *a, const double *b, size_t n,
   *dest = svaddv_f64(svptrue_b64(), acc0);
 }
 
-/* ── 32-bit integer dot products (same as SVE) ───────────────────────── */
+/* -- 32-bit integer dot products (same as SVE) ------------------------- */
 
 static inline void dot_i32_sve2(const int32_t *a, const int32_t *b, size_t n,
                                 int32_t *dest) {
@@ -130,7 +130,7 @@ static inline void dot_u32_sve2(const uint32_t *a, const uint32_t *b, size_t n,
   *dest = (uint32_t)svaddv_u32(svptrue_b32(), acc0);
 }
 
-/* ── 64-bit integer dot products (same as SVE) ───────────────────────── */
+/* -- 64-bit integer dot products (same as SVE) ------------------------- */
 
 static inline void dot_i64_sve2(const int64_t *a, const int64_t *b, size_t n,
                                 int64_t *dest) {
@@ -186,7 +186,7 @@ static inline void dot_u64_sve2(const uint64_t *a, const uint64_t *b, size_t n,
   *dest = svaddv_u64(svptrue_b64(), acc0);
 }
 
-/* ── 8-bit dot (SVE2 svmlalb/svmlalt: widening multiply-accumulate) ── */
+/* -- 8-bit dot (SVE2 svmlalb/svmlalt: widening multiply-accumulate) -- */
 
 static inline void dot_i8_sve2(const int8_t *a, const int8_t *b, size_t n,
                                int8_t *dest) {
@@ -240,7 +240,7 @@ static inline void dot_u8_sve2(const uint8_t *a, const uint8_t *b, size_t n,
   *dest = (uint8_t)(result + tail);
 }
 
-/* ── 16-bit dot (SVE2 svmlalb/svmlalt: i16→i32 widening MLA) ────────── */
+/* -- 16-bit dot (SVE2 svmlalb/svmlalt: i16→i32 widening MLA) ---------- */
 
 static inline void dot_i16_sve2(const int16_t *a, const int16_t *b, size_t n,
                                 int16_t *dest) {

@@ -16,14 +16,14 @@
 
 #define NUMC_DTYPE_COUNT (NUMC_DTYPE_FLOAT64 + 1)
 
-/* ── Dot product reduction kernels ─────────────────────────────────── */
+/* -- Dot product reduction kernels ----------------------------------- */
 
 #define STAMP_DOT(TE, CT) \
   DEFINE_BINARY_REDUCTION_KERNEL(dot, TE, CT, 0, acc + (val_a * val_b), +)
 GENERATE_NUMC_TYPES(STAMP_DOT)
 #undef STAMP_DOT
 
-/* ── Dispatch table ──────────────────────────────────────────────── */
+/* -- Dispatch table ------------------------------------------------ */
 
 #define R(OP, TE) [TE] = _kern_##OP##_##TE
 
@@ -37,7 +37,7 @@ static const NumcBinaryReductionKernel dot_table[] = {
 
 #undef R
 
-/* ── Naive matmul kernels ────────────────────────────────────────── */
+/* -- Naive matmul kernels ------------------------------------------ */
 
 #define STAMP_DOT_NAIVE(TE, CT, ACC_CT)                                        \
   static void _dot_naive_##TE(const char *pa, const char *pb, char *po,        \
@@ -89,7 +89,7 @@ static const DotNaiveKernel dot_naive_table[] = {
     [NUMC_DTYPE_FLOAT64] = _dot_naive_NUMC_DTYPE_FLOAT64,
 };
 
-/* ── Helpers ─────────────────────────────────────────────────────── */
+/* -- Helpers ------------------------------------------------------- */
 
 static double _to_double(const void *ptr, NumcDType dt) {
   switch (dt) {
@@ -117,7 +117,7 @@ static double _to_double(const void *ptr, NumcDType dt) {
   return 0.0;
 }
 
-/* ── SIMD wrappers + dispatch tables ──────────────────────────────── */
+/* -- SIMD wrappers + dispatch tables -------------------------------- */
 
 typedef void (*DotSimdKernel)(const void *a, const void *b, size_t n,
                               void *out);
@@ -287,8 +287,8 @@ static const GemmSimdKernel gemm_simd_table[NUMC_DTYPE_COUNT] = {
 #endif
 };
 
-/* ── OMP-parallel SIMD dot (per-dtype, matches DEFINE_FLOAT_REDUCTION_KERNEL
- *    pattern: each thread calls SIMD kernel on its chunk, OMP reduces) ── */
+/* -- OMP-parallel SIMD dot (per-dtype, matches DEFINE_FLOAT_REDUCTION_KERNEL
+ *    pattern: each thread calls SIMD kernel on its chunk, OMP reduces) -- */
 
 #define DEFINE_DOT_SIMD_OMP(TE, CT)                                           \
   static inline void _dot_simd_omp_##TE(DotSimdKernel kern, const void *a,    \
@@ -335,7 +335,7 @@ static const DotSimdOmpFn dot_simd_omp_table[NUMC_DTYPE_COUNT] = {
     [NUMC_DTYPE_FLOAT64] = _dot_simd_omp_NUMC_DTYPE_FLOAT64,
 };
 
-/* ── Case functions ───────────────────────────────────────────────── */
+/* -- Case functions ------------------------------------------------- */
 
 static inline void _dot_scalar_case(const NumcArray *a, const NumcArray *b,
                                     NumcArray *out) {
@@ -421,7 +421,7 @@ static inline void _dot_nd_case(const NumcArray *a, const NumcArray *b,
   }
 }
 
-/* ── Core dot dispatch ───────────────────────────────────────────── */
+/* -- Core dot dispatch --------------------------------------------- */
 
 static inline void _reduce_dot_op(const NumcArray *a, const NumcArray *b,
                                   NumcArray *out,
@@ -437,7 +437,7 @@ static inline void _reduce_dot_op(const NumcArray *a, const NumcArray *b,
   _dot_nd_case(a, b, out);
 }
 
-/* ── Public API ──────────────────────────────────────────────────── */
+/* -- Public API ---------------------------------------------------- */
 
 int numc_dot(const NumcArray *a, const NumcArray *b, NumcArray *out) {
   int err = _check_dot(a, b, out);

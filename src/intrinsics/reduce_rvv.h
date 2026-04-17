@@ -8,7 +8,7 @@
 
 // clang-format off
 
-/* ── full array min/max reduction ──────────────────────────────────── *
+/* -- full array min/max reduction ------------------------------------ *
  *
  * RVV vsetvl handles tails naturally — no scalar cleanup needed.
  * Single accumulator loop, then horizontal vredmin/vredmax.          */
@@ -132,7 +132,7 @@ DEFINE_REDUCE_FULL_RVV(reduce_max_u64_rvv, uint64_t, vuint64m1_t,
 
 #undef DEFINE_REDUCE_FULL_RVV
 
-/* ── fused row-reduce (axis-1 reduction) ───────────────────────────── *
+/* -- fused row-reduce (axis-1 reduction) ----------------------------- *
  *
  * Processes 4 rows at a time, vectorizing the inner column loop.
  * RVV vsetvl handles tails — no scalar cleanup needed.               */

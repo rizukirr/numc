@@ -5,7 +5,7 @@
 #include <numc/math.h>
 #include <string.h>
 
-/* ── Sum reduction kernels (integer types) ────────────────────────── */
+/* -- Sum reduction kernels (integer types) -------------------------- */
 
 #define STAMP_SUM(TE, CT) DEFINE_REDUCTION_KERNEL(sum, TE, CT, 0, acc + val, +)
 GENERATE_INT8_INT16_NUMC_TYPES(STAMP_SUM)
@@ -14,14 +14,14 @@ DEFINE_REDUCTION_KERNEL(sum, NUMC_DTYPE_INT64, NUMC_INT64, 0, acc + val, +)
 DEFINE_REDUCTION_KERNEL(sum, NUMC_DTYPE_UINT64, NUMC_UINT64, 0, acc + val, +)
 #undef STAMP_SUM
 
-/* ── Sum reduction kernels (float types — pairwise summation) ─────── */
+/* -- Sum reduction kernels (float types — pairwise summation) ------- */
 
 DEFINE_FLOAT_REDUCTION_KERNEL(sum, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, 0,
                               _pairwise_sum_f32, +, global += local, acc + val)
 DEFINE_FLOAT_REDUCTION_KERNEL(sum, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, 0,
                               _pairwise_sum_f64, +, global += local, acc + val)
 
-/* ── Dispatch table ──────────────────────────────────────────────── */
+/* -- Dispatch table ------------------------------------------------ */
 
 #define R(OP, TE) [TE] = _kern_##OP##_##TE
 
@@ -35,7 +35,7 @@ static const NumcReductionKernel sum_table[] = {
 
 #undef R
 
-/* ── Fused row-reduce kernels for axis fast path ─────────────────
+/* -- Fused row-reduce kernels for axis fast path -----------------
  *
  * Process all rows in a single call, eliminating per-row function
  * pointer overhead. Compiler sees the full nested loop, enabling
@@ -68,7 +68,7 @@ const NumcRowReduceKernel sum_fused_table[] = {
 };
 #undef F
 
-/* ── Public API ──────────────────────────────────────────────────── */
+/* -- Public API ---------------------------------------------------- */
 
 int numc_sum(const NumcArray *a, NumcArray *out) {
   int err = _check_reduce_full(a, out);

@@ -15,7 +15,7 @@
 #include <time.h>
 #endif
 
-/* ── Config ────────────────────────────────────────────────────────── */
+/* -- Config ---------------------------------------------------------- */
 
 #define WARMUP 20
 #define ITERS  200
@@ -23,7 +23,7 @@
 typedef int (*UnaryOp)(NumcArray *, NumcArray *);
 typedef int (*UnaryInplace)(NumcArray *);
 
-/* ── Timer ─────────────────────────────────────────────────────────── */
+/* -- Timer ----------------------------------------------------------- */
 
 static double time_us(void) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -62,7 +62,7 @@ static double bench_inplace(UnaryInplace op, NumcArray *a, int iters) {
   return (t1 - t0) / iters;
 }
 
-/* ── Helpers ───────────────────────────────────────────────────────── */
+/* -- Helpers --------------------------------------------------------- */
 
 static const char *dtype_name(NumcDType dt) {
   static const char *names[] = {
@@ -173,7 +173,7 @@ static int dtype_is_unsigned(NumcDType dt) {
          dt == NUMC_DTYPE_UINT32 || dt == NUMC_DTYPE_UINT64;
 }
 
-/* ── Benchmark: unary allocating ops ───────────────────────────────── */
+/* -- Benchmark: unary allocating ops --------------------------------- */
 
 static void bench_unary_ops(NumcCtx *ctx, size_t size) {
   printf("=============================================="
@@ -233,7 +233,7 @@ static void bench_unary_ops(NumcCtx *ctx, size_t size) {
   }
 }
 
-/* ── Benchmark: unary inplace ops ──────────────────────────────────── */
+/* -- Benchmark: unary inplace ops ------------------------------------ */
 
 static void bench_unary_inplace_ops(NumcCtx *ctx, size_t size) {
   printf("\n=============================================="
@@ -292,7 +292,7 @@ static void bench_unary_inplace_ops(NumcCtx *ctx, size_t size) {
   }
 }
 
-/* ── Benchmark: size scaling (float32 sqrt) ────────────────────────── */
+/* -- Benchmark: size scaling (float32 sqrt) -------------------------- */
 
 static void bench_scaling(NumcCtx *ctx) {
   printf("\n=============================================="
@@ -323,7 +323,7 @@ static void bench_scaling(NumcCtx *ctx) {
   }
 }
 
-/* ── main ──────────────────────────────────────────────────────────── */
+/* -- main ------------------------------------------------------------ */
 
 int main(void) {
   printf("\n  numc unary operation benchmark\n");

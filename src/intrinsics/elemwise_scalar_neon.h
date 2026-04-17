@@ -14,9 +14,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ════════════════════════════════════════════════════════════════════
+/* ====================================================================
  * Generic macros for signed int, unsigned int, float scalar ops
- * ════════════════════════════════════════════════════════════════ */
+ * ================================================================ */
 
 #define FAST_SCAL_SINT_NEON(OP, SFX, CT, W, VPV, VEC_OP, TAIL_EXPR)        \
   static inline void _fast_##OP##_scalar_##SFX##_neon(                     \
@@ -86,7 +86,7 @@
       out[i] = (double)(TAIL_EXPR);                                        \
   }
 
-/* ── Add scalar ──────────────────────────────────────────────────── */
+/* -- Add scalar ---------------------------------------------------- */
 
 FAST_SCAL_SINT_NEON(add, i8, int8_t, 8, 16, vaddq_s8, a[i] + s)
 FAST_SCAL_SINT_NEON(add, i16, int16_t, 16, 8, vaddq_s16, a[i] + s)
@@ -99,7 +99,7 @@ FAST_SCAL_UINT_NEON(add, u64, uint64_t, 64, 2, vaddq_u64, a[i] + s)
 FAST_SCAL_F32_NEON(add, vaddq_f32, a[i] + s)
 FAST_SCAL_F64_NEON(add, vaddq_f64, a[i] + s)
 
-/* ── Sub scalar ──────────────────────────────────────────────────── */
+/* -- Sub scalar ---------------------------------------------------- */
 
 FAST_SCAL_SINT_NEON(sub, i8, int8_t, 8, 16, vsubq_s8, a[i] - s)
 FAST_SCAL_SINT_NEON(sub, i16, int16_t, 16, 8, vsubq_s16, a[i] - s)
@@ -112,7 +112,7 @@ FAST_SCAL_UINT_NEON(sub, u64, uint64_t, 64, 2, vsubq_u64, a[i] - s)
 FAST_SCAL_F32_NEON(sub, vsubq_f32, a[i] - s)
 FAST_SCAL_F64_NEON(sub, vsubq_f64, a[i] - s)
 
-/* ── Mul scalar (8/16/32-bit: native) ────────────────────────────── */
+/* -- Mul scalar (8/16/32-bit: native) ------------------------------ */
 
 FAST_SCAL_SINT_NEON(mul, i8, int8_t, 8, 16, vmulq_s8, a[i] * s)
 FAST_SCAL_SINT_NEON(mul, i16, int16_t, 16, 8, vmulq_s16, a[i] * s)
@@ -146,7 +146,7 @@ static inline void _fast_mul_scalar_u64_neon(const void *restrict ap,
 FAST_SCAL_F32_NEON(mul, vmulq_f32, a[i] * s)
 FAST_SCAL_F64_NEON(mul, vmulq_f64, a[i] * s)
 
-/* ── Clean up macros ─────────────────────────────────────────────── */
+/* -- Clean up macros ----------------------------------------------- */
 
 #undef FAST_SCAL_SINT_NEON
 #undef FAST_SCAL_UINT_NEON

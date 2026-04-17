@@ -28,7 +28,7 @@
 #include "intrinsics/elemwise_rvv.h"
 #endif
 
-/* ── Stamp out maximum and minimum ──────────────────────────────────────*/
+/* -- Stamp out maximum and minimum --------------------------------------*/
 
 #define STAMP_MAX(TE, CT) \
   DEFINE_BINARY_KERNEL(maximum, TE, CT, in1 > in2 ? in1 : in2)
@@ -40,7 +40,7 @@ GENERATE_NUMC_TYPES(STAMP_MAX)
 GENERATE_NUMC_TYPES(STAMP_MIN)
 #undef STAMP_MIN
 
-/* ── Comparison kernels (uint8 output) ─────────────────────────────── */
+/* -- Comparison kernels (uint8 output) ------------------------------- */
 
 typedef void (*NumcCmpKernel)(const char *a, const char *b, char *out, size_t n,
                               intptr_t sa, intptr_t sb, intptr_t so);
@@ -109,7 +109,7 @@ static inline void _cmp_binary_op(const NumcArray *a, const NumcArray *b,
                    (char *)out->data, so, bcast_shape, bcast_ndim);
 }
 
-/* ── Stamp out comparison (same-type, scalar_inplace in SIMD path) ────── */
+/* -- Stamp out comparison (same-type, scalar_inplace in SIMD path) ------ */
 
 #if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || \
     NUMC_HAVE_RVV
@@ -134,7 +134,7 @@ GENERATE_NUMC_TYPES(STAMP_LE)
 #undef STAMP_LE
 #endif
 
-/* ── Comparison kernels producing uint8 output ───────────────────── */
+/* -- Comparison kernels producing uint8 output --------------------- */
 
 #define STAMP_CMP_EQ(TE, CT) DEFINE_CMP_KERNEL(eq, TE, CT, in1 == in2)
 GENERATE_NUMC_TYPES(STAMP_CMP_EQ)
@@ -192,7 +192,7 @@ static const NumcCmpKernel le_cmp_table[] = {
     CE(le, NUMC_DTYPE_FLOAT32), CE(le, NUMC_DTYPE_FLOAT64),
 };
 
-/* ── Dispatch tables ─────────────────────────────────────────────── */
+/* -- Dispatch tables ----------------------------------------------- */
 
 static const NumcBinaryKernel maximum_table[] = {
     E(maximum, NUMC_DTYPE_INT8),    E(maximum, NUMC_DTYPE_INT16),
@@ -210,7 +210,7 @@ static const NumcBinaryKernel minimum_table[] = {
     E(minimum, NUMC_DTYPE_FLOAT32), E(minimum, NUMC_DTYPE_FLOAT64),
 };
 
-/* ── Public API ──────────────────────────────────────────────────── */
+/* -- Public API ---------------------------------------------------- */
 
 #define DEFINE_ELEMWISE_BINARY(NAME, TABLE)                                 \
   int numc_##NAME(const NumcArray *a, const NumcArray *b, NumcArray *out) { \
@@ -236,7 +236,7 @@ static const NumcBinaryKernel minimum_table[] = {
     return _scalar_op_inplace(a, scalar, TABLE);                  \
   }
 
-/* ── SIMD fast-path for maximum/minimum ──────────────────────────── */
+/* -- SIMD fast-path for maximum/minimum ---------------------------- */
 
 #if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || \
     NUMC_HAVE_RVV
@@ -399,7 +399,7 @@ DEFINE_CMP_BINARY_GENERIC(le, le_cmp_table)
 #undef DEFINE_CMP_BINARY_GENERIC
 #endif
 
-/* ── SIMD scalar comparison dispatch ─────────────────────────────── */
+/* -- SIMD scalar comparison dispatch ------------------------------- */
 
 #if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || \
     NUMC_HAVE_RVV

@@ -505,7 +505,7 @@ void numc_ctx_restore(NumcCtx *ctx, NumcCheckpoint checkpoint) {
   arena_restore(ctx->arena, cp);
 }
 
-/* ── One-hot encoding ─────────────────────────────────────────────── */
+/* -- One-hot encoding ----------------------------------------------- */
 
 /* Per-dtype one-hot kernels generated via X-macro.
  * Each kernel reads labels of a specific integer type and writes

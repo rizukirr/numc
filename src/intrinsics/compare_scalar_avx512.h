@@ -17,7 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ── Float: f32 (16 per vector → 16 uint8 output) ──────────────── */
+/* -- Float: f32 (16 per vector → 16 uint8 output) ---------------- */
 
 #define CMPSC_F32_FUNC_AVX512(NAME, IMM, SCALAR_OP)                            \
   static inline void _cmpsc_##NAME##_f32_avx512(const void *restrict ap,       \
@@ -44,7 +44,7 @@ CMPSC_F32_FUNC_AVX512(ge, _CMP_GE_OS, >=)
 CMPSC_F32_FUNC_AVX512(le, _CMP_LE_OS, <=)
 #undef CMPSC_F32_FUNC_AVX512
 
-/* ── Float: f64 (8 per vector → 8 uint8 output) ────────────────── */
+/* -- Float: f64 (8 per vector → 8 uint8 output) ------------------ */
 
 #define CMPSC_F64_FUNC_AVX512(NAME, IMM, SCALAR_OP)                            \
   static inline void _cmpsc_##NAME##_f64_avx512(const void *restrict ap,       \
@@ -72,7 +72,7 @@ CMPSC_F64_FUNC_AVX512(ge, _CMP_GE_OS, >=)
 CMPSC_F64_FUNC_AVX512(le, _CMP_LE_OS, <=)
 #undef CMPSC_F64_FUNC_AVX512
 
-/* ── 8-bit signed/unsigned integers (64 per vector → 64 uint8) ── */
+/* -- 8-bit signed/unsigned integers (64 per vector → 64 uint8) -- */
 
 #define STAMP_CMPSC_I8_AVX512(SFX, CT, SET1, CMP)                              \
   static inline void _cmpsc_eq_##SFX##_avx512(const void *restrict ap,         \
@@ -160,7 +160,7 @@ STAMP_CMPSC_I8_AVX512(i8, int8_t, _mm512_set1_epi8, _mm512_cmp_epi8_mask)
 STAMP_CMPSC_I8_AVX512(u8, uint8_t, _mm512_set1_epi8, _mm512_cmp_epu8_mask)
 #undef STAMP_CMPSC_I8_AVX512
 
-/* ── 16-bit signed/unsigned integers (32 per vector → 32 uint8) ── */
+/* -- 16-bit signed/unsigned integers (32 per vector → 32 uint8) -- */
 
 #define STAMP_CMPSC_I16_AVX512(SFX, CT, SET1, CMP)                             \
   static inline void _cmpsc_eq_##SFX##_avx512(const void *restrict ap,         \
@@ -248,7 +248,7 @@ STAMP_CMPSC_I16_AVX512(i16, int16_t, _mm512_set1_epi16, _mm512_cmp_epi16_mask)
 STAMP_CMPSC_I16_AVX512(u16, uint16_t, _mm512_set1_epi16, _mm512_cmp_epu16_mask)
 #undef STAMP_CMPSC_I16_AVX512
 
-/* ── 32-bit signed/unsigned integers (16 per vector → 16 uint8) ── */
+/* -- 32-bit signed/unsigned integers (16 per vector → 16 uint8) -- */
 
 #define STAMP_CMPSC_I32_AVX512(SFX, CT, SET1, CMP)                           \
   static inline void _cmpsc_eq_##SFX##_avx512(const void *restrict ap,       \
@@ -336,7 +336,7 @@ STAMP_CMPSC_I32_AVX512(i32, int32_t, _mm512_set1_epi32, _mm512_cmp_epi32_mask)
 STAMP_CMPSC_I32_AVX512(u32, uint32_t, _mm512_set1_epi32, _mm512_cmp_epu32_mask)
 #undef STAMP_CMPSC_I32_AVX512
 
-/* ── 64-bit signed/unsigned integers (8 per vector → 8 uint8) ─── */
+/* -- 64-bit signed/unsigned integers (8 per vector → 8 uint8) --- */
 
 #define STAMP_CMPSC_I64_AVX512(SFX, CT, SET1, CMP)                           \
   static inline void _cmpsc_eq_##SFX##_avx512(const void *restrict ap,       \

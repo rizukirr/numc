@@ -11,7 +11,7 @@ import time
 WARMUP = 20
 ITERS  = 200
 
-# ── Timer helpers ──────────────────────────────────────────────────────
+# -- Timer helpers ------------------------------------------------------
 
 def time_unary(op, a, out):
     """Benchmark a unary op with output array, return avg microseconds."""
@@ -65,7 +65,7 @@ def time_unary_inplace(op, a):
         return (t1 - t0) / ITERS * 1e6
 
 
-# ── Helpers ────────────────────────────────────────────────────────────
+# -- Helpers ------------------------------------------------------------
 
 ALL_DTYPES = [
     ("int8",    np.int8),    ("uint8",   np.uint8),
@@ -94,7 +94,7 @@ def print_header(title):
           f"{'log':>8s} {'exp':>8s} {'abs':>8s} {'sqrt':>8s}")
     print(f"  {'':<8s} {'(us)':>8s} {'(us)':>8s} {'(us)':>8s} {'(us)':>8s}   "
           f"{'(Mop/s)':>8s} {'(Mop/s)':>8s} {'(Mop/s)':>8s} {'(Mop/s)':>8s}")
-    print(f"  {'─' * 78}")
+    print(f"  {'-' * 78}")
 
 
 def print_row(name, us, mops):
@@ -102,7 +102,7 @@ def print_row(name, us, mops):
           f"{mops[0]:8.1f} {mops[1]:8.1f} {mops[2]:8.1f} {mops[3]:8.1f}")
 
 
-# ── Benchmark: unary ops ───────────────────────────────────────────────
+# -- Benchmark: unary ops -----------------------------------------------
 
 def bench_unary_ops(size):
     print(f"{'━' * 82}")
@@ -126,7 +126,7 @@ def bench_unary_ops(size):
         print_row(name, us, mops)
 
 
-# ── Benchmark: unary inplace ops ──────────────────────────────────────
+# -- Benchmark: unary inplace ops --------------------------------------
 
 def bench_unary_inplace_ops(size):
     print(f"\n{'━' * 82}")
@@ -149,13 +149,13 @@ def bench_unary_inplace_ops(size):
         print_row(name, us, mops)
 
 
-# ── Benchmark: size scaling (float32 sqrt) ─────────────────────────────
+# -- Benchmark: size scaling (float32 sqrt) -----------------------------
 
 def bench_unary_scaling():
     print(f"\n{'━' * 82}")
     print(f"  SIZE SCALING  (float32 sqrt, {ITERS} iters)")
     print(f"\n  {'elements':>10s} {'time (us)':>10s} {'Mops/s':>10s} {'GB/s':>10s}")
-    print(f"  {'─' * 42}")
+    print(f"  {'-' * 42}")
 
     sizes = [100, 1_000, 10_000, 100_000, 1_000_000]
 
@@ -170,7 +170,7 @@ def bench_unary_scaling():
         print(f"  {n:10d} {us:10.2f} {mops:10.1f} {gbs:10.2f}")
 
 
-# ── main ──────────────────────────────────────────────────────────────
+# -- main --------------------------------------------------------------
 
 def main():
     print(f"\n  numpy unary element-wise benchmark")

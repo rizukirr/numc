@@ -11,7 +11,7 @@ import time
 WARMUP = 20
 ITERS  = 200
 
-# ── Timer helpers ──────────────────────────────────────────────────────
+# -- Timer helpers ------------------------------------------------------
 
 def time_pow(a, b, out):
     for _ in range(WARMUP):
@@ -37,7 +37,7 @@ def time_pow_inplace(a, b):
     return (t1 - t0) / ITERS * 1e6
 
 
-# ── Helpers ────────────────────────────────────────────────────────────
+# -- Helpers ------------------------------------------------------------
 
 ALL_DTYPES = [
     ("int8",    np.int8),    ("uint8",   np.uint8),
@@ -60,14 +60,14 @@ EXP_VALUES = {
 }
 
 
-# ── Benchmark: contiguous pow ──────────────────────────────────────────
+# -- Benchmark: contiguous pow ------------------------------------------
 
 def bench_contiguous(size):
     print(f"{'━' * 82}")
     print(f"  POW CONTIGUOUS  ({size} elements, {ITERS} iters)")
     print(f"\n  {'dtype':<8s} {'pow':>10s} {'inplace':>10s}   {'pow':>10s} {'inplace':>10s}")
     print(f"  {'':<8s} {'(us)':>10s} {'(us)':>10s}   {'(Mop/s)':>10s} {'(Mop/s)':>10s}")
-    print(f"  {'─' * 58}")
+    print(f"  {'-' * 58}")
 
     for name, dt in ALL_DTYPES:
         vb = BASE_VALUES[dt]
@@ -84,13 +84,13 @@ def bench_contiguous(size):
               f"{size/us_pow:10.1f} {size/us_ip:10.1f}")
 
 
-# ── Benchmark: size scaling ────────────────────────────────────────────
+# -- Benchmark: size scaling --------------------------------------------
 
 def bench_scaling():
     print(f"\n{'━' * 82}")
     print(f"  SIZE SCALING  (float32 pow, {ITERS} iters)")
     print(f"\n  {'elements':>10s} {'time (us)':>10s} {'Mops/s':>10s} {'GB/s':>10s}")
-    print(f"  {'─' * 42}")
+    print(f"  {'-' * 42}")
 
     sizes = [100, 1_000, 10_000, 100_000, 1_000_000]
 
@@ -106,7 +106,7 @@ def bench_scaling():
         print(f"  {n:10d} {us:10.2f} {mops:10.1f} {gbs:10.2f}")
 
 
-# ── main ──────────────────────────────────────────────────────────────
+# -- main --------------------------------------------------------------
 
 def main():
     print(f"\n  numpy pow benchmark")

@@ -11,7 +11,7 @@
 #include "internal.h"
 #include <numc/dtype.h>
 
-/* ── Kernel function pointer typedefs ──────────────────────────────── */
+/* -- Kernel function pointer typedefs -------------------------------- */
 
 typedef void (*NumcBinaryKernel)(const char *a, const char *b, char *out,
                                  size_t n, intptr_t sa, intptr_t sb,
@@ -37,7 +37,7 @@ typedef void (*NumcQuaternaryKernel)(const char *a, const char *b,
                                      intptr_t sa, intptr_t sb, intptr_t sc,
                                      intptr_t so);
 
-/* ── Stride-aware binary kernel macro ────────────────────────────── */
+/* -- Stride-aware binary kernel macro ------------------------------ */
 
 #define NUMC_TILE_SIZE 256
 
@@ -203,7 +203,7 @@ typedef void (*NumcQuaternaryKernel)(const char *a, const char *b,
     }                                                                         \
   }
 
-/* ── Optimized division common logic ────────────────────────────────── */
+/* -- Optimized division common logic ---------------------------------- */
 
 static inline bool _is_pow2(uint64_t n) {
   return n > 0 && (n & (n - 1)) == 0;
@@ -212,7 +212,7 @@ static inline int _log2_u64(uint64_t n) {
   return 63 - __builtin_clzll(n);
 }
 
-/* ── Integer division macro (with power-of-two optimization) ───────── */
+/* -- Integer division macro (with power-of-two optimization) --------- */
 
 #define DEFINE_INT_DIV_KERNEL(TYPE_ENUM, C_TYPE, IS_SIGNED)                    \
   static void _kern_div_##TYPE_ENUM(const char *a, const char *b, char *out,   \
@@ -310,7 +310,7 @@ static inline int _log2_u64(uint64_t n) {
     }                                                                          \
   }
 
-/* ── Float division macro (with reciprocal optimization) ───────────── */
+/* -- Float division macro (with reciprocal optimization) ------------- */
 
 #define DEFINE_FLOAT_DIV_KERNEL(TYPE_ENUM, C_TYPE)                           \
   static void _kern_div_##TYPE_ENUM(const char *a, const char *b, char *out, \
@@ -341,7 +341,7 @@ static inline int _log2_u64(uint64_t n) {
     }                                                                        \
   }
 
-/* ── Stride-aware ternary kernel macro ───────────────────────────── */
+/* -- Stride-aware ternary kernel macro ----------------------------- */
 
 #define DEFINE_TERNARY_KERNEL(OP_NAME, TYPE_ENUM, C_TYPE, EXPR)               \
   static void _kern_##OP_NAME##_##TYPE_ENUM(                                  \
@@ -402,7 +402,7 @@ static inline int _log2_u64(uint64_t n) {
     }                                                                         \
   }
 
-/* ── Stride-aware unary kernel macro ─────────────────────────────── */
+/* -- Stride-aware unary kernel macro ------------------------------- */
 
 #define DEFINE_UNARY_KERNEL(OP_NAME, TYPE_ENUM, C_TYPE, EXPR)                 \
   static void _kern_##OP_NAME##_##TYPE_ENUM(                                  \
@@ -485,7 +485,7 @@ static inline int _log2_u64(uint64_t n) {
     }                                                                 \
   }
 
-/* ── Stride-aware clip kernel macro ──────────────────────────────── */
+/* -- Stride-aware clip kernel macro -------------------------------- */
 
 #define DEFINE_CLIP_KERNEL(TE, CT)                                             \
   static void _kern_clip_##TE(const char *a, char *out, size_t n, intptr_t sa, \

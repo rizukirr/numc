@@ -3,7 +3,7 @@
 #include "numc/dtype.h"
 #include <numc/math.h>
 
-/* ── Argmin reduction kernels ────────────────────────────────────────
+/* -- Argmin reduction kernels ----------------------------------------
  *
  * Per-type INIT = type maximum so any element is < INIT.
  * Output is always int64_t (index of minimum element). */
@@ -24,7 +24,7 @@ DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32,
 DEFINE_FLOAT_ARGREDUCTION_KERNEL(argmin, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64,
                                  INFINITY, _vec_min_f64, <)
 
-/* ── Dispatch table ──────────────────────────────────────────────── */
+/* -- Dispatch table ------------------------------------------------ */
 
 #define R(OP, TE) [TE] = _kern_##OP##_##TE
 
@@ -38,7 +38,7 @@ static const NumcReductionKernel argmin_table[] = {
 
 #undef R
 
-/* ── Fused argmin row-reduce kernels ─────────────────────────────── */
+/* -- Fused argmin row-reduce kernels ------------------------------- */
 
 typedef void (*NumcArgRowReduceKernel)(const char *restrict base,
                                        intptr_t row_stride, size_t nrows,
@@ -78,7 +78,7 @@ static const NumcArgRowReduceKernel argmin_fused_table[] = {
 };
 #undef F
 
-/* ── Public API ──────────────────────────────────────────────────── */
+/* -- Public API ---------------------------------------------------- */
 
 int numc_argmin(const NumcArray *a, NumcArray *out) {
   int err = _check_argreduce_full(a, out);

@@ -5,7 +5,7 @@
 #include <numc/math.h>
 #include <string.h>
 
-/* ── Private sum kernels (mean calls sum then divides) ────────────── */
+/* -- Private sum kernels (mean calls sum then divides) -------------- */
 
 #define STAMP_SUM(TE, CT) DEFINE_REDUCTION_KERNEL(sum, TE, CT, 0, acc + val, +)
 GENERATE_INT8_INT16_NUMC_TYPES(STAMP_SUM)
@@ -19,7 +19,7 @@ DEFINE_FLOAT_REDUCTION_KERNEL(sum, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, 0,
 DEFINE_FLOAT_REDUCTION_KERNEL(sum, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, 0,
                               _pairwise_sum_f64, +, global += local, acc + val)
 
-/* ── Mean reduction kernels ──────────────────────────────────────────
+/* -- Mean reduction kernels ------------------------------------------
  *
  * mean = sum / count. Reuse existing sum kernels (including pairwise
  * summation for floats), then divide by n. Integer types get truncating
@@ -61,7 +61,7 @@ STAMP_MEAN_FLOAT(NUMC_DTYPE_FLOAT32, NUMC_FLOAT32)
 STAMP_MEAN_FLOAT(NUMC_DTYPE_FLOAT64, NUMC_FLOAT64)
 #undef STAMP_MEAN_FLOAT
 
-/* ── Dispatch table ──────────────────────────────────────────────── */
+/* -- Dispatch table ------------------------------------------------ */
 
 #define R(OP, TE) [TE] = _kern_##OP##_##TE
 
@@ -75,7 +75,7 @@ static const NumcReductionKernel mean_table[] = {
 
 #undef R
 
-/* ── Divide-by-count kernels for axis mean fast path ─────────────
+/* -- Divide-by-count kernels for axis mean fast path -------------
  *
  * d[i] /= count — element-wise divide of output buffer.
  * Each d[i] is independent, so this auto-vectorizes. */
@@ -129,7 +129,7 @@ static const NumcDivCountKernel div_count_table[] = {
 };
 #undef D
 
-/* ── Public API ──────────────────────────────────────────────────── */
+/* -- Public API ---------------------------------------------------- */
 
 int numc_mean(const NumcArray *a, NumcArray *out) {
   int err = _check_reduce_full(a, out);

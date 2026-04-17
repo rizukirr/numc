@@ -15,7 +15,7 @@
 #include <time.h>
 #endif
 
-/* ── Timer ─────────────────────────────────────────────────────────── */
+/* -- Timer ----------------------------------------------------------- */
 
 static double time_us(void) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -30,7 +30,7 @@ static double time_us(void) {
 #endif
 }
 
-/* ── Helpers ───────────────────────────────────────────────────────── */
+/* -- Helpers --------------------------------------------------------- */
 
 static const char *dtype_name(NumcDType dt) {
   static const char *names[] = {
@@ -96,7 +96,7 @@ static double gflops(size_t M, size_t K, size_t N, double us) {
   return 2.0 * (double)M * (double)K * (double)N / (us * 1e3);
 }
 
-/* ── Section 1: Square size scaling ─────────────────────────────────── */
+/* -- Section 1: Square size scaling ----------------------------------- */
 
 static void bench_square_scaling(void) {
   printf("\n==========================================================\n");
@@ -139,7 +139,7 @@ static void bench_square_scaling(void) {
   }
 }
 
-/* ── Section 2: Dtype comparison ────────────────────────────────────── */
+/* -- Section 2: Dtype comparison -------------------------------------- */
 
 static void bench_dtype_comparison(void) {
   static const size_t N = 256;
@@ -181,7 +181,7 @@ static void bench_dtype_comparison(void) {
   }
 }
 
-/* ── Section 3: Shape variants ──────────────────────────────────────── */
+/* -- Section 3: Shape variants ---------------------------------------- */
 
 static void bench_shape_variants(void) {
   printf("\n==========================================================\n");
@@ -226,7 +226,7 @@ static void bench_shape_variants(void) {
   }
 }
 
-/* ── main ──────────────────────────────────────────────────────────── */
+/* -- main ------------------------------------------------------------ */
 
 int main(void) {
   printf("\n  numc matmul benchmark\n");

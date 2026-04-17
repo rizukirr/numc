@@ -13,7 +13,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* ── 8-bit signed integer: natural byte output ──────────────────── */
+/* -- 8-bit signed integer: natural byte output -------------------- */
 
 #define STAMP_CMPSC_I8_SVE(FNAME, CMP_N)                                    \
   static inline void _cmpsc_##FNAME##_i8_sve(const void *restrict ap,       \
@@ -38,7 +38,7 @@ STAMP_CMPSC_I8_SVE(ge, svcmpge_n_s8)
 STAMP_CMPSC_I8_SVE(le, svcmple_n_s8)
 #undef STAMP_CMPSC_I8_SVE
 
-/* ── 8-bit unsigned integer: natural byte output ────────────────── */
+/* -- 8-bit unsigned integer: natural byte output ------------------ */
 
 #define STAMP_CMPSC_U8_SVE(FNAME, CMP_N)                                    \
   static inline void _cmpsc_##FNAME##_u8_sve(const void *restrict ap,       \
@@ -63,7 +63,7 @@ STAMP_CMPSC_U8_SVE(ge, svcmpge_n_u8)
 STAMP_CMPSC_U8_SVE(le, svcmple_n_u8)
 #undef STAMP_CMPSC_U8_SVE
 
-/* ── Wider signed integer (16/32/64): byte output ───────────────── */
+/* -- Wider signed integer (16/32/64): byte output ----------------- */
 
 #define STAMP_CMPSC_SINT_WIDE_SVE(SFX, CT, W, CNT, CMP_N)              \
   static inline void _cmpsc_##SFX##_sve(const void *restrict ap,       \
@@ -103,7 +103,7 @@ STAMP_CMPSC_SINT_WIDE_SVE(le_i64, int64_t, 64, svcntd, svcmple_n_s64)
 /* clang-format on */
 #undef STAMP_CMPSC_SINT_WIDE_SVE
 
-/* ── Wider unsigned integer (16/32/64): byte output ─────────────── */
+/* -- Wider unsigned integer (16/32/64): byte output --------------- */
 
 #define STAMP_CMPSC_UINT_WIDE_SVE(SFX, CT, W, CNT, CMP_N)              \
   static inline void _cmpsc_##SFX##_sve(const void *restrict ap,       \
@@ -143,7 +143,7 @@ STAMP_CMPSC_UINT_WIDE_SVE(le_u64, uint64_t, 64, svcntd, svcmple_n_u64)
 /* clang-format on */
 #undef STAMP_CMPSC_UINT_WIDE_SVE
 
-/* ── Float (32/64): byte output ─────────────────────────────────── */
+/* -- Float (32/64): byte output ----------------------------------- */
 
 #define STAMP_CMPSC_FLOAT_SVE(SFX, CT, W, CNT, CMP_N)                  \
   static inline void _cmpsc_##SFX##_sve(const void *restrict ap,       \

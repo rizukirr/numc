@@ -15,7 +15,7 @@
 #include "intrinsics/math_rvv.h"
 #endif
 
-/* ── Stamp out pow loop kernels ──────────────────────────────────────── */
+/* -- Stamp out pow loop kernels ---------------------------------------- */
 
 /* 8/16-bit signed: branchless fixed-iteration (auto-vectorizes) */
 DEFINE_BINARY_KERNEL(pow, NUMC_DTYPE_INT8, NUMC_INT8, _powi_i8(in1, in2))
@@ -255,7 +255,7 @@ DEFINE_BINARY_KERNEL_NOSIMD(pow, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64,
                             _exp_f64(in2 *_log_f64(in1)))
 #endif
 
-/* ── Dispatch table ──────────────────────────────────────────────── */
+/* -- Dispatch table ------------------------------------------------ */
 
 static const NumcBinaryKernel pow_table[] = {
     E(pow, NUMC_DTYPE_INT8),    E(pow, NUMC_DTYPE_INT16),
@@ -265,7 +265,7 @@ static const NumcBinaryKernel pow_table[] = {
     E(pow, NUMC_DTYPE_FLOAT32), E(pow, NUMC_DTYPE_FLOAT64),
 };
 
-/* ── Public API ──────────────────────────────────────────────────── */
+/* -- Public API ---------------------------------------------------- */
 
 /* pow: non-const signature differs, stays explicit */
 int numc_pow(NumcArray *a, NumcArray *b, NumcArray *out) {

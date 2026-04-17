@@ -57,7 +57,7 @@
  * Used for stack-allocated temporary buffers. */
 #define GEMM_SVE_MAX_NR 128
 
-/* ── Float32 packing routines ──────────────────────────────────────────── */
+/* -- Float32 packing routines -------------------------------------------- */
 
 static inline void gemm_pack_b_f32_sve(const float *b, float *packed, size_t kc,
                                        size_t nc, intptr_t rsb, size_t nr) {
@@ -178,7 +178,7 @@ static inline void gemm_pack_a_f32_sve(const float *a, float *packed, size_t mc,
   }
 }
 
-/* ── Float64 packing routines ──────────────────────────────────────────── */
+/* -- Float64 packing routines -------------------------------------------- */
 
 static inline void gemm_pack_b_f64_sve(const double *b, double *packed,
                                        size_t kc, size_t nc, intptr_t rsb,
@@ -297,11 +297,11 @@ static inline void gemm_pack_a_f64_sve(const double *a, double *packed,
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Float32: 8x(2*VL) micro-kernel
    Uses svdup_f32(scalar) for A broadcast + svmla_f32_x for FMA.
    16 accumulator regs (8 rows x 2 B-vectors), 2 B regs, 1 A broadcast.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 /* Uses pre-loaded b0/b1 from outer scope; 2 alternating A broadcast regs
@@ -624,11 +624,11 @@ static inline void gemm_f32_sve(const float *a, const float *b, float *out,
   numc_free(packed_b);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Float64: 6x(2*VL) micro-kernel
    Uses svdup_f64(scalar) for A broadcast + svmla_f64_x for FMA.
    12 accumulator regs (6 rows x 2 B-vectors), 2 B regs, 1 A broadcast.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 /* Uses pre-loaded b0/b1 from outer scope; 2 alternating A broadcast regs
@@ -927,9 +927,9 @@ static inline void gemm_f64_sve(const double *a, const double *b, double *out,
   numc_free(packed_b);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int32/Uint32: 6x(2*VL) unpacked micro-kernel (svmla_s32_x)
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_i32_sve(const int32_t *a, const int32_t *b,
@@ -1065,9 +1065,9 @@ static inline void gemm_u32_sve(const uint32_t *a, const uint32_t *b,
                k_dim, n_dim, rsa, csa, rsb, rso);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int16/Uint16: 6x(2*VL) unpacked micro-kernel (svmla_s16_x)
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_i16_sve(const int16_t *a, const int16_t *b,
@@ -1203,9 +1203,9 @@ static inline void gemm_u16_sve(const uint16_t *a, const uint16_t *b,
                k_dim, n_dim, rsa, csa, rsb, rso);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int64/Uint64: scalar loop (no native 64-bit multiply in SVE base)
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_edge_i64_sve(const int64_t *a, const int64_t *b,
@@ -1249,9 +1249,9 @@ static inline void gemm_u64_sve(const uint64_t *a, const uint64_t *b,
                k_dim, n_dim, rsa, csa, rsb, rso);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int8: 6x(2*VL32) promoted micro-kernel (widen to i32, full-K accumulation)
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_i8_sve(const int8_t *a, const int8_t *b,
@@ -1360,9 +1360,9 @@ static inline void gemm_i8_sve(const int8_t *a, const int8_t *b, int8_t *out,
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Uint8: 6x(2*VL32) promoted micro-kernel (widen to u32, full-K accumulation)
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_u8_sve(const uint8_t *a, const uint8_t *b,

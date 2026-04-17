@@ -13,7 +13,7 @@
 #include <numc/error.h>
 #include <string.h>
 
-/* ── ND iteration ──────────────────────────────────────────────────
+/* -- ND iteration --------------------------------------------------
  *
  * Recursive — calls kernel on innermost dimension.
  * Outer dimensions loop to compute base pointers.
@@ -185,7 +185,7 @@ static inline void _elemwise_quaternary_nd(NumcQuaternaryKernel kern,
   }
 }
 
-/* ── Axis sorting for optimal iteration order ────────────────────────
+/* -- Axis sorting for optimal iteration order ------------------------
  *
  * Sort dimensions by descending stride sum so the smallest-stride axis
  * ends up innermost (where the kernel runs).  This maximises spatial
@@ -372,7 +372,7 @@ static inline void _sort_axes_unary(size_t ndim, const size_t *shape,
   }
 }
 
-/* ── Validation ───────────────────────────────────────────────────── */
+/* -- Validation ----------------------------------------------------- */
 
 /**
  * @brief Validate shapes and types for binary operations.
@@ -734,7 +734,7 @@ static inline void _binary_op(const struct NumcArray *a,
   _binary_op_ex(a, b, out, table, NULL);
 }
 
-/* ── Ternary op dispatch ──────────────────────────────────────────── */
+/* -- Ternary op dispatch -------------------------------------------- */
 
 /**
  * @brief Dispatch element-wise ternary operation.
@@ -801,7 +801,7 @@ static inline void _quaternary_op(const struct NumcArray *a,
   }
 }
 
-/* ── Scalar Conversion ──────────────────────────────────────────────── */
+/* -- Scalar Conversion ------------------------------------------------ */
 
 /**
  * @brief Convert a double value to the target data type in a buffer.
@@ -850,7 +850,7 @@ static inline void _double_to_dtype(double value, NumcDType dtype,
   }
 }
 
-/* ── Scalar op dispatch ───────────────────────────────────────────── */
+/* -- Scalar op dispatch --------------------------------------------- */
 
 /**
  * @brief Dispatch element-wise scalar operation.
@@ -913,7 +913,7 @@ static inline int _scalar_op_inplace(struct NumcArray *a, double scalar,
   return 0;
 }
 
-/* ── Unary op dispatch ────────────────────────────────────────────── */
+/* -- Unary op dispatch ---------------------------------------------- */
 
 /**
  * @brief Dispatch element-wise unary operation.

@@ -15,12 +15,12 @@
 #include <time.h>
 #endif
 
-/* ── Config ────────────────────────────────────────────────────────── */
+/* -- Config ---------------------------------------------------------- */
 
 #define WARMUP 20
 #define ITERS  200
 
-/* ── Timer ─────────────────────────────────────────────────────────── */
+/* -- Timer ----------------------------------------------------------- */
 
 static double time_us(void) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -35,7 +35,7 @@ static double time_us(void) {
 #endif
 }
 
-/* ── Helpers ───────────────────────────────────────────────────────── */
+/* -- Helpers --------------------------------------------------------- */
 
 static const char *dtype_name(NumcDType dt) {
   static const char *names[] = {
@@ -91,12 +91,12 @@ static const NumcDType ALL_DTYPES[] = {
 };
 static const int N_DTYPES = sizeof(ALL_DTYPES) / sizeof(ALL_DTYPES[0]);
 
-/* ── Function pointer types ───────────────────────────────────────── */
+/* -- Function pointer types ----------------------------------------- */
 
 typedef int (*ReduceFullFn)(const NumcArray *, NumcArray *);
 typedef int (*ReduceAxisFn)(const NumcArray *, int, int, NumcArray *);
 
-/* ── Benchmark: full reduction — all dtypes ───────────────────────── */
+/* -- Benchmark: full reduction — all dtypes ------------------------- */
 
 static void bench_full(const char *name, ReduceFullFn fn, size_t size) {
   printf("\n=============================================="
@@ -138,7 +138,7 @@ static void bench_full(const char *name, ReduceFullFn fn, size_t size) {
   }
 }
 
-/* ── Benchmark: axis reduction on 2D array ────────────────────────── */
+/* -- Benchmark: axis reduction on 2D array -------------------------- */
 
 static void bench_axis(const char *name, ReduceAxisFn fn, int axis, size_t rows,
                        size_t cols) {
@@ -182,7 +182,7 @@ static void bench_axis(const char *name, ReduceAxisFn fn, int axis, size_t rows,
   }
 }
 
-/* ── Benchmark: arg-reduction (output is INT64) ───────────────────── */
+/* -- Benchmark: arg-reduction (output is INT64) --------------------- */
 
 static void bench_full_arg(const char *name, ReduceFullFn fn, size_t size) {
   printf("\n=============================================="
@@ -266,7 +266,7 @@ static void bench_axis_arg(const char *name, ReduceAxisFn fn, int axis,
   }
 }
 
-/* ── Benchmark: size scaling (float32 full sum) ────────────────────── */
+/* -- Benchmark: size scaling (float32 full sum) ---------------------- */
 
 static void bench_scaling(void) {
   printf("\n=============================================="
@@ -309,7 +309,7 @@ static void bench_scaling(void) {
   }
 }
 
-/* ── main ──────────────────────────────────────────────────────────── */
+/* -- main ------------------------------------------------------------ */
 
 int main(void) {
   printf("\n  numc reduction benchmark\n");

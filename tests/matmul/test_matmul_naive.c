@@ -159,7 +159,7 @@ static int test_matmul_naive_float64(void) {
   return 0;
 }
 
-/* ── Error cases ─────────────────────────────────────────────────────── */
+/* -- Error cases ------------------------------------------------------- */
 
 static int test_matmul_inner_dims_mismatch(void) {
   NumcCtx *ctx = numc_ctx_create();

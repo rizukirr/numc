@@ -37,13 +37,13 @@
 numc_gemm_ukernel_f32_6x16_avx2:
     WIN64_SAVE
     WIN64_REMAP_ARGS6
-    /* ─── prologue: save callee-saved registers ─── */
+    /* --- prologue: save callee-saved registers --- */
     push    %rbx
     push    %rbp
     push    %r12
     push    %r13
 
-    /* ─── map SysV arguments to working registers ─── */
+    /* --- map SysV arguments to working registers --- */
     /* rdi = a (A pointer)                              */
     /* rsi = b (B pointer)                              */
     /* rdx = c (C base pointer, row 0)                  */
@@ -58,10 +58,10 @@ numc_gemm_ukernel_f32_6x16_avx2:
     lea     (%r12, %r8, 4), %r13 /* r13 = c + 4*rso                         */
     lea     (%r13, %r8, 4), %rbp /* rbp = c + 5*rso                         */
 
-    /* ─── Bias B pointer by +128 for compact disp8 encoding ─── */
+    /* --- Bias B pointer by +128 for compact disp8 encoding --- */
     add     $128, %rsi
 
-    /* ─── C prefetch (bring output tile into L1 before compute) ─── */
+    /* --- C prefetch (bring output tile into L1 before compute) --- */
     prefetcht0  (%rbx)
     prefetcht0  (%r10)
     prefetcht0  (%r11)
@@ -69,7 +69,7 @@ numc_gemm_ukernel_f32_6x16_avx2:
     prefetcht0  (%r13)
     prefetcht0  (%rbp)
 
-    /* ─── beta handling: zero accumulators or load existing C ─── */
+    /* --- beta handling: zero accumulators or load existing C --- */
     test    %r9d, %r9d
     jz      .Lf32_load_c
 
@@ -104,11 +104,11 @@ numc_gemm_ukernel_f32_6x16_avx2:
     vmovups 32(%rbp),    %ymm11     /* C[row5, 8:15] */
 
 .Lf32_preload_b:
-    /* ─── Pre-load first B vectors (BLIS-style, before loop entry) ─── */
+    /* --- Pre-load first B vectors (BLIS-style, before loop entry) --- */
     vmovups -128(%rsi),  %ymm12     /* B[0:7]  */
     vmovups -96(%rsi),   %ymm13     /* B[8:15] */
 
-    /* ─── Main K-loop: 4× unrolled ─── */
+    /* --- Main K-loop: 4× unrolled --- */
     mov     %rcx, %rdx              /* rdx = kc (rcx freed for other use)   */
     shr     $2, %rdx                /* rdx = kc / 4 = k_iter               */
     jz      .Lf32_k_left
@@ -208,7 +208,7 @@ numc_gemm_ukernel_f32_6x16_avx2:
     vfmadd231ps  %ymm15, %ymm12, %ymm10
     vfmadd231ps  %ymm15, %ymm13, %ymm11
 
-    /* ─── Pointer advance (once per 4-unroll) ─── */
+    /* --- Pointer advance (once per 4-unroll) --- */
     add     $96, %rdi                /* A += 4 * MR * sizeof(float) = 4*6*4 = 96  */
     add     $256, %rsi               /* B += 4 * NR * sizeof(float) = 4*16*4 = 256 */
 
@@ -219,7 +219,7 @@ numc_gemm_ukernel_f32_6x16_avx2:
     dec     %rdx
     jnz     .Lf32_k_loop
 
-    /* ─── Remainder K-loop (kc % 4) ─── */
+    /* --- Remainder K-loop (kc % 4) --- */
 .Lf32_k_left:
     mov     %rcx, %rdx
     and     $3, %rdx                 /* rdx = kc % 4 */
@@ -253,7 +253,7 @@ numc_gemm_ukernel_f32_6x16_avx2:
     dec     %rdx
     jnz     .Lf32_k_left_loop
 
-    /* ─── C prefetch refresh (before store) ─── */
+    /* --- C prefetch refresh (before store) --- */
 .Lf32_store:
     prefetcht0  (%rbx)
     prefetcht0  (%r10)
@@ -262,7 +262,7 @@ numc_gemm_ukernel_f32_6x16_avx2:
     prefetcht0  (%r13)
     prefetcht0  (%rbp)
 
-    /* ─── Store accumulators to C ─── */
+    /* --- Store accumulators to C --- */
     vmovups %ymm0,  (%rbx)
     vmovups %ymm1,  32(%rbx)
     vmovups %ymm2,  (%r10)
@@ -276,7 +276,7 @@ numc_gemm_ukernel_f32_6x16_avx2:
     vmovups %ymm10, (%rbp)
     vmovups %ymm11, 32(%rbp)
 
-    /* ─── epilogue ─── */
+    /* --- epilogue --- */
     vzeroupper
     pop     %r13
     pop     %r12
@@ -339,7 +339,7 @@ numc_gemm_f32_6x16_avx2_loop:
 
     .p2align 4
 .Lf32L_ir_loop:
-    /* ─── Setup C row pointers ─── */
+    /* --- Setup C row pointers --- */
     mov     (%rsp), %rbx            /* rbx = current C (row 0) */
     lea     (%rbx, %r8, 4), %r10
     lea     (%r10, %r8, 4), %r11
@@ -347,10 +347,10 @@ numc_gemm_f32_6x16_avx2_loop:
     lea     (%r12, %r8, 4), %r13
     lea     (%r13, %r8, 4), %rbp
 
-    /* ─── Bias B pointer ─── */
+    /* --- Bias B pointer --- */
     lea     128(%r15), %rsi
 
-    /* ─── C prefetch ─── */
+    /* --- C prefetch --- */
     prefetcht0  (%rbx)
     prefetcht0  (%r10)
     prefetcht0  (%r11)
@@ -358,7 +358,7 @@ numc_gemm_f32_6x16_avx2_loop:
     prefetcht0  (%r13)
     prefetcht0  (%rbp)
 
-    /* ─── Beta handling ─── */
+    /* --- Beta handling --- */
     test    %r9d, %r9d
     jz      .Lf32L_load_c
 
@@ -394,7 +394,7 @@ numc_gemm_f32_6x16_avx2_loop:
     vmovups -128(%rsi),  %ymm12
     vmovups -96(%rsi),   %ymm13
 
-    /* ─── Main K-loop: 4× unrolled ─── */
+    /* --- Main K-loop: 4× unrolled --- */
     mov     %rcx, %rdx
     shr     $2, %rdx
     jz      .Lf32L_k_left
@@ -501,7 +501,7 @@ numc_gemm_f32_6x16_avx2_loop:
     dec     %rdx
     jnz     .Lf32L_k_loop
 
-    /* ─── Remainder K-loop ─── */
+    /* --- Remainder K-loop --- */
 .Lf32L_k_left:
     mov     %rcx, %rdx
     and     $3, %rdx
@@ -534,7 +534,7 @@ numc_gemm_f32_6x16_avx2_loop:
     dec     %rdx
     jnz     .Lf32L_k_left_loop
 
-    /* ─── Store ─── */
+    /* --- Store --- */
 .Lf32L_store:
     prefetcht0  (%rbx)
     prefetcht0  (%r10)
@@ -556,7 +556,7 @@ numc_gemm_f32_6x16_avx2_loop:
     vmovups %ymm10, (%rbp)
     vmovups %ymm11, 32(%rbp)
 
-    /* ─── Advance C for next IR iteration ─── */
+    /* --- Advance C for next IR iteration --- */
     /* A (rdi) already points to next MR panel from K-loop advancement */
     mov     8(%rsp), %rax           /* rax = C stride (24 * rso) */
     add     %rax, (%rsp)            /* c_ptr += MR * rso * 4 */

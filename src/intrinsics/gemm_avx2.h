@@ -63,7 +63,7 @@
 #define GEMM_I32_NC 4080
 #define GEMM_I16_NC 4096
 
-/* ─── Dedicated .S assembly micro-kernels (x86_64, SysV + Win64 ABI) ─── */
+/* --- Dedicated .S assembly micro-kernels (x86_64, SysV + Win64 ABI) --- */
 #if (defined(__x86_64__) || defined(_M_X64)) && \
     (!defined(_MSC_VER) || defined(__clang__))
 extern void numc_gemm_ukernel_f32_6x16_avx2(const float *a, const float *b,
@@ -122,7 +122,7 @@ static inline __m256i _gemm_mask_i64_lanes(size_t lanes) {
   return _mm256_loadu_si256((const __m256i *)mask_tbl[lanes]);
 }
 
-/* ── Float32 packing routines ──────────────────────────────────────────── */
+/* -- Float32 packing routines -------------------------------------------- */
 
 /* Pack B[kc × nc] into NR-wide micropanels (row-panel format).
  * Layout: for each NR-panel at column jr, kc rows of NR contiguous elements.
@@ -334,7 +334,7 @@ static inline void gemm_pack_a_f32(const float *a, float *packed, size_t mc,
   }
 }
 
-/* ── Float64 packing routines ──────────────────────────────────────────── */
+/* -- Float64 packing routines -------------------------------------------- */
 
 static inline void gemm_pack_b_f64(const double *b, double *packed, size_t kc,
                                    size_t nc, intptr_t rsb) {
@@ -514,11 +514,11 @@ static inline void gemm_pack_a_f64(const double *a, double *packed, size_t mc,
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Float32: 6×16 micro-kernel  (12 acc + 2 A broadcast + 2 B loads = 16 YMM)
    BLIS-style B pre-load: B vectors loaded at end of prev iter, ready for
    next iter. 2 alternating A broadcast registers for better ILP.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 /* MSVC intrinsics K-iter: B pre-loaded in b0/b1 before call. */
@@ -1036,11 +1036,11 @@ static inline void gemm_f32_avx2(const float *a, const float *b, float *out,
   numc_free(packed_b);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Float64: 6×8 micro-kernel  (12 acc + 2 A broadcast + 2 B loads = 16 YMM)
    BLIS-style B pre-load: B vectors loaded at end of prev iter, ready for
    next iter. 2 alternating A broadcast registers for better ILP.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 /* MSVC intrinsics K-iter: B pre-loaded in b0/b1 before call. */
@@ -1561,7 +1561,7 @@ static inline void gemm_f64_avx2(const double *a, const double *b, double *out,
   numc_free(packed_b);
 }
 
-/* ── Int32 packing routines ───────────────────────────────────────────── */
+/* -- Int32 packing routines --------------------------------------------- */
 
 /* Pack B[kc × nc] into NR-wide micropanels (row-panel format).
  * Layout: for each NR-panel at column jr, kc rows of NR contiguous elements.
@@ -1745,10 +1745,10 @@ static inline void gemm_pack_a_i32(const int32_t *a, int32_t *packed, size_t mc,
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int32/Uint32: 6×16 micro-kernel  (mullo_epi32 + add_epi32)
    mullo_epi32 produces identical low 32 bits for signed and unsigned.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_i32_6x16(const int32_t *a, const int32_t *b,
@@ -2134,10 +2134,10 @@ static inline void gemm_u32_avx2(const uint32_t *a, const uint32_t *b,
   numc_free(packed_b);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int16/Uint16: 6×32 micro-kernel  (mullo_epi16 + add_epi16, 16 elem/reg)
    Same-width accumulation — matches the i32 overflow trade-off.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline void gemm_ukernel_i16_6x32(const int16_t *a, const int16_t *b,
@@ -2461,10 +2461,10 @@ static inline void gemm_u16_avx2(const uint16_t *a, const uint16_t *b,
                 k_dim, n_dim, rsa, csa, rsb, rso);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int64/Uint64: 6×8 micro-kernel  (emulated 64-bit multiply via mul_epu32)
    No native mullo_epi64 in AVX2 — emulate: a*b = a_lo*b_lo + cross<<32
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
 static inline __m256i gemm_mullo_epi64(__m256i a, __m256i b) {
@@ -2590,13 +2590,13 @@ static inline void gemm_u64_avx2(const uint64_t *a, const uint64_t *b,
                 k_dim, n_dim, rsa, csa, rsb, rso);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ===========================================================================
    Int8/Uint8: 6×16 packed micro-kernel (widen to i32 accumulators, KC-blocked)
    Uses saturation packing for stores to match scalar truncation behavior.
-   ═══════════════════════════════════════════════════════════════════════════
+   ===========================================================================
  */
 
-/* ── i8 packing routines ── */
+/* -- i8 packing routines -- */
 
 static inline void gemm_pack_b_i8(const int8_t *b, int8_t *packed, size_t kc,
                                   size_t nc, intptr_t rsb) {
@@ -2659,7 +2659,7 @@ static inline void gemm_pack_a_i8(const int8_t *a, int8_t *packed, size_t mc,
   }
 }
 
-/* ── i8 6×16 packed micro-kernel ── */
+/* -- i8 6×16 packed micro-kernel -- */
 
 static inline void gemm_ukernel_i8_6x16(const int8_t *a, const int8_t *b,
                                         int8_t *c, size_t kc, intptr_t rso,
@@ -2881,7 +2881,7 @@ static inline void gemm_i8_avx2(const int8_t *a, const int8_t *b, int8_t *out,
   numc_free(packed_b);
 }
 
-/* ── u8 packing routines (reuse i8 pack for B and A — byte-level identical) ──
+/* -- u8 packing routines (reuse i8 pack for B and A — byte-level identical) --
  */
 
 static inline void gemm_pack_b_u8(const uint8_t *b, uint8_t *packed, size_t kc,
@@ -2900,7 +2900,7 @@ static inline void gemm_pack_a_u8(const uint8_t *a, uint8_t *packed, size_t mc,
   gemm_pack_a_i8((const int8_t *)a, (int8_t *)packed, mc, kc, rsa, csa);
 }
 
-/* ── u8 6×16 packed micro-kernel ── */
+/* -- u8 6×16 packed micro-kernel -- */
 
 static inline void gemm_ukernel_u8_6x16(const uint8_t *a, const uint8_t *b,
                                         uint8_t *c, size_t kc, intptr_t rso,

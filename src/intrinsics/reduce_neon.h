@@ -10,7 +10,7 @@
 #define _RSMIN(a, b) ((a) < (b) ? (a) : (b))
 #define _RSMAX(a, b) ((a) > (b) ? (a) : (b))
 
-/* ── 64-bit emulated min/max (NEON lacks native i64/u64 min/max) ──── */
+/* -- 64-bit emulated min/max (NEON lacks native i64/u64 min/max) ---- */
 
 static inline int64x2_t _neon_max_s64(int64x2_t a, int64x2_t b) {
   uint64x2_t gt = vcgtq_s64(a, b);
@@ -29,7 +29,7 @@ static inline uint64x2_t _neon_min_u64(uint64x2_t a, uint64x2_t b) {
   return vbslq_u64(gt, b, a);
 }
 
-/* ── 64-bit horizontal reduction helpers ──────────────────────────── */
+/* -- 64-bit horizontal reduction helpers ---------------------------- */
 
 static inline int64_t _hmax_s64_neon(int64x2_t v) {
   int64_t a = vgetq_lane_s64(v, 0), b = vgetq_lane_s64(v, 1);
@@ -48,7 +48,7 @@ static inline uint64_t _hmin_u64_neon(uint64x2_t v) {
   return a < b ? a : b;
 }
 
-/* ── full array min/max reduction ──────────────────────────────────── *
+/* -- full array min/max reduction ------------------------------------ *
  *
  * 4 vector accumulators, cleanup loop, scalar tail.
  * For 8-bit types: 16 elements per vector, 64 bytes/iteration.        */
@@ -74,7 +74,7 @@ static inline uint64_t _hmin_u64_neon(uint64x2_t v) {
     return result;                                                       \
   }
 
-/* ── min reductions (8/16/32-bit) ──────────────────────────────────── */
+/* -- min reductions (8/16/32-bit) ------------------------------------ */
 
 DEFINE_REDUCE_FULL_NEON(reduce_min_i8_neon, int8_t, int8x16_t, 16,
   vdupq_n_s8(INT8_MAX),
@@ -95,7 +95,7 @@ DEFINE_REDUCE_FULL_NEON(reduce_min_u32_neon, uint32_t, uint32x4_t, 4,
   vdupq_n_u32(UINT32_MAX),
   vld1q_u32, vminq_u32, vminvq_u32, _RSMIN)
 
-/* ── max reductions (8/16/32-bit) ──────────────────────────────────── */
+/* -- max reductions (8/16/32-bit) ------------------------------------ */
 
 DEFINE_REDUCE_FULL_NEON(reduce_max_i8_neon, int8_t, int8x16_t, 16,
   vdupq_n_s8(INT8_MIN),
@@ -118,7 +118,7 @@ DEFINE_REDUCE_FULL_NEON(reduce_max_u32_neon, uint32_t, uint32x4_t, 4,
 
 #undef DEFINE_REDUCE_FULL_NEON
 
-/* ── 64-bit full array reductions ──────────────────────────────────── */
+/* -- 64-bit full array reductions ------------------------------------ */
 
 #define DEFINE_REDUCE_FULL_64_NEON(NAME, CT, VT, INIT_VEC, LOAD, CMP, \
                                    HREDUCE, SCMP)                      \
@@ -157,7 +157,7 @@ DEFINE_REDUCE_FULL_64_NEON(reduce_max_u64_neon, uint64_t, uint64x2_t,
 
 #undef DEFINE_REDUCE_FULL_64_NEON
 
-/* ── fused row-reduce (axis-1 reduction) ───────────────────────────── *
+/* -- fused row-reduce (axis-1 reduction) ----------------------------- *
  *
  * Processes 4 rows at a time, vectorizes inner column loop.
  * For int8: 16 columns per SIMD iteration.                            */
@@ -231,7 +231,7 @@ DEFINE_FUSED_REDUCE_NEON(_max_fused_u32_neon, uint32_t, uint32x4_t, 4,
 
 #undef DEFINE_FUSED_REDUCE_NEON
 
-/* ── 64-bit fused row-reduce (axis-1) ──────────────────────────────── */
+/* -- 64-bit fused row-reduce (axis-1) -------------------------------- */
 
 #define DEFINE_FUSED_64_NEON(NAME, CT, VT, LOAD, STORE, CMP, SCMP)          \
   static inline void NAME(const char *restrict base, intptr_t row_stride,    \
