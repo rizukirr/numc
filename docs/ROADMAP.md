@@ -18,7 +18,7 @@ and embedding-based models.
 
 | Operation | Signature | Notes |
 |---|---|---|
-| `numc_tanh` | `(a, out)` + inplace | Hyperbolic tangent. RNN/LSTM gates, policy networks. Same X-macro + SIMD pattern as exp/log. |
+| [x] `numc_tanh` | `(a, out)` + inplace | Implemented (Path A): scalar-first + full 10-dtype coverage + inplace. Path B SIMD fast paths still pending. |
 | `numc_sigmoid` | `(a, out)` + inplace | Logistic function `1/(1+exp(-x))`. Binary classification, gates. Fused implementation avoids overflow. |
 
 ### Shape manipulation
@@ -247,8 +247,8 @@ PyTorch's autograd is built on ATen tensors. Including it here for completeness.
 ## Implementation priority
 
 ```
-Now:     tanh, sigmoid, concat, cast, sort, argsort, gather, scatter
-         (8 ops — unlocks logistic regression, decision trees, KNN,
+Now:     sigmoid, concat, cast, sort, argsort, gather, scatter
+         (7 ops — unlocks logistic regression, decision trees, KNN,
           SVM, RNNs, embedding models)
 
 Next:    gelu, silu, linear (fused x@W+b), bmm, softmax (fused),

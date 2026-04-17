@@ -9,6 +9,7 @@
 #define NUMC_MATH_NEON_H
 
 #include <arm_neon.h>
+#include <math.h>
 
 /* ===================================================================
    Vectorized log — float32 (4-wide, fdlibm algorithm)
@@ -470,6 +471,55 @@ static inline void _neon_sincos_f32(float32x4_t x, float32x4_t *s,
   uint32x4_t cos_poly_mask = vmvnq_u32(poly_mask);
   *c = vreinterpretq_f32_u32(veorq_u32(
       vreinterpretq_u32_f32(vbslq_f32(cos_poly_mask, yc, yz)), sign_cos));
+}
+
+/* ===================================================================
+   Vectorize tanh - float32/float64
+   Uses identity: tanh(x) = 2 / (1 + exp(-2x)) -1
+   =================================================================== */
+
+static inline float32x4_t _neon_tanh_f32(float32x4_t x) {
+  const float32x4_t vtwo = vdupq_n_f32(2.0f);
+  const float32x4_t vone = vdupq_n_f32(1.0f);
+  const float32x4_t vneg2 = vdupq_n_f32(-2.0f);
+
+  float32x4_t e = _neon_exp_f32(vmulq_f32(vneg2, x));
+  return vsubq_f32(vdivq_f32(vtwo, vaddq_f32(vone, e)), vone);
+}
+
+static inline float64x2_t _neon_tanh_f64(float64x2_t x) {
+  const float64x2_t vtwo = vdupq_n_f64(2.0);
+  const float64x2_t vone = vdupq_n_f64(1.0);
+  const float64x2_t vneg2 = vdupq_n_f64(-2.0);
+
+  float64x2_t e = _neon_exp_f64(vmulq_f64(vneg2, x));
+  return vsubq_f64(vdivq_f64(vtwo, vaddq_f64(vone, e)), vone);
+}
+
+static inline void _fast_tanh_f32_neon(const void *restrict ap,
+                                       void *restrict op, size_t n) {
+  const float *a = (const float *)ap;
+  float *out = (float *)op;
+
+  size_t i = 0;
+  for (; i + 4 <= n; i += 4)
+    vst1q_f32(out + i, _neon_tanh_f32(vld1q_f32(a + i)));
+
+  for (; i < n; ++i)
+    out[i] = tanhf(a[i]);
+}
+
+static inline void _fast_tanh_f64_neon(const void *restrict ap,
+                                       void *restrict op, size_t n) {
+  const double *a = (const double *)ap;
+  double *out = (double *)op;
+
+  size_t i = 0;
+  for (; i + 2 <= n; i += 2)
+    vst1q_f64(out + i, _neon_tanh_f64(vld1q_f64(a + i)));
+
+  for (; i < n; ++i)
+    out[i] = tanh(a[i]);
 }
 
 #endif /* NUMC_MATH_NEON_H */

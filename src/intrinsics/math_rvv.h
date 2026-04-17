@@ -459,4 +459,53 @@ static inline void _rvv_sincos_f32(vfloat32m4_t x, vfloat32m4_t *s,
       __riscv_vreinterpret_v_f32m4_u32m4(cos_val), sign_cos, vl));
 }
 
+/* ===================================================================
+    Vectorized tanh — float32/float64 (VLA, LMUL=4)
+    Uses identity: tanh(x) = 2 / (1 + exp(-2x)) - 1
+    =================================================================== */
+
+static inline vfloat32m4_t _rvv_tanh_f32(vfloat32m4_t x, size_t vl) {
+  vfloat32m4_t vtwo = __riscv_vfmv_v_f_f32m4(2.0f, vl);
+  vfloat32m4_t vone = __riscv_vfmv_v_f_f32m4(1.0f, vl);
+  vfloat32m4_t vneg2 = __riscv_vfmv_v_f_f32m4(-2.0f, vl);
+  vfloat32m4_t e = _rvv_exp_f32(__riscv_vfmul_vv_f32m4(vneg2, x, vl), vl);
+  return __riscv_vfsub_vv_f32m4(
+      __riscv_vfdiv_vv_f32m4(vtwo, __riscv_vfadd_vv_f32m4(vone, e, vl), vl),
+      vone, vl);
+}
+
+static inline vfloat64m4_t _rvv_tanh_f64(vfloat64m4_t x, size_t vl) {
+  vfloat64m4_t vtwo = __riscv_vfmv_v_f_f64m4(2.0, vl);
+  vfloat64m4_t vone = __riscv_vfmv_v_f_f64m4(1.0, vl);
+  vfloat64m4_t vneg2 = __riscv_vfmv_v_f_f64m4(-2.0, vl);
+  vfloat64m4_t e = _rvv_exp_f64(__riscv_vfmul_vv_f64m4(vneg2, x, vl), vl);
+  return __riscv_vfsub_vv_f64m4(
+      __riscv_vfdiv_vv_f64m4(vtwo, __riscv_vfadd_vv_f64m4(vone, e, vl), vl),
+      vone, vl);
+}
+
+static inline void _fast_tanh_f32_rvv(const void *restrict ap,
+                                      void *restrict op, size_t n) {
+  const float *a = (const float *)ap;
+  float *out = (float *)op;
+  size_t vl;
+  for (size_t i = 0; i < n; i += vl) {
+    vl = __riscv_vsetvl_e32m4(n - i);
+    vfloat32m4_t va = __riscv_vle32_v_f32m4(a + i, vl);
+    __riscv_vse32_v_f32m4(out + i, _rvv_tanh_f32(va, vl), vl);
+  }
+}
+
+static inline void _fast_tanh_f64_rvv(const void *restrict ap,
+                                      void *restrict op, size_t n) {
+  const double *a = (const double *)ap;
+  double *out = (double *)op;
+  size_t vl;
+  for (size_t i = 0; i < n; i += vl) {
+    vl = __riscv_vsetvl_e64m4(n - i);
+    vfloat64m4_t va = __riscv_vle64_v_f64m4(a + i, vl);
+    __riscv_vse64_v_f64m4(out + i, _rvv_tanh_f64(va, vl), vl);
+  }
+}
+
 #endif /* NUMC_MATH_RVV_H */

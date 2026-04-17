@@ -23,14 +23,14 @@
 #include "intrinsics/math_rvv.h"
 #endif
 
-/* ── Stamp unary neg loop typed kernels ────────────────────*/
+/* -- Stamp unary neg loop typed kernels --------------------*/
 
 /* neg: all 10 types, native - */
 #define STAMP_NEG(TE, CT) DEFINE_UNARY_KERNEL(neg, TE, CT, -in1)
 GENERATE_NUMC_TYPES(STAMP_NEG)
 #undef STAMP_NEG
 
-/* ── Stamp unary abs loop typed kernels ────────────────────*/
+/* -- Stamp unary abs loop typed kernels --------------------*/
 
 /* Signed types: conditional negate */
 #define STAMP_ABS(TE, CT) \
@@ -44,7 +44,7 @@ DEFINE_UNARY_KERNEL(abs, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32,
 DEFINE_UNARY_KERNEL(abs, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64,
                     (NUMC_FLOAT64)(in1 < 0.0 ? -in1 : in1))
 
-/* ── Stamp out log loop kernels (stride-aware, wrapping scalar bit-manip) ── */
+/* -- Stamp out log loop kernels (stride-aware, wrapping scalar bit-manip) -- */
 
 /* < 32-bit integers: cast through float */
 #define STAMP_LOG_SMALL(TE, CT) \
@@ -236,7 +236,7 @@ DEFINE_UNARY_KERNEL_NOSIMD(log, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, _log_f32(in1))
 DEFINE_UNARY_KERNEL_NOSIMD(log, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _log_f64(in1))
 #endif
 
-/* ── Stamp out exp loop kernels ─────────────────────────────────────── */
+/* -- Stamp out exp loop kernels --------------------------------------- */
 
 /* int8/int16/uint8/uint16: cast through float32 */
 #define STAMP_EXP_SMALL(TE, CT) \
@@ -430,7 +430,7 @@ DEFINE_UNARY_KERNEL_NOSIMD(exp, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, _exp_f32(in1))
 DEFINE_UNARY_KERNEL_NOSIMD(exp, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, _exp_f64(in1))
 #endif
 
-/* ── Stamp unary sqrt loop typed kernels ─────────────────────────────────
+/* -- Stamp unary sqrt loop typed kernels ---------------------------------
  * float32: sqrtf -> hardware vsqrtps (auto-vectorized, -O3 -march=native)
  * float64: sqrt  -> hardware vsqrtpd (auto-vectorized)
  * signed integers:   clamp negative to 0 before cast (sqrt of negative is UB)
@@ -472,7 +472,77 @@ DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, sqrtf(in1))
 /* float64: sqrt -> hardware vsqrtpd (auto-vectorized) */
 DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, sqrt(in1))
 
-/* ── Dispatch tables (dtype -> kernel) ─────────────────────────────── */
+/* -- Stamp out tanh loop kernels --------------------------------------- */
+
+/* int8/int16/uint8/uint16: cast through float32 */
+#define STAMP_TANH_SMALL(TE, CT) \
+  DEFINE_UNARY_KERNEL(tanh, TE, CT, (CT)tanhf((float)in1))
+GENERATE_INT8_INT16_NUMC_TYPES(STAMP_TANH_SMALL)
+#undef STAMP_TANH_SMALL
+
+/* int32/uint32: cast through float64 */
+#define STAMP_TANH_I32(TE, CT) \
+  DEFINE_UNARY_KERNEL(tanh, TE, CT, (CT)tanh((double)in1))
+GENERATE_INT32_NUMC_TYPES(STAMP_TANH_I32)
+#undef STAMP_TANH_I32
+
+/* int64/uint64: cast through float64 */
+#define STAMP_TANH_I64(TE, CT) \
+  DEFINE_UNARY_KERNEL(tanh, TE, CT, (CT)tanh((double)in1))
+GENERATE_INT64_NUMC_TYPES(STAMP_TANH_I64)
+#undef STAMP_TANH_I64
+
+/* float32/float64 */
+#if NUMC_HAVE_AVX2
+static void _kern_tanh_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
+                                          intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(float);
+  if (sa == es && so == es) {
+    const float *pa = (const float *)a;
+    float *po = (float *)out;
+    size_t i = 0;
+    for (; i + 8 <= n; i += 8) {
+      __m256 va = _mm256_loadu_ps(pa + i);
+      _mm256_storeu_ps(po + i, _mm256_tanh_ps(va));
+    }
+    for (; i < n; i++)
+      po[i] = tanhf(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      float in1 = *(const float *)(a + i * sa);
+      *(float *)(out + i * so) = tanhf(in1);
+    }
+  }
+}
+
+static void _kern_tanh_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
+                                          intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(float);
+  if (sa == es && so == es) {
+    const double *pa = (const double *)a;
+    double *po = (double *)out;
+    size_t i = 0;
+    for (; i + 8 <= n; i += 8) {
+      __m256d va = _mm256_loadu_pd(pa + i);
+      _mm256_storeu_pd(po + i, _mm256_tanh_pd(va));
+    }
+    for (; i < n; i++)
+      po[i] = tanh(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      double in1 = *(const double *)(a + i * sa);
+      *(double *)(out + i * so) = tanh(in1);
+    }
+  }
+}
+
+
+#else
+DEFINE_UNARY_KERNEL(tanh, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, tanhf(in1))
+DEFINE_UNARY_KERNEL(tanh, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, tanh(in1))
+#endif
+
+/* -- Dispatch tables (dtype -> kernel) ------------------------------- */
 
 static const NumcUnaryKernel neg_table[] = {
     E(neg, NUMC_DTYPE_INT8),    E(neg, NUMC_DTYPE_INT16),
@@ -489,12 +559,12 @@ static const NumcUnaryKernel abs_table[] = {
     /* unsigned types: NULL — never reached; numc_abs/_inplace guards them */
 };
 
-/* ── SIMD fast-path dispatch for unary ops ─────────────────────── */
+/* -- SIMD fast-path dispatch for unary ops ----------------------- */
 
 #if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || \
     NUMC_HAVE_RVV
 
-typedef void (*FastUnKern)(const void *restrict, void *restrict, size_t);
+typedef void (*FastUnKern)(const void *, void *, size_t);
 
 #if NUMC_HAVE_AVX512
 #define FUN(OP, SFX) (FastUnKern) _fast_##OP##_##SFX##_avx512
@@ -521,7 +591,6 @@ static const FastUnKern abs_fast_table[] = {
     [NUMC_DTYPE_INT32] = FUN(abs, i32),   [NUMC_DTYPE_INT64] = FUN(abs, i64),
     [NUMC_DTYPE_FLOAT32] = FUN(abs, f32), [NUMC_DTYPE_FLOAT64] = FUN(abs, f64),
 };
-#undef FUN
 
 #endif /* SIMD available */
 
@@ -549,9 +618,18 @@ static const NumcUnaryKernel sqrt_table[] = {
     E(sqrt, NUMC_DTYPE_FLOAT32), E(sqrt, NUMC_DTYPE_FLOAT64),
 };
 
-/* ═══════════════════════════════════════════════════════════════════════
+static const NumcUnaryKernel tanh_table[] = {
+    E(tanh, NUMC_DTYPE_INT8),    E(tanh, NUMC_DTYPE_INT16),
+    E(tanh, NUMC_DTYPE_INT32),   E(tanh, NUMC_DTYPE_INT64),
+    E(tanh, NUMC_DTYPE_UINT8),   E(tanh, NUMC_DTYPE_UINT16),
+    E(tanh, NUMC_DTYPE_UINT32),  E(tanh, NUMC_DTYPE_UINT64),
+    E(tanh, NUMC_DTYPE_FLOAT32), E(tanh, NUMC_DTYPE_FLOAT64),
+};
+
+
+/* =======================================================================
  * Public API — Unary ops
- * ═══════════════════════════════════════════════════════════════════════ */
+ * ======================================================================= */
 
 #define DEFINE_ELEMWISE_UNARY(NAME, TABLE)        \
   int numc_##NAME(NumcArray *a, NumcArray *out) { \
@@ -705,11 +783,20 @@ int numc_abs_inplace(NumcArray *a) {
   return _unary_op_inplace(a, abs_table);
 }
 
+static const FastUnKern tanh_fast_table[] = {
+    [NUMC_DTYPE_FLOAT32] = FUN(tanh, f32),
+    [NUMC_DTYPE_FLOAT64] = FUN(tanh, f64),
+};
+DEFINE_UNARY_SIMD(tanh, tanh_fast_table, tanh_table)
+
+#undef FUN
+
 #undef DEFINE_UNARY_SIMD
 
 #else /* No SIMD available */
 
 DEFINE_ELEMWISE_UNARY(neg, neg_table)
+DEFINE_ELEMWISE_UNARY(tanh, tanh_table)
 
 int numc_abs(NumcArray *a, NumcArray *out) {
   int err = _check_unary(a, out);

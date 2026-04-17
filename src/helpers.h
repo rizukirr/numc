@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <string.h>
 
-/* ── Accurate scalar log helpers (fdlibm, argument reduction + Horner) ──
+/* -- Accurate scalar log helpers (fdlibm, argument reduction + Horner) --
  *
  * Algorithm (same as fdlibm / musl libm):
  *   1. Argument reduction: x = 2^k * m, m in [sqrt(2)/2, sqrt(2))
@@ -110,7 +110,7 @@ static inline double _log_f64(double x) {
   return (double)k * ln2 + f - hfsq + s * (hfsq + r);
 }
 
-/* ── Accurate scalar exp helpers (Cephes-style, argument reduction + Horner) ──
+/* -- Accurate scalar exp helpers (Cephes-style, argument reduction + Horner) --
  *
  * Algorithm (Cephes / Julien Pommier):
  *   1. Clamp: x > 88.38 -> inf, x < -103.97 -> 0
@@ -233,7 +233,7 @@ static inline double _exp_f64(double x) {
   return p;
 }
 
-/* ── Accurate scalar sin/cos helpers (Cephes-style, argument reduction) ──
+/* -- Accurate scalar sin/cos helpers (Cephes-style, argument reduction) --
  *
  * Algorithm (Cephes / Julien Pommier / SLEEF):
  *   1. Range reduction: subtract multiples of pi/2 to get r in [-pi/4, pi/4].
@@ -462,7 +462,7 @@ static inline double _cos_f64(double x) {
     return sp;
 }
 
-/* ── Integer pow helpers ──────────────────────────────────────────────
+/* -- Integer pow helpers ----------------------------------------------
  *
  * Two strategies, chosen by element width:
  *
@@ -482,7 +482,7 @@ static inline double _cos_f64(double x) {
  * and the odd-bit selection from the original base preserves sign.
  */
 
-/* ── 8/16-bit: branchless fixed-iteration (vectorizable) ───────────── */
+/* -- 8/16-bit: branchless fixed-iteration (vectorizable) ------------- */
 
 #define DEFINE_POWI_SIGNED(NAME, CT, UCT, BITS)                           \
   __attribute__((always_inline)) static inline CT NAME(CT base, CT exp) { \
@@ -515,7 +515,7 @@ DEFINE_POWI_SIGNED(_powi_i16, int16_t, uint16_t, 15)
 DEFINE_POWI_UNSIGNED(_powi_u8, uint8_t, 8)
 DEFINE_POWI_UNSIGNED(_powi_u16, uint16_t, 16)
 
-/* ── 32/64-bit: variable-iteration with early exit (scalar, fast) ──── */
+/* -- 32/64-bit: variable-iteration with early exit (scalar, fast) ---- */
 
 /**
  * @brief Compute the power of a signed 64-bit integer.

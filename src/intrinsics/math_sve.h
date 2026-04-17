@@ -485,4 +485,54 @@ static inline void _sve_sincos_f32(svfloat32_t x, svfloat32_t *s,
       sign_cos));
 }
 
+/* ========================================================================
+   Vectorize tanh - float32/float64 (VLA)
+   Uses identify: tanh(x) = 2 / (1 + exp(-2x)) -1
+   ======================================================================*/
+
+static inline svfloat32_t _sve_tanh_f32(svfloat32_t x){
+  const svbool_t pg = svptrue_b32();
+  const svfloat32_t vtwo = svdup_f32(2.0f);
+  const svfloat32_t vone = svdup_f32(1.0f);
+  const svfloat32_t vneg2 = svdup_f32(-2.0f);
+
+  svfloat32_t e = _sve_exp_f32(svmul_f32_x(pg, vneg2, x));
+  return svsub_f32_x(pg, svdiv_f32_x(pg, vtwo, svadd_f32_x(pg, vone, e)), vone);
+}
+
+
+static inline svfloat64_t _sve_tanh_f64(svfloat64_t x){
+  const svbool_t pg = svptrue_b64();
+  const svfloat64_t vtwo = svdup_f64(2.0f);
+  const svfloat64_t vone = svdup_f64(1.0f);
+  const svfloat64_t vneg2 = svdup_f64(-2.0f);
+
+  svfloat64_t e = _sve_exp_f64(svmul_f64_x(pg, vneg2, x));
+  return svsub_f64_x(pg, svdiv_f64_x(pg, vtwo, svadd_f64_x(pg, vone, e)), vone);
+}
+
+static inline void _fast_tanh_f32_sve(const void *restrict ap,
+                                      void *restrict op, size_t n) {
+  const float *a = (const float *)ap;
+  float *out = (float *)op;
+  size_t vl = svcntw();
+  for (size_t i = 0; i < n; i += vl) {
+    svbool_t pg = svwhilelt_b32((uint32_t)i, (uint32_t)n);
+    svfloat32_t va = svld1_f32(pg, a + i);
+    svst1_f32(pg, out + i, _sve_tanh_f32(va));
+  }
+}
+
+static inline void _fast_tanh_f64_sve(const void *restrict ap,
+                                      void *restrict op, size_t n) {
+  const double *a = (const double *)ap;
+  double *out = (double *)op;
+  size_t vl = svcntd();
+  for (size_t i = 0; i < n; i += vl) {
+    svbool_t pg = svwhilelt_b64((uint64_t)i, (uint64_t)n);
+    svfloat64_t va = svld1_f64(pg, a + i);
+    svst1_f64(pg, out + i, _sve_tanh_f64(va));
+  }
+}
+
 #endif /* NUMC_MATH_SVE_H */

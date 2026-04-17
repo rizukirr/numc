@@ -10,6 +10,7 @@
 #define NUMC_MATH_AVX2_H
 
 #include <immintrin.h>
+#include <math.h>
 
 /* ===================================================================
    Vectorized log — float32 (fdlibm algorithm, same as _log_f32)
@@ -301,6 +302,56 @@ static inline __m256d _mm256_exp_pd(__m256d x) {
 }
 
 /* ===================================================================
+   Vertorized tanh - float32/float64
+   Uses identity: tanh(x) = 2 / (1 + exp(-2x)) -1
+   =================================================================== */
+
+static inline __m256 _mm256_tanh_ps(__m256 x) {
+  const __m256 vtwo = _mm256_set1_ps(2.0f);
+  const __m256 vone = _mm256_set1_ps(1.0f);
+  const __m256 vneg2 = _mm256_set1_ps(-2.0f);
+
+  __m256 e = _mm256_exp_ps(_mm256_mul_ps(vneg2, x));
+  return _mm256_sub_ps(_mm256_div_ps(vtwo, _mm256_add_ps(vone, e)), vone);
+}
+
+
+static inline __m256d _mm256_tanh_pd(__m256d x) {
+  const __m256d vtwo = _mm256_set1_pd(2.0);
+  const __m256d vone = _mm256_set1_pd(1.0);
+  const __m256d vneg2 = _mm256_set1_pd(-2.0);
+
+  __m256d e = _mm256_exp_pd(_mm256_mul_pd(vneg2, x));
+  return _mm256_sub_pd(_mm256_div_pd(vtwo, _mm256_add_pd(vone, e)), vone);
+}
+
+static inline void _fast_tanh_f32_avx2(const void *restrict ap,
+                                       void *restrict op, size_t n) {
+  const float *a = (const float *)ap;
+  float *out = (float *)op;
+
+  size_t i = 0;
+  for (; i + 8 <= n; i += 8)
+    _mm256_storeu_ps(out + i, _mm256_tanh_ps(_mm256_loadu_ps(a + i)));
+
+  for (; i < n; ++i)
+    out[i] = tanhf(a[i]);
+}
+
+static inline void _fast_tanh_f64_avx2(const void *restrict ap,
+                                       void *restrict op, size_t n) {
+  const double *a = (const double *)ap;
+  double *out = (double *)op;
+  size_t i = 0;
+
+  for (; i + 4 <= n; i += 4)
+    _mm256_storeu_pd(out + i, _mm256_tanh_pd(_mm256_loadu_pd(a + i)));
+
+  for (; i < n; ++i)
+    out[i] = tanh(a[i]);
+}
+
+/* ===================================================================
    Vectorized sin/cos — float32 (Cephes algorithm)
 
    Range reduction to [-π/4, π/4], then polynomial approximation.
@@ -309,9 +360,9 @@ static inline __m256d _mm256_exp_pd(__m256d x) {
 
 static inline __m256 _mm256_sin_ps(__m256 x) {
   /* Cephes constants */
-  const __m256 minus_cephes_DP1 = _mm256_set1_ps(-0.78515625f);
-  const __m256 minus_cephes_DP2 = _mm256_set1_ps(-2.4187564849853515625e-4f);
-  const __m256 minus_cephes_DP3 = _mm256_set1_ps(-3.77489497744594108e-8f);
+  const __m256 minus_cephes_dp1 = _mm256_set1_ps(-0.78515625f);
+  const __m256 minus_cephes_dp2 = _mm256_set1_ps(-2.4187564849853515625e-4f);
+  const __m256 minus_cephes_dp3 = _mm256_set1_ps(-3.77489497744594108e-8f);
   const __m256 sincof_p0 = _mm256_set1_ps(-1.9515295891e-4f);
   const __m256 sincof_p1 = _mm256_set1_ps(8.3321608736e-3f);
   const __m256 sincof_p2 = _mm256_set1_ps(-1.6666654611e-1f);
@@ -345,9 +396,9 @@ static inline __m256 _mm256_sin_ps(__m256 x) {
       _mm256_and_si256(j, _mm256_set1_epi32(2)), _mm256_set1_epi32(2)));
 
   /* Extended-precision range reduction */
-  xa = _mm256_fmadd_ps(y, minus_cephes_DP1, xa);
-  xa = _mm256_fmadd_ps(y, minus_cephes_DP2, xa);
-  xa = _mm256_fmadd_ps(y, minus_cephes_DP3, xa);
+  xa = _mm256_fmadd_ps(y, minus_cephes_dp1, xa);
+  xa = _mm256_fmadd_ps(y, minus_cephes_dp2, xa);
+  xa = _mm256_fmadd_ps(y, minus_cephes_dp3, xa);
 
   __m256 z = _mm256_mul_ps(xa, xa);
 
@@ -375,9 +426,9 @@ static inline __m256 _mm256_sin_ps(__m256 x) {
 }
 
 static inline __m256 _mm256_cos_ps(__m256 x) {
-  const __m256 minus_cephes_DP1 = _mm256_set1_ps(-0.78515625f);
-  const __m256 minus_cephes_DP2 = _mm256_set1_ps(-2.4187564849853515625e-4f);
-  const __m256 minus_cephes_DP3 = _mm256_set1_ps(-3.77489497744594108e-8f);
+  const __m256 minus_cephes_dp1 = _mm256_set1_ps(-0.78515625f);
+  const __m256 minus_cephes_dp2 = _mm256_set1_ps(-2.4187564849853515625e-4f);
+  const __m256 minus_cephes_dp3 = _mm256_set1_ps(-3.77489497744594108e-8f);
   const __m256 sincof_p0 = _mm256_set1_ps(-1.9515295891e-4f);
   const __m256 sincof_p1 = _mm256_set1_ps(8.3321608736e-3f);
   const __m256 sincof_p2 = _mm256_set1_ps(-1.6666654611e-1f);
@@ -414,9 +465,9 @@ static inline __m256 _mm256_cos_ps(__m256 x) {
   __m256 poly_mask = _mm256_castsi256_ps(_mm256_cmpeq_epi32(
       _mm256_and_si256(j, _mm256_set1_epi32(2)), _mm256_set1_epi32(2)));
 
-  xa = _mm256_fmadd_ps(y, minus_cephes_DP1, xa);
-  xa = _mm256_fmadd_ps(y, minus_cephes_DP2, xa);
-  xa = _mm256_fmadd_ps(y, minus_cephes_DP3, xa);
+  xa = _mm256_fmadd_ps(y, minus_cephes_dp1, xa);
+  xa = _mm256_fmadd_ps(y, minus_cephes_dp2, xa);
+  xa = _mm256_fmadd_ps(y, minus_cephes_dp3, xa);
 
   __m256 z = _mm256_mul_ps(xa, xa);
 
@@ -441,9 +492,9 @@ static inline __m256 _mm256_cos_ps(__m256 x) {
 /* Combined sincos — computes sin and cos simultaneously, sharing
  * range reduction work. Returns sin in *s, cos in *c. */
 static inline void _mm256_sincos_ps(__m256 x, __m256 *s, __m256 *c) {
-  const __m256 minus_cephes_DP1 = _mm256_set1_ps(-0.78515625f);
-  const __m256 minus_cephes_DP2 = _mm256_set1_ps(-2.4187564849853515625e-4f);
-  const __m256 minus_cephes_DP3 = _mm256_set1_ps(-3.77489497744594108e-8f);
+  const __m256 minus_cephes_dp1 = _mm256_set1_ps(-0.78515625f);
+  const __m256 minus_cephes_dp2 = _mm256_set1_ps(-2.4187564849853515625e-4f);
+  const __m256 minus_cephes_dp3 = _mm256_set1_ps(-3.77489497744594108e-8f);
   const __m256 sincof_p0 = _mm256_set1_ps(-1.9515295891e-4f);
   const __m256 sincof_p1 = _mm256_set1_ps(8.3321608736e-3f);
   const __m256 sincof_p2 = _mm256_set1_ps(-1.6666654611e-1f);
@@ -478,9 +529,9 @@ static inline void _mm256_sincos_ps(__m256 x, __m256 *s, __m256 *c) {
   __m256 poly_mask = _mm256_castsi256_ps(_mm256_cmpeq_epi32(
       _mm256_and_si256(j, _mm256_set1_epi32(2)), _mm256_set1_epi32(2)));
 
-  xa = _mm256_fmadd_ps(y, minus_cephes_DP1, xa);
-  xa = _mm256_fmadd_ps(y, minus_cephes_DP2, xa);
-  xa = _mm256_fmadd_ps(y, minus_cephes_DP3, xa);
+  xa = _mm256_fmadd_ps(y, minus_cephes_dp1, xa);
+  xa = _mm256_fmadd_ps(y, minus_cephes_dp2, xa);
+  xa = _mm256_fmadd_ps(y, minus_cephes_dp3, xa);
 
   __m256 z = _mm256_mul_ps(xa, xa);
 

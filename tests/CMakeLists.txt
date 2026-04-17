@@ -10,7 +10,7 @@ macro(numc_test name src)
     endif()
 endmacro()
 
-# ── core ────────────────────────────────────────────────────────────────────
+# -- core --------------------------------------------------------------------
 numc_test(test_ctx              core/test_ctx.c)
 numc_test(test_checkpoint       core/test_checkpoint.c)
 numc_test(test_create           core/test_create.c)
@@ -27,7 +27,7 @@ numc_test(test_print            core/test_print.c)
 numc_test(test_error            core/test_error.c)
 numc_test(test_one_hot          core/test_one_hot.c)
 
-# ── elemwise ─────────────────────────────────────────────────────────────────
+# -- elemwise -----------------------------------------------------------------
 numc_test(test_add              elemwise/test_add.c)
 numc_test(test_sub              elemwise/test_sub.c)
 numc_test(test_mul              elemwise/test_mul.c)
@@ -44,8 +44,9 @@ numc_test(test_broadcast        elemwise/test_broadcast.c)
 numc_test(test_comparison       elemwise/test_comparison.c)
 numc_test(test_where            elemwise/test_where.c)
 numc_test(test_fma              elemwise/test_fma.c)
+numc_test(test_tanh             elemwise/test_tanh.c)
 
-# ── reduction ────────────────────────────────────────────────────────────────
+# -- reduction ----------------------------------------------------------------
 numc_test(test_sum              reduction/test_sum.c)
 numc_test(test_mean             reduction/test_mean.c)
 numc_test(test_max              reduction/test_max.c)
@@ -55,14 +56,14 @@ numc_test(test_argmin           reduction/test_argmin.c)
 numc_test(test_dot              reduction/test_dot.c)
 numc_test(test_dot_nd           reduction/test_dot_nd.c)
 
-# ── matmul ────────────────────────────────────────────────────────────────
+# -- matmul ----------------------------------------------------------------
 numc_test(test_matmul_naive     matmul/test_matmul_naive.c)
 numc_test(test_matmul           matmul/test_matmul.c)
 if(NOT WIN32)
     target_link_libraries(test_matmul PRIVATE m)
 endif()
 
-# ── random ────────────────────────────────────────────────────────────────
+# -- random ----------------------------------------------------------------
 numc_test(test_rand             random/test_rand.c)
 numc_test(test_randn            random/test_randn.c)
 numc_test(test_random_init      random/test_random_init.c)
