@@ -490,7 +490,7 @@ static inline void _sve_sincos_f32(svfloat32_t x, svfloat32_t *s,
    Uses identify: tanh(x) = 2 / (1 + exp(-2x)) -1
    ======================================================================*/
 
-static inline svfloat32_t _sve_tanh_f32(svfloat32_t x){
+static inline svfloat32_t _sve_tanh_f32(svfloat32_t x) {
   const svbool_t pg = svptrue_b32();
   const svfloat32_t vtwo = svdup_f32(2.0f);
   const svfloat32_t vone = svdup_f32(1.0f);
@@ -501,7 +501,7 @@ static inline svfloat32_t _sve_tanh_f32(svfloat32_t x){
 }
 
 
-static inline svfloat64_t _sve_tanh_f64(svfloat64_t x){
+static inline svfloat64_t _sve_tanh_f64(svfloat64_t x) {
   const svbool_t pg = svptrue_b64();
   const svfloat64_t vtwo = svdup_f64(2.0f);
   const svfloat64_t vone = svdup_f64(1.0f);
