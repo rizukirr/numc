@@ -1,5 +1,5 @@
 /**
- * @file helpers.h
+ * @file math_helpers.h
  * @brief Scalar math helpers for element-wise operations.
  *
  * Provides fdlibm-based log/exp, minimax sin/cos, and integer power

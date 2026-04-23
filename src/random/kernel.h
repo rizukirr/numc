@@ -9,7 +9,7 @@
 #define NUMC_RANDOM_KERNEL_H
 
 #include "internal.h"
-#include "helpers.h"
+#include "math_helpers.h"
 #include <numc/dtype.h>
 #include <stdbool.h>
 #include <stdint.h>

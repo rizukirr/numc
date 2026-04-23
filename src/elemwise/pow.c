@@ -1,5 +1,5 @@
 #include "dispatch.h"
-#include "helpers.h"
+#include "math_helpers.h"
 #include "numc/dtype.h"
 #include <numc/math.h>
 

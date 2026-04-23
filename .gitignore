@@ -26,4 +26,8 @@ external/
 *.core
 externals
 .omc/
+.omx/
+.codex
+.cache/
 /.no-vibe
+/data
