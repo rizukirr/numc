@@ -1,4 +1,5 @@
 #include "dispatch.h"
+#include "unary_dispatch.h"
 #include "math_helpers.h"
 #include <math.h>
 #include <numc/math.h>
@@ -472,76 +473,6 @@ DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, sqrtf(in1))
 /* float64: sqrt -> hardware vsqrtpd (auto-vectorized) */
 DEFINE_UNARY_KERNEL(sqrt, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, sqrt(in1))
 
-/* -- Stamp out tanh loop kernels --------------------------------------- */
-
-/* int8/int16/uint8/uint16: cast through float32 */
-#define STAMP_TANH_SMALL(TE, CT) \
-  DEFINE_UNARY_KERNEL(tanh, TE, CT, (CT)tanhf((float)in1))
-GENERATE_INT8_INT16_NUMC_TYPES(STAMP_TANH_SMALL)
-#undef STAMP_TANH_SMALL
-
-/* int32/uint32: cast through float64 */
-#define STAMP_TANH_I32(TE, CT) \
-  DEFINE_UNARY_KERNEL(tanh, TE, CT, (CT)tanh((double)in1))
-GENERATE_INT32_NUMC_TYPES(STAMP_TANH_I32)
-#undef STAMP_TANH_I32
-
-/* int64/uint64: cast through float64 */
-#define STAMP_TANH_I64(TE, CT) \
-  DEFINE_UNARY_KERNEL(tanh, TE, CT, (CT)tanh((double)in1))
-GENERATE_INT64_NUMC_TYPES(STAMP_TANH_I64)
-#undef STAMP_TANH_I64
-
-/* float32/float64 */
-#if NUMC_HAVE_AVX2
-static void _kern_tanh_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
-                                          intptr_t sa, intptr_t so) {
-  const intptr_t es = (intptr_t)sizeof(float);
-  if (sa == es && so == es) {
-    const float *pa = (const float *)a;
-    float *po = (float *)out;
-    size_t i = 0;
-    for (; i + 8 <= n; i += 8) {
-      __m256 va = _mm256_loadu_ps(pa + i);
-      _mm256_storeu_ps(po + i, _mm256_tanh_ps(va));
-    }
-    for (; i < n; i++)
-      po[i] = tanhf(pa[i]);
-  } else {
-    for (size_t i = 0; i < n; i++) {
-      float in1 = *(const float *)(a + i * sa);
-      *(float *)(out + i * so) = tanhf(in1);
-    }
-  }
-}
-
-static void _kern_tanh_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
-                                          intptr_t sa, intptr_t so) {
-  const intptr_t es = (intptr_t)sizeof(float);
-  if (sa == es && so == es) {
-    const double *pa = (const double *)a;
-    double *po = (double *)out;
-    size_t i = 0;
-    for (; i + 8 <= n; i += 8) {
-      __m256d va = _mm256_loadu_pd(pa + i);
-      _mm256_storeu_pd(po + i, _mm256_tanh_pd(va));
-    }
-    for (; i < n; i++)
-      po[i] = tanh(pa[i]);
-  } else {
-    for (size_t i = 0; i < n; i++) {
-      double in1 = *(const double *)(a + i * sa);
-      *(double *)(out + i * so) = tanh(in1);
-    }
-  }
-}
-
-
-#else
-DEFINE_UNARY_KERNEL(tanh, NUMC_DTYPE_FLOAT32, NUMC_FLOAT32, tanhf(in1))
-DEFINE_UNARY_KERNEL(tanh, NUMC_DTYPE_FLOAT64, NUMC_FLOAT64, tanh(in1))
-#endif
-
 /* -- Dispatch tables (dtype -> kernel) ------------------------------- */
 
 static const NumcUnaryKernel neg_table[] = {
@@ -563,20 +494,6 @@ static const NumcUnaryKernel abs_table[] = {
 
 #if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || \
     NUMC_HAVE_RVV
-
-typedef void (*FastUnKern)(const void *, void *, size_t);
-
-#if NUMC_HAVE_AVX512
-#define FUN(OP, SFX) (FastUnKern) _fast_##OP##_##SFX##_avx512
-#elif NUMC_HAVE_AVX2
-#define FUN(OP, SFX) (FastUnKern) _fast_##OP##_##SFX##_avx2
-#elif NUMC_HAVE_SVE
-#define FUN(OP, SFX) (FastUnKern) _fast_##OP##_##SFX##_sve
-#elif NUMC_HAVE_NEON
-#define FUN(OP, SFX) (FastUnKern) _fast_##OP##_##SFX##_neon
-#elif NUMC_HAVE_RVV
-#define FUN(OP, SFX) (FastUnKern) _fast_##OP##_##SFX##_rvv
-#endif
 
 static const FastUnKern neg_fast_table[] = {
     [NUMC_DTYPE_INT8] = FUN(neg, i8),     [NUMC_DTYPE_INT16] = FUN(neg, i16),
@@ -618,15 +535,6 @@ static const NumcUnaryKernel sqrt_table[] = {
     E(sqrt, NUMC_DTYPE_FLOAT32), E(sqrt, NUMC_DTYPE_FLOAT64),
 };
 
-static const NumcUnaryKernel tanh_table[] = {
-    E(tanh, NUMC_DTYPE_INT8),    E(tanh, NUMC_DTYPE_INT16),
-    E(tanh, NUMC_DTYPE_INT32),   E(tanh, NUMC_DTYPE_INT64),
-    E(tanh, NUMC_DTYPE_UINT8),   E(tanh, NUMC_DTYPE_UINT16),
-    E(tanh, NUMC_DTYPE_UINT32),  E(tanh, NUMC_DTYPE_UINT64),
-    E(tanh, NUMC_DTYPE_FLOAT32), E(tanh, NUMC_DTYPE_FLOAT64),
-};
-
-
 /* =======================================================================
  * Public API — Unary ops
  * ======================================================================= */
@@ -650,69 +558,6 @@ static inline bool _dtype_is_unsigned(NumcDType dt) {
 
 #if NUMC_HAVE_AVX512 || NUMC_HAVE_AVX2 || NUMC_HAVE_SVE || NUMC_HAVE_NEON || \
     NUMC_HAVE_RVV
-
-#define DEFINE_UNARY_SIMD(NAME, FAST_TABLE, FALLBACK_TABLE)                    \
-  int numc_##NAME(NumcArray *a, NumcArray *out) {                              \
-    int err = _check_unary(a, out);                                            \
-    if (err)                                                                   \
-      return err;                                                              \
-    if (a->is_contiguous && out->is_contiguous) {                              \
-      FastUnKern kern = FAST_TABLE[a->dtype];                                  \
-      if (kern) {                                                              \
-        size_t n = a->size, es = a->elem_size, total = n * es;                 \
-        int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);                     \
-        NUMC_OMP_CAP_THREADS(nt);                                              \
-        if (nt >= 2) {                                                         \
-          size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;                    \
-          NUMC_PRAGMA(                                             \
-              omp parallel for schedule(static) num_threads(nt))               \
-          for (int t = 0; t < nt; t++) {                                       \
-            size_t s = (size_t)t * chunk;                                      \
-            size_t e = s + chunk;                                              \
-            if (e > n)                                                         \
-              e = n;                                                           \
-            if (s < n)                                                         \
-              kern((const char *)a->data + s * es, (char *)out->data + s * es, \
-                   e - s);                                                     \
-          }                                                                    \
-        } else {                                                               \
-          kern(a->data, out->data, n);                                         \
-        }                                                                      \
-        return 0;                                                              \
-      }                                                                        \
-    }                                                                          \
-    return _unary_op(a, out, FALLBACK_TABLE);                                  \
-  }                                                                            \
-  int numc_##NAME##_inplace(NumcArray *a) {                                    \
-    if (!a)                                                                    \
-      return NUMC_ERR_NULL;                                                    \
-    if (a->is_contiguous) {                                                    \
-      FastUnKern kern = FAST_TABLE[a->dtype];                                  \
-      if (kern) {                                                              \
-        size_t n = a->size, es = a->elem_size, total = n * es;                 \
-        int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);                     \
-        NUMC_OMP_CAP_THREADS(nt);                                              \
-        if (nt >= 2) {                                                         \
-          size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;                    \
-          NUMC_PRAGMA(                                             \
-              omp parallel for schedule(static) num_threads(nt))               \
-          for (int t = 0; t < nt; t++) {                                       \
-            size_t s = (size_t)t * chunk;                                      \
-            size_t e = s + chunk;                                              \
-            if (e > n)                                                         \
-              e = n;                                                           \
-            if (s < n)                                                         \
-              kern((const char *)a->data + s * es, (char *)a->data + s * es,   \
-                   e - s);                                                     \
-          }                                                                    \
-        } else {                                                               \
-          kern(a->data, a->data, n);                                           \
-        }                                                                      \
-        return 0;                                                              \
-      }                                                                        \
-    }                                                                          \
-    return _unary_op_inplace(a, FALLBACK_TABLE);                               \
-  }
 
 DEFINE_UNARY_SIMD(neg, neg_fast_table, neg_table)
 
@@ -783,20 +628,9 @@ int numc_abs_inplace(NumcArray *a) {
   return _unary_op_inplace(a, abs_table);
 }
 
-static const FastUnKern tanh_fast_table[] = {
-    [NUMC_DTYPE_FLOAT32] = FUN(tanh, f32),
-    [NUMC_DTYPE_FLOAT64] = FUN(tanh, f64),
-};
-DEFINE_UNARY_SIMD(tanh, tanh_fast_table, tanh_table)
-
-#undef FUN
-
-#undef DEFINE_UNARY_SIMD
-
 #else /* No SIMD available */
 
 DEFINE_ELEMWISE_UNARY(neg, neg_table)
-DEFINE_ELEMWISE_UNARY(tanh, tanh_table)
 
 int numc_abs(NumcArray *a, NumcArray *out) {
   int err = _check_unary(a, out);

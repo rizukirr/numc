@@ -7,6 +7,7 @@ set(NUMC_CORE_SOURCES
     elemwise/compare.c
     elemwise/select.c
     elemwise/unary.c
+    elemwise/unary_activation.c
     elemwise/clip.c
     reduction/sum.c
     reduction/mean.c
