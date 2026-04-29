@@ -55,7 +55,8 @@ static void _kern_pow_NUMC_DTYPE_FLOAT32(const char *a, const char *b,
     for (; i + 16 <= n; i += 16) {
       __m512 va = _mm512_loadu_ps(pa + i);
       __m512 vb = _mm512_loadu_ps(pb + i);
-      _mm512_storeu_ps(po + i, _mm512_exp_ps(_mm512_mul_ps(vb, _mm512_log_ps(va))));
+      _mm512_storeu_ps(po + i,
+                       _mm512_exp_ps(_mm512_mul_ps(vb, _mm512_log_ps(va))));
     }
     for (; i < n; i++)
       po[i] = powf(pa[i], pb[i]);
@@ -80,7 +81,8 @@ static void _kern_pow_NUMC_DTYPE_FLOAT64(const char *a, const char *b,
     for (; i + 8 <= n; i += 8) {
       __m512d va = _mm512_loadu_pd(pa + i);
       __m512d vb = _mm512_loadu_pd(pb + i);
-      _mm512_storeu_pd(po + i, _mm512_exp_pd(_mm512_mul_pd(vb, _mm512_log_pd(va))));
+      _mm512_storeu_pd(po + i,
+                       _mm512_exp_pd(_mm512_mul_pd(vb, _mm512_log_pd(va))));
     }
     for (; i < n; i++)
       po[i] = pow(pa[i], pb[i]);
