@@ -31,3 +31,4 @@ externals
 .cache/
 /.no-vibe
 /data
+docs/specs/
