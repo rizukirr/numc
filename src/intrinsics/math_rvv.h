@@ -9,6 +9,7 @@
 #ifndef NUMC_MATH_RVV_H
 #define NUMC_MATH_RVV_H
 
+#include "math_helpers.h"
 #include <riscv_vector.h>
 
 /* ===================================================================
@@ -98,7 +99,7 @@ static inline vfloat32m4_t _rvv_exp_f32(vfloat32m4_t x, size_t vl) {
   vfloat32m4_t x_orig = x;
 
   /* Clamp */
-  x = __riscv_vfmax_vf_f32m4(x, -103.972076f, vl);
+  x = __riscv_vfmax_vf_f32m4(x, -87.33654475f, vl);
   x = __riscv_vfmin_vf_f32m4(x, 88.3762626647949f, vl);
 
   /* n = round(x * log2e) */
@@ -128,10 +129,10 @@ static inline vfloat32m4_t _rvv_exp_f32(vfloat32m4_t x, size_t vl) {
 
   vfloat32m4_t result = __riscv_vreinterpret_v_i32m4_f32m4(result_i);
 
-  /* Underflow: x < -103.972076 → 0, Overflow: x > 88.376 → +inf */
+  /* Underflow: x < -87.33654475 -> 0, Overflow: x > 88.376 -> +inf */
   vfloat32m4_t zero = __riscv_vfmv_v_f_f32m4(0.0f, vl);
   vfloat32m4_t inf = __riscv_vfmv_v_f_f32m4(1.0f / 0.0f, vl);
-  vbool8_t underflow = __riscv_vmflt_vf_f32m4_b8(x_orig, -103.972076f, vl);
+  vbool8_t underflow = __riscv_vmflt_vf_f32m4_b8(x_orig, -87.33654475f, vl);
   vbool8_t overflow = __riscv_vmfgt_vf_f32m4_b8(x_orig, 88.3762626647949f, vl);
   result = __riscv_vmerge_vvm_f32m4(result, zero, underflow, vl);
   result = __riscv_vmerge_vvm_f32m4(result, inf, overflow, vl);
@@ -231,7 +232,7 @@ static inline vfloat64m4_t _rvv_exp_f64(vfloat64m4_t x, size_t vl) {
   vfloat64m4_t x_orig = x;
 
   /* Clamp */
-  x = __riscv_vfmax_vf_f64m4(x, -745.133219101941217, vl);
+  x = __riscv_vfmax_vf_f64m4(x, -708.3964185322641, vl);
   x = __riscv_vfmin_vf_f64m4(x, 709.782712893383996843, vl);
 
   /* n = round(x * log2e) */
@@ -267,11 +268,11 @@ static inline vfloat64m4_t _rvv_exp_f64(vfloat64m4_t x, size_t vl) {
 
   vfloat64m4_t result = __riscv_vreinterpret_v_i64m4_f64m4(result_i);
 
-  /* Underflow: x < -745.13 → 0, Overflow: x > 709.78 → +inf */
+  /* Underflow: x < -708.3964185322641 -> 0, Overflow: x > 709.78 -> +inf */
   vfloat64m4_t zero = __riscv_vfmv_v_f_f64m4(0.0, vl);
   vfloat64m4_t inf = __riscv_vfmv_v_f_f64m4(1.0 / 0.0, vl);
   vbool16_t underflow =
-      __riscv_vmflt_vf_f64m4_b16(x_orig, -745.133219101941217, vl);
+      __riscv_vmflt_vf_f64m4_b16(x_orig, -708.3964185322641, vl);
   vbool16_t overflow =
       __riscv_vmfgt_vf_f64m4_b16(x_orig, 709.782712893383996843, vl);
   result = __riscv_vmerge_vvm_f64m4(result, zero, underflow, vl);
@@ -505,6 +506,80 @@ static inline void _fast_tanh_f64_rvv(const void *restrict ap,
     vl = __riscv_vsetvl_e64m4(n - i);
     vfloat64m4_t va = __riscv_vle64_v_f64m4(a + i, vl);
     __riscv_vse64_v_f64m4(out + i, _rvv_tanh_f64(va, vl), vl);
+  }
+}
+
+static inline vfloat32m4_t _rvv_sigmoid_f32(vfloat32m4_t x, size_t vl) {
+  const vfloat32m4_t zero = __riscv_vfmv_v_f_f32m4(0.0f, vl);
+  const vfloat32m4_t one = __riscv_vfmv_v_f_f32m4(1.0f, vl);
+  vbool8_t pos = __riscv_vmfge_vv_f32m4_b8(x, zero, vl);
+  vfloat32m4_t z_pos = _rvv_exp_f32(__riscv_vfneg_v_f32m4(x, vl), vl);
+  vfloat32m4_t y_pos =
+      __riscv_vfdiv_vv_f32m4(one, __riscv_vfadd_vv_f32m4(one, z_pos, vl), vl);
+  vfloat32m4_t z_neg = _rvv_exp_f32(x, vl);
+  vfloat32m4_t y_neg =
+      __riscv_vfdiv_vv_f32m4(z_neg, __riscv_vfadd_vv_f32m4(one, z_neg, vl), vl);
+  return __riscv_vmerge_vvm_f32m4(y_neg, y_pos, pos, vl);
+}
+
+static inline vfloat64m4_t _rvv_sigmoid_f64(vfloat64m4_t x, size_t vl) {
+  const vfloat64m4_t zero = __riscv_vfmv_v_f_f64m4(0.0, vl);
+  const vfloat64m4_t one = __riscv_vfmv_v_f_f64m4(1.0, vl);
+  vbool16_t pos = __riscv_vmfge_vv_f64m4_b16(x, zero, vl);
+  vfloat64m4_t z_pos = _rvv_exp_f64(__riscv_vfneg_v_f64m4(x, vl), vl);
+  vfloat64m4_t y_pos =
+      __riscv_vfdiv_vv_f64m4(one, __riscv_vfadd_vv_f64m4(one, z_pos, vl), vl);
+  vfloat64m4_t z_neg = _rvv_exp_f64(x, vl);
+  vfloat64m4_t y_neg =
+      __riscv_vfdiv_vv_f64m4(z_neg, __riscv_vfadd_vv_f64m4(one, z_neg, vl), vl);
+  return __riscv_vmerge_vvm_f64m4(y_neg, y_pos, pos, vl);
+}
+
+static inline void _sigmoid_f32_rvv(const float x, float *out) {
+  float z = 0.0f;
+  if (x >= 0.0f) {
+    z = _exp_f32(-x);
+    *out = 1.0f / (1.0f + z);
+  } else {
+    z = _exp_f32(x);
+    *out = z / (1.0f + z);
+  }
+}
+
+static inline void _sigmoid_f64_rvv(const double x, double *out) {
+  double z = 0.0;
+  if (x >= 0.0) {
+    z = _exp_f64(-x);
+    *out = 1.0 / (1.0 + z);
+  } else {
+    z = _exp_f64(x);
+    *out = z / (1.0 + z);
+  }
+}
+
+static inline void _fast_sigmoid_f32_rvv(const void *restrict ap,
+                                         void *restrict op, size_t n) {
+  const float *a = (const float *)ap;
+  float *out = (float *)op;
+  size_t i = 0;
+  while (i < n) {
+    size_t vl = __riscv_vsetvl_e32m4(n - i);
+    vfloat32m4_t x = __riscv_vle32_v_f32m4(a + i, vl);
+    __riscv_vse32_v_f32m4(out + i, _rvv_sigmoid_f32(x, vl), vl);
+    i += vl;
+  }
+}
+
+static inline void _fast_sigmoid_f64_rvv(const void *restrict ap,
+                                         void *restrict op, size_t n) {
+  const double *a = (const double *)ap;
+  double *out = (double *)op;
+  size_t i = 0;
+  while (i < n) {
+    size_t vl = __riscv_vsetvl_e64m4(n - i);
+    vfloat64m4_t x = __riscv_vle64_v_f64m4(a + i, vl);
+    __riscv_vse64_v_f64m4(out + i, _rvv_sigmoid_f64(x, vl), vl);
+    i += vl;
   }
 }
 

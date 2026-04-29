@@ -535,4 +535,84 @@ static inline void _fast_tanh_f64_sve(const void *restrict ap,
   }
 }
 
+static inline svfloat32_t _sve_sigmoid_f32(svfloat32_t x, svbool_t pg){
+  const svfloat32_t zero = svdup_f32(0.0f);
+  const svfloat32_t one = svdup_f32(1.0f);
+
+  svbool pos = svcmpge_f32(pg, x, zero);
+  svfloat32_t z_pos = _sve_exp_f32(svneg_f32_m(pg, x), pg);
+  svfloat32_t y_pos = _svdiv_f32_m(pg, one, svadd_f32_m(pg, one, z_pos));
+  svfloat32_t z_neg = _sve_exp_f32(x, pg);
+  svfloat32_t y_neg = svdiv_f32_m(pg, z_neg, svadd_f32_m(pg, one, z_neg));
+
+  return svsel_f32(pos, y_pos, y_neg);
+}
+
+static inline svfloat64_t _sve_sigmoid_f64(svfloat64_t x, svbool_t pg){
+  const svfloat64_t zero = svdup_f64(0.0);
+  const svfloat64_t one = svdup_f64(1.0);
+
+  svbool_t pos = svcmpge_f64(pg, x, zero);
+  svfloat64_t z_pos = _sve_exp_f64(svneg_f64(pg, x), pg);
+  svfloat64_t y_pos = svdiv_f64_m(pg, one, svadd_f64_m(pg, one, z_pos));
+  svfloat64_t z_neg = _sve_exp_f64(x, pg);
+  svfloat64_t y_neg = svdiv_f64_m(pg, z_neg, svadd_f64_m(pg, one, z_neg));
+
+  return svsel_f64(pos, y_pos, y_neg);
+}
+
+static inline void _sigmoid_f32_sve(const float x, float *out){
+  float z = 0.0f;
+  if(x >= 0.0f){
+    z = _exp_f32(-x);
+    *out = 1.0f / (1.0f + z);
+  } else {
+    z = _exp_f32(x);
+    *out = z / (1.0f + z);
+  }
+}
+
+static inline void _sigmoid_f64_sve(const double x, double *out) {
+  double z = 0.0f;
+  if(x >= 0.0){
+    z = _exp_f64(-x);
+    *out = 1.0 / (1.0 + z);
+  }else {
+    z = _exp_f64(x);
+    *out = z / (1.0 + z);
+  }
+}
+
+static inline void _fast_sigmoid_f32_sve(const void *restrict ap,
+                                        void *restrict op, size_t n) {
+  const float *a = (const float *)ap;
+  float *out = (float *)op;
+
+  size_t i = 0;
+  const size_t vl = svcntw();
+  for(; i + vl <= n; i += vl){
+    svbool_t pg = svptrue_b32();
+    svst1_f32(pg, out + i, _sve_sigmoid_f32(svld1_f32(pg, a + i), pg));
+  }
+
+  for(; i < n; ++i)
+    _sigmoid_f32_sve(a[i], out + i);
+}
+
+static inline void _fast_sigmoid_f64_sve(const void *restrict ap,
+                                        void *restrict op, size_t n){
+  const double *a = (const double *)ap;
+  double *out = (double *)op;
+
+  size_t i = 0;
+  const size_t vl = svcntd();
+  for(; i + vl <= n; i += vl){
+    svbool_t pg = svtrue_b64();
+    svst1_f64(pg, out + i, _sve_sigmoid_f64(svld1_f64(pg, a + i), pg)):
+  }
+
+  for(; i < n; ++i)
+    _sigmoid_f64_sve(a[i], out + i);
+}
+
 #endif /* NUMC_MATH_SVE_H */

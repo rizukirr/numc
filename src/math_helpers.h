@@ -142,7 +142,7 @@ static inline float _exp_f32(float x) {
   /* Step 0: clamp */
   if (x > 88.3762626647949f)
     return 1.0f / 0.0f; /* +inf */
-  if (x < -103.972076f)
+  if (x < -87.33654475f)
     return 0.0f;
 
   /* Step 1: argument reduction */
@@ -199,7 +199,7 @@ static inline double _exp_f64(double x) {
   /* Step 0: clamp */
   if (x > 709.782712893383996843)
     return 1.0 / 0.0; /* +inf */
-  if (x < -745.133219101941217)
+  if (x < -708.3964185322641)
     return 0.0;
 
   /* Step 1: argument reduction */

@@ -4,7 +4,9 @@
 #include <numc/math.h>
 
 #include "arch_dispatch.h"
-#if NUMC_HAVE_AVX2
+#if NUMC_HAVE_AVX512
+#include "intrinsics/math_avx512.h"
+#elif NUMC_HAVE_AVX2
 #include "intrinsics/math_avx2.h"
 #elif NUMC_HAVE_SVE
 #include "intrinsics/math_sve.h"
@@ -40,7 +42,57 @@ DEFINE_BINARY_KERNEL_NOSIMD(pow, NUMC_DTYPE_UINT64, NUMC_UINT64,
                                                         (NUMC_UINT64)in2))
 
 /* float32/float64: SIMD exp(in2 * log(in1)) on AVX2, scalar fallback */
-#if NUMC_HAVE_AVX2
+#if NUMC_HAVE_AVX512
+static void _kern_pow_NUMC_DTYPE_FLOAT32(const char *a, const char *b,
+                                         char *out, size_t n, intptr_t sa,
+                                         intptr_t sb, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(float);
+  if (sa == es && sb == es && so == es) {
+    const float *pa = (const float *)a;
+    const float *pb = (const float *)b;
+    float *po = (float *)out;
+    size_t i = 0;
+    for (; i + 16 <= n; i += 16) {
+      __m512 va = _mm512_loadu_ps(pa + i);
+      __m512 vb = _mm512_loadu_ps(pb + i);
+      _mm512_storeu_ps(po + i, _mm512_exp_ps(_mm512_mul_ps(vb, _mm512_log_ps(va))));
+    }
+    for (; i < n; i++)
+      po[i] = powf(pa[i], pb[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      float in1 = *(const float *)(a + i * sa);
+      float in2 = *(const float *)(b + i * sb);
+      *(float *)(out + i * so) = powf(in1, in2);
+    }
+  }
+}
+
+static void _kern_pow_NUMC_DTYPE_FLOAT64(const char *a, const char *b,
+                                         char *out, size_t n, intptr_t sa,
+                                         intptr_t sb, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(double);
+  if (sa == es && sb == es && so == es) {
+    const double *pa = (const double *)a;
+    const double *pb = (const double *)b;
+    double *po = (double *)out;
+    size_t i = 0;
+    for (; i + 8 <= n; i += 8) {
+      __m512d va = _mm512_loadu_pd(pa + i);
+      __m512d vb = _mm512_loadu_pd(pb + i);
+      _mm512_storeu_pd(po + i, _mm512_exp_pd(_mm512_mul_pd(vb, _mm512_log_pd(va))));
+    }
+    for (; i < n; i++)
+      po[i] = pow(pa[i], pb[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      double in1 = *(const double *)(a + i * sa);
+      double in2 = *(const double *)(b + i * sb);
+      *(double *)(out + i * so) = pow(in1, in2);
+    }
+  }
+}
+#elif NUMC_HAVE_AVX2
 static void _kern_pow_NUMC_DTYPE_FLOAT32(const char *a, const char *b,
                                          char *out, size_t n, intptr_t sa,
                                          intptr_t sb, intptr_t so) {

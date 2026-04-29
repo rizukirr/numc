@@ -11,6 +11,7 @@
 
 #include <immintrin.h>
 #include <math.h>
+#include "math_helpers.h"
 
 /* ===================================================================
    Vectorized log — float32 (fdlibm algorithm, same as _log_f32)
@@ -100,7 +101,7 @@ static inline __m256 _mm256_exp_ps(__m256 x) {
 
   /* Clamp to avoid overflow/underflow */
   const __m256 exp_hi = _mm256_set1_ps(88.3762626647949f);
-  const __m256 exp_lo = _mm256_set1_ps(-103.972076f);
+  const __m256 exp_lo = _mm256_set1_ps(-87.33654475f);
 
   /* Save original for underflow/overflow masking */
   const __m256 x_orig = x;
@@ -246,7 +247,7 @@ static inline __m256d _mm256_exp_pd(__m256d x) {
   const __m256d one = _mm256_set1_pd(1.0);
 
   /* Clamp */
-  const __m256d exp_lo = _mm256_set1_pd(-745.133219101941217);
+  const __m256d exp_lo = _mm256_set1_pd(-708.3964185322641);
   const __m256d exp_hi = _mm256_set1_pd(709.782712893383996843);
 
   /* Save original for underflow/overflow masking */
@@ -349,6 +350,81 @@ static inline void _fast_tanh_f64_avx2(const void *restrict ap,
 
   for (; i < n; ++i)
     out[i] = tanh(a[i]);
+}
+
+/* ===================================================================
+   Vectorize sigmoid — float32
+   ===================================================================*/
+
+static inline __m256 _mm256_sigmoid_ps(__m256 x) {
+  const __m256 zero = _mm256_setzero_ps();
+  const __m256 one = _mm256_set1_ps(1.0f);
+
+  __m256 pos_mask = _mm256_cmp_ps(x, zero, _CMP_GE_OS);
+  // exp(0 + x)
+  __m256 z_pos = _mm256_exp_ps(_mm256_sub_ps(zero, x));
+  // 1 / (1 + exp(0 + x))
+  __m256 y_pos = _mm256_div_ps(one, _mm256_add_ps(one, z_pos));
+
+  __m256 z_neg = _mm256_exp_ps(x);
+  __m256 y_neg = _mm256_div_ps(z_neg, _mm256_add_ps(one, z_neg));
+
+  return _mm256_blendv_ps(y_neg, y_pos, pos_mask);
+}
+
+static inline __m256d _mm256_sigmoid_pd(__m256d x) {
+  const __m256d zero = _mm256_setzero_pd();
+  const __m256d one = _mm256_set1_pd(1.0);
+
+  __m256d pos_mask = _mm256_cmp_pd(x, zero, _CMP_GE_OS);
+
+  __m256d z_pos = _mm256_exp_pd(_mm256_sub_pd(zero, x));
+  __m256d y_pos = _mm256_div_pd(one, _mm256_add_pd(one, z_pos));
+
+  __m256d z_neg = _mm256_exp_pd(x);
+  __m256d y_neg = _mm256_div_pd(z_neg, _mm256_add_pd(one, z_neg));
+
+  return _mm256_blendv_pd(y_neg, y_pos, pos_mask);
+}
+
+static inline void _fast_sigmoid_f32_avx2(const void *restrict ap,
+                                          void *restrict op, size_t n) {
+  const float *a = (const float *)ap;
+  float *out = (float *)op, z = 0.0f;
+
+  size_t i = 0;
+  for (; i + 8 <= n; i += 8)
+    _mm256_storeu_ps(out + i, _mm256_sigmoid_ps(_mm256_loadu_ps(a + i)));
+
+  for (; i < n; ++i) {
+    if (a[i] >= 0.0f) {
+      z = _exp_f32(-a[i]);
+      out[i] = 1.0f / (1.0f + z);
+    } else {
+      z = _exp_f32(a[i]);
+      out[i] = z / (1.0f + z);
+    }
+  }
+}
+
+static inline void _fast_sigmoid_f64_avx2(const void *restrict ap,
+                                          void *restrict op, size_t n) {
+  const double *a = (const double *)ap;
+  double *out = (double *)op, z = 0.0;
+
+  size_t i = 0;
+  for (; i + 4 <= n; i += 4)
+    _mm256_storeu_pd(out + i, _mm256_sigmoid_pd(_mm256_loadu_pd(a + i)));
+
+  for (; i < n; ++i) {
+    if (a[i] >= 0.0) {
+      z = _exp_f64(-a[i]);
+      out[i] = 1.0 / (1.0 + z);
+    } else {
+      z = _exp_f64(a[i]);
+      out[i] = z / (1.0 + z);
+    }
+  }
 }
 
 /* ===================================================================

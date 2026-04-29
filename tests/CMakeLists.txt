@@ -45,6 +45,7 @@ numc_test(test_comparison       elemwise/test_comparison.c)
 numc_test(test_where            elemwise/test_where.c)
 numc_test(test_fma              elemwise/test_fma.c)
 numc_test(test_tanh             elemwise/test_tanh.c)
+numc_test(test_sigmoid          elemwise/test_sigmoid.c)
 
 # -- reduction ----------------------------------------------------------------
 numc_test(test_sum              reduction/test_sum.c)

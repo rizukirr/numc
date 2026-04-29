@@ -8,7 +8,7 @@
 #if NUMC_HAVE_AVX512
 #include "intrinsics/elemwise_avx2.h"
 #include "intrinsics/elemwise_avx512.h"
-#include "intrinsics/math_avx2.h"
+#include "intrinsics/math_avx512.h"
 #elif NUMC_HAVE_AVX2
 #include "intrinsics/elemwise_avx2.h"
 #include "intrinsics/math_avx2.h"
@@ -68,7 +68,45 @@ DEFINE_UNARY_KERNEL_NOSIMD(log, NUMC_DTYPE_UINT64, NUMC_UINT64,
                            (NUMC_UINT64)_log_f64((double)in1))
 
 /* float types: SIMD fast path on AVX2, scalar fallback otherwise */
-#if NUMC_HAVE_AVX2
+#if NUMC_HAVE_AVX512
+static void _kern_log_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(float);
+  if (sa == es && so == es) {
+    const float *pa = (const float *)a;
+    float *po = (float *)out;
+    size_t i = 0;
+    for (; i + 16 <= n; i += 16)
+      _mm512_storeu_ps(po + i, _mm512_log_ps(_mm512_loadu_ps(pa + i)));
+    for (; i < n; i++)
+      po[i] = _log_f32(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      float in1 = *(const float *)(a + i * sa);
+      *(float *)(out + i * so) = _log_f32(in1);
+    }
+  }
+}
+
+static void _kern_log_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(double);
+  if (sa == es && so == es) {
+    const double *pa = (const double *)a;
+    double *po = (double *)out;
+    size_t i = 0;
+    for (; i + 8 <= n; i += 8)
+      _mm512_storeu_pd(po + i, _mm512_log_pd(_mm512_loadu_pd(pa + i)));
+    for (; i < n; i++)
+      po[i] = _log_f64(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      double in1 = *(const double *)(a + i * sa);
+      *(double *)(out + i * so) = _log_f64(in1);
+    }
+  }
+}
+#elif NUMC_HAVE_AVX2
 static void _kern_log_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
                                          intptr_t sa, intptr_t so) {
   const intptr_t es = (intptr_t)sizeof(float);
@@ -262,7 +300,45 @@ DEFINE_UNARY_KERNEL_NOSIMD(exp, NUMC_DTYPE_UINT64, NUMC_UINT64,
                            (NUMC_UINT64)_exp_f64((double)in1))
 
 /* float32/float64: SIMD fast path on AVX2, scalar fallback */
-#if NUMC_HAVE_AVX2
+#if NUMC_HAVE_AVX512
+static void _kern_exp_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(float);
+  if (sa == es && so == es) {
+    const float *pa = (const float *)a;
+    float *po = (float *)out;
+    size_t i = 0;
+    for (; i + 16 <= n; i += 16)
+      _mm512_storeu_ps(po + i, _mm512_exp_ps(_mm512_loadu_ps(pa + i)));
+    for (; i < n; i++)
+      po[i] = _exp_f32(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      float in1 = *(const float *)(a + i * sa);
+      *(float *)(out + i * so) = _exp_f32(in1);
+    }
+  }
+}
+
+static void _kern_exp_NUMC_DTYPE_FLOAT64(const char *a, char *out, size_t n,
+                                         intptr_t sa, intptr_t so) {
+  const intptr_t es = (intptr_t)sizeof(double);
+  if (sa == es && so == es) {
+    const double *pa = (const double *)a;
+    double *po = (double *)out;
+    size_t i = 0;
+    for (; i + 8 <= n; i += 8)
+      _mm512_storeu_pd(po + i, _mm512_exp_pd(_mm512_loadu_pd(pa + i)));
+    for (; i < n; i++)
+      po[i] = _exp_f64(pa[i]);
+  } else {
+    for (size_t i = 0; i < n; i++) {
+      double in1 = *(const double *)(a + i * sa);
+      *(double *)(out + i * so) = _exp_f64(in1);
+    }
+  }
+}
+#elif NUMC_HAVE_AVX2
 static void _kern_exp_NUMC_DTYPE_FLOAT32(const char *a, char *out, size_t n,
                                          intptr_t sa, intptr_t so) {
   const intptr_t es = (intptr_t)sizeof(float);

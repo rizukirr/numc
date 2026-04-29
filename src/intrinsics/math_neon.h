@@ -10,6 +10,7 @@
 
 #include <arm_neon.h>
 #include <math.h>
+#include "math_helpers.h"
 
 /* ===================================================================
    Vectorized log — float32 (4-wide, fdlibm algorithm)
@@ -95,7 +96,7 @@ static inline float32x4_t _neon_exp_f32(float32x4_t x) {
 
   /* Clamp */
   const float32x4_t exp_hi = vdupq_n_f32(88.3762626647949f);
-  const float32x4_t exp_lo = vdupq_n_f32(-103.972076f);
+  const float32x4_t exp_lo = vdupq_n_f32(-87.33654475f);
   x = vmaxq_f32(x, exp_lo);
   x = vminq_f32(x, exp_hi);
 
@@ -227,7 +228,7 @@ static inline float64x2_t _neon_exp_f64(float64x2_t x) {
   const float64x2_t one = vdupq_n_f64(1.0);
 
   /* Save original for underflow/overflow masking */
-  const float64x2_t exp_lo = vdupq_n_f64(-745.133219101941217);
+  const float64x2_t exp_lo = vdupq_n_f64(-708.3964185322641);
   const float64x2_t exp_hi = vdupq_n_f64(709.782712893383996843);
   const float64x2_t x_orig = x;
 
@@ -521,5 +522,87 @@ static inline void _fast_tanh_f64_neon(const void *restrict ap,
   for (; i < n; ++i)
     out[i] = tanh(a[i]);
 }
+
+/* ========================================================================
+   Vectorize sigmoid - float32/float64
+   Uses stable brances:
+   x >= 0: 1 / (1 + exp(-x))
+   x < 0: exp(x) / (1 + exp(x))
+   =======================================================================*/
+
+static inline float32x4_t _neon_sigmoid_f32(float32x4_t x) {
+  const float32x4_t zero = vdupq_n_f32(0.0f);
+  const float32x4_t one = vdupq_n_f32(1.0f);
+
+  uint32x4_t pos = vcgeq_f32(x, zero);
+  float32x4_t z_pos = _neon_exp_f32(vnegq_f32(x));
+  float32x4_t y_pos = vdivq_f32(one, vaddq_f32(one, z_pos));
+  float32x4_t z_neg = _neon_exp_f32(x);
+  float32x4_t y_neg = vdivq_f32(z_neg, vaddq_f32(one, z_neg));
+
+  return vbslq_f32(pos, y_pos, y_neg);
+}
+
+static inline float64x2_t _neon_sigmoid_f64(float64x2_t x) {
+  const float64x2_t zero = vdupq_n_f64(0.0);
+  const float64x2_t one = vdupq_n_f64(1.0);
+
+  uint64x2_t pos = vcgeq_f64(x, zero);
+  float64x2_t z_pos = _neon_exp_f64(vnegq_f64(x));
+  float64x2_t y_pos = vdivq_f64(one, vaddq_f64(one, z_pos));
+  float64x2_t z_neg = _neon_exp_f64(x);
+  float64x2_t y_neg = vdivq_f64(z_neg, vaddq_f64(one, z_neg));
+
+  return vbslq_f64(pos, y_pos, y_neg);
+}
+
+static inline void _sigmoid_f32_neon(const float x, float *out) {
+  float z = 0.0f;
+  if (x >= 0) {
+    z = _exp_f32(-x);
+    *out = 1.0f / (1.0f + z);
+  } else {
+    z = _exp_f32(x);
+    *out = z / (1.0 + z);
+  }
+}
+
+static inline void _sigmoid_f64_neon(const double x, double *out) {
+  double z = 0.0;
+  if (x >= 0) {
+    z = _exp_f64(-x);
+    *out = 1.0 / (1.0 + z);
+  } else {
+    z = _exp_f64(x);
+    *out = z / (1.0 + z);
+  }
+}
+
+static inline void _fast_sigmoid_f32_neon(const void *restrict ap,
+                                          void *restrict op, size_t n) {
+  const float *a = (const float *)ap;
+  float *out = (float *)op;
+
+  size_t i = 0;
+  for (; i + 4 <= n; i += 4)
+    vst1q_f32(out + i, _neon_sigmoid_f32(vld1q_f32(a + i)));
+
+  for (; i < n; ++i)
+    _sigmoid_f32_neon(a[i], out + i);
+}
+
+static inline void _fast_sigmoid_f64_neon(const void *restrict ap,
+                                          void *restrict op, size_t n) {
+  const double *a = (const double *)ap;
+  double *out = (double *)op;
+
+  size_t i = 0;
+  for (; i + 2 <= n; i += 2)
+    vst1q_f64(out + i, _neon_sigmoid_f64(vld1q_f64(a + i)));
+
+  for (; i < n; ++i)
+    _sigmoid_f64_neon(a[i], out + i);
+}
+
 
 #endif /* NUMC_MATH_NEON_H */
