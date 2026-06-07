@@ -18,8 +18,8 @@ and embedding-based models.
 
 | Operation | Signature | Notes |
 |---|---|---|
-| [x] `numc_tanh` | `(a, out)` + inplace | Implemented (Path A): scalar-first + full 10-dtype coverage + inplace. Path B SIMD fast paths still pending. |
-| `numc_sigmoid` | `(a, out)` + inplace | Logistic function `1/(1+exp(-x))`. Binary classification, gates. Fused implementation avoids overflow. |
+| ~~`numc_tanh`~~ | `(a, out)` + inplace | Implemented (Path A): scalar-first + full 10-dtype coverage + inplace. Path B SIMD fast paths still pending. |
+| ~~`numc_sigmoid`~~ | `(a, out)` + inplace | Logistic function `1/(1+exp(-x))`. Binary classification, gates. Fused implementation avoids overflow. |
 
 ### Shape manipulation
 

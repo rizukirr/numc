@@ -41,6 +41,52 @@ extern "C" {
 #define ARENA_NULLPTR NULL
 #endif
 
+#ifdef _WIN32
+#include <windows.h>
+
+#define MALLOC(size) HeapAlloc(GetProcessHeap(), 0, (size))
+#define CALLOC(count, size) \
+  HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, (count) * (size))
+#define REALLOC(ptr, size)                                 \
+  ((ptr) ? HeapReAlloc(GetProcessHeap(), 0, (ptr), (size)) \
+         : HeapAlloc(GetProcessHeap(), 0, (size)))
+#define FREE(ptr)                           \
+  do {                                      \
+    if (ptr)                                \
+      HeapFree(GetProcessHeap(), 0, (ptr)); \
+  } while (0)
+
+#else /* Linux / macOS / POSIX */
+#include <stdlib.h>
+#define MALLOC(size)        malloc(size)
+#define CALLOC(count, size) calloc(count, size)
+#define REALLOC(ptr, size)  realloc(ptr, size)
+#define FREE(ptr)           free(ptr)
+
+#endif
+
+/**
+ * @brief Get alignment of a type in a portable way.
+ *
+ * This macro expands to `alignof(type)` when compiling under C11 or newer, and
+ * otherwise computes alignment using struct offset hack. This ensures the arena
+ * allocator can correctly align memory on all compilers.
+ *
+ * @param type  Any C type whose alignment is needed.
+ */
+#if __STDC_VERSION__ >= 201112L
+#include <stdalign.h>
+#define ARENA_ALIGNOF(type) alignof(type)
+#else
+#define ARENA_ALIGNOF(type) \
+  offsetof(                 \
+      struct {              \
+        char c;             \
+        type d;             \
+      },                    \
+      d)
+#endif
+
 // -----------------------------------------------------------------------------
 // PUBLIC API (opaque handles)
 // -----------------------------------------------------------------------------
@@ -180,12 +226,19 @@ void arena_restore(Arena *arena, ArenaCheckpoint checkpoint);
  *   - `index` current write position
  *   - `data[]` flexible array member (actual memory region)
  */
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4200) /* C99 flexible array member */
+#endif
 struct ArenaBlock {
   struct ArenaBlock *next;
   size_t capacity;
   size_t index;
   uint8_t data[];
 };
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 /**
  * @brief Internal arena structure.
@@ -200,7 +253,6 @@ struct Arena {
   struct ArenaBlock *current;
   size_t default_block_size;
 };
-
 /**
  * @brief Compute padding needed to align a pointer.
  *
@@ -218,7 +270,7 @@ struct Arena {
  * @return Number of bytes of padding needed.
  */
 static size_t align_up(uintptr_t ptr, size_t alignment) {
-  return (-(size_t)ptr) & (alignment - 1);
+  return ((size_t)0 - (size_t)ptr) & (alignment - 1);
 }
 
 static bool arena_add_overflow(size_t a, size_t b, size_t *out) {
@@ -244,7 +296,7 @@ static struct ArenaBlock *arena_block_create(size_t capacity) {
   if (arena_add_overflow(sizeof(struct ArenaBlock), capacity, &total_size))
     return ARENA_NULLPTR;
 
-  struct ArenaBlock *block = (struct ArenaBlock *)malloc(total_size);
+  struct ArenaBlock *block = (struct ArenaBlock *)MALLOC(total_size);
   if (!block)
     return ARENA_NULLPTR;
 
@@ -258,7 +310,7 @@ Arena *arena_create(size_t default_block_size) {
   if (default_block_size == 0)
     return ARENA_NULLPTR;
 
-  Arena *arena = (Arena *)calloc(1, sizeof(Arena));
+  Arena *arena = (Arena *)CALLOC(1, sizeof(Arena));
   if (!arena)
     return ARENA_NULLPTR;
 
@@ -351,10 +403,10 @@ void arena_free(Arena *arena) {
   struct ArenaBlock *block = arena->head;
   while (block) {
     struct ArenaBlock *next = block->next;
-    free(block);
+    FREE(block);
     block = next;
   }
-  free(arena);
+  FREE(arena);
 }
 
 ArenaCheckpoint arena_checkpoint(Arena *arena) {
@@ -382,7 +434,7 @@ void arena_restore(Arena *arena, ArenaCheckpoint checkpoint) {
     struct ArenaBlock *block = arena->head;
     while (block) {
       struct ArenaBlock *next = block->next;
-      free(block);
+      FREE(block);
       block = next;
     }
     arena->head = ARENA_NULLPTR;
@@ -410,7 +462,7 @@ void arena_restore(Arena *arena, ArenaCheckpoint checkpoint) {
   struct ArenaBlock *orphan = checkpoint.block->next;
   while (orphan) {
     struct ArenaBlock *next = orphan->next;
-    free(orphan);
+    FREE(orphan);
     orphan = next;
   }
   checkpoint.block->next = ARENA_NULLPTR;

@@ -44,15 +44,6 @@ build() {
     success "Build finished in $((end_time - start_time))s"
 }
 
-run_demos() {
-    info "Running demos..."
-    for demo in "$BUILD_DIR"/bin/demo_*; do
-        [[ -x "$demo" ]] || continue
-        echo -e "\n${YELLOW}>>> $(basename "$demo")${NC}"
-        "$demo"
-    done
-}
-
 # --- Main Logic ---
 COMMAND=$1
 # For commands with non-compiler subcommands, don't use $2 as compiler
@@ -70,12 +61,10 @@ case $COMMAND in
     "debug")
         build Debug ON
         export LSAN_OPTIONS="suppressions=$(pwd)/tests/lsan_suppressions.txt"
-        run_demos
         ;;
         
     "release")
         build Release OFF
-        run_demos
         ;;
         
     "test")
@@ -315,8 +304,8 @@ case $COMMAND in
     echo -e "Usage: ${GREEN}$0${NC} <command> [option]"
     echo ""
     echo -e "${BLUE}Build & Run${NC}"
-    echo "  debug   [cc]       Debug build (ASan enabled) + run demos"
-    echo "  release [cc]       Release build + run demos"
+    echo "  debug   [cc]       Debug build (ASan enabled)"
+    echo "  release [cc]       Release build"
     echo "  test    [cc]       Debug build (ASan enabled) + run ctest (45 tests)"
     echo "  check   [cc]       CI simulation: format + tidy + test+ASan"
     echo "  rebuild [cc]       Clean + fresh debug build"
