@@ -402,6 +402,38 @@ static inline int _log2_u64(uint64_t n) {
     }                                                                         \
   }
 
+/* -- Ternary kernel with a uint8 condition mask --------------------- *
+ * Variant of DEFINE_TERNARY_KERNEL where `cond` is a uint8 boolean mask
+ * (0/1, the natural output of a comparison) while a/b/out keep the wider
+ * value dtype. Reads cond at its own 1-byte stride (`sc == 1` on the fast
+ * path) so a uint8 mask can drive a select over any dtype. */
+#define DEFINE_TERNARY_U8COND_KERNEL(OP_NAME, TYPE_ENUM, C_TYPE, EXPR)     \
+  static void _kern_##OP_NAME##_u8c_##TYPE_ENUM(                           \
+      const char *cond, const char *a, const char *b, char *out, size_t n, \
+      intptr_t sc, intptr_t sa, intptr_t sb, intptr_t so) {                \
+    const intptr_t es = (intptr_t)sizeof(C_TYPE);                          \
+    if (sc == 1 && sa == es && sb == es && so == es) {                     \
+      const uint8_t *restrict pc = (const uint8_t *)cond;                  \
+      const C_TYPE *restrict pa = (const C_TYPE *)a;                       \
+      const C_TYPE *restrict pb = (const C_TYPE *)b;                       \
+      C_TYPE *restrict po = (C_TYPE *)out;                                 \
+      NUMC_OMP_FOR(                                                        \
+          n, sizeof(C_TYPE), for (size_t i = 0; i < n; i++) {              \
+            uint8_t in_cond = pc[i];                                       \
+            C_TYPE in_a = pa[i];                                           \
+            C_TYPE in_b = pb[i];                                           \
+            po[i] = (EXPR);                                                \
+          });                                                              \
+    } else {                                                               \
+      for (size_t i = 0; i < n; i++) {                                     \
+        uint8_t in_cond = *(const uint8_t *)(cond + i * sc);               \
+        C_TYPE in_a = *(const C_TYPE *)(a + i * sa);                       \
+        C_TYPE in_b = *(const C_TYPE *)(b + i * sb);                       \
+        *(C_TYPE *)(out + i * so) = (EXPR);                                \
+      }                                                                    \
+    }                                                                      \
+  }
+
 /* -- Stride-aware unary kernel macro ------------------------------- */
 
 #define DEFINE_UNARY_KERNEL(OP_NAME, TYPE_ENUM, C_TYPE, EXPR)                 \

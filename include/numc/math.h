@@ -574,7 +574,7 @@ NUMC_API int numc_matmul(const NumcArray *a, const NumcArray *b,
                          NumcArray *out);
 
 /**
- * @brief Compute the dot product of two arrays according to NumPy semantics.
+ * @brief Compute the dot product of two arrays.
  *
  * Behavior depends on the dimensions of the input arrays:
  * - If both are 1-D, it is the inner product of vectors.

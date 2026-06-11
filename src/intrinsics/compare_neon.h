@@ -2,7 +2,7 @@
  * @file compare_neon.h
  * @brief NEON binary comparison kernels — uint8 output (0/1).
  *
- * All comparison functions output uint8_t* (NumPy-compatible bool).
+ * All comparison functions output uint8_t* (boolean as 0/1).
  * NEON comparison intrinsics return all-ones masks in the element width;
  * we narrow the result down to uint8 and AND with 1 before storing.
  *

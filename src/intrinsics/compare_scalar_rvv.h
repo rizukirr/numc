@@ -2,7 +2,7 @@
  * @file compare_scalar_rvv.h
  * @brief RVV scalar comparison kernels — uint8 output (0/1).
  *
- * All comparison functions output uint8_t* (NumPy-compatible bool).
+ * All comparison functions output uint8_t* (boolean as 0/1).
  * Uses vector-scalar compare intrinsics (_vx/_vf) for efficiency.
  * LMUL=m4 for throughput. Natural tail handling via vsetvl.
  *

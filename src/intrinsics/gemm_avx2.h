@@ -53,8 +53,8 @@
 /* GEMM OMP threshold on compute volume (M × K × N operations).
  * Threading pays off when compute dominates OMP fork cost (~20-50μs).
  * 256×256: 16.8M ops → ~330μs single-threaded → threading helps.
- * 128×128: 2.1M ops → ~44μs single-threaded → marginal, but numpy
- *          uses threading here too, so we match their strategy. */
+ * 128×128: 2.1M ops → ~44μs single-threaded → marginal, but threading
+ *          still pays off at this size, so we enable it here too. */
 #define GEMM_OMP_THRESHOLD (1 << 20)
 
 /* N-dimension blocking for L3 residency (B panel: KC × NC elements) */

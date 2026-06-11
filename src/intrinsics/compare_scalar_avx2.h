@@ -3,7 +3,7 @@
  * @brief AVX2 scalar comparison kernels — uint8 output (0/1).
  *
  * Each function compares array elements against a broadcast scalar,
- * storing 0 or 1 as uint8_t into the output (NumPy-compatible bool).
+ * storing 0 or 1 as uint8_t into the output (boolean as 0/1).
  *
  * 8-bit:  compare → AND 1 → store 32 bytes per vector (same width)
  * 16-bit: compare 2×16 elems → packs_epi16 → permute → AND 1 → 32 uint8

@@ -191,7 +191,7 @@ static inline void _elemwise_quaternary_nd(NumcQuaternaryKernel kern,
  * ends up innermost (where the kernel runs).  This maximises spatial
  * locality: when two inputs are transposed and one output is contiguous,
  * the sum metric naturally places the axis with the most contiguous
- * operands innermost — matching NumPy's nditer axis-sorting heuristic.
+ * operands innermost — the standard nditer axis-sorting heuristic.
  *
  * Insertion sort (stable, max NUMC_MAX_DIMENSIONS = 8 elements).
  */
@@ -576,8 +576,7 @@ static inline int _check_ternary(const struct NumcArray *cond,
                    a, b, out);
     return NUMC_ERR_NULL;
   }
-  if (cond->dtype != a->dtype || a->dtype != b->dtype ||
-      a->dtype != out->dtype) {
+  if (a->dtype != b->dtype || a->dtype != out->dtype) {
     NUMC_SET_ERROR(NUMC_ERR_TYPE,
                    "ternary op: dtype mismatch (cond=%d a=%d b=%d out=%d)",
                    cond->dtype, a->dtype, b->dtype, out->dtype);
@@ -748,14 +747,20 @@ static inline void _binary_op(const struct NumcArray *a,
 static inline void _ternary_op(const struct NumcArray *cond,
                                const struct NumcArray *a,
                                const struct NumcArray *b, struct NumcArray *out,
-                               const NumcTernaryKernel *table) {
-  NumcTernaryKernel kern = table[a->dtype];
+                               const NumcTernaryKernel *table,
+                               const NumcTernaryKernel *u8cond_table) {
+  /* cond is validated to be either a/b/out's dtype or uint8. When it is a
+   * uint8 mask over a wider value dtype, use the uint8-cond kernels and the
+   * mask's own element size as the cond stride. */
+  int u8cond = cond->dtype != a->dtype;
+  NumcTernaryKernel kern = u8cond ? u8cond_table[a->dtype] : table[a->dtype];
   intptr_t es = (intptr_t)a->elem_size;
+  intptr_t esc = (intptr_t)cond->elem_size;
 
   if (cond->is_contiguous && a->is_contiguous && b->is_contiguous &&
       out->is_contiguous) {
     kern((const char *)cond->data, (const char *)a->data, (const char *)b->data,
-         (char *)out->data, a->size, es, es, es, es);
+         (char *)out->data, a->size, esc, es, es, es);
   } else {
     size_t ps[NUMC_MAX_DIMENSIONS], pc[NUMC_MAX_DIMENSIONS],
         pa[NUMC_MAX_DIMENSIONS], pb[NUMC_MAX_DIMENSIONS],

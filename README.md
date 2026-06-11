@@ -1,6 +1,6 @@
 # numc
 
-A fast, lightweight NumPy-like N-dimensional tensor library in C, built for high-performance scientific computing and AI workloads. Hand-written SIMD kernels, packed GEMM, arena memory, and OpenMP parallelization.
+A fast, lightweight N-dimensional tensor library in C, built for high-performance scientific computing and AI workloads. Hand-written SIMD kernels, packed GEMM, arena memory, and OpenMP parallelization.
 
 > Warning, this is not production ready yet
 
@@ -24,18 +24,15 @@ int main(void) {
 
 ## Why numc
 
-- **Fast** — hand-written AVX2, AVX-512, NEON, SVE/SVE2, and RVV kernels. Packed GEMM with Goto's algorithm. Beats NumPy (OpenBLAS) across all operation categories.
+- **Fast** — hand-written AVX2, AVX-512, NEON, SVE/SVE2, and RVV kernels. Packed GEMM with Goto's algorithm.
 - **Complete** — 10 dtypes (`int8`–`int64`, `uint8`–`uint64`, `float32`, `float64`), elementwise ops, reductions, matmul, broadcasting, slicing, random. Every operation supports every dtype.
 - **Simple** — arena allocator owns all memory. Create a context, use it, free it. No manual `malloc`/`free` per array.
 - **Portable** — pure C23 with scalar fallback. Builds on any platform. SIMD is a bonus, not a requirement.
 
 ## Performance
 
-Benchmarked against NumPy (OpenBLAS backend) on i7-13620H:
-
-![Overview](bench/graph/output/overview.png)
-
-Per-operation breakdown: [benchmark results](bench/graph/README.md).
+Run `./run.sh bench` to benchmark on your machine. Results are written to
+`bench/numc/results.csv`. See [bench/README.md](bench/README.md) for details.
 
 ## Build
 
@@ -44,7 +41,7 @@ git clone https://github.com/rizukirr/numc.git
 cd numc
 ./run.sh release        # optimized build
 ./run.sh test           # tests with AddressSanitizer
-./run.sh bench          # benchmark vs NumPy
+./run.sh bench          # run benchmarks
 ```
 
 Cross-compilation (requires cross-compilers + QEMU):
@@ -74,10 +71,6 @@ SIMD kernels pass correctness tests via QEMU but only AVX2 has native benchmarks
 ## Contributing
 
 See [CONTRIBUTING.md](https://github.com/rizukirr/numc/blob/main/CONTRIBUTING.md).
-
-## Support
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/rizukirr)
 
 ## License
 

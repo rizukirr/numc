@@ -1,8 +1,8 @@
 # Benchmarks
 
 Performance is a core pillar of `numc`. This directory contains a comprehensive
-benchmark suite designed to compare `numc` against NumPy under identical
-conditions.
+benchmark suite that measures `numc` across all operation categories under
+controlled conditions.
 
 ## Quick Start
 
@@ -14,26 +14,27 @@ Benchmarks must be run on optimized binaries to be meaningful.
 ```
 
 ### 2. Run All Benchmarks
-This command runs both the `numc` and `numpy` benchmark suites, compares the
-results, and generates visualization charts.
+This command runs the `numc` benchmark suite and writes the results to
+`bench/numc/results.csv`.
 
 ```bash
 ./run.sh bench
 ```
 
-Charts are saved as PNG files in `bench/graph/output/`.
+You can also benchmark a single category, e.g. `./run.sh bench matmul`.
 
 ---
 
 ## How to Interpret the Results
 
-We use three primary metrics to evaluate performance:
+We use two primary metrics to evaluate performance:
 
 ### 1. time_us (Lower is Better)
 The average wall-clock time for a single execution of the operation, measured
 in microseconds. We use a **Warmup-then-Timed** approach:
 - **Warmup:** 20 iterations to prime the instruction cache and branch predictor.
-- **Timed:** 200 iterations to calculate a stable average.
+- **Timed:** 200 iterations, reporting the minimum per-iteration time (most
+  stable, least affected by OS scheduling noise).
 
 ### 2. throughput_mops (Higher is Better)
 **Millions of Operations Per Second.** This normalizes performance across
@@ -41,11 +42,11 @@ different array sizes.
 - Formula: `(Total Elements) / (time_us)`
 - Useful for comparing efficiency across different data types or hardware.
 
-### 3. Speedup (Higher is Faster for numc)
-The relative performance factor compared to NumPy.
-- Formula: `numpy_time / numc_time`
-- **> 1.0x:** `numc` is faster than NumPy.
-- **< 1.0x:** NumPy is faster than `numc`.
+> **Cache caveat:** most categories run at a fixed `1M`-element size, whose
+> working set is largely **L3-resident** — so those throughput numbers reflect
+> in-cache speed, not stream-from-DRAM speed. The `cache` category runs `add`
+> across sizes that grow from L1 into DRAM to make this explicit; expect
+> throughput to fall several-fold once the working set exceeds L3.
 
 ---
 
@@ -60,8 +61,8 @@ To get consistent and high-fidelity results, follow these guidelines:
     ```
 2.  **Close Background Applications:** Heavy IDEs, browsers, or other background
     tasks can cause context-switching noise.
-3.  **Use the Same Machine:** Never compare `numc` results from one machine to
-    NumPy results from another.
+3.  **Use the Same Machine:** Never compare results gathered on different
+    machines.
 4.  **Check OpenMP Bindings:** `run.sh` sets `OMP_PROC_BIND=close` and
     `OMP_PLACES=cores` by default to minimize thread migration.
 
@@ -69,12 +70,12 @@ To get consistent and high-fidelity results, follow these guidelines:
 
 ## CSV Format
 
-The benchmark results are stored in `bench/numc/results.csv` and
-`bench/numpy/results.csv` with the following schema:
+The benchmark results are stored in `bench/numc/results.csv` with the following
+schema:
 
 | Column           | Description                                                |
 | ---------------- | ---------------------------------------------------------- |
-| `library`        | `numc` or `numpy`                                          |
+| `library`        | `numc`                                                     |
 | `category`       | Operation group (binary, unary, reduction, matmul, etc.)   |
 | `operation`      | Specific function name (add, sub, log, sum)                |
 | `dtype`          | Data type (float32, int64, etc.)                           |
@@ -88,13 +89,9 @@ The benchmark results are stored in `bench/numc/results.csv` and
 ## Directory Structure
 
 -   `numc/`: C-based benchmark implementations and results.
--   `numpy/`: Python-based NumPy counterparts and results.
--   `graph/`: Visualization logic and generated comparison charts.
--   `compare.py`: CLI tool for quick text-based comparison of CSV files.
 
 ## Adding New Benchmarks
 
 When adding a new feature to `numc`, ensure it is benchmarked:
 1.  Add the operation to `bench/numc/bench.c`.
-2.  Add the equivalent NumPy call to `bench/numpy/bench.py`.
-3.  Run `./run.sh bench` to verify the performance delta.
+2.  Run `./run.sh bench` to record its performance.
