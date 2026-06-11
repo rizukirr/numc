@@ -2,7 +2,7 @@
  * @file compare_scalar_sve.h
  * @brief SVE scalar comparison kernels — uint8 output (0/1).
  *
- * All comparison functions output uint8_t* (NumPy-compatible bool).
+ * All comparison functions output uint8_t* (boolean as 0/1).
  * SVE uses predicated loops with svwhilelt for natural tail handling.
  * Scalar-immediate compare variants (svcmpeq_n_*) avoid broadcast.
  */

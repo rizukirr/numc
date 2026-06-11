@@ -164,6 +164,104 @@ static int test_where_from_gt(void) {
   return 0;
 }
 
+/* -- uint8 mask over a wider value dtype ------------------------------- */
+
+static int test_where_u8cond_float32(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *cond = numc_array_create(ctx, shape, 1, NUMC_DTYPE_UINT8);
+  NumcArray *a = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *b = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT32);
+
+  uint8_t dc[] = {1, 0, 1, 0};
+  float da[] = {1.5f, 2.5f, 3.5f, 4.5f};
+  float db[] = {9.5f, 8.5f, 7.5f, 6.5f};
+  numc_array_write(cond, dc);
+  numc_array_write(a, da);
+  numc_array_write(b, db);
+
+  int err = numc_where(cond, a, b, out);
+  ASSERT_MSG(err == 0, "where with uint8 cond over float32 should succeed");
+
+  float *r = (float *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 1.5f, "cond=1 -> a[0]=1.5");
+  ASSERT_MSG(r[1] == 8.5f, "cond=0 -> b[1]=8.5");
+  ASSERT_MSG(r[2] == 3.5f, "cond=1 -> a[2]=3.5");
+  ASSERT_MSG(r[3] == 6.5f, "cond=0 -> b[3]=6.5");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+/* The real pattern: a comparison produces a uint8 mask that then drives
+ * where() over a float64 value dtype. This was rejected before the fix. */
+static int test_where_u8cond_from_comparison(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {4};
+  NumcArray *x = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+  NumcArray *y = numc_array_create(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+  NumcArray *mask = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_UINT8);
+  NumcArray *out = numc_array_zeros(ctx, shape, 1, NUMC_DTYPE_FLOAT64);
+
+  double dx[] = {5, 2, 8, 1};
+  double dy[] = {3, 4, 6, 9};
+  numc_array_write(x, dx);
+  numc_array_write(y, dy);
+
+  int err = numc_gt(x, y, mask); /* mask = (x > y) -> uint8 [1,0,1,0] */
+  ASSERT_MSG(err == 0, "gt should succeed");
+
+  err = numc_where(mask, x, y, out); /* out = mask ? x : y */
+  ASSERT_MSG(err == 0, "where driven by a comparison mask should succeed");
+
+  double *r = (double *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 5.0, "5>3 -> x=5");
+  ASSERT_MSG(r[1] == 4.0, "2<=4 -> y=4");
+  ASSERT_MSG(r[2] == 8.0, "8>6 -> x=8");
+  ASSERT_MSG(r[3] == 9.0, "1<=9 -> y=9");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
+/* Strided (transposed) uint8 mask over a wider (int64) value dtype, to
+ * exercise the uint8-cond kernel's non-contiguous path. */
+static int test_where_u8cond_strided(void) {
+  NumcCtx *ctx = numc_ctx_create();
+  size_t shape[] = {2, 3};
+  NumcArray *cond = numc_array_create(ctx, shape, 2, NUMC_DTYPE_UINT8);
+  NumcArray *a = numc_array_create(ctx, shape, 2, NUMC_DTYPE_INT64);
+  NumcArray *b = numc_array_create(ctx, shape, 2, NUMC_DTYPE_INT64);
+
+  uint8_t dc[] = {1, 0, 1, 0, 1, 0};
+  int64_t da[] = {10, 20, 30, 40, 50, 60};
+  int64_t db[] = {11, 22, 33, 44, 55, 66};
+  numc_array_write(cond, dc);
+  numc_array_write(a, da);
+  numc_array_write(b, db);
+
+  size_t axes[] = {1, 0};
+  numc_array_transpose(cond, axes);
+  numc_array_transpose(a, axes);
+  numc_array_transpose(b, axes);
+
+  /* expected (same layout as test_where_strided): [[10,44],[22,50],[30,66]] */
+  size_t out_shape[] = {3, 2};
+  NumcArray *out = numc_array_zeros(ctx, out_shape, 2, NUMC_DTYPE_INT64);
+
+  int err = numc_where(cond, a, b, out);
+  ASSERT_MSG(err == 0, "strided uint8-cond where should succeed");
+
+  int64_t *r = (int64_t *)numc_array_data(out);
+  ASSERT_MSG(r[0] == 10 && r[1] == 44, "strided u8 where row 0");
+  ASSERT_MSG(r[2] == 22 && r[3] == 50, "strided u8 where row 1");
+  ASSERT_MSG(r[4] == 30 && r[5] == 66, "strided u8 where row 2");
+
+  numc_ctx_free(ctx);
+  return 0;
+}
+
 /* -- Error: NULL pointers ---------------------------------------------- */
 
 static int test_where_null(void) {
@@ -230,6 +328,11 @@ int main(void) {
 
   printf("\nComparison chaining:\n");
   RUN_TEST(test_where_from_gt);
+
+  printf("\nuint8 mask over wider dtype:\n");
+  RUN_TEST(test_where_u8cond_float32);
+  RUN_TEST(test_where_u8cond_from_comparison);
+  RUN_TEST(test_where_u8cond_strided);
 
   printf("\nError cases:\n");
   RUN_TEST(test_where_null);

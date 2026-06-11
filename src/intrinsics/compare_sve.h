@@ -2,7 +2,7 @@
  * @file compare_sve.h
  * @brief SVE binary comparison kernels — uint8 output (0/1).
  *
- * All comparison functions output uint8_t* (NumPy-compatible bool).
+ * All comparison functions output uint8_t* (boolean as 0/1).
  * SVE predicated comparisons return svbool_t; convert to 0/1 via svsel_u8
  * with a byte-width output predicate for the store.
  *

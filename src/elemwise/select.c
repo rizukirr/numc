@@ -10,6 +10,13 @@
 GENERATE_NUMC_TYPES(STAMP_WHERE)
 #undef STAMP_WHERE
 
+/* uint8-mask variant: cond is a 0/1 bool (from a comparison), a/b/out
+ * keep the value dtype. */
+#define STAMP_WHERE_U8C(TE, CT) \
+  DEFINE_TERNARY_U8COND_KERNEL(where, TE, CT, (in_cond != 0 ? in_a : in_b))
+GENERATE_NUMC_TYPES(STAMP_WHERE_U8C)
+#undef STAMP_WHERE_U8C
+
 /* -- Stamp out quaternary fma --------------------------------------- */
 
 #define STAMP_FMA(TE, CT) \
@@ -33,6 +40,15 @@ static const NumcTernaryKernel where_table[] = {
     E(where, NUMC_DTYPE_FLOAT32), E(where, NUMC_DTYPE_FLOAT64),
 };
 
+/* uint8-mask kernels, indexed by the a/b/out value dtype. */
+static const NumcTernaryKernel where_u8c_table[] = {
+    E(where_u8c, NUMC_DTYPE_INT8),    E(where_u8c, NUMC_DTYPE_INT16),
+    E(where_u8c, NUMC_DTYPE_INT32),   E(where_u8c, NUMC_DTYPE_INT64),
+    E(where_u8c, NUMC_DTYPE_UINT8),   E(where_u8c, NUMC_DTYPE_UINT16),
+    E(where_u8c, NUMC_DTYPE_UINT32),  E(where_u8c, NUMC_DTYPE_UINT64),
+    E(where_u8c, NUMC_DTYPE_FLOAT32), E(where_u8c, NUMC_DTYPE_FLOAT64),
+};
+
 static const NumcQuaternaryKernel fma_table[] = {
     E(fma, NUMC_DTYPE_INT8),    E(fma, NUMC_DTYPE_INT16),
     E(fma, NUMC_DTYPE_INT32),   E(fma, NUMC_DTYPE_INT64),
@@ -49,7 +65,7 @@ int numc_where(const NumcArray *cond, const NumcArray *a, const NumcArray *b,
   int err = _check_ternary(cond, a, b, out);
   if (err)
     return err;
-  _ternary_op(cond, a, b, out, where_table);
+  _ternary_op(cond, a, b, out, where_table, where_u8c_table);
   return 0;
 }
 

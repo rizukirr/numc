@@ -8,7 +8,6 @@ set -e
 # --- Configuration ---
 BUILD_DIR="build"
 CC="${CC:-clang}"
-PYTHON_VENV="bench/numpy/.venv/bin/python3"
 
 # --- Colors ---
 BLUE='\033[0;34m'
@@ -78,7 +77,6 @@ case $COMMAND in
         BENCH_FILTER=${2:-}
         build Release OFF
         BENCH_OUT="bench/numc/results.csv"
-        NUMPY_OUT="bench/numpy/results.csv"
 
         export OMP_PROC_BIND="${OMP_PROC_BIND:-close}"
         export OMP_PLACES="${OMP_PLACES:-cores}"
@@ -98,49 +96,11 @@ case $COMMAND in
             nice -5 "./$BUILD_DIR/bin/bench_matmul_csv" > "$BENCH_OUT" 2>/dev/null || \
                 "./$BUILD_DIR/bin/bench_matmul_csv" > "$BENCH_OUT"
             success "numc results -> $BENCH_OUT ($(wc -l < "$BENCH_OUT") rows)"
-
-            if [[ -x "$PYTHON_VENV" ]]; then
-                info "Running numpy matmul CSV benchmark..."
-                nice -5 env LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy/bench.py" --matmul > "$NUMPY_OUT" 2>/dev/null || \
-                    LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy/bench.py" --matmul > "$NUMPY_OUT"
-                success "numpy results -> $NUMPY_OUT ($(wc -l < "$NUMPY_OUT") rows)"
-            else
-                warn "Python venv not found at $PYTHON_VENV — skipping numpy benchmark"
-            fi
         else
-            # Run all benchmarks (full suite or will be filtered at compare stage)
             info "Running numc CSV benchmark..."
             nice -5 "./$BUILD_DIR/bin/bench_numc_csv" > "$BENCH_OUT" 2>/dev/null || \
                 "./$BUILD_DIR/bin/bench_numc_csv" > "$BENCH_OUT"
             success "numc results -> $BENCH_OUT ($(wc -l < "$BENCH_OUT") rows)"
-
-            if [[ -x "$PYTHON_VENV" ]]; then
-                info "Running numpy CSV benchmark..."
-                nice -5 env LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy/bench.py" > "$NUMPY_OUT" 2>/dev/null || \
-                    LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH" "$PYTHON_VENV" "bench/numpy/bench.py" > "$NUMPY_OUT"
-                success "numpy results -> $NUMPY_OUT ($(wc -l < "$NUMPY_OUT") rows)"
-            else
-                warn "Python venv not found at $PYTHON_VENV — skipping numpy benchmark"
-            fi
-        fi
-
-        # Compare & plot (with optional category filter)
-        COMPARE_ARGS=""
-        if [[ -n "$BENCH_FILTER" ]]; then
-            COMPARE_ARGS="--filter $BENCH_FILTER"
-        fi
-
-        if [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
-            python3 bench/compare.py $COMPARE_ARGS
-        fi
-
-        GRAPH_VENV="bench/graph/.venv/bin/python3"
-        if [[ -x "$GRAPH_VENV" ]] && [[ -s "$BENCH_OUT" ]] && [[ -s "$NUMPY_OUT" ]]; then
-            info "Generating charts..."
-            "$GRAPH_VENV" bench/graph/plot.py $COMPARE_ARGS
-            success "Charts saved to bench/graph/output/"
-        else
-            warn "Graph venv not found or CSV files missing — skipping chart generation"
         fi
         ;;
 
@@ -312,7 +272,7 @@ case $COMMAND in
     echo "  clean              Remove all build directories"
     echo ""
     echo -e "${BLUE}Benchmarks${NC}"
-    echo "  bench              Run all benchmarks vs NumPy"
+    echo "  bench              Run all benchmarks"
     echo "  bench <category>   Run benchmarks for a specific category:"
     echo ""
     echo -e "    ${GREEN}binary${NC}               add, sub, mul, div, max, min, pow"
@@ -337,7 +297,7 @@ case $COMMAND in
     echo -e "${BLUE}Examples${NC}"
     echo "  $0 test                  Run tests with default compiler (clang)"
     echo "  $0 test gcc              Run tests with gcc"
-    echo "  $0 bench                 Benchmark all ops vs NumPy"
+    echo "  $0 bench                 Benchmark all ops"
     echo "  $0 bench comparison      Benchmark only comparison ops"
     echo "  $0 bench matmul          Benchmark only matmul"
     echo "  $0 neon test             Cross-compile NEON + run tests via QEMU"

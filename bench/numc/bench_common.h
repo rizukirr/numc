@@ -50,8 +50,8 @@ static inline double time_us(void) {
 /**
  * @brief Minimum-time benchmark helper for zero-arg callables.
  *
- * Matches NumPy bench.py methodology: report the minimum per-iteration
- * time (most stable, least affected by OS scheduling noise).
+ * Reports the minimum per-iteration time (most stable, least affected
+ * by OS scheduling noise).
  *
  * Requires a pre-declared `double us;` variable in the calling scope.
  */

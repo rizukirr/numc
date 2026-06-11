@@ -273,4 +273,4 @@ Future:  SVD, solve, eigendecomp, sparse, autograd
 3. **Fused operations over composed** when the fused version is significantly faster (softmax, layer_norm, cross_entropy).
 4. **No external dependencies** — numc remains pure C with zero BLAS/LAPACK/Python dependency.
 5. **Arena-based memory** — all allocations through NumcCtx, no hidden mallocs.
-6. **Benchmark against NumPy** — every new operation must match or beat NumPy performance.
+6. **Benchmark every operation** — every new operation must be benchmarked (`./run.sh bench`); performance regressions are blockers.

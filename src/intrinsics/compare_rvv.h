@@ -2,7 +2,7 @@
  * @file compare_rvv.h
  * @brief RVV binary comparison kernels — uint8 output (0/1).
  *
- * All comparison functions output uint8_t* (NumPy-compatible bool).
+ * All comparison functions output uint8_t* (boolean as 0/1).
  * RVV comparisons produce vbool masks, then convert to 0/1 uint8
  * via vmerge and store with vse8.
  *

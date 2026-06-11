@@ -2,7 +2,7 @@
  * @file compare_scalar_neon.h
  * @brief NEON scalar comparison kernels — uint8 output (0/1).
  *
- * All comparison functions output uint8_t* (NumPy-compatible bool).
+ * All comparison functions output uint8_t* (boolean as 0/1).
  * NEON comparison result (all-1s/all-0s) is narrowed to uint8 and AND-ed
  * with 1 before storing.
  */

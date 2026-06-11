@@ -2,7 +2,7 @@
  * @file compare_avx512.h
  * @brief AVX-512 binary comparison kernels — uint8 output (0/1).
  *
- * All comparison functions output uint8_t* (NumPy-compatible bool).
+ * All comparison functions output uint8_t* (boolean as 0/1).
  * AVX-512 comparisons return __mmask types; we convert to byte vectors:
  *   8-bit:  __mmask64 → _mm512_maskz_set1_epi8 → store 64 bytes
  *  16-bit:  __mmask32 → _mm256_maskz_set1_epi8 → store 32 bytes

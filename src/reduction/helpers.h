@@ -39,7 +39,7 @@
  * 8 or 4 floats per vector add). Recursive splitting keeps the
  * accumulators independent across blocks.
  *
- * Block size 128: matches NumPy's pairwise_sum implementation.
+ * Block size 128: standard pairwise-summation block size.
  * 8 accumulators: fills one ymm (float32) or two ymm (float64).
  */
 
