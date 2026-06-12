@@ -702,6 +702,37 @@ static void bench_where(size_t size) {
   }
 }
 
+/* -- Concatenate ---------------------------------------------------- */
+
+static void bench_concat(size_t size) {
+  for (int d = 0; d < N_DTYPES; d++) {
+    NumcDType dt = ALL_DTYPES[d];
+    NumcCtx *ctx = numc_ctx_create();
+    size_t shape[] = {size};
+    char val[8];
+    fill_value(dt, val);
+
+    NumcArray *a = numc_array_fill(ctx, shape, 1, dt, val);
+    NumcArray *b = numc_array_fill(ctx, shape, 1, dt, val);
+    size_t out_shape[] = {2 * size};
+    NumcArray *out = numc_array_zeros(ctx, out_shape, 1, dt);
+    if (!a || !b || !out) {
+      numc_ctx_free(ctx);
+      continue;
+    }
+
+    NumcArray *arr[2] = {a, b};
+    double us;
+    BENCH_MIN(numc_array_concat(arr, 2, 0, out), ITERS, us);
+
+    char shape_str[32];
+    snprintf(shape_str, sizeof(shape_str), "(%zu)+(%zu)", size, size);
+    csv("shape_manipulation", "concat", dtype_name(dt), 2 * size, shape_str,
+        us);
+    numc_ctx_free(ctx);
+  }
+}
+
 /* -- Full reductions ------------------------------------------------ */
 
 typedef int (*ReduceFullFn)(const NumcArray *, NumcArray *);
@@ -955,6 +986,9 @@ int main(void) {
   /* FMA and Where */
   bench_fma(SIZE);
   bench_where(SIZE);
+
+  /* Concatenate */
+  bench_concat(SIZE);
 
   /* Scalar ops */
   bench_scalar_op("add_scalar", numc_add_scalar, SIZE);

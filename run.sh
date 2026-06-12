@@ -47,10 +47,11 @@ build() {
 COMMAND=$1
 # For commands with non-compiler subcommands, don't use $2 as compiler
 # Valid bench filters: category names from CSV output
-BENCH_FILTERS="matmul|binary|comparison|comparison_scalar|scalar|unary|reduction|linalg|random|ternary"
+BENCH_FILTERS="matmul|binary|comparison|comparison_scalar|scalar|unary|reduction|linalg|random|ternary|shape_manipulation"
 case "$1:$2" in
     bench:matmul|bench:binary|bench:comparison|bench:comparison_scalar| \
-    bench:scalar|bench:unary|bench:reduction|bench:linalg|bench:random|bench:ternary)
+    bench:scalar|bench:unary|bench:reduction|bench:linalg|bench:random|bench:ternary| \
+    bench:shape_manipulation)
         COMPILER="${CC:-clang}" ;;
     *)  COMPILER="${2:-${CC:-clang}}" ;;
 esac

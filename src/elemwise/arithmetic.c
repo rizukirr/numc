@@ -253,69 +253,71 @@ FSC_TABLE(mul);
 #undef FSC_TABLE
 #undef FSC
 
-#define DEFINE_SCALAR_SIMD(NAME, FAST_TABLE, FALLBACK_TABLE)      \
-  int numc_##NAME##_scalar(const NumcArray *a, double scalar,     \
-                           NumcArray *out) {                      \
-    int err = _check_unary(a, out);                               \
-    if (err)                                                      \
-      return err;                                                 \
-    char buf[8];                                                  \
-    _double_to_dtype(scalar, a->dtype, buf);                      \
-    if (a->is_contiguous && out->is_contiguous) {                 \
-      FastScKern kern = FAST_TABLE[a->dtype];                     \
-      size_t n = a->size, es = a->elem_size, total = n * 2 * es;  \
-      int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);          \
-      NUMC_OMP_CAP_THREADS(nt);                                   \
-      if (nt >= 2) {                                              \
-        size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;         \
+#define DEFINE_SCALAR_SIMD(NAME, FAST_TABLE, FALLBACK_TABLE)               \
+  int numc_##NAME##_scalar(const NumcArray *a, double scalar,              \
+                           NumcArray *out) {                               \
+    int err = _check_unary(a, out);                                        \
+    if (err)                                                               \
+      return err;                                                          \
+    char buf[8];                                                           \
+    _double_to_dtype(scalar, a->dtype, buf);                               \
+    if (a->is_contiguous && out->is_contiguous) {                          \
+      FastScKern kern = FAST_TABLE[a->dtype];                              \
+      size_t n = a->size, es = a->elem_size, total = n * 2 * es;           \
+      int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);                   \
+      NUMC_OMP_CAP_THREADS(nt);                                            \
+      if (nt >= 2) {                                                       \
+        size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;                  \
         NUMC_PRAGMA(                                                   \
-            omp parallel for schedule(static) num_threads(nt))    \
-        for (int t = 0; t < nt; t++) {                            \
-          size_t s = (size_t)t * chunk;                           \
-          size_t e = s + chunk;                                   \
-          if (e > n)                                              \
-            e = n;                                                \
-          if (s < n)                                              \
-            kern((const char *)a->data + s * es, buf,             \
-                 (char *)out->data + s * es, e - s);              \
-        }                                                         \
-      } else {                                                    \
-        kern(a->data, buf, out->data, n);                         \
-      }                                                           \
-      return 0;                                                   \
-    }                                                             \
-    _scalar_op(a, buf, out, FALLBACK_TABLE);                      \
-    return 0;                                                     \
-  }                                                               \
-  int numc_##NAME##_scalar_inplace(NumcArray *a, double scalar) { \
-    if (!a)                                                       \
-      return NUMC_ERR_NULL;                                       \
-    char buf[8];                                                  \
-    _double_to_dtype(scalar, a->dtype, buf);                      \
-    if (a->is_contiguous) {                                       \
-      FastScKern kern = FAST_TABLE[a->dtype];                     \
-      size_t n = a->size, es = a->elem_size, total = n * 2 * es;  \
-      int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);          \
-      NUMC_OMP_CAP_THREADS(nt);                                   \
-      if (nt >= 2) {                                              \
-        size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;         \
+            omp parallel for schedule(static) num_threads(nt))             \
+        for (int t = 0; t < nt; t++) {                                     \
+          size_t s = (size_t)t * chunk;                                    \
+          size_t e = s + chunk;                                            \
+          if (e > n)                                                       \
+            e = n;                                                         \
+          if (s < n)                                                       \
+            kern((const char *)a->data + s * es, buf,                      \
+                 (char *)out->data + s * es, e - s);                       \
+        }                                                                  \
+      } else {                                                             \
+        kern(a->data, buf, out->data, n);                                  \
+      }                                                                    \
+      return 0;                                                            \
+    }                                                                      \
+    _scalar_op(a, buf, out, FALLBACK_TABLE);                               \
+    return 0;                                                              \
+  }                                                                        \
+  int numc_##NAME##_scalar_inplace(NumcArray *a, double scalar) {          \
+    if (!a) {                                                              \
+      NUMC_SET_ERROR(NUMC_ERR_NULL, #NAME "_scalar_inplace: arr is NULL"); \
+      return NUMC_ERR_NULL;                                                \
+    }                                                                      \
+    char buf[8];                                                           \
+    _double_to_dtype(scalar, a->dtype, buf);                               \
+    if (a->is_contiguous) {                                                \
+      FastScKern kern = FAST_TABLE[a->dtype];                              \
+      size_t n = a->size, es = a->elem_size, total = n * 2 * es;           \
+      int nt = (int)(total / NUMC_OMP_BYTES_PER_THREAD);                   \
+      NUMC_OMP_CAP_THREADS(nt);                                            \
+      if (nt >= 2) {                                                       \
+        size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;                  \
         NUMC_PRAGMA(                                                   \
-            omp parallel for schedule(static) num_threads(nt))    \
-        for (int t = 0; t < nt; t++) {                            \
-          size_t s = (size_t)t * chunk;                           \
-          size_t e = s + chunk;                                   \
-          if (e > n)                                              \
-            e = n;                                                \
-          if (s < n)                                              \
-            kern((const char *)a->data + s * es, buf,             \
-                 (char *)a->data + s * es, e - s);                \
-        }                                                         \
-      } else {                                                    \
-        kern(a->data, buf, a->data, n);                           \
-      }                                                           \
-      return 0;                                                   \
-    }                                                             \
-    return _scalar_op_inplace(a, scalar, FALLBACK_TABLE);         \
+            omp parallel for schedule(static) num_threads(nt))             \
+        for (int t = 0; t < nt; t++) {                                     \
+          size_t s = (size_t)t * chunk;                                    \
+          size_t e = s + chunk;                                            \
+          if (e > n)                                                       \
+            e = n;                                                         \
+          if (s < n)                                                       \
+            kern((const char *)a->data + s * es, buf,                      \
+                 (char *)a->data + s * es, e - s);                         \
+        }                                                                  \
+      } else {                                                             \
+        kern(a->data, buf, a->data, n);                                    \
+      }                                                                    \
+      return 0;                                                            \
+    }                                                                      \
+    return _scalar_op_inplace(a, scalar, FALLBACK_TABLE);                  \
   }
 
 DEFINE_SCALAR_SIMD(add, add_sc_fast, add_table)

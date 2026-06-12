@@ -896,8 +896,10 @@ static inline void _scalar_op(const struct NumcArray *a, const char *scalar_buf,
  */
 static inline int _scalar_op_inplace(struct NumcArray *a, double scalar,
                                      const NumcBinaryKernel *table) {
-  if (!a)
+  if (!a) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "scalar op in-place: arr is NULL");
     return NUMC_ERR_NULL;
+  }
 
   char buf[8];
   _double_to_dtype(scalar, a->dtype, buf);
@@ -955,8 +957,10 @@ static inline int _unary_op(const struct NumcArray *a, struct NumcArray *out,
  */
 static inline int _unary_op_inplace(struct NumcArray *a,
                                     const NumcUnaryKernel *table) {
-  if (!a)
+  if (!a) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "unary op in-place: arr is NULL");
     return NUMC_ERR_NULL;
+  }
 
   NumcUnaryKernel kern = table[a->dtype];
 

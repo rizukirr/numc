@@ -14,6 +14,7 @@ typedef enum {
   NUMC_ERR_SHAPE = -3,    /* Shape/dimension mismatch */
   NUMC_ERR_TYPE = -4,     /* Dtype mismatch or unsupported type */
   NUMC_ERR_BOUNDS = -5,   /* Index out of bounds */
+  NUMC_ERR_VALUE = -6,    /* Invalid argument value (bad range/param) */
   NUMC_ERR_INTERNAL = -99 /* Unspecified internal error */
 } NumcErrorCode;
 

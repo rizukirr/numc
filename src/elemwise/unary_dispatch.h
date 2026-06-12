@@ -54,8 +54,10 @@ typedef void (*FastUnKern)(const void *, void *, size_t);
     return _unary_op(a, out, FALLBACK_TABLE);                                  \
   }                                                                            \
   int numc_##NAME##_inplace(NumcArray *a) {                                    \
-    if (!a)                                                                    \
+    if (!a) {                                                                  \
+      NUMC_SET_ERROR(NUMC_ERR_NULL, #NAME "_inplace: arr is NULL");            \
       return NUMC_ERR_NULL;                                                    \
+    }                                                                          \
     if (a->is_contiguous) {                                                    \
       FastUnKern kern = FAST_TABLE[a->dtype];                                  \
       if (kern) {                                                              \

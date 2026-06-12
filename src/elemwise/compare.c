@@ -441,44 +441,47 @@ CMPSC_TABLE(le);
 #undef CMPSC_TABLE
 #undef CMPSC
 
-#define DEFINE_CMP_SCALAR_WITH_SIMD(NAME, TABLE)                   \
-  int numc_##NAME##_scalar(const NumcArray *a, double scalar,      \
-                           NumcArray *out) {                       \
-    int err = _check_cmp_unary(a, out);                            \
-    if (err)                                                       \
-      return err;                                                  \
-    char buf[8];                                                   \
-    _double_to_dtype(scalar, a->dtype, buf);                       \
-    if (a->is_contiguous && out->is_contiguous) {                  \
-      CmpScKern kern = NAME##_sc_table[a->dtype];                  \
-      size_t n = a->size;                                          \
-      size_t in_es = a->elem_size;                                 \
-      size_t io_total = n * (2 * in_es + 1);                       \
-      int nt = (int)(io_total / NUMC_OMP_BYTES_PER_THREAD);        \
-      NUMC_OMP_CAP_THREADS(nt);                                    \
-      if (nt >= 2) {                                               \
-        size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;          \
+#define DEFINE_CMP_SCALAR_WITH_SIMD(NAME, TABLE)                               \
+  int numc_##NAME##_scalar(const NumcArray *a, double scalar,                  \
+                           NumcArray *out) {                                   \
+    int err = _check_cmp_unary(a, out);                                        \
+    if (err)                                                                   \
+      return err;                                                              \
+    char buf[8];                                                               \
+    _double_to_dtype(scalar, a->dtype, buf);                                   \
+    if (a->is_contiguous && out->is_contiguous) {                              \
+      CmpScKern kern = NAME##_sc_table[a->dtype];                              \
+      size_t n = a->size;                                                      \
+      size_t in_es = a->elem_size;                                             \
+      size_t io_total = n * (2 * in_es + 1);                                   \
+      int nt = (int)(io_total / NUMC_OMP_BYTES_PER_THREAD);                    \
+      NUMC_OMP_CAP_THREADS(nt);                                                \
+      if (nt >= 2) {                                                           \
+        size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;                      \
         NUMC_PRAGMA(                                                   \
-            omp parallel for schedule(static) num_threads(nt))     \
-        for (int t = 0; t < nt; t++) {                             \
-          size_t s = (size_t)t * chunk;                            \
-          size_t e = s + chunk;                                    \
-          if (e > n)                                               \
-            e = n;                                                 \
-          if (s < n)                                               \
-            kern((const char *)a->data + s * in_es, buf,           \
-                 (char *)out->data + s, e - s);                    \
-        }                                                          \
-      } else {                                                     \
-        kern(a->data, buf, out->data, n);                          \
-      }                                                            \
-      return 0;                                                    \
-    }                                                              \
-    /* TODO: non-contiguous scalar comparison with uint8 output */ \
-    return NUMC_ERR_SHAPE;                                         \
-  }                                                                \
-  int numc_##NAME##_scalar_inplace(NumcArray *a, double scalar) {  \
-    return _scalar_op_inplace(a, scalar, TABLE);                   \
+            omp parallel for schedule(static) num_threads(nt))                 \
+        for (int t = 0; t < nt; t++) {                                         \
+          size_t s = (size_t)t * chunk;                                        \
+          size_t e = s + chunk;                                                \
+          if (e > n)                                                           \
+            e = n;                                                             \
+          if (s < n)                                                           \
+            kern((const char *)a->data + s * in_es, buf,                       \
+                 (char *)out->data + s, e - s);                                \
+        }                                                                      \
+      } else {                                                                 \
+        kern(a->data, buf, out->data, n);                                      \
+      }                                                                        \
+      return 0;                                                                \
+    }                                                                          \
+    /* TODO: non-contiguous scalar comparison with uint8 output */             \
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE, #NAME "_scalar: non-contiguous inputs not " \
+                                         "supported (a and out must be "       \
+                                         "contiguous)");                       \
+    return NUMC_ERR_SHAPE;                                                     \
+  }                                                                            \
+  int numc_##NAME##_scalar_inplace(NumcArray *a, double scalar) {              \
+    return _scalar_op_inplace(a, scalar, TABLE);                               \
   }
 
 static const NumcBinaryKernel eq_table[] = {

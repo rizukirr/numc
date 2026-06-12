@@ -7,6 +7,10 @@
 
 void *numc_malloc(size_t alignment, size_t size) {
   if (alignment == 0 || (alignment & (alignment - 1)) != 0) {
+    NUMC_SET_ERROR(
+        NUMC_ERR_VALUE,
+        "malloc: alignment must be a non-zero power of two (got %zu)",
+        alignment);
     return NULL;
   }
 

@@ -673,8 +673,10 @@ int numc_abs(NumcArray *a, NumcArray *out) {
 }
 
 int numc_abs_inplace(NumcArray *a) {
-  if (!a)
+  if (!a) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "abs_inplace: arr is NULL");
     return NUMC_ERR_NULL;
+  }
   if (_dtype_is_unsigned(a->dtype))
     return 0;
   if (a->is_contiguous) {
@@ -720,8 +722,10 @@ int numc_abs(NumcArray *a, NumcArray *out) {
 }
 
 int numc_abs_inplace(NumcArray *a) {
-  if (!a)
+  if (!a) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "abs_inplace: arr is NULL");
     return NUMC_ERR_NULL;
+  }
   if (_dtype_is_unsigned(a->dtype))
     return 0;
   return _unary_op_inplace(a, abs_table);

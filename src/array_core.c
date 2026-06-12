@@ -1,3 +1,4 @@
+#include "numc/error.h"
 #define ARENA_IMPLEMENTATION
 #include "internal.h"
 #include <numc/array.h>
@@ -48,8 +49,10 @@ static inline int _init_dims(struct NumcArray *arr, struct NumcCtx *ctx,
         arena_alloc(ctx->arena, dim * sizeof(size_t), _Alignof(size_t));
     arr->strides =
         arena_alloc(ctx->arena, dim * sizeof(size_t), _Alignof(size_t));
-    if (!arr->shape || !arr->strides)
+    if (!arr->shape || !arr->strides) {
+      NUMC_SET_ERROR(NUMC_ERR_MALLOC, "failed to allocate strides/shape");
       return -1;
+    }
   }
   return 0;
 }
@@ -95,12 +98,17 @@ static inline void _array_fill_with(struct NumcArray *arr, const void *value) {
 
 NumcCtx *numc_ctx_create(void) {
   NumcCtx *ctx = numc_malloc(NUMC_ALIGNOF(NumcCtx), sizeof(NumcCtx));
-  if (!ctx)
+  if (!ctx) {
+    NUMC_SET_ERROR(NUMC_ERR_MALLOC, "failed to allocate context (%zu bytes)",
+                   sizeof(NumcCtx));
     return NULL;
+  }
 
   ctx->arena = arena_create(NUMC_MAX_MEMORY);
   if (!ctx->arena) {
     numc_free(ctx);
+    NUMC_SET_ERROR(NUMC_ERR_MALLOC, "failed to create arena (%zu bytes)",
+                   (size_t)NUMC_MAX_MEMORY);
     return NULL;
   }
 
@@ -114,6 +122,10 @@ NumcCtx *numc_ctx_create(void) {
 NumcArray *numc_array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
                              NumcDType dtype) {
   if (!ctx || (!shape && dim > 0)) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL,
+                   "array_create: NULL or invalid args (ctx=%p shape=%p "
+                   "dim=%zu)",
+                   (void *)ctx, (const void *)shape, dim);
     return NULL;
   }
 
@@ -121,31 +133,47 @@ NumcArray *numc_array_create(NumcCtx *ctx, const size_t *shape, size_t dim,
 
   if (dim > 0) {
     for (size_t i = 0; i < dim; i++) {
-      if (__builtin_mul_overflow(size, shape[i], &size))
+      if (__builtin_mul_overflow(size, shape[i], &size)) {
+        NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                       "array_create: element count overflow at dim %zu", i);
         return NULL;
+      }
     }
   }
 
-  if (__builtin_mul_overflow(size, elem_size, &capacity))
+  if (__builtin_mul_overflow(size, elem_size, &capacity)) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "array_create: byte-size overflow (size=%zu elem_size=%zu)",
+                   size, elem_size);
     return NULL;
+  }
 
   NumcArray *arr =
       arena_alloc(ctx->arena, sizeof(NumcArray), NUMC_ALIGNOF(NumcArray));
-  if (!arr)
+  if (!arr) {
+    NUMC_SET_ERROR(NUMC_ERR_MALLOC, "array_create: failed to allocate header");
     return NULL;
+  }
 
   arr->ctx = ctx;
   if (_init_dims(arr, ctx, dim))
     return NULL;
 
   arr->data = arena_alloc(ctx->arena, capacity, NUMC_SIMD_ALIGN);
-  if (!arr->data)
+  if (!arr->data) {
+    NUMC_SET_ERROR(NUMC_ERR_MALLOC,
+                   "array_create: failed to allocate %zu bytes of data",
+                   capacity);
     return NULL;
+  }
 
   if (dim > 0) {
     memcpy(arr->shape, shape, dim * sizeof(size_t));
-    if (!_calculate_strides(arr->strides, shape, dim, elem_size))
+    if (!_calculate_strides(arr->strides, shape, dim, elem_size)) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                     "array_create: stride computation overflow");
       return NULL;
+    }
   }
 
   arr->dim = dim;
@@ -169,8 +197,10 @@ bool numc_array_is_contiguous(NumcArray *arr) {
 }
 
 int numc_array_contiguous(NumcArray *arr) {
-  if (!arr)
+  if (!arr) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "array_contiguous: arr is NULL");
     return -1;
+  }
 
   if (numc_array_is_contiguous(arr))
     return 0;
@@ -195,8 +225,12 @@ int numc_array_contiguous(NumcArray *arr) {
 
   // Allocate new contiguous buffer from arena
   void *new_data = arena_alloc(arr->ctx->arena, arr->capacity, NUMC_SIMD_ALIGN);
-  if (!new_data)
+  if (!new_data) {
+    NUMC_SET_ERROR(NUMC_ERR_MALLOC,
+                   "array_contiguous: failed to allocate %zu bytes",
+                   arr->capacity);
     return -1;
+  }
 
   char *dst = (char *)new_data;
   size_t coord[NUMC_MAX_DIMENSIONS] = {0};
@@ -239,8 +273,11 @@ int numc_array_contiguous(NumcArray *arr) {
   }
 
   arr->data = new_data;
-  if (!_calculate_strides(arr->strides, arr->shape, arr->dim, arr->elem_size))
+  if (!_calculate_strides(arr->strides, arr->shape, arr->dim, arr->elem_size)) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "array_contiguous: stride computation overflow");
     return -1;
+  }
   arr->is_contiguous = true;
   return 0;
 }
@@ -278,8 +315,10 @@ void numc_array_write(NumcArray *arr, const void *data) {
 }
 
 NumcArray *numc_array_copy(const NumcArray *arr) {
-  if (!arr)
+  if (!arr) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "array_copy: arr is NULL");
     return NULL;
+  }
 
   NumcArray *copy =
       numc_array_create(arr->ctx, arr->shape, arr->dim, arr->dtype);
@@ -315,18 +354,128 @@ NumcArray *numc_array_copy(const NumcArray *arr) {
   return copy;
 }
 
+int numc_array_concat(NumcArray **arr, size_t n, size_t axis, NumcArray *out) {
+  if (!arr || !out || n == 0) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL,
+                   "concat: NULL or empty args (arr=%p out=%p n=%zu)",
+                   (void *)arr, (void *)out, n);
+    return -1;
+  }
+
+
+  size_t ndim = arr[0]->dim;
+  if (axis >= ndim || axis >= out->dim) {
+    NUMC_SET_ERROR(NUMC_ERR_BOUNDS, "axis must be < %zu", arr[0]->dim);
+    return -1;
+  }
+
+  if (arr[0]->dtype != out->dtype) {
+    NUMC_SET_ERROR(NUMC_ERR_TYPE, "arrays must have same dtype");
+    return -1;
+  }
+
+  size_t sum_axis = arr[0]->shape[axis];
+
+  for (size_t i = 0; i < n - 1; i++) {
+    if (arr[i]->dim != arr[i + 1]->dim) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                     "arrays must have same number of dimensions");
+      return -1;
+    }
+
+    if (arr[i]->dtype != arr[i + 1]->dtype) {
+      NUMC_SET_ERROR(NUMC_ERR_TYPE, "arrays must have same dtype");
+      return -1;
+    }
+
+    if (!arr[i]->is_contiguous && numc_array_contiguous(arr[i]) != 0) {
+      NUMC_SET_ERROR(NUMC_ERR_NULL, "arrays must be contiguous");
+      return -1;
+    }
+
+
+    if (!arr[i + 1]->is_contiguous && numc_array_contiguous(arr[i + 1]) != 0) {
+      NUMC_SET_ERROR(NUMC_ERR_NULL, "arrays must be contiguous");
+      return -1;
+    }
+
+    for (size_t d = 0; d < ndim; d++) {
+      if (d == axis)
+        continue;
+
+      if (arr[i]->shape[d] != arr[i + 1]->shape[d]) {
+        NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                       "arrays must have same shape along non-concat axis");
+        return -1;
+      }
+    }
+
+    sum_axis += arr[i + 1]->shape[axis];
+  }
+
+  for (size_t d = 0; d < ndim; d++) {
+    size_t expected = (d == axis) ? sum_axis : arr[0]->shape[d];
+    if (out->shape[d] != expected) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE, "output shape mismatch");
+      return -1;
+    }
+  }
+
+  if (axis == 0) {
+    // fast path: concat along axis=0
+    unsigned char *dst = (unsigned char *)out->data;
+    for (size_t i = 0; i < n; i++) {
+      memcpy(dst, arr[i]->data, arr[i]->capacity);
+      dst += arr[i]->capacity;
+    }
+  } else {
+    size_t outer = 1;
+    for (size_t d = 0; d < axis; d++)
+      outer *= arr[0]->shape[d];
+
+    size_t inner = out->elem_size;
+    for (size_t d = axis + 1; d < ndim; d++)
+      inner *= out->shape[d];
+
+
+    size_t out_block = sum_axis * inner; /* bytes per outer block */
+    NUMC_OMP_FOR(
+        outer, out_block, for (size_t o = 0; o < outer; o++) {
+          unsigned char *dst = (unsigned char *)out->data + o * out_block;
+          for (size_t i = 0; i < n; i++) {
+            size_t chunk = arr[i]->shape[axis] * inner;
+            memcpy(dst, (unsigned char *)arr[i]->data + o * chunk, chunk);
+            dst += chunk;
+          }
+        });
+  }
+
+  return 0;
+}
+
 int numc_array_reshape(NumcArray *arr, const size_t *new_shape,
                        size_t new_dim) {
-  if (!arr || !new_shape || new_dim == 0)
+  if (!arr || !new_shape || new_dim == 0) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL,
+                   "reshape: NULL or invalid args (arr=%p new_shape=%p "
+                   "new_dim=%zu)",
+                   (void *)arr, (const void *)new_shape, new_dim);
     return -1;
+  }
 
   size_t size = 1;
   for (size_t i = 0; i < new_dim; i++) {
-    if (__builtin_mul_overflow(size, new_shape[i], &size))
+    if (__builtin_mul_overflow(size, new_shape[i], &size)) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                     "reshape: element count overflow at dim %zu", i);
       return -1;
+    }
   }
 
   if (size != arr->size) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "reshape: cannot reshape array of size %zu into size %zu",
+                   arr->size, size);
     return -1;
   }
 
@@ -339,16 +488,23 @@ int numc_array_reshape(NumcArray *arr, const size_t *new_shape,
   arr->dim = new_dim;
   memcpy(arr->shape, new_shape, new_dim * sizeof(size_t));
 
-  if (!_calculate_strides(arr->strides, new_shape, new_dim, arr->elem_size))
+  if (!_calculate_strides(arr->strides, new_shape, new_dim, arr->elem_size)) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "reshape: stride computation overflow");
     return -1;
+  }
   arr->is_contiguous = numc_array_is_contiguous(arr);
   return 0;
 }
 
 NumcArray *numc_array_reshape_copy(const NumcArray *arr,
                                    const size_t *new_shape, size_t new_dim) {
-  if (!arr || !new_shape || new_dim == 0)
+  if (!arr || !new_shape || new_dim == 0) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL,
+                   "reshape_copy: NULL or invalid args (arr=%p new_shape=%p "
+                   "new_dim=%zu)",
+                   (const void *)arr, (const void *)new_shape, new_dim);
     return NULL;
+  }
 
   NumcArray *copy =
       numc_array_create(arr->ctx, arr->shape, arr->dim, arr->dtype);
@@ -365,6 +521,12 @@ NumcArray *numc_array_reshape_copy(const NumcArray *arr,
 }
 
 int numc_array_transpose(NumcArray *arr, const size_t *axes) {
+  if (!arr || !axes) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "transpose: NULL arg (arr=%p axes=%p)",
+                   (void *)arr, (const void *)axes);
+    return -1;
+  }
+
   size_t axes_buff[arr->dim];
   memcpy(axes_buff, axes, arr->dim * sizeof(size_t));
 
@@ -373,11 +535,17 @@ int numc_array_transpose(NumcArray *arr, const size_t *axes) {
   size_t stride_buff[arr->dim];
   for (size_t i = 0; i < arr->dim; i++) {
     size_t ax = axes_buff[i];
-    if (ax >= arr->dim)
+    if (ax >= arr->dim) {
+      NUMC_SET_ERROR(NUMC_ERR_BOUNDS,
+                     "transpose: axis %zu out of range (ndim=%zu)", ax,
+                     arr->dim);
       return -1;
+    }
 
-    if (seen & (UINT64_C(1) << ax))
+    if (seen & (UINT64_C(1) << ax)) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE, "transpose: repeated axis %zu", ax);
       return -1;
+    }
 
     seen |= UINT64_C(1) << ax;
 
@@ -392,8 +560,11 @@ int numc_array_transpose(NumcArray *arr, const size_t *axes) {
 }
 
 NumcArray *numc_array_transpose_copy(const NumcArray *arr, const size_t *axes) {
-  if (!arr || !axes)
+  if (!arr || !axes) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "transpose_copy: NULL arg (arr=%p axes=%p)",
+                   (const void *)arr, (const void *)axes);
     return NULL;
+  }
 
   NumcArray *copy =
       numc_array_create(arr->ctx, arr->shape, arr->dim, arr->dtype);
@@ -410,29 +581,49 @@ NumcArray *numc_array_transpose_copy(const NumcArray *arr, const size_t *axes) {
 }
 
 NumcArray *numc_array_slice(const NumcArray *arr, NumcSlice *slice) {
-  if (!arr || slice->axis >= arr->dim)
+  if (!arr || !slice) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "slice: NULL arg (arr=%p slice=%p)",
+                   (const void *)arr, (void *)slice);
     return NULL;
+  }
+  if (slice->axis >= arr->dim) {
+    NUMC_SET_ERROR(NUMC_ERR_BOUNDS, "slice: axis %zu out of range (ndim=%zu)",
+                   slice->axis, arr->dim);
+    return NULL;
+  }
 
   size_t dim_size = arr->shape[slice->axis];
 
   /* Reject slicing on zero-sized dimensions */
-  if (dim_size == 0)
+  if (dim_size == 0) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                   "slice: cannot slice zero-sized dimension %zu", slice->axis);
     return NULL;
+  }
 
   // Default: step=0 -> 1, stop=0 -> full extent
   if (slice->step == 0)
     slice->step = 1;
   if (slice->stop == 0 || slice->stop > dim_size)
     slice->stop = dim_size;
-  if (slice->start >= dim_size)
+  if (slice->start >= dim_size) {
+    NUMC_SET_ERROR(NUMC_ERR_BOUNDS,
+                   "slice: start %zu out of range (dim_size=%zu)", slice->start,
+                   dim_size);
     return NULL;
-  if (slice->start >= slice->stop)
+  }
+  if (slice->start >= slice->stop) {
+    NUMC_SET_ERROR(NUMC_ERR_VALUE, "slice: empty range (start=%zu >= stop=%zu)",
+                   slice->start, slice->stop);
     return NULL;
+  }
 
   NumcArray *view =
       arena_alloc(arr->ctx->arena, sizeof(NumcArray), NUMC_ALIGNOF(NumcArray));
-  if (!view)
+  if (!view) {
+    NUMC_SET_ERROR(NUMC_ERR_MALLOC, "slice: failed to allocate view header");
     return NULL;
+  }
 
   view->ctx = arr->ctx;
   view->dim = arr->dim;
@@ -550,8 +741,11 @@ static const OneHotF64Kern one_hot_f64_table[] = {
 
 NumcArray *numc_one_hot(NumcCtx *ctx, const NumcArray *labels,
                         size_t num_classes, NumcDType dtype) {
-  if (!ctx || !labels)
+  if (!ctx || !labels) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL, "one_hot: NULL arg (ctx=%p labels=%p)",
+                   (void *)ctx, (const void *)labels);
     return NULL;
+  }
 
   if (labels->dim != 1) {
     NUMC_SET_ERROR(NUMC_ERR_SHAPE, "one_hot: labels must be 1-D (got %zu-D)",

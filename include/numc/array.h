@@ -134,6 +134,19 @@ NUMC_API void numc_array_write(NumcArray *arr, const void *data);
  */
 
 /**
+ * @brief Concatenate multiple arrays along an existing axis.
+ *
+ * All input arrays must have the same rank and dtype. Sized must match on all
+ * dimensions except `axis`, where lengths are summed into `out`.
+ *
+ * @param arr   Input array list (length `n`).
+ * @param axis  Axis along which to concatenate.
+ * @param out   Preallocated output array with concatenated shape.
+ */
+NUMC_API int numc_array_concat(NumcArray **arr, size_t n, size_t axis,
+                               NumcArray *out);
+
+/**
  * @brief Reshape an array in-place.
  *
  * Total element count must stay the same.
