@@ -74,4 +74,4 @@ See [CONTRIBUTING.md](https://github.com/rizukirr/numc/blob/main/CONTRIBUTING.md
 
 ## License
 
-Copyright (c) 2026 Rizki Rakasiwi. Licensed under [LGPL-3.0](COPYING.LESSER).
+Licensed under the [MIT License](LICENSE).
