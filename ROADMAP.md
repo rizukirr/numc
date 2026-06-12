@@ -25,7 +25,7 @@ and embedding-based models.
 
 | Operation | Signature | Notes |
 |---|---|---|
-| `numc_concat` | `(arrays[], n, axis, out)` | Concatenate arrays along an axis. Batch assembly, feature stacking, RL replay buffers. |
+| ~`numc_concat`~ | `(arrays[], n, axis, out)` | Concatenate arrays along an axis. Batch assembly, feature stacking, RL replay buffers. |
 | `numc_stack` | `(arrays[], n, axis, out)` | Stack arrays along a NEW axis. Similar to concat but inserts a dimension. |
 | `numc_split` | `(a, n_or_indices, axis, out[])` | Split array into sub-arrays. Inverse of concat. |
 | `numc_squeeze` | `(a, axis)` | Remove size-1 dimensions. In-place shape change. |
