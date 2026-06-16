@@ -217,7 +217,8 @@ static int test_array_stack_1d(void) {
   /* axis=0 -> (2,3): rows are the whole arrays */
   size_t out0_shape[] = {2, 3};
   NumcArray *out0 = numc_array_zeros(ctx, out0_shape, 2, NUMC_DTYPE_INT32);
-  ASSERT_MSG_CTX(numc_array_stack(arr, 2, 0, out0) == 0, "1d axis-0 stack", ctx);
+  ASSERT_MSG_CTX(numc_array_stack(arr, 2, 0, out0) == 0, "1d axis-0 stack",
+                 ctx);
   int *o0 = numc_array_data(out0);
   int exp0[6] = {1, 2, 3, 4, 5, 6};
   for (int i = 0; i < 6; i++)
@@ -226,7 +227,8 @@ static int test_array_stack_1d(void) {
   /* axis=1 -> (3,2): elements paired -> {1,4},{2,5},{3,6} */
   size_t out1_shape[] = {3, 2};
   NumcArray *out1 = numc_array_zeros(ctx, out1_shape, 2, NUMC_DTYPE_INT32);
-  ASSERT_MSG_CTX(numc_array_stack(arr, 2, 1, out1) == 0, "1d axis-1 stack", ctx);
+  ASSERT_MSG_CTX(numc_array_stack(arr, 2, 1, out1) == 0, "1d axis-1 stack",
+                 ctx);
   int *o1 = numc_array_data(out1);
   int exp1[6] = {1, 4, 2, 5, 3, 6};
   for (int i = 0; i < 6; i++)

@@ -104,7 +104,9 @@ static void bench_axis_position(void) {
   char lbl[32];
   for (size_t axis = 0; axis <= 2; axis++) {
     snprintf(lbl, sizeof(lbl), "axis=%zu%s", axis,
-             axis == 0 ? " (fast path)" : axis == 2 ? " (interleaved)" : "");
+             axis == 0   ? " (fast path)"
+             : axis == 2 ? " (interleaved)"
+                         : "");
     run_stack(lbl, NUMC_DTYPE_FLOAT32, in_shape, 2, 4, axis);
   }
 }

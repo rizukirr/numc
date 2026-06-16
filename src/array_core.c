@@ -495,7 +495,8 @@ int numc_array_stack(NumcArray **arr, size_t n, size_t axis, NumcArray *out) {
     }
   }
 
-  /* out shape == inputs' dims with the new axis (size n) spliced in at `axis`. */
+  /* out shape == inputs' dims with the new axis (size n) spliced in at `axis`.
+   */
   for (size_t d = 0; d < out->dim; d++) {
     size_t expected;
     if (d < axis)
