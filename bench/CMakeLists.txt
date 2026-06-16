@@ -28,6 +28,9 @@ target_link_libraries(bench_dot_comprehensive PRIVATE numc::numc)
 add_executable(bench_matmul numc/bench_matmul.c)
 target_link_libraries(bench_matmul PRIVATE numc::numc)
 
+add_executable(bench_stack numc/bench_stack.c)
+target_link_libraries(bench_stack PRIVATE numc::numc)
+
 # Comprehensive CSV benchmark
 add_executable(bench_numc_csv numc/bench.c)
 target_link_libraries(bench_numc_csv PRIVATE numc::numc)

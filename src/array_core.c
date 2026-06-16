@@ -453,6 +453,92 @@ int numc_array_concat(NumcArray **arr, size_t n, size_t axis, NumcArray *out) {
   return 0;
 }
 
+int numc_array_stack(NumcArray **arr, size_t n, size_t axis, NumcArray *out) {
+  if (!arr || !out || n == 0) {
+    NUMC_SET_ERROR(NUMC_ERR_NULL,
+                   "stack: NULL or empty args (arr=%p, out=%p, n=%zu)",
+                   (void *)arr, (void *)out, n);
+    return -1;
+  }
+
+  size_t ndim = arr[0]->dim;
+
+  if (axis > ndim) {
+    NUMC_SET_ERROR(NUMC_ERR_SHAPE, "stack: out->dim must be %zu", ndim + 1);
+    return -1;
+  }
+
+  /* Every input must share rank, dtype, shape, and be contiguous. */
+  for (size_t i = 0; i < n; i++) {
+    if (arr[i]->dim != ndim) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                     "stack: arrays must have same number of dimensions");
+      return -1;
+    }
+
+    if (arr[i]->dtype != out->dtype) {
+      NUMC_SET_ERROR(NUMC_ERR_TYPE, "stack: arrays must have same dtype");
+      return -1;
+    }
+
+    if (!arr[i]->is_contiguous && numc_array_contiguous(arr[i]) != 0) {
+      NUMC_SET_ERROR(NUMC_ERR_NULL, "stack: arrays must be contiguous");
+      return -1;
+    }
+
+    for (size_t d = 0; d < ndim; d++) {
+      if (arr[i]->shape[d] != arr[0]->shape[d]) {
+        NUMC_SET_ERROR(NUMC_ERR_SHAPE,
+                       "stack: all arrays must have same shape");
+        return -1;
+      }
+    }
+  }
+
+  /* out shape == inputs' dims with the new axis (size n) spliced in at `axis`. */
+  for (size_t d = 0; d < out->dim; d++) {
+    size_t expected;
+    if (d < axis)
+      expected = arr[0]->shape[d];
+    else if (d == axis)
+      expected = n;
+    else
+      expected = arr[0]->shape[d - 1];
+
+    if (out->shape[d] != expected) {
+      NUMC_SET_ERROR(NUMC_ERR_SHAPE, "stack: output shape mismatch");
+      return -1;
+    }
+  }
+
+  size_t outer = 1;
+  for (size_t d = 0; d < axis; d++)
+    outer *= arr[0]->shape[d];
+
+  size_t inner = out->elem_size;
+  for (size_t d = axis; d < ndim; d++)
+    inner *= arr[0]->shape[d];
+
+  if (axis == 0) {
+    unsigned char *dst = (unsigned char *)out->data;
+    for (size_t i = 0; i < n; i++) {
+      memcpy(dst, arr[i]->data, arr[i]->capacity);
+      dst += arr[i]->capacity;
+    }
+  } else {
+    size_t out_block = n * inner;
+    NUMC_OMP_FOR(
+        outer, out_block, for (size_t o = 0; o < outer; o++) {
+          unsigned char *dst = (unsigned char *)out->data + o * out_block;
+          for (size_t i = 0; i < n; i++) {
+            memcpy(dst + i * inner, (unsigned char *)arr[i]->data + o * inner,
+                   inner);
+          }
+        });
+  }
+  return 0;
+}
+
 int numc_array_reshape(NumcArray *arr, const size_t *new_shape,
                        size_t new_dim) {
   if (!arr || !new_shape || new_dim == 0) {
