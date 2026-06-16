@@ -145,6 +145,19 @@ NUMC_API void numc_array_write(NumcArray *arr, const void *data);
  */
 NUMC_API int numc_array_concat(NumcArray **arr, size_t n, size_t axis,
                                NumcArray *out);
+/**
+ * @brief Stack multiple arrays along a New axis.
+ *
+ * All input arrays must have identical shape and dtype. The result has rank
+ * `arr[0]->dim + 1`, a new dimension of size `n` is inserted at `axis`.
+ *
+ * @param arr	Input array list (length `n`), all the same shape
+ * @param n	Number of input arrays (becomes the size of the new axis).
+ * @param axis	Position of the new axis, in range [0, rank].
+ * @param out	Preallocated output array with the stacked shape.
+ */
+NUMC_API int numc_array_stack(NumcArray **arr, size_t n, size_t axis,
+                              NumcArray *out);
 
 /**
  * @brief Reshape an array in-place.
